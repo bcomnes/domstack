@@ -63,7 +63,7 @@
     "@types/markdown-it": "^14.1.1",
     "@types/markdown-it-footnote": "^3.0.4",
     "@types/node": "^24.0.1",
-    "@voxpelli/tsconfig": "^15.0.0",
+    "@voxpelli/tsconfig": "^16.0.0",
     "auto-changelog": "^2.4.0",
     "gh-release": "^7.0.2",
     "installed-check": "^9.3.0",
