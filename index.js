@@ -30,33 +30,33 @@ import { DomStackAggregateError } from './lib/helpers/dom-stack-aggregate-error.
  */
 
 /**
- * @template {Record<string, any>} T - The type of variables passed to the layout function
- * @template [U=any] U - The return type of the page function (defaults to any)
- * @template [V=string] V - The return type of the layout function (defaults to string)
- * @typedef {LayoutFunction<T, U, V>} LayoutFunction
+ * @template {Record<string, any>} Vars - The type of variables passed to the layout function
+ * @template [PageReturn=any] PageReturn - The return type of the page function (defaults to any)
+ * @template [LayoutReturn=string] LayoutReturn - The return type of the layout function (defaults to string)
+ * @typedef {LayoutFunction<Vars, PageReturn, LayoutReturn>} LayoutFunction
  */
 
 /**
- * @template {Record<string, any>} T - The type of variables for the post vars function
- * @template [U=any] U - The return type of the page function (defaults to any)
- * @template [V=string] V - The return type of the layout function (defaults to string)
- * @typedef {PostVarsFunction<T, U, V>} PostVarsFunction
+ * @template {Record<string, any>} Vars - The type of variables for the post vars function
+ * @template [PageReturn=any] PageReturn - The return type of the page function (defaults to any)
+ * @template [LayoutReturn=string] LayoutReturn - The return type of the layout function (defaults to string)
+ * @typedef {PostVarsFunction<Vars, PageReturn, LayoutReturn>} PostVarsFunction
  */
 
 /**
- * @template {Record<string, any>} T - The type of variables passed to the page function
- * @template [U=any] U - The return type of the page function (defaults to any)
- * @typedef {PageFunction<T, U>} PageFunction
+ * @template {Record<string, any>} Vars - The type of variables passed to the page function
+ * @template [PageReturn=any] PageReturn - The return type of the page function (defaults to any)
+ * @typedef {PageFunction<Vars, PageReturn>} PageFunction
  */
 
 /**
- * @template {Record<string, any>} T - The type of variables for the template function
- * @typedef {TemplateFunction<T>} TemplateFunction
+ * @template {Record<string, any>} Vars - The type of variables for the template function
+ * @typedef {TemplateFunction<Vars>} TemplateFunction
  */
 
 /**
- * @template {Record<string, any>} T - The type of variables for the template async iterator
- * @typedef {TemplateAsyncIterator<T>} TemplateAsyncIterator
+ * @template {Record<string, any>} Vars - The type of variables for the template async iterator
+ * @typedef {TemplateAsyncIterator<Vars>} TemplateAsyncIterator
  */
 
 /**
