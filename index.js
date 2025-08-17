@@ -30,27 +30,28 @@ import { DomStackAggregateError } from './lib/helpers/dom-stack-aggregate-error.
  */
 
 /**
- * @template {Record<string, any>} T
+ * @template {Record<string, any>} T - The type of variables passed to the layout function
  * @typedef {LayoutFunction<T>} LayoutFunction
  */
 
 /**
- * @template {Record<string, any>} T
+ * @template {Record<string, any>} T - The type of variables for the post vars function
  * @typedef {PostVarsFunction<T>} PostVarsFunction
  */
 
 /**
- * @template {Record<string, any>} T
- * @typedef {PageFunction<T>} PageFunction
+ * @template {Record<string, any>} T - The type of variables passed to the page function
+ * @template [U=any] U - The return type of the page function (defaults to any)
+ * @typedef {PageFunction<T, U>} PageFunction
  */
 
 /**
- * @template {Record<string, any>} T
+ * @template {Record<string, any>} T - The type of variables for the template function
  * @typedef {TemplateFunction<T>} TemplateFunction
  */
 
 /**
- * @template {Record<string, any>} T
+ * @template {Record<string, any>} T - The type of variables for the template async iterator
  * @typedef {TemplateAsyncIterator<T>} TemplateAsyncIterator
  */
 
@@ -69,7 +70,7 @@ const DEFAULT_IGNORES = /** @type {const} */ ([
 ])
 
 /**
- * @template {DomStackOpts} [CurrentOpts=DomStackOpts]
+ * @template {DomStackOpts} [CurrentOpts=DomStackOpts] - The type of options for the DomStack instance
  */
 export class DomStack {
   /** @type {string} */ #src = ''
