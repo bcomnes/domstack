@@ -31,12 +31,16 @@ import { DomStackAggregateError } from './lib/helpers/dom-stack-aggregate-error.
 
 /**
  * @template {Record<string, any>} T - The type of variables passed to the layout function
- * @typedef {LayoutFunction<T>} LayoutFunction
+ * @template [U=any] U - The return type of the page function (defaults to any)
+ * @template [V=string] V - The return type of the layout function (defaults to string)
+ * @typedef {LayoutFunction<T, U, V>} LayoutFunction
  */
 
 /**
  * @template {Record<string, any>} T - The type of variables for the post vars function
- * @typedef {PostVarsFunction<T>} PostVarsFunction
+ * @template [U=any] U - The return type of the page function (defaults to any)
+ * @template [V=string] V - The return type of the layout function (defaults to string)
+ * @typedef {PostVarsFunction<T, U, V>} PostVarsFunction
  */
 
 /**
