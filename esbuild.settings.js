@@ -14,6 +14,5 @@ export default async function esbuildSettingsOverride (esbuildSettings) {
     '.ttf': 'copy'
   }
 
-  console.log({ esbuildSettings })
   return esbuildSettings
 }
