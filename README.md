@@ -229,6 +229,7 @@ src/page-name/page.js
 
 - `js`/`ts` pages consist of a named directory with a `page.js` or `page.ts` inside of it, that exports a default function that returns the contents of the inner page.
 - a `js`/`ts` page needs to `export default` a function (async or sync) that accepts a variables argument and returns a string of the inner html of the page, or any other type that your layout can accept.
+- You can specify the return type using `PageFunction<T, U>` where `T` is the variables type and `U` is the return type (defaults to `any`).
 - A `js`/`ts` page can export a `vars` object or function (async or sync) that takes highest variable precedence when rendering the page. `export vars` is similar to a `md` page's front matter.
 - A `js`/`ts` page receives the standard `domstack` [Variables](#variables) set.
 - There is no built in handlebars support in `js`/`ts` pages, however you are free to use any template library that you can import.
@@ -420,6 +421,11 @@ You can define as many as you want, and they can live anywhere in the `src` dire
 
 Layouts are named `${layout-name}.layout.js` where `${layout-name}` becomes the name of the layout.
 Layouts should have a unique name, and layouts with duplicate name will result in a build error.
+
+Layouts can be typed using `LayoutFunction<T, U, V>` where:
+- `T` is the variables type
+- `U` is the type of content received from pages (defaults to `any`)
+- `V` is the layout's return type (defaults to `string` for HTML output)
 
 Example layout file names:
 
@@ -1182,6 +1188,43 @@ import type {
 ```
 
 They are all generic and accept a variable template that you can develop and share between files.
+
+#### Advanced Type Parameters for PageFunction and LayoutFunction
+
+`PageFunction` and `LayoutFunction` support additional template parameters for precise return type control:
+
+**PageFunction<T, U>**
+- `T` - The type of variables passed to the page (required)
+- `U` - The return type of the page function (optional, defaults to `any`)
+
+**LayoutFunction<T, U, V>**
+- `T` - The type of variables passed to the layout (required)
+- `U` - The type of content received from pages as `children` (optional, defaults to `any`)
+- `V` - The return type of the layout function (optional, defaults to `string`)
+
+This allows pages to return custom types (like VDOM or JSON) while ensuring layouts produce HTML strings:
+
+```ts
+// Define custom types
+type VDOMNode = {
+  type: string
+  props: Record<string, any>
+  children: Array<VDOMNode | string>
+}
+
+// Page returns VDOM
+const page: PageFunction<{title: string}, VDOMNode> = ({ vars }) => ({
+  type: 'h1',
+  props: {},
+  children: [vars.title]
+})
+
+// Layout accepts VDOM, returns HTML string
+const layout: LayoutFunction<{site: string}, VDOMNode, string> = ({ children }) => {
+  const html = renderVDOM(children) // Convert VDOM to HTML
+  return `<html><body>${html}</body></html>`
+}
+```
 
 ## Design Goals
 
