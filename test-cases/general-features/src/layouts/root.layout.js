@@ -3,7 +3,7 @@ import { render } from 'preact-render-to-string'
 
 /**
  * @template {Record<string, any>} T
- * @typedef {import('../../../../index.js').LayoutFunction<T>} LayoutFunction
+ * @typedef {import('../../../../index.js').InternalLayoutFunction<T>} LayoutFunction
  */
 
 /**

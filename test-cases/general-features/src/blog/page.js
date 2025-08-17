@@ -2,7 +2,7 @@ import { html } from 'htm/preact'
 import { dirname, basename } from 'node:path'
 
 /**
- * @type {import('../../../../index.js').LayoutFunction<{}>}
+ * @type {import('../../../../index.js').InternalLayoutFunction<{}>}
  */
 export default async function blogIndex ({
   pages

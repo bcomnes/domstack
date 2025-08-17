@@ -1,17 +1,16 @@
+/**
+ * @import { AsyncPostVarsFunction } from '../../../index.js'
+ */
+
 import { html } from 'htm/preact'
 import { render } from 'preact-render-to-string'
-
-/**
- * @template {Record<string, any>} T
- * @typedef {import('../../../index.js').PostVarsFunction<T>} PostVarsFunction
- */
 
 export default () => ({
   testVar: 'page.vars',
 })
 
 /**
- * @type {PostVarsFunction<{
+ * @type {AsyncPostVarsFunction<{
  *   layout?: string,
  *   title?: string,
  *   publishDate?: string,

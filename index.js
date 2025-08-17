@@ -1,8 +1,8 @@
 /**
  * @import { DomStackOpts as DomStackOpts, Results } from './lib/builder.js'
  * @import { FSWatcher, Stats } from 'node:fs'
- * @import { PostVarsFunction, LayoutFunction } from './lib/build-pages/page-data.js'
- * @import { PageFunction } from './lib/build-pages/page-builders/page-writer.js'
+ * @import { PostVarsFunction, AsyncPostVarsFunction, AsyncLayoutFunction, LayoutFunction } from './lib/build-pages/page-data.js'
+ * @import { PageFunction, AsyncPageFunction } from './lib/build-pages/page-builders/page-writer.js'
  * @import { TemplateFunction } from './lib/build-pages/page-builders/template-builder.js'
  * @import { TemplateAsyncIterator } from './lib/build-pages/page-builders/template-builder.js'
  * @import { TemplateOutputOverride } from './lib/build-pages/page-builders/template-builder.js'
@@ -37,6 +37,13 @@ import { DomStackAggregateError } from './lib/helpers/dom-stack-aggregate-error.
  */
 
 /**
+ * @template {Record<string, any>} Vars - The type of variables passed to the async layout function
+ * @template [PageReturn=any] PageReturn - The return type of the page function (defaults to any)
+ * @template [LayoutReturn=string] LayoutReturn - The return type of the layout function (defaults to string)
+ * @typedef {AsyncLayoutFunction<Vars, PageReturn, LayoutReturn>} AsyncLayoutFunction
+ */
+
+/**
  * @template {Record<string, any>} Vars - The type of variables for the post vars function
  * @template [PageReturn=any] PageReturn - The return type of the page function (defaults to any)
  * @template [LayoutReturn=string] LayoutReturn - The return type of the layout function (defaults to string)
@@ -44,9 +51,22 @@ import { DomStackAggregateError } from './lib/helpers/dom-stack-aggregate-error.
  */
 
 /**
+ * @template {Record<string, any>} Vars - The type of variables for the async post vars function
+ * @template [PageReturn=any] PageReturn - The return type of the page function (defaults to any)
+ * @template [LayoutReturn=string] LayoutReturn - The return type of the layout function (defaults to string)
+ * @typedef {AsyncPostVarsFunction<Vars, PageReturn, LayoutReturn>} AsyncPostVarsFunction
+ */
+
+/**
  * @template {Record<string, any>} Vars - The type of variables passed to the page function
  * @template [PageReturn=any] PageReturn - The return type of the page function (defaults to any)
  * @typedef {PageFunction<Vars, PageReturn>} PageFunction
+ */
+
+/**
+ * @template {Record<string, any>} Vars - The type of variables passed to the async page function
+ * @template [PageReturn=any] PageReturn - The return type of the page function (defaults to any)
+ * @typedef {AsyncPageFunction<Vars, PageReturn>} AsyncPageFunction
  */
 
 /**

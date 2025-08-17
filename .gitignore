@@ -10,3 +10,5 @@ coverage
 
 *.d.ts
 *.d.ts.map
+!types/**/*.d.ts
+!types/**/*.d.ts.map

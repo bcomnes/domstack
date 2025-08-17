@@ -1183,12 +1183,17 @@ You can use `domstack`'s built-in types to strongly type your layout, page, and 
 ```ts
 import type {
   LayoutFunction,
+  AsyncLayoutFunction,
   PostVarsFunction,
+  AsyncPostVarsFunction,
   PageFunction,
+  AsyncPageFunction,
   TemplateFunction,
   TemplateAsyncIterator
 } from '@domstack/static'
 ```
+
+> **Note:** All function types have both synchronous and asynchronous variants (e.g., `LayoutFunction` and `AsyncLayoutFunction`). Use the async variants when your function is an `async` function.
 
 They are all generic and accept a variable template that you can develop and share between files.
 
