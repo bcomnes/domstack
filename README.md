@@ -11,6 +11,9 @@ DOMStack provides a few project conventions around esbuild ande Node.js that let
 
 It's fast to learn, quick to build with, and performs better than you are used to.
 
+`domstack` currently ships a static site generator tool which is great for building static wesbites, and static PWA/MPAs.
+There is an experimental fastify plugin in the works that will unlock dynamic hypermedia webapps using the same project structure.
+
 ```console
 npm install @domstack/static
 ```
