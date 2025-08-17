@@ -101,6 +101,8 @@ updates:
         patterns:
           - "react"
           - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
     schedule:
       interval: "daily"
   - package-ecosystem: "npm"
