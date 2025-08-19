@@ -1,9 +1,9 @@
 import defaultRootLayout from './root.layout.js'
 import { html } from 'htm/preact'
-import type { InternalLayoutFunction } from '../../../../index.js'
+import type { LayoutFunction } from '../../../../index.js'
 import type { SiteVars } from './root.layout.js'
 
-const tsLayout: InternalLayoutFunction<SiteVars> = (layoutVars) => {
+const tsLayout: LayoutFunction<SiteVars> = (layoutVars) => {
   const { children: innerChildren, ...rest } = layoutVars
   const { vars } = layoutVars
 

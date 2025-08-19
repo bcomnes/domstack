@@ -1,6 +1,10 @@
 /**
+ * @import { AsyncPageFunction } from '../../../../lib/build-pages/page-builders/page-writer.js'
+ */
+
+/**
  * Worker test page
- * @type {import('../../../../lib/build-pages/page-builders/page-writer.js').InternalPageFunction<{title: string}>}
+ * @type {AsyncPageFunction<{title: string}>}
  */
 export default async function workerTestPage ({ vars }) {
   return `

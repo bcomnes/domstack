@@ -1,10 +1,9 @@
+/**
+ * @import { LayoutFunction } from '../../../../index.js'
+ */
+
 import { html } from 'htm/preact'
 import { render } from 'preact-render-to-string'
-
-/**
- * @template {Record<string, any>} T
- * @typedef {import('../../../../index.js').InternalLayoutFunction<T>} LayoutFunction
- */
 
 /**
  * @typedef {{

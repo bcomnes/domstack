@@ -1,14 +1,10 @@
+/**
+ * @import {LayoutFunction} from '../../../../index.js'
+ * @import { SiteVars } from './root.layout.js'
+ */
+
 import defaultRootLayout from './root.layout.js'
 import { html } from 'htm/preact'
-
-/**
- * @template {Record<string, any>} T
- * @typedef {import('../../../../index.js').InternalLayoutFunction<T>} LayoutFunction
- */
-
-/**
- * @typedef {import('./root.layout.js').SiteVars} SiteVars
- */
 
 /** @type {LayoutFunction<SiteVars>} */
 export default function blogLayout (layoutVars) {

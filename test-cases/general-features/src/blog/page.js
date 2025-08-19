@@ -1,8 +1,11 @@
+/**
+ * @import { AsyncLayoutFunction } from '../../../../index.js'
+ */
 import { html } from 'htm/preact'
 import { dirname, basename } from 'node:path'
 
 /**
- * @type {import('../../../../index.js').InternalLayoutFunction<{}>}
+ * @type {AsyncLayoutFunction<{}>}
  */
 export default async function blogIndex ({
   pages
