@@ -16,7 +16,7 @@
   "devDependencies": {
     "@domstack/static": "file:../../.",
     "@preact/signals": "^2.0.0",
-    "esbuild-plugin-tailwindcss": "2.0.1",
+    "esbuild-plugin-tailwindcss": "2.1.0",
     "htm": "^3.1.1",
     "npm-run-all2": "^6.0.0",
     "preact": "^10.24.0",
