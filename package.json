@@ -20,7 +20,7 @@
     "argsclopts": "^1.0.4",
     "async-folder-walker": "^3.0.5",
     "browser-sync": "^3.0.2",
-    "chokidar": "^4.0.0",
+    "chokidar": "^5.0.0",
     "clean-deep": "^3.4.0",
     "cpx2": "^8.0.0",
     "esbuild": "^0.27.1",
