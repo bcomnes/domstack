@@ -1492,7 +1492,7 @@ Some notable features are included below, see the [roadmap](https://github.com/u
 DOMStack started its life as `top-bun` in 2023, named after the bakery from Wallace and Gromit. The project was created to provide a simple, fast, and flexible static site generator that could handle modern web development needs while staying true to web standards.
 
 The project was renamed to DOMStack in version 11 to better reflect its purpose and avoid confusion with the Bun JavaScript runtime. The name DOMStack represents the layering of web technologies (HTML, CSS, JavaScript).
-It is also an homage to [subtack](https://substack.net) as well as a play on the productname that stole his name.
+It is also an homage to [substack](https://substack.net) as well as a play on the productname that stole his name.
 
 ## Links
 
