@@ -1444,10 +1444,41 @@ Variable Resolution Layers:
   - **JS pages**: exported vars → page.vars.js → postVars
 - **postVars** - Post-processing function that can modify variables based on all resolved data
 
+### Watch Mode Flow
+
+Watch mode (`domstack watch` / `DomStack.watch()`) performs an initial build using watch-mode esbuild (stable, non-hashed output filenames) and then keeps the site up to date as files change.
+
+#### File change decision tree
+
+When a file changes under `src`, the chokidar watcher applies this decision tree (first match wins):
+
+| File pattern | Action |
+|---|---|
+| `global.vars.*` | Full page rebuild (all pages) |
+| `esbuild.settings.*` | Restart esbuild context + full page rebuild |
+| `markdown-it.settings.*` | Rebuild `.md` pages only |
+| Layout file | Rebuild pages using that layout |
+| Dep of a layout | Rebuild pages using any affected layout |
+| Page file or `page.vars.*` | Rebuild that page + all `postVars` pages |
+| `*.template.*` | Rebuild that template only |
+| Layout CSS/client JS | esbuild watches these itself; its `onEnd` triggers a full page rebuild |
+| (no match) | Skip |
+
+File additions and deletions always trigger a **full structural rebuild**: re-run `identifyPages`, restart the esbuild context, rebuild all pages, and rebuild the watch maps.
+
+#### Watched file extensions
+
+chokidar watches: `.js`, `.mjs`, `.cjs`, `.ts`, `.mts`, `.cts`, `.css`, `.html`, `.md`
+
+cpx watchers handle static asset copying independently and do not trigger page rebuilds.
+
+#### `postVars` contagion
+
+Pages that export a `postVars` function depend on other pages' resolved data. After each full (unfiltered) page build, domstack records which pages used `postVars`. When any page file or vars file subsequently changes, those `postVars` pages are re-rendered alongside the changed page so their cross-page data stays current.
+
 ## Roadmap
 
-`domstack` works and has a rudimentary watch command, but hasn't been battle tested yet.
-If you end up trying it out, please open any issues or ideas that you have, and feel free to share what you build.
+`domstack` is working and actively developed. If you end up trying it out, please open any issues or ideas that you have, and feel free to share what you build.
 
 Some notable features are included below, see the [roadmap](https://github.com/users/bcomnes/projects/3/) for a more in depth view of whats planned.
 
@@ -1488,6 +1519,7 @@ Some notable features are included below, see the [roadmap](https://github.com/u
 - [x] markdown-it.settings.ts support
 - [x] page-worker.worker.ts page worker support
 - [x] `page.md` page support
+- [x] Progressive watch rebuilds (only rebuild affected pages on change)
 - ...[See roadmap](https://github.com/users/bcomnes/projects/3/)
 
 ## History
