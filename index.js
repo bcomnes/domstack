@@ -1,12 +1,14 @@
 /**
  * @import { DomStackOpts as DomStackOpts, Results, SiteData } from './lib/builder.js'
- * @import { FSWatcher, Stats } from 'node:fs'
- * @import { PostVarsFunction, AsyncPostVarsFunction, AsyncLayoutFunction, LayoutFunction } from './lib/build-pages/page-data.js'
+ * @import { FSWatcher } from 'chokidar'
+ * @import { Stats } from 'node:fs'
+ * @import { AsyncLayoutFunction, LayoutFunction } from './lib/build-pages/page-data.js'
  * @import { PageFunction, AsyncPageFunction } from './lib/build-pages/page-builders/page-writer.js'
  * @import { TemplateFunction } from './lib/build-pages/page-builders/template-builder.js'
  * @import { TemplateAsyncIterator } from './lib/build-pages/page-builders/template-builder.js'
  * @import { TemplateOutputOverride } from './lib/build-pages/page-builders/template-builder.js'
  * @import { PageInfo, TemplateInfo } from './lib/identify-pages.js'
+ * @import { PageData } from './lib/build-pages/page-data.js'
  * @import { BuildOptions, BuildContext, BuildResult } from 'esbuild'
  * @import { BuildPagesOpts, PageBuildStepResult } from './lib/build-pages/index.js'
 */
@@ -53,20 +55,6 @@ import { DomStackAggregateError } from './lib/helpers/dom-stack-aggregate-error.
  */
 
 /**
- * @template {Record<string, any>} Vars - The type of variables for the post vars function
- * @template [PageReturn=any] PageReturn - The return type of the page function (defaults to any)
- * @template [LayoutReturn=string] LayoutReturn - The return type of the layout function (defaults to string)
- * @typedef {PostVarsFunction<Vars, PageReturn, LayoutReturn>} PostVarsFunction
- */
-
-/**
- * @template {Record<string, any>} Vars - The type of variables for the async post vars function
- * @template [PageReturn=any] PageReturn - The return type of the page function (defaults to any)
- * @template [LayoutReturn=string] LayoutReturn - The return type of the layout function (defaults to string)
- * @typedef {AsyncPostVarsFunction<Vars, PageReturn, LayoutReturn>} AsyncPostVarsFunction
- */
-
-/**
  * @template {Record<string, any>} Vars - The type of variables passed to the page function
  * @template [PageReturn=any] PageReturn - The return type of the page function (defaults to any)
  * @typedef {PageFunction<Vars, PageReturn>} PageFunction
@@ -92,6 +80,17 @@ import { DomStackAggregateError } from './lib/helpers/dom-stack-aggregate-error.
  * @typedef {TemplateOutputOverride} TemplateOutputOverride
  */
 
+/**
+ * @typedef {PageInfo} PageInfo
+ */
+
+/**
+ * @template {Record<string, any>} [T=object] T - The type of variables for the page data
+ * @template [U=any] U - The return type of the page function (defaults to any)
+ * @template [V=string] V - The return type of the layout function (defaults to string)
+ * @typedef {PageData<T, U, V>} PageData
+ */
+
 const DEFAULT_IGNORES = /** @type {const} */ ([
   '.*',
   'coverage',
@@ -103,6 +102,7 @@ const DEFAULT_IGNORES = /** @type {const} */ ([
 ])
 
 const globalVarsNames = new Set(['global.vars.ts', 'global.vars.mts', 'global.vars.cts', 'global.vars.js', 'global.vars.mjs', 'global.vars.cjs'])
+const globalDataNames = new Set(['global.data.ts', 'global.data.mts', 'global.data.cts', 'global.data.js', 'global.data.mjs', 'global.data.cjs'])
 const esbuildSettingsNames = new Set(['esbuild.settings.ts', 'esbuild.settings.mts', 'esbuild.settings.cts', 'esbuild.settings.js', 'esbuild.settings.mjs', 'esbuild.settings.cjs'])
 const markdownItSettingsNames = new Set(['markdown-it.settings.ts', 'markdown-it.settings.mts', 'markdown-it.settings.cts', 'markdown-it.settings.js', 'markdown-it.settings.mjs', 'markdown-it.settings.cjs'])
 const templateSuffixes = ['.template.ts', '.template.mts', '.template.cts', '.template.js', '.template.mjs', '.template.cjs']
@@ -243,10 +243,6 @@ export class DomStack {
     const dest = this.#dest
     const opts = this.opts
 
-    // Track current postVarsPages — populated from worker result after each full build
-    /** @type {Set<PageInfo>} */
-    let postVarsPages = new Set()
-
     // --- Initial full build using watch-mode esbuild (stable filenames, no hashes) ---
     // We do NOT call builder() here — it would run esbuild with hashed filenames and
     // then we'd run esbuild again below in watch mode with stable filenames, producing
@@ -281,12 +277,6 @@ export class DomStack {
       if (templateFilter) buildPagesOpts.templateFilterPaths = [...templateFilter].map(t => t.templateFile.filepath)
       try {
         const pageBuildResults = await buildPages(src, dest, siteData, opts, buildPagesOpts)
-
-        // Update postVarsPages on full (unfiltered) builds
-        if (!pageFilter && !templateFilter && pageBuildResults.postVarsPagePaths) {
-          const paths = new Set(pageBuildResults.postVarsPagePaths)
-          postVarsPages = new Set(siteData.pages.filter(p => paths.has(p.pageFile.filepath)))
-        }
 
         buildLogger(pageBuildResults)
         return pageBuildResults
@@ -460,21 +450,28 @@ export class DomStack {
       const fileName = basename(path)
       const absPath = resolve(path)
 
-      // 1. global.vars.* — data change, rebuild all pages + postVars
+      // 1. global.vars.* — data change, rebuild all pages
       if (globalVarsNames.has(fileName)) {
         console.log('global.vars changed, rebuilding all pages...')
         runPageBuild().catch(errorLogger)
         return
       }
 
-      // 2. esbuild.settings.* — full esbuild context restart + all pages
+      // 2. global.data.* — data aggregation change, rebuild all pages
+      if (globalDataNames.has(fileName)) {
+        console.log('global.data changed, rebuilding all pages...')
+        runPageBuild().catch(errorLogger)
+        return
+      }
+
+      // 3. esbuild.settings.* — full esbuild context restart + all pages
       if (esbuildSettingsNames.has(fileName)) {
         console.log('esbuild.settings changed, restarting esbuild...')
         await fullRebuild()
         return
       }
 
-      // 3. markdown-it.settings.* — rebuild all .md pages only (rendering change)
+      // 4. markdown-it.settings.* — rebuild all .md pages only (rendering change)
       if (markdownItSettingsNames.has(fileName)) {
         const mdPages = new Set(siteData.pages.filter(p => p.type === 'md'))
         console.log(`markdown-it.settings changed, rebuilding ${mdPages.size} .md page(s)...`)
@@ -482,7 +479,7 @@ export class DomStack {
         return
       }
 
-      // 4. Layout file changed — rendering change, no postVars
+      // 5. Layout file changed — rendering change
       if (layoutFileMap.has(absPath)) {
         const layoutName = /** @type {string} */ (layoutFileMap.get(absPath))
         const affectedPages = layoutPageMap.get(layoutName) ?? new Set()
@@ -491,7 +488,7 @@ export class DomStack {
         return
       }
 
-      // 5. Dep of a layout changed — rendering change, no postVars
+      // 6. Dep of a layout changed — rendering change
       if (layoutDepMap.has(absPath)) {
         const affectedLayoutNames = /** @type {Set<string>} */ (layoutDepMap.get(absPath))
         /** @type {Set<PageInfo>} */
@@ -506,16 +503,15 @@ export class DomStack {
         return
       }
 
-      // 6. Page file or page.vars changed — data change, rebuild page + postVarsPages
+      // 7. Page file or page.vars changed — data change, rebuild that page
       if (pageFileMap.has(absPath)) {
         const affectedPage = /** @type {PageInfo} */ (pageFileMap.get(absPath))
-        const pagesToRebuild = new Set([affectedPage, ...postVarsPages])
-        console.log(`Page "${relname(src, path)}" changed, rebuilding ${pagesToRebuild.size} page(s) (incl. ${postVarsPages.size} postVars page(s))...`)
-        runPageBuild(pagesToRebuild).catch(errorLogger)
+        console.log(`Page "${relname(src, path)}" changed, rebuilding page...`)
+        runPageBuild(new Set([affectedPage])).catch(errorLogger)
         return
       }
 
-      // 7. Template file changed — rebuild that template only
+      // 8. Template file changed — rebuild that template only
       if (templateSuffixes.some(s => fileName.endsWith(s))) {
         const affectedTemplate = siteData.templates.find(t => t.templateFile.filepath === absPath)
         if (affectedTemplate) {
@@ -525,10 +521,10 @@ export class DomStack {
         }
       }
 
-      // 8. Layout style/client (.layout.css, .layout.client.*) — esbuild watches these,
+      // 9. Layout style/client (.layout.css, .layout.client.*) — esbuild watches these,
       // onEnd will fire a full page rebuild automatically. Nothing to do here.
 
-      // 9. Unrecognized — skip
+      // 10. Unrecognized — skip
       console.log(`"${fileName}" changed but did not match any rebuild rule, skipping.`)
     })
 

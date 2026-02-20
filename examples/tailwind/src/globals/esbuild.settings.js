@@ -7,10 +7,14 @@
 import tailwindPlugin from 'esbuild-plugin-tailwindcss'
 
 /**
+ * @import { BuildOptions } from 'esbuild'
+ */
+
+/**
  * Configure ESBuild settings to include Tailwind CSS processing
  *
- * @param {import('esbuild').BuildOptions} esbuildSettings - The default ESBuild configuration
- * @return {Promise<import('esbuild').BuildOptions>} - The modified ESBuild configuration
+ * @param {BuildOptions} esbuildSettings - The default ESBuild configuration
+ * @return {Promise<BuildOptions>} - The modified ESBuild configuration
  */
 export default async function esbuildSettingsOverride (esbuildSettings) {
   // Add the Tailwind plugin to the ESBuild configuration

@@ -5,11 +5,19 @@
 
 interface GlobalVars {
   siteName: string;
+  siteUrl: string;
+  siteDescription: string;
+  authorName: string;
+  authorUrl: string;
   [key: string]: unknown;
 }
 
 export default async function (): Promise<GlobalVars> {
   return {
     siteName: 'domstack basic',
+    siteUrl: 'https://example.com',
+    siteDescription: 'A basic example site built with DOMStack.',
+    authorName: 'Your Name',
+    authorUrl: 'https://example.com',
   }
 }

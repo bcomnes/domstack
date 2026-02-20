@@ -1062,11 +1062,46 @@ By default, DOMStack ships with the following markdown-it plugins enabled:
 - [markdown-it-attrs](https://github.com/arve0/markdown-it-attrs)
 - [markdown-it-table-of-contents](https://github.com/cmaas/markdown-it-table-of-contents)
 
+### `global.data.ts` {#global-data}
+
+`global.data.ts` (or `.js`) is an optional file you can create at the root of your `src` directory.
+It lets you compute and inject data derived from your full page collection into `vars` — available to every page, layout, and template at build time.
+
+Export a default async (or sync) function that receives the raw `pages` array and returns a plain object.
+The returned object is merged into `vars` after `global.vars.ts`, so its values can be overridden by individual `page.vars.ts` files.
+
+```typescript
+// src/global.data.ts
+import type { PageInfo } from '@domstack/static'
+
+export default async function globalData ({ pages }: { pages: PageInfo[] }) {
+  const posts = pages
+    .filter(p => p.vars?.layout === 'article')
+    .sort((a, b) => new Date(b.vars.publishDate) - new Date(a.vars.publishDate))
+
+  return {
+    latestPosts: posts.slice(0, 5),
+    totalPostCount: posts.length,
+  }
+}
+```
+
+The returned values are available in every page and layout via `vars`:
+
+```typescript
+// src/index.page.ts
+export default async function ({ vars }) {
+  return `<p>There are ${vars.totalPostCount} posts.</p>`
+}
+```
+
+`global.data.ts` runs inside the build worker on every full rebuild. It receives the raw `PageInfo` array (not yet rendered), so you can use it for aggregation, tag collection, feed generation data, and similar tasks. For rendering HTML from the page list, use a [template file](#templates) instead.
+
 ## Variables
 
-Pages, Layouts, and `postVars` all receive an object with the following parameters:
+Pages and Layouts receive an object with the following parameters:
 
-- `vars`: An object with the variables of `global.vars.ts`, `page.vars.ts`, and any front-matter,`vars` exports and `postVars` from the page merged together.
+- `vars`: An object with the variables of `global.vars.ts`, `global.data.ts`, `page.vars.ts`, and any front-matter or `vars` exports from the page merged together.
 - `pages`: An array of [`PageData`](https://github.com/bcomnes/d omstack/blob/master/lib/build-pages/page-data.js) instances for every page in the site build. Use this array to introspect pages to generate feeds and index pages.
 - `page`: An object of the page being rendered with the following parameters:
   - `type`: The type of page (`md`, `html`, or `js`)
@@ -1084,52 +1119,61 @@ Template files receive a similar set of variables:
 - `pages`: An array of [`PageData`](https://github.com/bcomnes/domstack/blob/master/lib/build-pages/page-data.js) instances for every page in the site build. Use this array to introspect pages to generate feeds and index pages.
 - `template`: An object of the template file data being rendered.
 
-### `postVars` post processing variables (Advanced) {#postVars}
+### Migrating from `postVars` {#postVars}
 
-In `page.vars.ts` files, you can export a `postVars` sync/async function that returns an object. This function receives the same variable set as pages and layouts. Whatever object is returned from the function is merged into the final `vars` object and is available in the page and layout. This is useful if you want to apply advanced rendering page introspection and insert it into a markdown document (for example, the last few blog posts on a markdown page.)
+> **Breaking change:** `postVars` exports in `page.vars.ts` files are no longer supported. Domstack will throw a build error if a `postVars` export is detected.
+> See [https://domstack.net/#global-data](https://domstack.net/#global-data) for the replacement.
 
-For example:
+`postVars` was a per-page hook that let individual `page.vars.ts` files export a function to aggregate page data and inject it into `vars`. It was removed because it required a full rebuild of every page that used it on every change, and its most common use case (site-wide aggregation) belongs in a single shared location.
+
+**Migrate to [`global.data.ts`](#global-data).**
+
+Move your aggregation logic from `page.vars.ts` into `src/global.data.ts`. The result is merged into `vars` for every page, layout, and template — no per-page wiring needed.
+
+Before (`page.vars.ts` with `postVars`):
 
 ```typescript
 import { html } from 'htm/preact'
 import { render } from 'preact-render-to-string'
-import type { PostVarsFunction } from '@domstack/static'
 
-export const postVars: PostVarsFunction = async ({
-  pages
-}) => {
+export const postVars = async ({ pages }) => {
   const blogPosts = pages
     .filter(page => page.vars.layout === 'article')
     .sort((a, b) => new Date(b.vars.publishDate) - new Date(a.vars.publishDate))
     .slice(0, 5)
 
-  const blogpostsHtml = render(html`<ul className="blog-index-list">
-      ${blogPosts.map(p => {
-        const publishDate = p.vars.publishDate ? new Date(p.vars.publishDate) : null
-        return html`
-          <li className="blog-entry h-entry">
-            <a className="blog-entry-link u-url u-uid p-name" href="/${p.pageInfo.path}/">${p.vars.title}</a>
-            ${
-              publishDate
-                ? html`<time className="blog-entry-date dt-published" datetime="${publishDate.toISOString()}">
-                    ${publishDate.toISOString().split('T')[0]}
-                  </time>`
-                : null
-            }
-          </li>`
-        })}
-    </ul>`)
-
   return {
-    blogPostsHtml: blogpostsHtml
+    blogPostsHtml: render(html`<ul>
+      ${blogPosts.map(p => html`<li><a href="/${p.pageInfo.path}/">${p.vars.title}</a></li>`)}
+    </ul>`)
   }
 }
 ```
 
-This `postVars` renders some html from page introspection of the last 5 blog post titles. In the associated page markdown, this variable is available via a handlebars placeholder.
+After (`src/global.data.ts`):
+
+```typescript
+import { html } from 'htm/preact'
+import { render } from 'preact-render-to-string'
+import type { PageInfo } from '@domstack/static'
+
+export default async function globalData ({ pages }: { pages: PageInfo[] }) {
+  const blogPosts = pages
+    .filter(page => page.vars?.layout === 'article')
+    .sort((a, b) => new Date(b.vars.publishDate) - new Date(a.vars.publishDate))
+    .slice(0, 5)
+
+  return {
+    blogPostsHtml: render(html`<ul>
+      ${blogPosts.map(p => html`<li><a href="/${p.pageInfo.path}/">${p.vars.title}</a></li>`)}
+    </ul>`)
+  }
+}
+```
+
+The `vars.blogPostsHtml` variable is then available in every page without any changes to individual `page.vars.ts` files:
 
 ```md
-<!-- README.md -->
 ## [Blog](./blog/)
 
 {{{ vars.blogPostsHtml }}}
@@ -1367,6 +1411,7 @@ The `buildPages()` step processes pages in parallel with a concurrency limit:
                     ┌────────▼─────────┐
                     │ Resolve Once:    │
                     │ • Global vars    │
+                    │ • Global data    │
                     │ • All layouts    │
                     └────────┬─────────┘
                              │
@@ -1397,12 +1442,7 @@ The `buildPages()` step processes pages in parallel with a concurrency limit:
 │ └──────┬──────┘ │    │ └──────┬──────┘ │    │ └──────┬──────┘ │
 │        ▼        │    │        ▼        │    │        ▼        │
 │ ┌─────────────┐ │    │ ┌─────────────┐ │    │ ┌─────────────┐ │
-│ │page.vars.js │ │    │ │  postVars   │ │    │ │page.vars.js │ │
-│ │             │ │    │ │             │ │    │ │             │ │
-│ └──────┬──────┘ │    │ └──────┬──────┘ │    │ └──────┬──────┘ │
-│        ▼        │    │        ▼        │    │        ▼        │
-│ ┌─────────────┐ │    │ ┌─────────────┐ │    │ ┌─────────────┐ │
-│ │  postVars   │ │    │ │3. Handlebars│ │    │ │  postVars   │ │
+│ │page.vars.js │ │    │ │3. Handlebars│ │    │ │page.vars.js │ │
 │ │             │ │    │ │ (if enabled)│ │    │ │             │ │
 │ └──────┬──────┘ │    │ └──────┬──────┘ │    │ └──────┬──────┘ │
 │        ▼        │    │        ▼        │    │        ▼        │
@@ -1436,13 +1476,12 @@ The `buildPages()` step processes pages in parallel with a concurrency limit:
 ```
 
 Variable Resolution Layers:
-- **Global vars** - Site-wide variables from `global.vars.js` (resolved once)
+- **Global vars** - Site-wide variables from `global.vars.js` and `global.data.js` (resolved once per build)
 - **Layout vars** - Layout-specific variables from layout functions (resolved once)
 - **Page-specific vars** vary by type:
-  - **MD pages**: frontmatter → page.vars.js → postVars
-  - **HTML pages**: page.vars.js → postVars
-  - **JS pages**: exported vars → page.vars.js → postVars
-- **postVars** - Post-processing function that can modify variables based on all resolved data
+  - **MD pages**: frontmatter → page.vars.js
+  - **HTML pages**: page.vars.js
+  - **JS pages**: exported vars → page.vars.js
 
 ### Watch Mode Flow
 
@@ -1455,11 +1494,12 @@ When a file changes under `src`, the chokidar watcher applies this decision tree
 | File pattern | Action |
 |---|---|
 | `global.vars.*` | Full page rebuild (all pages) |
+| `global.data.*` | Full page rebuild (all pages) |
 | `esbuild.settings.*` | Restart esbuild context + full page rebuild |
 | `markdown-it.settings.*` | Rebuild `.md` pages only |
 | Layout file | Rebuild pages using that layout |
 | Dep of a layout | Rebuild pages using any affected layout |
-| Page file or `page.vars.*` | Rebuild that page + all `postVars` pages |
+| Page file or `page.vars.*` | Rebuild that page only |
 | `*.template.*` | Rebuild that template only |
 | Layout CSS/client JS | esbuild watches these itself; its `onEnd` triggers a full page rebuild |
 | (no match) | Skip |
@@ -1471,10 +1511,6 @@ File additions and deletions always trigger a **full structural rebuild**: re-ru
 chokidar watches: `.js`, `.mjs`, `.cjs`, `.ts`, `.mts`, `.cts`, `.css`, `.html`, `.md`
 
 cpx watchers handle static asset copying independently and do not trigger page rebuilds.
-
-#### `postVars` contagion
-
-Pages that export a `postVars` function depend on other pages' resolved data. After each full (unfiltered) page build, domstack records which pages used `postVars`. When any page file or vars file subsequently changes, those `postVars` pages are re-rendered alongside the changed page so their cross-page data stays current.
 
 ## Roadmap
 

@@ -1,5 +1,8 @@
 /**
- * @type {import('../../../../index.js').TemplateFunction<{
+ * @import { TemplateFunction } from '../../../../index.js'
+ */
+/**
+ * @type {TemplateFunction<{
  * foo: string,
  * }>}
  */

@@ -1,0 +1,42 @@
+.blog-article {
+  & .draft-banner {
+    background: var(--yellow, #ffe066);
+    padding: 0.5em 1em;
+    margin-bottom: 1em;
+    border-radius: 4px;
+  }
+
+  & .article-title {
+    margin-bottom: 0.1em;
+  }
+
+  & .article-header {
+    margin-bottom: 1.25em;
+  }
+
+  & .article-metadata {
+    display: flex;
+    gap: 0.5em;
+    align-items: center;
+    font-size: 0.8em;
+    flex-wrap: wrap;
+  }
+
+  & .article-metadata a {
+    color: var(--accent-foreground, inherit);
+  }
+
+  & .author-info {
+    font-style: normal;
+  }
+
+  & .published-date,
+  & .updated-date {
+    font-family: var(--font-code, monospace);
+  }
+
+  & .updated-date::before {
+    content: '·';
+    margin-right: 0.5em;
+  }
+}

@@ -16,25 +16,36 @@ Please inspect the website, the web inspector (source and network tab), the src 
 - Client-side JavaScript
 - CSS styling (global and page-specific)
 - Frontmatter variables
+- Blog with RSS/Atom feeds via `global.data.js` and template files
+
+## Recent Posts
+
+{{{ vars.recentPostsHtml }}}
+
+[View all posts →](./blog/)
 
 ## Project Structure
 
 ```
 src/
-├── layouts/         # Layout templates
-├── md-page/         # Markdown page examples
-├── js-page/         # JavaScript page examples
-├── html-page/       # HTML page examples
-├── global.css       # Global styles
-├── global.client.js # Global client-side JavaScript
-├── global.vars.js   # Global variables
-└── README.md        # This file (becomes index.html)
+├── layouts/              # Layout templates (root, child, blog)
+├── blog/                 # Blog posts organized by year
+├── md-page/              # Markdown page examples
+├── js-page/              # JavaScript page examples
+├── html-page/            # HTML page examples
+├── feeds.template.js     # JSON Feed + Atom feed generator
+├── global.css            # Global styles
+├── global.client.ts      # Global client-side JavaScript
+├── global.data.js        # Site-wide data (blog post aggregation)
+├── global.vars.ts        # Global variables (site name, author, etc.)
+└── README.md             # This file (becomes index.html)
 ```
 
 ## Page Examples
 
 Navigate through different page types:
 
+- [Blog](./blog/)
 - [Loose Markdown File](./loose-file.md)
 - [Markdown Page Example](./md-page/README.md)
 - [Nested Markdown Page](./md-page/sub-page/README.md)

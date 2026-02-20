@@ -10,6 +10,9 @@
  * 3. Applying custom CSS classes for styling
  */
 
+/**
+ * @import MarkdownIt from 'markdown-it'
+ */
 import markdownItContainer from 'markdown-it-container'
 
 /**
@@ -44,8 +47,8 @@ function createContainer (name, defaultTitle, cssClass) {
 /**
  * Customize the markdown-it instance with additional plugins and renderers
  *
- * @param {import('markdown-it')} md - The markdown-it instance
- * @returns {import('markdown-it')} - The modified markdown-it instance
+ * @param {MarkdownIt} md - The markdown-it instance
+ * @returns {MarkdownIt} - The modified markdown-it instance
  */
 export default async function markdownItSettingsOverride (md) {
   // =====================================================
