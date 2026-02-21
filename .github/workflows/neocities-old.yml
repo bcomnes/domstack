@@ -3,7 +3,7 @@ name: Deploy old website to neociteis
 on:
   push:
     branches:
-      - master
+      - top-bun
 
 env:
   FORCE_COLOR: 1

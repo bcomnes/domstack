@@ -3,7 +3,7 @@ name: Deploy domstack website to neociteis
 on:
   push:
     branches:
-      - next
+      - master
 
 env:
   FORCE_COLOR: 1
