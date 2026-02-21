@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(node --test:*)"
+      "Bash(node --test:*)",
+      "Bash(git checkout:*)",
+      "Bash(npm test:*)"
     ]
   }
 }

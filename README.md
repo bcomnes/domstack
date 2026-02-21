@@ -107,6 +107,7 @@ src % tree
 │        ├── global.client.ts # you can define a global client that loads on every page.
 │        ├── global.css # you can define a global css file that loads on every page.
 │        ├── global.vars.ts # site wide variables get defined in global.vars.ts
+│        ├── global.data.ts # optional file to derive and aggregate data from all pages before rendering
 │        ├── markdown-it.settings.ts # You can customize the markdown-it instance used to render markdown
 │        └── esbuild.settings.ts # You can even customize the build settings passed to esbuild
 ├── page.md # The top level page can also be a page.md (or README.md) file.
@@ -965,6 +966,60 @@ This is a global stylesheet that every page will use.
 Any styles that need to be on every single page should live here.
 Importing css from `npm` modules work well here.
 
+### `global.data.js`
+
+The `global.data.js` (or `.ts`, `.mjs`, etc.) file is an optional file that can live anywhere in your `src` tree — like all global assets, the first one found wins and duplicates warn. It runs **once per build**, after all pages are initialized and before rendering begins.
+
+It receives a fully resolved `PageData[]` array and returns an object that is stamped onto every page's vars — making the derived data available to every page, layout, and template.
+
+```typescript
+import type { AsyncGlobalDataFunction } from '@domstack/static'
+import { html } from 'htm/preact'
+import { render } from 'preact-render-to-string'
+
+type GlobalData = {
+  blogPostsHtml: string
+}
+
+export default const buildGlobalData: AsyncGlobalDataFunction<GlobalData> = async ({ pages }) => {
+  const blogPosts = pages
+    .filter(p => p.vars?.layout === 'blog' && p.vars?.publishDate)
+    .sort((a, b) => new Date(b.vars.publishDate) - new Date(a.vars.publishDate))
+    .slice(0, 5)
+
+  const blogPostsHtml = render(html`
+    <ul className="blog-index-list">
+      ${blogPosts.map(p => html`
+        <li className="blog-entry h-entry">
+          <a className="blog-entry-link u-url u-uid p-name" href="/${p.pageInfo.path}/">
+            ${p.vars?.title}
+          </a>
+        </li>
+      `)}
+    </ul>
+  `)
+
+  return { blogPostsHtml }
+}
+```
+
+The returned object is stamped onto every page's vars before rendering, so any page or layout can read the derived data via `vars`:
+
+```md
+## [Blog](./blog/)
+
+{{{ vars.blogPostsHtml }}}
+```
+
+**Key properties of `global.data.js`:**
+
+- Receives fully resolved `PageData[]` — every page has `.vars` (merged global + page + builder vars), `.pageInfo` (path, type, etc.), `.styles`, `.scripts`, and more.
+- Runs inside the worker process (same as all other dynamic imports) to avoid ESM caching issues.
+- Skipped entirely if no `global.data.*` file exists — zero overhead.
+- Changes to `global.data.*` trigger a full page rebuild (same as `global.vars.*`), since the output is stamped onto every page's vars.
+
+Use `GlobalDataFunction<T>` or `AsyncGlobalDataFunction<T>` to type the function where `T` is the shape of the object you return.
+
 ### `esbuild.settings.ts`
 
 This is an optional file you can create anywhere.
@@ -1064,9 +1119,9 @@ By default, DOMStack ships with the following markdown-it plugins enabled:
 
 ## Variables
 
-Pages, Layouts, and `postVars` all receive an object with the following parameters:
+Pages and Layouts receive an object with the following parameters:
 
-- `vars`: An object with the variables of `global.vars.ts`, `page.vars.ts`, and any front-matter,`vars` exports and `postVars` from the page merged together.
+- `vars`: An object with the variables of `global.vars.ts`, `global.data.js`, `page.vars.ts`, and any front-matter or `vars` exports from the page merged together.
 - `pages`: An array of [`PageData`](https://github.com/bcomnes/d omstack/blob/master/lib/build-pages/page-data.js) instances for every page in the site build. Use this array to introspect pages to generate feeds and index pages.
 - `page`: An object of the page being rendered with the following parameters:
   - `type`: The type of page (`md`, `html`, or `js`)
@@ -1084,56 +1139,11 @@ Template files receive a similar set of variables:
 - `pages`: An array of [`PageData`](https://github.com/bcomnes/domstack/blob/master/lib/build-pages/page-data.js) instances for every page in the site build. Use this array to introspect pages to generate feeds and index pages.
 - `template`: An object of the template file data being rendered.
 
-### `postVars` post processing variables (Advanced) {#postVars}
+### Derived global data (Advanced)
 
-In `page.vars.ts` files, you can export a `postVars` sync/async function that returns an object. This function receives the same variable set as pages and layouts. Whatever object is returned from the function is merged into the final `vars` object and is available in the page and layout. This is useful if you want to apply advanced rendering page introspection and insert it into a markdown document (for example, the last few blog posts on a markdown page.)
+For data that aggregates across multiple pages — like blog indexes, sitemaps, or RSS feed content — use [`global.data.js`](#globaldatajs). That file runs once per build, receives the raw page list, and merges its return value into `globalVars` so every page, layout, and template can read it via `vars`.
 
-For example:
-
-```typescript
-import { html } from 'htm/preact'
-import { render } from 'preact-render-to-string'
-import type { PostVarsFunction } from '@domstack/static'
-
-export const postVars: PostVarsFunction = async ({
-  pages
-}) => {
-  const blogPosts = pages
-    .filter(page => page.vars.layout === 'article')
-    .sort((a, b) => new Date(b.vars.publishDate) - new Date(a.vars.publishDate))
-    .slice(0, 5)
-
-  const blogpostsHtml = render(html`<ul className="blog-index-list">
-      ${blogPosts.map(p => {
-        const publishDate = p.vars.publishDate ? new Date(p.vars.publishDate) : null
-        return html`
-          <li className="blog-entry h-entry">
-            <a className="blog-entry-link u-url u-uid p-name" href="/${p.pageInfo.path}/">${p.vars.title}</a>
-            ${
-              publishDate
-                ? html`<time className="blog-entry-date dt-published" datetime="${publishDate.toISOString()}">
-                    ${publishDate.toISOString().split('T')[0]}
-                  </time>`
-                : null
-            }
-          </li>`
-        })}
-    </ul>`)
-
-  return {
-    blogPostsHtml: blogpostsHtml
-  }
-}
-```
-
-This `postVars` renders some html from page introspection of the last 5 blog post titles. In the associated page markdown, this variable is available via a handlebars placeholder.
-
-```md
-<!-- README.md -->
-## [Blog](./blog/)
-
-{{{ vars.blogPostsHtml }}}
-```
+See the [`global.data.js`](#globaldatajs) section under [Global Assets](#global-assets) for a full example.
 
 ## TypeScript Support
 
@@ -1186,8 +1196,8 @@ You can use `domstack`'s built-in types to strongly type your layout, page, and 
 import type {
   LayoutFunction,
   AsyncLayoutFunction,
-  PostVarsFunction,
-  AsyncPostVarsFunction,
+  GlobalDataFunction,
+  AsyncGlobalDataFunction,
   PageFunction,
   AsyncPageFunction,
   TemplateFunction,
@@ -1371,7 +1381,7 @@ The `buildPages()` step processes pages in parallel with a concurrency limit:
                     └────────┬─────────┘
                              │
                 ┌────────────▼───────────────┐
-                │  Parallel Page Queue       │
+                │  Parallel Page Init        │
                 │(Concurrency: min(CPUs, 24))│
                 └────────────┬───────────────┘
                              │
@@ -1382,67 +1392,45 @@ The `buildPages()` step processes pages in parallel with a concurrency limit:
 │  MD Page Task   │    │ HTML Page Task  │    │  JS Page Task   │
 ├─────────────────┤    ├─────────────────┤    ├─────────────────┤
 │ ┌─────────────┐ │    │ ┌─────────────┐ │    │ ┌─────────────┐ │
-│ │1. Read .md  │ │    │ │1. Read .html│ │    │ │1. Import .js│ │
-│ │   file      │ │    │ │   file      │ │    │ │   module    │ │
+│ │1. Parse MD  │ │    │ │1. Read .html│ │    │ │1. Import .js│ │
+│ │ frontmatter │ │    │ │   file      │ │    │ │   module    │ │
 │ └──────┬──────┘ │    │ └──────┬──────┘ │    │ └──────┬──────┘ │
 │        ▼        │    │        ▼        │    │        ▼        │
 │ ┌─────────────┐ │    │ ┌─────────────┐ │    │ ┌─────────────┐ │
-│ │2. Extract   │ │    │ │2. Variable  │ │    │ │2. Variable  │ │
-│ │ frontmatter │ │    │ │  Resolution │ │    │ │  Resolution │ │
+│ │2. Variable  │ │    │ │2. Variable  │ │    │ │2. Variable  │ │
+│ │  Resolution │ │    │ │  Resolution │ │    │ │  Resolution │ │
 │ └──────┬──────┘ │    │ └──────┬──────┘ │    │ └──────┬──────┘ │
 │        ▼        │    │        ▼        │    │        ▼        │
 │ ┌─────────────┐ │    │ ┌─────────────┐ │    │ ┌─────────────┐ │
-│ │ Frontmatter │ │    │ │page.vars.js │ │    │ │  Exported   │ │
-│ │    vars     │ │    │ │             │ │    │ │    vars     │ │
-│ └──────┬──────┘ │    │ └──────┬──────┘ │    │ └──────┬──────┘ │
-│        ▼        │    │        ▼        │    │        ▼        │
-│ ┌─────────────┐ │    │ ┌─────────────┐ │    │ ┌─────────────┐ │
-│ │page.vars.js │ │    │ │  postVars   │ │    │ │page.vars.js │ │
-│ │             │ │    │ │             │ │    │ │             │ │
-│ └──────┬──────┘ │    │ └──────┬──────┘ │    │ └──────┬──────┘ │
-│        ▼        │    │        ▼        │    │        ▼        │
-│ ┌─────────────┐ │    │ ┌─────────────┐ │    │ ┌─────────────┐ │
-│ │  postVars   │ │    │ │3. Handlebars│ │    │ │  postVars   │ │
-│ │             │ │    │ │ (if enabled)│ │    │ │             │ │
-│ └──────┬──────┘ │    │ └──────┬──────┘ │    │ └──────┬──────┘ │
-│        ▼        │    │        ▼        │    │        ▼        │
-│ ┌─────────────┐ │    │ ┌─────────────┐ │    │ ┌─────────────┐ │
-│ │3. Render MD │ │    │ │4. Render    │ │    │ │3. Execute   │ │
-│ │   to HTML   │ │    │ │  with layout│ │    │ │  page func  │ │
-│ └──────┬──────┘ │    │ └──────┬──────┘ │    │ └──────┬──────┘ │
-│        ▼        │    │        ▼        │    │        ▼        │
-│ ┌─────────────┐ │    │ ┌─────────────┐ │    │ ┌─────────────┐ │
-│ │4. Extract   │ │    │ │5. Write HTML│ │    │ │4. Render    │ │
-│ │  title (h1) │ │    │ │             │ │    │ │  with layout│ │
-│ └──────┬──────┘ │    │ └─────────────┘ │    │ └──────┬──────┘ │
-│        ▼        │    │                 │    │        ▼        │
-│ ┌─────────────┐ │    │                 │    │ ┌─────────────┐ │
-│ │5. Render    │ │    │                 │    │ │5. Write HTML│ │
-│ │  with layout│ │    │                 │    │ │             │ │
-│ └──────┬──────┘ │    │                 │    │ └─────────────┘ │
-│        ▼        │    │                 │    │                 │
-│ ┌─────────────┐ │    │                 │    │                 │
-│ │6. Write HTML│ │    │                 │    │                 │
-│ └─────────────┘ │    │                 │    │                 │
+│ │ builder +   │ │    │ │page.vars.js │ │    │ │  Exported   │ │
+│ │ page.vars.js│ │    │ │             │ │    │ │  + page.vars│ │
+│ └─────────────┘ │    │ └─────────────┘ │    │ └─────────────┘ │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
          │                      │                      │
          └──────────────────────┼──────────────────────┘
                                 │
                                 ▼
-                       ┌──────────────────┐
-                       │  Complete when   │
-                       │  all pages done  │
-                       └──────────────────┘
+                    ┌───────────────────────┐
+                    │  global.data.js runs  │
+                    │  (receives PageData[])│
+                    │  stamps vars on pages │
+                    └───────────┬───────────┘
+                                │
+                                ▼
+                ┌───────────────────────────────┐
+                │  Parallel Render + Write      │
+                │ (Concurrency: min(CPUs, 24))  │
+                └───────────────────────────────┘
 ```
 
 Variable Resolution Layers:
 - **Global vars** - Site-wide variables from `global.vars.js` (resolved once)
 - **Layout vars** - Layout-specific variables from layout functions (resolved once)
 - **Page-specific vars** vary by type:
-  - **MD pages**: frontmatter → page.vars.js → postVars
-  - **HTML pages**: page.vars.js → postVars
-  - **JS pages**: exported vars → page.vars.js → postVars
-- **postVars** - Post-processing function that can modify variables based on all resolved data
+  - **MD pages**: page.vars.js + builder vars (from frontmatter)
+  - **HTML pages**: page.vars.js
+  - **JS pages**: exported vars → page.vars.js
+- **Global data** - Derived variables from `global.data.js`, stamped onto every page after all pages initialize (resolved once, after page init)
 
 ## Roadmap
 

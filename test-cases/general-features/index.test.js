@@ -98,6 +98,20 @@ test.describe('general-features', () => {
             ? 'Generated'
             : 'Did not generate'} a global client`)
 
+    // Special test for global.data.js blogPostsHtml
+    const indexPath = path.join(dest, 'index.html')
+    try {
+      const indexContent = await readFile(indexPath, 'utf8')
+      const indexDoc = cheerio.load(indexContent)
+      const blogIndexList = indexDoc('ul.blog-index-list')
+      assert.ok(blogIndexList.length > 0, 'global.data.js rendered blog-index-list into the root page')
+      const blogEntries = indexDoc('li.blog-entry')
+      assert.ok(blogEntries.length > 0, 'global.data.js blog list contains entries')
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error('Unknown error', { cause: err })
+      assert.fail('Failed to verify global.data.js output: ' + error.message)
+    }
+
     // Special test for page.md precedence over README.md
     const pageMdPrecedencePath = path.join(dest, 'page-md-precedence/index.html')
     try {

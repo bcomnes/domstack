@@ -1,11 +1,12 @@
 /**
  * @import { DomStackOpts as DomStackOpts, Results } from './lib/builder.js'
  * @import { FSWatcher, Stats } from 'node:fs'
- * @import { PostVarsFunction, AsyncPostVarsFunction, AsyncLayoutFunction, LayoutFunction } from './lib/build-pages/page-data.js'
+ * @import { AsyncLayoutFunction, LayoutFunction } from './lib/build-pages/page-data.js'
  * @import { PageFunction, AsyncPageFunction } from './lib/build-pages/page-builders/page-writer.js'
  * @import { TemplateFunction } from './lib/build-pages/page-builders/template-builder.js'
  * @import { TemplateAsyncIterator } from './lib/build-pages/page-builders/template-builder.js'
  * @import { TemplateOutputOverride } from './lib/build-pages/page-builders/template-builder.js'
+ * @import { GlobalDataFunction, AsyncGlobalDataFunction } from './lib/build-pages/index.js'
  * @import { BuildOptions } from 'esbuild'
 */
 import { once } from 'events'
@@ -44,17 +45,13 @@ import { DomStackAggregateError } from './lib/helpers/dom-stack-aggregate-error.
  */
 
 /**
- * @template {Record<string, any>} Vars - The type of variables for the post vars function
- * @template [PageReturn=any] PageReturn - The return type of the page function (defaults to any)
- * @template [LayoutReturn=string] LayoutReturn - The return type of the layout function (defaults to string)
- * @typedef {PostVarsFunction<Vars, PageReturn, LayoutReturn>} PostVarsFunction
+ * @template {Record<string, any>} [T=Record<string, any>] - The shape of the derived vars object returned.
+ * @typedef {GlobalDataFunction<T>} GlobalDataFunction
  */
 
 /**
- * @template {Record<string, any>} Vars - The type of variables for the async post vars function
- * @template [PageReturn=any] PageReturn - The return type of the page function (defaults to any)
- * @template [LayoutReturn=string] LayoutReturn - The return type of the layout function (defaults to string)
- * @typedef {AsyncPostVarsFunction<Vars, PageReturn, LayoutReturn>} AsyncPostVarsFunction
+ * @template {Record<string, any>} [T=Record<string, any>] - The shape of the derived vars object returned.
+ * @typedef {AsyncGlobalDataFunction<T>} AsyncGlobalDataFunction
  */
 
 /**
@@ -225,7 +222,7 @@ export class DomStack {
         // Combine your existing 'anymatch' function with the new extension check
         return (
           anymatch(filePath) ||
-          Boolean((stats?.isFile() && !/\.(js|css|html|md)$/.test(filePath)))
+          Boolean((stats?.isFile() && !/\.(js|mjs|cjs|ts|mts|cts|css|html|md)$/.test(filePath)))
         )
       },
       persistent: true,
