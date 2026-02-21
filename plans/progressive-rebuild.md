@@ -26,8 +26,8 @@ Two separate, parallel watch loops (as today), but smarter:
   - `entryNames: '[dir]/[name]'` instead of `'[dir]/[name]-[hash]'`
   - `chunkNames: 'chunks/[ext]/[name]'`
   - This makes output filenames stable across rebuilds — `outputMap` only needs to be computed once at startup
-- Use an esbuild `onEnd` plugin to trigger page rebuilds when bundles change
-- The `onEnd` callback knows which entry points were affected via the metafile, but since all pages share the same esbuild context, the simplest approach on any esbuild rebuild is: rebuild all pages (esbuild is already fast; this is the CSS/JS change path)
+- Use an esbuild `onEnd` plugin to log rebuild completion and surface errors
+- Since watch mode uses stable (unhashed) filenames, page HTML never changes when bundles rebuild — no page rebuild needed. Browser-sync reloads the browser directly to pick up new JS/CSS from disk.
 
 ### Loop 2: chokidar (page files)
 
@@ -39,7 +39,7 @@ After the initial full build, build and maintain these maps:
 
 ### 1. `layoutDepMap: Map<depFilepath, Set<layoutName>>`
 
-Built using `@11ty/dependency-tree-esm` (or `-typescript` for `.ts` layout files).
+Built using `@11ty/dependency-tree-typescript`.
 Values are layout *names* (not filepaths) so they can be fed directly into `layoutPageMap`.
 
 ```js
@@ -104,6 +104,51 @@ if (page.pageVars) pageFileMap.set(page.pageVars.filepath, page)
 
 Answers: "is this changed file a page or page vars file, and which page?"
 
+### 5. `layoutFileMap: Map<filepath, layoutName>`
+
+Direct lookup from a layout's filepath to its name. Used in the decision tree to quickly
+identify if a changed file is a layout file without iterating `siteData.layouts`.
+
+Answers: "is this changed file a layout, and what is its name?"
+
+### 6. `pageDepMap: Map<depFilepath, Set<PageInfo>>`
+
+Built using `@11ty/dependency-tree-typescript` on each `page.js` **and** `page.vars.*` file.
+Tracks transitive ESM deps so changes to shared modules trigger the correct page rebuilds.
+
+```js
+for (const pageInfo of siteData.pages) {
+  const filesToTrack = [pageInfo.pageFile.filepath]
+  if (pageInfo.pageVars) filesToTrack.push(pageInfo.pageVars.filepath)
+  for (const file of filesToTrack) {
+    const deps = await find(file)
+    for (const dep of deps) {
+      if (!pageDepMap.has(dep)) pageDepMap.set(dep, new Set())
+      pageDepMap.get(dep).add(pageInfo)
+    }
+  }
+}
+```
+
+Answers: "which pages import this changed shared module (via page.js or page.vars)?"
+
+### 7. `templateDepMap: Map<depFilepath, Set<TemplateInfo>>`
+
+Built using `@11ty/dependency-tree-typescript` on each template file. Tracks transitive
+ESM deps so changes to shared modules imported by templates trigger the correct template rebuilds.
+
+```js
+for (const templateInfo of siteData.templates) {
+  const deps = await find(templateInfo.templateFile.filepath)
+  for (const dep of deps) {
+    if (!templateDepMap.has(dep)) templateDepMap.set(dep, new Set())
+    templateDepMap.get(dep).add(templateInfo)
+  }
+}
+```
+
+Answers: "which templates import this changed shared module?"
+
 ## Core Rule: Rendering vs Data
 
 The key distinction driving all rebuild decisions:
@@ -120,12 +165,16 @@ On a chokidar `change` event for `changedPath`:
    → Full rebuild: re-run identifyPages() + rebuild all maps + restart esbuild context
 
 2. global.vars.*
-   → If the browser key changed: full esbuild rebuild + all pages + postVarsPages
-   → Otherwise: rebuild ALL pages + postVarsPages (data change, skip esbuild)
+   → Full rebuild (dispose esbuild context, re-run identifyPages, restart esbuild, rebuild all pages)
+   → Rationale: the `browser` key is read by buildEsbuild() in the main process and passed to
+     esbuild as `define` substitutions. esbuild's own watcher does NOT track global.vars as an
+     input, so any change could affect bundle output and requires restarting esbuild with fresh
+     `define` values. Simplest to always fullRebuild() rather than diff the browser key.
 
 3. esbuild.settings.*
-   → Full esbuild rebuild (dispose context, re-create) + all pages (no postVars —
-     esbuild settings affect bundle output only, not page data)
+   → Full rebuild (dispose esbuild context, re-create, rebuild all pages including postVarsPages)
+   → Rationale: uses fullRebuild() — esbuild settings could affect bundle output or define values,
+     simpler to treat the same as other structural config changes
 
 4. markdown-it.settings.*
    → Rebuild all .md pages only, NO postVars re-run
@@ -150,8 +199,21 @@ On a chokidar `change` event for `changedPath`:
 8. Template file (matches templateSuffixs)
    → Rebuild just that template, no postVars re-run
 
-9. Otherwise
-   → Log and skip
+9. Dep of a page.js or page.vars (pageDepMap.has(changedPath))
+   → affectedPages = pageDepMap.get(changedPath)
+   → Rebuild affectedPages + postVarsPages
+   → Rationale: data change — shared module may affect page output or vars
+
+10. Dep of a template file (templateDepMap.has(changedPath))
+    → affectedTemplates = templateDepMap.get(changedPath)
+    → Rebuild affectedTemplates only, no postVars re-run
+
+11. Any JS/CSS bundle (client.js, page.css, .layout.css, .layout.client.*, etc.)
+    → esbuild's own watcher handles these. Stable filenames mean page HTML doesn't
+      change, so no page rebuild needed. Falls through to case 12.
+
+12. Otherwise
+    → Log and skip
 ```
 
 ## postVars Ordering
@@ -169,47 +231,48 @@ Pages that appear in both sets (a page with postVars that is also directly affec
 
 ## Files to Change
 
-### `lib/build-esbuild/index.js`
+### `lib/build-esbuild/index.js` ✅
 
-- Add a `watch` option to `buildEsbuild()`
+- Added `watch` option to `buildEsbuild()`
 - When `watch: true`:
-  - Use `entryNames: '[dir]/[name]'` (no hash)
-  - Use `esbuild.context()` instead of `esbuild.build()`
-  - Call `.watch()` on the context
-  - Accept an `onEnd` callback to notify the page rebuild loop
-  - Return the context handle so it can be disposed on `stopWatching()`
+  - Uses `entryNames: '[dir]/[name]'` (no hash) — stable filenames across rebuilds
+  - Uses `esbuild.context()` instead of `esbuild.build()`
+  - Calls `.watch()` on the context
+  - Accepts an `onEnd` callback (logs errors; no page rebuild needed due to stable filenames)
+  - Returns the context handle for disposal in `stopWatching()`
+  - Refactored `extractOutputMap()` and `updateSiteDataOutputPaths()` as shared helpers
 
-### `lib/build-pages/index.js`
+### `lib/build-pages/index.js` ✅
 
-- Add a `pageFilter` option to `buildPagesDirect()` (and `buildPages()`) accepting a `Set<PageInfo>` or `null` (null = all pages)
-- When `pageFilter` is set, skip pages not in the set
-- Add a `templateFilter` option similarly
-- Add `postVarsPagePaths: string[]` to `WorkerBuildStepResult` — populated during `buildPagesDirect()` from pages where `pageData.postVars !== null`
+- Added `BuildPagesOpts` with `pageFilterPaths` and `templateFilterPaths` (filepath arrays, not Sets, for structured-clone serialization over the worker boundary)
+- When filter is set, skips pages/templates not in the set
+- Added `postVarsPagePaths: string[]` to `WorkerBuildStepResult` — populated during `buildPagesDirect()` from pages where `pageData.postVars !== null`
 
-### `index.js`
+### `index.js` ✅
 
-- After initial build, construct the four maps above
-- Replace the chokidar `change` handler with the decision tree
-- Wire esbuild `onEnd` to trigger page rebuilds
-- On `add`/`unlink`, do a full rebuild and reconstruct maps
-- Store the esbuild context for disposal in `stopWatching()`
+- Initial build inlines the build steps (no `builder()` call) to use watch-mode esbuild from the start, avoiding a double build
+- After initial build, constructs seven watch maps: `layoutDepMap`, `layoutPageMap`, `pageFileMap`, `layoutFileMap`, `pageDepMap`, `templateDepMap`
+- `postVarsPages` is populated from `postVarsPagePaths` returned by the worker after full builds
+- `rebuildMaps()` helper keeps all maps in sync after full rebuilds
+- `fullRebuild()` helper: disposes esbuild context, re-identifies pages, restarts esbuild, rebuilds maps
+- `runPageBuild(pageFilter?, templateFilter?)` helper: wraps `buildPages()` with filter serialization and postVarsPages update
+- Chokidar `change` handler implements the 12-case decision tree
+- `add`/`unlink` both call `fullRebuild()`
+- esbuild context stored for disposal in `stopWatching()`
 
-## Dependencies to Add
+## Dependencies Added
 
-- `@11ty/dependency-tree-esm` — for layout dep tracking (static ESM analysis)
-- Or `@11ty/dependency-tree-typescript` — if `.ts` layout files need to be tracked (domstack supports `.ts` layouts; this package handles them without needing Node's `stripTypeScriptTypes`)
-
-Both are from the 11ty project, ESM, MIT licensed, no heavy deps (just `acorn` + `dependency-graph`).
+- `@11ty/dependency-tree-typescript` — static ESM dep analysis for layout and page dep tracking. Handles `.ts` files natively without needing `stripTypeScriptTypes`. MIT licensed, no heavy deps (just `acorn` + `dependency-graph`).
 
 ## Resolved Decisions
 
 - **Worker per render**: Keep spawning a fresh worker per `buildPages()` call. Node's ESM module cache means `import()` always returns the cached version within the same process — a fresh worker is required to re-import changed modules. This is correct and the overhead is acceptable, especially with fewer pages being rebuilt per trigger.
 - **layoutDepMap values**: Use `layoutName` (not `layoutFilepath`) as the value so it can be fed directly into `layoutPageMap` without an extra indirection lookup.
 - **layoutPageMap source**: Built in `index.js` by calling `resolveVars()` on each page's `page.vars.*` file directly — lightweight, no worker needed, done outside `buildPagesDirect`.
-- **postVars trigger rule (Option A)**: Only re-run postVars on *data* changes (page files, page.vars, global.vars). Rendering-only changes (layouts, layout deps, markdown-it settings, esbuild settings) do not trigger postVars. Rationale: postVars receives frontmatter vars extracted before rendering, not rendered HTML.
+- **postVars trigger rule**: Only re-run postVars on *data* changes (page files, page.vars, global.vars, esbuild.settings). Rendering-only changes (layouts, layout deps, markdown-it settings) do not trigger postVars. esbuild.settings and global.vars use fullRebuild() which rebuilds all pages including postVarsPages.
 - **postVarsPages detection**: Must happen inside the worker (same ESM cache constraint). `buildPagesDirect()` adds `postVarsPagePaths: string[]` to its result; `index.js` builds `postVarsPages: Set<PageInfo>` from those paths after the initial build.
-- **esbuild onEnd**: Rebuild all pages on any esbuild rebuild (CSS/JS change path). No attempt to narrow by entry point for now.
+- **esbuild onEnd**: No page rebuild triggered. Watch mode uses stable (unhashed) filenames, so page HTML never references changed bundle paths. Browser-sync reloads the browser directly. Adding/removing a bundle file is a structural change handled by chokidar `add`/`unlink` → `fullRebuild()`.
 
-## Deferred / Future Work
+## Implementation Status
 
-- **Page JS dep tracking**: A page's `page.js` can import shared local modules. A change to those modules currently falls through to case 9 (log and skip). Could add a `pageDepMap` using the same dep tracker on page files in a follow-up.
+All planned features are fully implemented. No known gaps remain.

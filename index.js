@@ -128,6 +128,8 @@ async function findDepsOf (filepath) {
  *   layoutPageMap: Map<string, Set<PageInfo>>,
  *   pageFileMap: Map<string, PageInfo>,
  *   layoutFileMap: Map<string, string>,
+ *   pageDepMap: Map<string, Set<PageInfo>>,
+ *   templateDepMap: Map<string, Set<TemplateInfo>>,
  * }>}
  */
 async function buildWatchMaps (siteData) {
@@ -139,6 +141,10 @@ async function buildWatchMaps (siteData) {
   const pageFileMap = new Map()
   /** @type {Map<string, string>} layout filepath -> layoutName */
   const layoutFileMap = new Map()
+  /** @type {Map<string, Set<PageInfo>>} depFilepath -> Set<PageInfo> */
+  const pageDepMap = new Map()
+  /** @type {Map<string, Set<TemplateInfo>>} depFilepath -> Set<TemplateInfo> */
+  const templateDepMap = new Map()
 
   // Build layoutDepMap and layoutFileMap via static dep analysis
   await pMap(Object.values(siteData.layouts), async (layout) => {
@@ -150,7 +156,8 @@ async function buildWatchMaps (siteData) {
     }
   }, { concurrency: 8 })
 
-  // Build layoutPageMap and pageFileMap by resolving each page's layout var.
+  // Build layoutPageMap, pageFileMap, and pageDepMap by resolving each page's layout var
+  // and static dep analysis of its page file and page.vars file.
   // This runs in the main process — ESM cache is acceptable since we only need
   // to know the layout name string, not call the module.
   await pMap(siteData.pages, async (pageInfo) => {
@@ -162,9 +169,29 @@ async function buildWatchMaps (siteData) {
 
     if (!layoutPageMap.has(layoutName)) layoutPageMap.set(layoutName, new Set())
     layoutPageMap.get(layoutName)?.add(pageInfo)
+
+    // Track transitive deps of page.js and page.vars so changes to shared modules trigger a page rebuild
+    const filesToTrack = [pageInfo.pageFile.filepath]
+    if (pageInfo.pageVars) filesToTrack.push(pageInfo.pageVars.filepath)
+    for (const file of filesToTrack) {
+      const deps = await findDepsOf(file)
+      for (const dep of deps) {
+        if (!pageDepMap.has(dep)) pageDepMap.set(dep, new Set())
+        pageDepMap.get(dep)?.add(pageInfo)
+      }
+    }
   }, { concurrency: 8 })
 
-  return { layoutDepMap, layoutPageMap, pageFileMap, layoutFileMap }
+  // Build templateDepMap via static dep analysis of each template file
+  await pMap(siteData.templates, async (templateInfo) => {
+    const deps = await findDepsOf(templateInfo.templateFile.filepath)
+    for (const dep of deps) {
+      if (!templateDepMap.has(dep)) templateDepMap.set(dep, new Set())
+      templateDepMap.get(dep)?.add(templateInfo)
+    }
+  }, { concurrency: 8 })
+
+  return { layoutDepMap, layoutPageMap, pageFileMap, layoutFileMap, pageDepMap, templateDepMap }
 }
 
 /**
@@ -292,8 +319,9 @@ export class DomStack {
         console.error('esbuild rebuild errors:', result.errors)
         return
       }
-      console.log('esbuild rebuilt JS/CSS, re-rendering all pages...')
-      runPageBuild().catch(errorLogger)
+      // Stable filenames in watch mode mean page HTML doesn't change when bundles rebuild.
+      // Browser-sync reloads the browser directly — no page rebuild needed.
+      console.log('esbuild rebuilt JS/CSS')
     }
 
     // Run static copy and esbuild (watch mode) concurrently for the initial build.
@@ -334,14 +362,16 @@ export class DomStack {
     console.log('Initial JS, CSS and Page Build Complete')
 
     // --- Build watch maps ---
-    let { layoutDepMap, layoutPageMap, pageFileMap, layoutFileMap } = await buildWatchMaps(siteData)
+    let { layoutDepMap, layoutPageMap, pageFileMap, layoutFileMap, pageDepMap, templateDepMap } = await buildWatchMaps(siteData)
 
     const rebuildMaps = async () => {
       const maps = await buildWatchMaps(siteData)
-      layoutDepMap = maps.layoutDepMap
-      layoutPageMap = maps.layoutPageMap
-      pageFileMap = maps.pageFileMap
-      layoutFileMap = maps.layoutFileMap
+      layoutDepMap = maps.layoutDepMap       // depFilepath -> Set<layoutName>
+      layoutPageMap = maps.layoutPageMap     // layoutName -> Set<PageInfo>
+      pageFileMap = maps.pageFileMap         // pageFile/pageVars filepath -> PageInfo
+      layoutFileMap = maps.layoutFileMap     // layout filepath -> layoutName
+      pageDepMap = maps.pageDepMap           // depFilepath -> Set<PageInfo> (via page.js + page.vars deps)
+      templateDepMap = maps.templateDepMap   // depFilepath -> Set<TemplateInfo>
     }
 
     /**
@@ -445,15 +475,16 @@ export class DomStack {
     watcher.on('change', async path => {
       assert(src)
       assert(dest)
-      console.log(`File ${path} has been changed`)
-
       const fileName = basename(path)
       const absPath = resolve(path)
 
-      // 1. global.vars.* — data change, rebuild all pages
+      // 1. global.vars.* — always do a full rebuild. The `browser` key is read by
+      // buildEsbuild() in the main process and passed to esbuild as `define` substitutions.
+      // esbuild's own watcher does NOT track global.vars as an input, so any change could
+      // affect bundle output and requires restarting esbuild with fresh `define` values.
       if (globalVarsNames.has(fileName)) {
-        console.log('global.vars changed, rebuilding all pages...')
-        runPageBuild().catch(errorLogger)
+        console.log('global.vars changed, running full rebuild...')
+        await fullRebuild()
         return
       }
 
@@ -474,7 +505,7 @@ export class DomStack {
       // 4. markdown-it.settings.* — rebuild all .md pages only (rendering change)
       if (markdownItSettingsNames.has(fileName)) {
         const mdPages = new Set(siteData.pages.filter(p => p.type === 'md'))
-        console.log(`markdown-it.settings changed, rebuilding ${mdPages.size} .md page(s)...`)
+        logRebuildTree(fileName, mdPages)
         runPageBuild(mdPages).catch(errorLogger)
         return
       }
@@ -483,7 +514,7 @@ export class DomStack {
       if (layoutFileMap.has(absPath)) {
         const layoutName = /** @type {string} */ (layoutFileMap.get(absPath))
         const affectedPages = layoutPageMap.get(layoutName) ?? new Set()
-        console.log(`Layout "${layoutName}" changed, rebuilding ${affectedPages.size} page(s)...`)
+        logRebuildTree(fileName, affectedPages)
         runPageBuild(affectedPages).catch(errorLogger)
         return
       }
@@ -498,7 +529,7 @@ export class DomStack {
             affectedPages.add(pageInfo)
           }
         }
-        console.log(`Layout dep "${fileName}" changed, rebuilding ${affectedPages.size} page(s)...`)
+        logRebuildTree(fileName, affectedPages)
         runPageBuild(affectedPages).catch(errorLogger)
         return
       }
@@ -506,7 +537,7 @@ export class DomStack {
       // 7. Page file or page.vars changed — data change, rebuild that page
       if (pageFileMap.has(absPath)) {
         const affectedPage = /** @type {PageInfo} */ (pageFileMap.get(absPath))
-        console.log(`Page "${relname(src, path)}" changed, rebuilding page...`)
+        logRebuildTree(relname(src, path), new Set([affectedPage]))
         runPageBuild(new Set([affectedPage])).catch(errorLogger)
         return
       }
@@ -515,16 +546,44 @@ export class DomStack {
       if (templateSuffixes.some(s => fileName.endsWith(s))) {
         const affectedTemplate = siteData.templates.find(t => t.templateFile.filepath === absPath)
         if (affectedTemplate) {
-          console.log(`Template "${fileName}" changed, rebuilding template...`)
+          logRebuildTree(fileName, undefined, new Set([affectedTemplate]))
           runPageBuild(new Set(), new Set([affectedTemplate])).catch(errorLogger)
           return
         }
       }
 
-      // 9. Layout style/client (.layout.css, .layout.client.*) — esbuild watches these,
-      // onEnd will fire a full page rebuild automatically. Nothing to do here.
+      // 9. Dep of a page.js or page.vars file — data change, rebuild affected pages
+      if (pageDepMap.has(absPath)) {
+        const affectedPages = /** @type {Set<PageInfo>} */ (pageDepMap.get(absPath))
+        logRebuildTree(fileName, affectedPages)
+        runPageBuild(new Set([...affectedPages])).catch(errorLogger)
+        return
+      }
 
-      // 10. Unrecognized — skip
+      // 10. Dep of a template file — rebuild affected templates only
+      if (templateDepMap.has(absPath)) {
+        const affectedTemplates = /** @type {Set<TemplateInfo>} */ (templateDepMap.get(absPath))
+        logRebuildTree(fileName, undefined, affectedTemplates)
+        runPageBuild(new Set(), affectedTemplates).catch(errorLogger)
+        return
+      }
+
+      // 11. Any JS/CSS bundle (client.js, page.css, .layout.css, .layout.client.*, etc.)
+      // esbuild's own watcher picks these up and rebuilds the bundle. Since watch mode
+      // uses stable (unhashed) filenames, page HTML doesn't change — browser-sync reloads
+      // the browser directly. Nothing to do here.
+      const esbuildEntryPoints = new Set([
+        siteData.globalClient?.filepath,
+        siteData.globalStyle?.filepath,
+        ...siteData.pages.flatMap(p => [p.clientBundle?.filepath, p.pageStyle?.filepath, ...Object.values(p.workers ?? {}).map(w => w.filepath)]),
+        ...Object.values(siteData.layouts).flatMap(l => [l.layoutClient?.filepath, l.layoutStyle?.filepath]),
+      ].filter(Boolean))
+      if (esbuildEntryPoints.has(absPath)) {
+        console.log(`"${fileName}" changed — esbuild will rebuild (browser-sync will reload)`)
+        return
+      }
+
+      // 12. Unrecognized — skip
       console.log(`"${fileName}" changed but did not match any rebuild rule, skipping.`)
     })
 
@@ -558,6 +617,23 @@ export class DomStack {
  */
 function relname (root, name) {
   return root === name ? basename(name) : relative(root, name)
+}
+
+/**
+ * Log a rebuild tree showing what triggered a rebuild and what will be rebuilt.
+ * @param {string} trigger - The changed file (display name)
+ * @param {Set<PageInfo>} [pages]
+ * @param {Set<import('./lib/identify-pages.js').TemplateInfo>} [templates]
+ */
+function logRebuildTree (trigger, pages, templates) {
+  const lines = [`"${trigger}" changed:`]
+  for (const p of pages ?? []) {
+    lines.push(`  → ${p.outputRelname}`)
+  }
+  for (const t of templates ?? []) {
+    lines.push(`  → ${t.outputName} (template)`)
+  }
+  console.log(lines.join('\n'))
 }
 
 /**
