@@ -20,7 +20,7 @@ npm install @domstack/static
 
 - 🌎 [domstack docs website](https://domstack.net)
 - 💬 [Discord Chat](https://discord.gg/AVTsPRGeR9)
-- 📢 [v11 - top-bun is now domstack](https://bret.io/blog/2023/top-bun-is-now-domstack/)
+- 📢 [v11 - top-bun is now domstack](./docs/v11-migration.md)
 - 📢 [v7 Announcement](https://bret.io/blog/2023/reintroducing-top-bun/)
 - 📘 [Full TypeScript Support](#typescript-support)
 
