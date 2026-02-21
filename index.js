@@ -10,9 +10,10 @@
  * @import { PageInfo, TemplateInfo } from './lib/identify-pages.js'
  * @import { PageData } from './lib/build-pages/page-data.js'
  * @import { BuildOptions, BuildContext, BuildResult } from 'esbuild'
- * @import { BuildPagesOpts, PageBuildStepResult } from './lib/build-pages/index.js'
+ * @import { PageBuildStepResult } from './lib/build-pages/index.js'
 */
 import { once } from 'events'
+import { cpus } from 'os'
 import assert from 'node:assert'
 import chokidar from 'chokidar'
 import { basename, relative, resolve } from 'node:path'
@@ -30,7 +31,7 @@ import { getCopyGlob, buildStatic } from './lib/build-static/index.js'
 import { getCopyDirs, buildCopy } from './lib/build-copy/index.js'
 import { builder } from './lib/builder.js'
 import { buildPages } from './lib/build-pages/index.js'
-import { identifyPages } from './lib/identify-pages.js'
+import { identifyPages, globalVarsNames, globalDataNames, esbuildSettingsNames, markdownItSettingsNames, templateSuffixes } from './lib/identify-pages.js'
 import { buildEsbuild } from './lib/build-esbuild/index.js'
 import { ensureDest } from './lib/helpers/ensure-dest.js'
 import { resolveVars } from './lib/build-pages/resolve-vars.js'
@@ -91,6 +92,8 @@ import { DomStackAggregateError } from './lib/helpers/dom-stack-aggregate-error.
  * @typedef {PageData<T, U, V>} PageData
  */
 
+const MAX_CONCURRENCY = Math.min(cpus().length, 24)
+
 const DEFAULT_IGNORES = /** @type {const} */ ([
   '.*',
   'coverage',
@@ -101,11 +104,6 @@ const DEFAULT_IGNORES = /** @type {const} */ ([
   'yarn.lock',
 ])
 
-const globalVarsNames = new Set(['global.vars.ts', 'global.vars.mts', 'global.vars.cts', 'global.vars.js', 'global.vars.mjs', 'global.vars.cjs'])
-const globalDataNames = new Set(['global.data.ts', 'global.data.mts', 'global.data.cts', 'global.data.js', 'global.data.mjs', 'global.data.cjs'])
-const esbuildSettingsNames = new Set(['esbuild.settings.ts', 'esbuild.settings.mts', 'esbuild.settings.cts', 'esbuild.settings.js', 'esbuild.settings.mjs', 'esbuild.settings.cjs'])
-const markdownItSettingsNames = new Set(['markdown-it.settings.ts', 'markdown-it.settings.mts', 'markdown-it.settings.cts', 'markdown-it.settings.js', 'markdown-it.settings.mjs', 'markdown-it.settings.cjs'])
-const templateSuffixes = ['.template.ts', '.template.mts', '.template.cts', '.template.js', '.template.mjs', '.template.cjs']
 
 /**
  * Find transitive ESM dependencies of a file.
@@ -115,7 +113,8 @@ const templateSuffixes = ['.template.ts', '.template.mts', '.template.cts', '.te
 async function findDepsOf (filepath) {
   try {
     return await findDeps(filepath)
-  } catch {
+  } catch (err) {
+    console.warn(`Warning: could not resolve deps of ${filepath}:`, err instanceof Error ? err.message : err)
     return []
   }
 }
@@ -154,7 +153,7 @@ async function buildWatchMaps (siteData) {
       if (!layoutDepMap.has(dep)) layoutDepMap.set(dep, new Set())
       layoutDepMap.get(dep)?.add(layout.layoutName)
     }
-  }, { concurrency: 8 })
+  }, { concurrency: MAX_CONCURRENCY })
 
   // Build layoutPageMap, pageFileMap, and pageDepMap by resolving each page's layout var
   // and static dep analysis of its page file and page.vars file.
@@ -164,8 +163,8 @@ async function buildWatchMaps (siteData) {
     pageFileMap.set(pageInfo.pageFile.filepath, pageInfo)
     if (pageInfo.pageVars) pageFileMap.set(pageInfo.pageVars.filepath, pageInfo)
 
-    const pageVars = /** @type {Record<string, any>} */ (await resolveVars({ varsPath: pageInfo.pageVars?.filepath }).catch(() => ({})))
-    const layoutName = /** @type {string} */ (pageVars['layout'] ?? 'root')
+    const pageVars = await resolveVars({ varsPath: pageInfo.pageVars?.filepath }).catch(() => ({}))
+    const layoutName = String((/** @type {Record<string, any>} */ (pageVars))['layout'] ?? 'root')
 
     if (!layoutPageMap.has(layoutName)) layoutPageMap.set(layoutName, new Set())
     layoutPageMap.get(layoutName)?.add(pageInfo)
@@ -180,7 +179,7 @@ async function buildWatchMaps (siteData) {
         pageDepMap.get(dep)?.add(pageInfo)
       }
     }
-  }, { concurrency: 8 })
+  }, { concurrency: MAX_CONCURRENCY })
 
   // Build templateDepMap via static dep analysis of each template file
   await pMap(siteData.templates, async (templateInfo) => {
@@ -189,7 +188,7 @@ async function buildWatchMaps (siteData) {
       if (!templateDepMap.has(dep)) templateDepMap.set(dep, new Set())
       templateDepMap.get(dep)?.add(templateInfo)
     }
-  }, { concurrency: 8 })
+  }, { concurrency: MAX_CONCURRENCY })
 
   return { layoutDepMap, layoutPageMap, pageFileMap, layoutFileMap, pageDepMap, templateDepMap }
 }
@@ -298,12 +297,12 @@ export class DomStack {
      * @param {Set<TemplateInfo>} [templateFilter]
      */
     const runPageBuild = async (pageFilter, templateFilter) => {
-      /** @type {BuildPagesOpts} */
-      const buildPagesOpts = {}
-      if (pageFilter) buildPagesOpts.pageFilterPaths = [...pageFilter].map(p => p.pageFile.filepath)
-      if (templateFilter) buildPagesOpts.templateFilterPaths = [...templateFilter].map(t => t.templateFile.filepath)
+      /** @type {DomStackOpts} */
+      const buildOpts = { ...opts }
+      if (pageFilter) buildOpts.pageFilterPaths = [...pageFilter].map(p => p.pageFile.filepath)
+      if (templateFilter) buildOpts.templateFilterPaths = [...templateFilter].map(t => t.templateFile.filepath)
       try {
-        const pageBuildResults = await buildPages(src, dest, siteData, opts, buildPagesOpts)
+        const pageBuildResults = await buildPages(src, dest, siteData, buildOpts)
 
         buildLogger(pageBuildResults)
         return pageBuildResults
@@ -482,28 +481,28 @@ export class DomStack {
       // buildEsbuild() in the main process and passed to esbuild as `define` substitutions.
       // esbuild's own watcher does NOT track global.vars as an input, so any change could
       // affect bundle output and requires restarting esbuild with fresh `define` values.
-      if (globalVarsNames.has(fileName)) {
+      if (globalVarsNames.includes(fileName)) {
         console.log('global.vars changed, running full rebuild...')
         await fullRebuild()
         return
       }
 
       // 2. global.data.* — data aggregation change, rebuild all pages
-      if (globalDataNames.has(fileName)) {
+      if (globalDataNames.includes(fileName)) {
         console.log('global.data changed, rebuilding all pages...')
         runPageBuild().catch(errorLogger)
         return
       }
 
       // 3. esbuild.settings.* — full esbuild context restart + all pages
-      if (esbuildSettingsNames.has(fileName)) {
+      if (esbuildSettingsNames.includes(fileName)) {
         console.log('esbuild.settings changed, restarting esbuild...')
         await fullRebuild()
         return
       }
 
       // 4. markdown-it.settings.* — rebuild all .md pages only (rendering change)
-      if (markdownItSettingsNames.has(fileName)) {
+      if (markdownItSettingsNames.includes(fileName)) {
         const mdPages = new Set(siteData.pages.filter(p => p.type === 'md'))
         logRebuildTree(fileName, mdPages)
         runPageBuild(mdPages).catch(errorLogger)

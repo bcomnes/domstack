@@ -1,11 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Bash(node --test:*)"
+      "Bash(node --test:*)",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:raw.githubusercontent.com)",
       "Bash(gh repo view:*)",
-      "Bash(gh api:*)"
+      "Bash(gh api:*)",
+      "mcp__mcp-server-github__add_reply_to_pull_request_comment",
+      "mcp__mcp-server-github__pull_request_read"
     ]
   }
 }
