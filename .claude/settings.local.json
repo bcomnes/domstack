@@ -2,6 +2,10 @@
   "permissions": {
     "allow": [
       "Bash(node --test:*)"
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(gh repo view:*)",
+      "Bash(gh api:*)"
     ]
   }
 }

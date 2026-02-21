@@ -6,6 +6,7 @@
     "jsxImportSource": "preact"
   },
   "include": [
+    "types/**/*",
     "lib/**/*",
     "test-cases/**/*",
     "index.js",

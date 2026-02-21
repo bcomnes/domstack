@@ -1,7 +1,7 @@
 import { html } from 'htm/preact'
 import type { PageFunction } from '@domstack/static'
 
-import sharedData from './shared-lib.js'
+import sharedData from './shared-lib.ts'
 import type { PageVars } from '../../layouts/root.layout.ts'
 
 const JSPage: PageFunction<PageVars> = async () => {

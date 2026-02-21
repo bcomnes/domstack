@@ -17,6 +17,7 @@
     "node": ">=22.0.0"
   },
   "dependencies": {
+    "@11ty/dependency-tree-typescript": "^1.0.0",
     "argsclopts": "^1.0.4",
     "async-folder-walker": "^3.0.5",
     "browser-sync": "^3.0.2",
@@ -56,8 +57,6 @@
     "write-package": "^7.0.1"
   },
   "devDependencies": {
-    "c8": "^10.0.0",
-    "cheerio": "^1.0.0-rc.10",
     "@types/browser-sync": "^2.29.0",
     "@types/js-yaml": "^4.0.9",
     "@types/markdown-it": "^14.1.1",
@@ -65,6 +64,8 @@
     "@types/node": "^24.0.1",
     "@voxpelli/tsconfig": "^16.0.0",
     "auto-changelog": "^2.4.0",
+    "c8": "^10.0.0",
+    "cheerio": "^1.0.0-rc.10",
     "gh-release": "^7.0.2",
     "installed-check": "^9.3.0",
     "jsonfeed-to-atom": "^1.2.5",

@@ -2,8 +2,8 @@ import type { LayoutFunction } from '@domstack/static'
 import { html } from 'htm/preact'
 import { render } from 'preact-render-to-string'
 
-import defaultRootLayout from './root.layout.js'
-import type { PageVars } from './root.layout.js'
+import defaultRootLayout from './root.layout.ts'
+import type { PageVars } from './root.layout.ts'
 
 const articleLayout: LayoutFunction<PageVars> = (args) => {
   const { children, ...rest } = args
