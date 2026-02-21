@@ -17,6 +17,7 @@
     "node": ">=22.0.0"
   },
   "dependencies": {
+    "@11ty/dependency-tree-typescript": "^1.0.0",
     "argsclopts": "^1.0.4",
     "async-folder-walker": "^3.0.5",
     "browser-sync": "^3.0.2",

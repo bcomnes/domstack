@@ -1,7 +1,26 @@
 {
   "permissions": {
     "allow": [
-      "Bash(node --test:*)"
+      "Bash(node --test:*)",
+      "Bash(git checkout:*)",
+      "Bash(npm test:*)",
+      "Bash(node -e:*)",
+      "Bash(npm install:*)",
+      "Bash(node --input-type=module:*)",
+      "Bash(npm run test:node-test:*)",
+      "Bash(npm run test:neostandard:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(npx eslint:*)",
+      "Bash(git -C /Users/bret/Developer/domstack branch:*)",
+      "Bash(git -C /Users/bret/Developer/domstack-2 branch --show-current)",
+      "Bash(npx neostandard:*)",
+      "Bash(ls:*)",
+      "Bash(git -C /Users/bret/Developer/domstack log --format=\"%s%n%n%b\" b15def119ce084a6ffa0f5d65deaac483132b9a4 -1)",
+      "Bash(git -C /Users/bret/Developer/domstack log --format=\"%s%n%n%b\" 90ad05fb08faee843ea2ef451cacd726e3ac6012 -1)",
+      "Bash(gh pr view:*)",
+      "Bash(gh api:*)",
+      "Bash(git -C /Users/bret/Developer/domstack log --oneline master..HEAD -- README.md)",
+      "Bash(git -C /Users/bret/Developer/domstack diff master -- README.md)"
     ]
   }
 }

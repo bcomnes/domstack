@@ -107,6 +107,7 @@ src % tree
 │        ├── global.client.ts # you can define a global client that loads on every page.
 │        ├── global.css # you can define a global css file that loads on every page.
 │        ├── global.vars.ts # site wide variables get defined in global.vars.ts
+│        ├── global.data.ts # optional file to derive and aggregate data from all pages before rendering
 │        ├── markdown-it.settings.ts # You can customize the markdown-it instance used to render markdown
 │        └── esbuild.settings.ts # You can even customize the build settings passed to esbuild
 ├── page.md # The top level page can also be a page.md (or README.md) file.
@@ -249,7 +250,7 @@ export const vars = {
   favoriteCookie: 'Chocolate Chip with Sea Salt'
 }
 
-export default const page: PageFunction<typeof vars}> = async ({
+const page: PageFunction<typeof vars}> = async ({
   vars
 }) => {
   return /* html */`<div>
@@ -258,6 +259,7 @@ export default const page: PageFunction<typeof vars}> = async ({
   </div>`
 }
 
+export default page
 ```
 
 It is recommended to use some level of template processing over raw string templates so that HTML is well-formed and variable values are properly escaped. Here is a more realistic TypeScript example that uses [`preact`](https://preactjs.com/) with [`htm`](https://github.com/developit/htm) and `domstack` page introspection.
@@ -276,7 +278,7 @@ export const vars = {
   favoriteCake: 'Chocolate Cloud Cake'
 }
 
-export default const blogIndex: PageFunction<BlogVars> = async ({
+const blogIndex: PageFunction<BlogVars> = async ({
   vars: { favoriteCake },
   pages
 }) => {
@@ -288,6 +290,8 @@ export default const blogIndex: PageFunction<BlogVars> = async ({
     </ul>
   </div>`
 }
+
+export default blogIndex
 ```
 
 ### Page Styles
@@ -485,7 +489,7 @@ type RootLayoutVars = {
   basePath?: string
 }
 
-export default const defaultRootLayout: LayoutFunction<RootLayoutVars> = ({
+const defaultRootLayout: LayoutFunction<RootLayoutVars> = ({
   vars: {
     title,
     siteName = 'Domstack',
@@ -525,6 +529,8 @@ export default const defaultRootLayout: LayoutFunction<RootLayoutVars> = ({
     </html>
   `
 }
+
+export default defaultRootLayout
 ```
 
 If your `src` folder doesn't have a `root.layout.js` file somewhere in it, `domstack` will use the default [`default.root.layout.js`](./lib/defaults/default.root.layout.js) file it ships. The default `root` layout includes a special boolean variable called `defaultStyle` that lets you disable a default page style (provided by [mine.css](http://github.com/bcomnes/mine.css)) that it ships with.
@@ -745,7 +751,7 @@ interface TemplateVars {
   testVar: string;
 }
 
-export default const simpleTemplate: TemplateFunction<TemplateVars> = async ({
+const simpleTemplate: TemplateFunction<TemplateVars> = async ({
   vars: {
     foo,
     testVar
@@ -755,6 +761,8 @@ export default const simpleTemplate: TemplateFunction<TemplateVars> = async ({
 
 This is just a file with access to global vars: ${foo}`
 }
+
+export default simpleTemplate
 ```
 
 ### Object template
@@ -789,7 +797,7 @@ interface TemplateVars {
   testVar: string;
 }
 
-export default const objectArrayTemplate: TemplateFunction<TemplateVars> = async ({
+const objectArrayTemplate: TemplateFunction<TemplateVars> = async ({
   vars: {
     foo,
     testVar
@@ -810,6 +818,8 @@ This is just a file with access to global vars: ${testVar}`,
     }
   ]
 }
+
+export default objectArrayTemplate
 ```
 
 ### AsyncIterator template
@@ -824,7 +834,7 @@ interface TemplateVars {
   testVar: string;
 }
 
-export default const templateIterator: TemplateAsyncIterator<TemplateVars> = async function * ({
+const templateIterator: TemplateAsyncIterator<TemplateVars> = async function * ({
   vars: {
     foo,
     testVar
@@ -846,6 +856,8 @@ This is just a file with access to global vars: ${testVar}`,
     outputName: 'yielded-2.txt'
   }
 }
+
+export default templateIterator
 ```
 
 ### RSS Feed Template Example
@@ -871,7 +883,7 @@ interface TemplateVars {
   language: string;
 }
 
-export default const feedsTemplate: TemplateAsyncIterator<TemplateVars> = async function * ({
+const feedsTemplate: TemplateAsyncIterator<TemplateVars> = async function * ({
   vars: {
     siteName,
     siteDescription,
@@ -920,6 +932,8 @@ export default const feedsTemplate: TemplateAsyncIterator<TemplateVars> = async 
     outputName: './feeds/feed.xml'
   }
 }
+
+export default feedsTemplate
 ```
 
 ## Global Assets
@@ -951,6 +965,9 @@ export const browser = {
 
 The exported object is passed to esbuild's [`define`](https://esbuild.github.io/api/#define) options and is available to every js bundle.
 
+> [!WARNING]
+> Setting `define` in [`esbuild.settings.ts`](#esbuild-settingsts) while also using the `browser` export will throw an error. Use one or the other.
+
 ### `global.client.ts`
 
 This is a script bundle that is included on every page. It provides an easy way to inject analytics, or other small scripts that every page should have. Try to minimize what you put in here.
@@ -965,6 +982,62 @@ This is a global stylesheet that every page will use.
 Any styles that need to be on every single page should live here.
 Importing css from `npm` modules work well here.
 
+### `global.data.js`
+
+The `global.data.js` (or `.ts`, `.mjs`, etc.) file is an optional file that can live anywhere in your `src` tree — like all global assets, the first one found wins and duplicates warn. It runs **once per build**, after all pages are initialized and before rendering begins.
+
+It receives a fully resolved `PageData[]` array and returns an object that is stamped onto every page's vars — making the derived data available to every page, layout, and template.
+
+```typescript
+import type { AsyncGlobalDataFunction } from '@domstack/static'
+import { html } from 'htm/preact'
+import { render } from 'preact-render-to-string'
+
+type GlobalData = {
+  blogPostsHtml: string
+}
+
+const buildGlobalData: AsyncGlobalDataFunction<GlobalData> = async ({ pages }) => {
+  const blogPosts = pages
+    .filter(p => p.vars?.layout === 'blog' && p.vars?.publishDate)
+    .sort((a, b) => new Date(b.vars.publishDate) - new Date(a.vars.publishDate))
+    .slice(0, 5)
+
+  const blogPostsHtml = render(html`
+    <ul className="blog-index-list">
+      ${blogPosts.map(p => html`
+        <li className="blog-entry h-entry">
+          <a className="blog-entry-link u-url u-uid p-name" href="/${p.pageInfo.path}/">
+            ${p.vars?.title}
+          </a>
+        </li>
+      `)}
+    </ul>
+  `)
+
+  return { blogPostsHtml }
+}
+
+export default buildGlobalData
+```
+
+The returned object is stamped onto every page's vars before rendering, so any page or layout can read the derived data via `vars`:
+
+```md
+## [Blog](./blog/)
+
+{{{ vars.blogPostsHtml }}}
+```
+
+**Key properties of `global.data.js`:**
+
+- Receives fully resolved `PageData[]` — every page has `.vars` (merged global + page + builder vars), `.pageInfo` (path, type, etc.), `.styles`, `.scripts`, and more.
+- Runs inside the worker process (same as all other dynamic imports) to avoid ESM caching issues.
+- Skipped entirely if no `global.data.*` file exists — zero overhead.
+- Changes to `global.data.*` trigger a full page rebuild (same as `global.vars.*`), since the output is stamped onto every page's vars.
+
+Use `GlobalDataFunction<T>` or `AsyncGlobalDataFunction<T>` to type the function where `T` is the shape of the object you return.
+
 ### `esbuild.settings.ts`
 
 This is an optional file you can create anywhere.
@@ -978,10 +1051,12 @@ import { polyfillNode } from 'esbuild-plugin-polyfill-node'
 // BuildOptions re-exported from esbuild
 import type { BuildOptions } from '@domstack/static'
 
-export default const esbuildSettingsOverride = async (esbuildSettings: BuildOptions): Promise<BuildOptions> => {
+const esbuildSettingsOverride = async (esbuildSettings: BuildOptions): Promise<BuildOptions> => {
   esbuildSettings.plugins = [polyfillNode()]
   return esbuildSettings
 }
+
+export default esbuildSettingsOverride
 ```
 
 Important esbuild settings you may want to set here are:
@@ -989,6 +1064,7 @@ Important esbuild settings you may want to set here are:
 - [target](https://esbuild.github.io/api/#target) - Set the `target` to make `esbuild` run a few small transforms on your CSS and JS code.
 - [jsx](https://esbuild.github.io/api/#jsx) - Unset this if you want default react transform.
 - [jsxImportSource](https://esbuild.github.io/api/#jsx-import-source)  - Unset this if you want default react transform.
+- [define](https://esbuild.github.io/api/#define) - Define compile-time constants for js bundles. Note: setting `define` here conflicts with the [`browser` export](#browser-variable) in `global.vars.ts` and will throw an error if both are set.
 
 ### `markdown-it.settings.ts`
 
@@ -1002,7 +1078,7 @@ import markdownItContainer from 'markdown-it-container'
 import markdownItPlantuml from 'markdown-it-plantuml'
 import type { MarkdownIt } from 'markdown-it'
 
-export default const markdownItSettingsOverride = async (md: MarkdownIt) => {
+const markdownItSettingsOverride = async (md: MarkdownIt) => {
   // Add custom plugins
   md.use(markdownItContainer, 'spoiler', {
     validate: (params: string) => {
@@ -1022,13 +1098,15 @@ export default const markdownItSettingsOverride = async (md: MarkdownIt) => {
 
   return md
 }
+
+export default markdownItSettingsOverride
 ```
 
 ```typescript
 import markdownIt, { MarkdownIt } from 'markdown-it'
 import myCustomPlugin from './my-custom-plugin'
 
-export default const markdownItSettingsOverride = async (md: MarkdownIt) => {
+const markdownItSettingsOverride = async (md: MarkdownIt) => {
   // Create a new instance with different settings
   const newMd = markdownIt({
     html: false,        // Disable HTML tags in source
@@ -1042,7 +1120,7 @@ export default const markdownItSettingsOverride = async (md: MarkdownIt) => {
   return newMd
 }
 
-markdownItSettingsOverride
+export default markdownItSettingsOverride
 ```
 
 By default, DOMStack ships with the following markdown-it plugins enabled:
@@ -1064,9 +1142,9 @@ By default, DOMStack ships with the following markdown-it plugins enabled:
 
 ## Variables
 
-Pages, Layouts, and `postVars` all receive an object with the following parameters:
+Pages and Layouts receive an object with the following parameters:
 
-- `vars`: An object with the variables of `global.vars.ts`, `page.vars.ts`, and any front-matter,`vars` exports and `postVars` from the page merged together.
+- `vars`: An object with the variables of `global.vars.ts`, `global.data.js`, `page.vars.ts`, and any front-matter or `vars` exports from the page merged together.
 - `pages`: An array of [`PageData`](https://github.com/bcomnes/d omstack/blob/master/lib/build-pages/page-data.js) instances for every page in the site build. Use this array to introspect pages to generate feeds and index pages.
 - `page`: An object of the page being rendered with the following parameters:
   - `type`: The type of page (`md`, `html`, or `js`)
@@ -1084,56 +1162,11 @@ Template files receive a similar set of variables:
 - `pages`: An array of [`PageData`](https://github.com/bcomnes/domstack/blob/master/lib/build-pages/page-data.js) instances for every page in the site build. Use this array to introspect pages to generate feeds and index pages.
 - `template`: An object of the template file data being rendered.
 
-### `postVars` post processing variables (Advanced) {#postVars}
+### Derived global data (Advanced)
 
-In `page.vars.ts` files, you can export a `postVars` sync/async function that returns an object. This function receives the same variable set as pages and layouts. Whatever object is returned from the function is merged into the final `vars` object and is available in the page and layout. This is useful if you want to apply advanced rendering page introspection and insert it into a markdown document (for example, the last few blog posts on a markdown page.)
+For data that aggregates across multiple pages — like blog indexes, sitemaps, or RSS feed content — use [`global.data.js`](#globaldatajs). That file runs once per build, receives the raw page list, and merges its return value into `globalVars` so every page, layout, and template can read it via `vars`.
 
-For example:
-
-```typescript
-import { html } from 'htm/preact'
-import { render } from 'preact-render-to-string'
-import type { PostVarsFunction } from '@domstack/static'
-
-export const postVars: PostVarsFunction = async ({
-  pages
-}) => {
-  const blogPosts = pages
-    .filter(page => page.vars.layout === 'article')
-    .sort((a, b) => new Date(b.vars.publishDate) - new Date(a.vars.publishDate))
-    .slice(0, 5)
-
-  const blogpostsHtml = render(html`<ul className="blog-index-list">
-      ${blogPosts.map(p => {
-        const publishDate = p.vars.publishDate ? new Date(p.vars.publishDate) : null
-        return html`
-          <li className="blog-entry h-entry">
-            <a className="blog-entry-link u-url u-uid p-name" href="/${p.pageInfo.path}/">${p.vars.title}</a>
-            ${
-              publishDate
-                ? html`<time className="blog-entry-date dt-published" datetime="${publishDate.toISOString()}">
-                    ${publishDate.toISOString().split('T')[0]}
-                  </time>`
-                : null
-            }
-          </li>`
-        })}
-    </ul>`)
-
-  return {
-    blogPostsHtml: blogpostsHtml
-  }
-}
-```
-
-This `postVars` renders some html from page introspection of the last 5 blog post titles. In the associated page markdown, this variable is available via a handlebars placeholder.
-
-```md
-<!-- README.md -->
-## [Blog](./blog/)
-
-{{{ vars.blogPostsHtml }}}
-```
+See the [`global.data.js`](#globaldatajs) section under [Global Assets](#global-assets) for a full example.
 
 ## TypeScript Support
 
@@ -1186,8 +1219,8 @@ You can use `domstack`'s built-in types to strongly type your layout, page, and 
 import type {
   LayoutFunction,
   AsyncLayoutFunction,
-  PostVarsFunction,
-  AsyncPostVarsFunction,
+  GlobalDataFunction,
+  AsyncGlobalDataFunction,
   PageFunction,
   AsyncPageFunction,
   TemplateFunction,
@@ -1371,7 +1404,7 @@ The `buildPages()` step processes pages in parallel with a concurrency limit:
                     └────────┬─────────┘
                              │
                 ┌────────────▼───────────────┐
-                │  Parallel Page Queue       │
+                │  Parallel Page Init        │
                 │(Concurrency: min(CPUs, 24))│
                 └────────────┬───────────────┘
                              │
@@ -1382,71 +1415,88 @@ The `buildPages()` step processes pages in parallel with a concurrency limit:
 │  MD Page Task   │    │ HTML Page Task  │    │  JS Page Task   │
 ├─────────────────┤    ├─────────────────┤    ├─────────────────┤
 │ ┌─────────────┐ │    │ ┌─────────────┐ │    │ ┌─────────────┐ │
-│ │1. Read .md  │ │    │ │1. Read .html│ │    │ │1. Import .js│ │
-│ │   file      │ │    │ │   file      │ │    │ │   module    │ │
+│ │1. Parse MD  │ │    │ │1. Read .html│ │    │ │1. Import .js│ │
+│ │ frontmatter │ │    │ │   file      │ │    │ │   module    │ │
 │ └──────┬──────┘ │    │ └──────┬──────┘ │    │ └──────┬──────┘ │
 │        ▼        │    │        ▼        │    │        ▼        │
 │ ┌─────────────┐ │    │ ┌─────────────┐ │    │ ┌─────────────┐ │
-│ │2. Extract   │ │    │ │2. Variable  │ │    │ │2. Variable  │ │
-│ │ frontmatter │ │    │ │  Resolution │ │    │ │  Resolution │ │
+│ │2. Variable  │ │    │ │2. Variable  │ │    │ │2. Variable  │ │
+│ │  Resolution │ │    │ │  Resolution │ │    │ │  Resolution │ │
 │ └──────┬──────┘ │    │ └──────┬──────┘ │    │ └──────┬──────┘ │
 │        ▼        │    │        ▼        │    │        ▼        │
 │ ┌─────────────┐ │    │ ┌─────────────┐ │    │ ┌─────────────┐ │
-│ │ Frontmatter │ │    │ │page.vars.js │ │    │ │  Exported   │ │
-│ │    vars     │ │    │ │             │ │    │ │    vars     │ │
-│ └──────┬──────┘ │    │ └──────┬──────┘ │    │ └──────┬──────┘ │
-│        ▼        │    │        ▼        │    │        ▼        │
-│ ┌─────────────┐ │    │ ┌─────────────┐ │    │ ┌─────────────┐ │
-│ │page.vars.js │ │    │ │  postVars   │ │    │ │page.vars.js │ │
-│ │             │ │    │ │             │ │    │ │             │ │
-│ └──────┬──────┘ │    │ └──────┬──────┘ │    │ └──────┬──────┘ │
-│        ▼        │    │        ▼        │    │        ▼        │
-│ ┌─────────────┐ │    │ ┌─────────────┐ │    │ ┌─────────────┐ │
-│ │  postVars   │ │    │ │3. Handlebars│ │    │ │  postVars   │ │
-│ │             │ │    │ │ (if enabled)│ │    │ │             │ │
-│ └──────┬──────┘ │    │ └──────┬──────┘ │    │ └──────┬──────┘ │
-│        ▼        │    │        ▼        │    │        ▼        │
-│ ┌─────────────┐ │    │ ┌─────────────┐ │    │ ┌─────────────┐ │
-│ │3. Render MD │ │    │ │4. Render    │ │    │ │3. Execute   │ │
-│ │   to HTML   │ │    │ │  with layout│ │    │ │  page func  │ │
-│ └──────┬──────┘ │    │ └──────┬──────┘ │    │ └──────┬──────┘ │
-│        ▼        │    │        ▼        │    │        ▼        │
-│ ┌─────────────┐ │    │ ┌─────────────┐ │    │ ┌─────────────┐ │
-│ │4. Extract   │ │    │ │5. Write HTML│ │    │ │4. Render    │ │
-│ │  title (h1) │ │    │ │             │ │    │ │  with layout│ │
-│ └──────┬──────┘ │    │ └─────────────┘ │    │ └──────┬──────┘ │
-│        ▼        │    │                 │    │        ▼        │
-│ ┌─────────────┐ │    │                 │    │ ┌─────────────┐ │
-│ │5. Render    │ │    │                 │    │ │5. Write HTML│ │
-│ │  with layout│ │    │                 │    │ │             │ │
-│ └──────┬──────┘ │    │                 │    │ └─────────────┘ │
-│        ▼        │    │                 │    │                 │
-│ ┌─────────────┐ │    │                 │    │                 │
-│ │6. Write HTML│ │    │                 │    │                 │
-│ └─────────────┘ │    │                 │    │                 │
+│ │ builder +   │ │    │ │page.vars.js │ │    │ │  Exported   │ │
+│ │ page.vars.js│ │    │ │             │ │    │ │  + page.vars│ │
+│ └─────────────┘ │    │ └─────────────┘ │    │ └─────────────┘ │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
          │                      │                      │
          └──────────────────────┼──────────────────────┘
                                 │
                                 ▼
-                       ┌──────────────────┐
-                       │  Complete when   │
-                       │  all pages done  │
-                       └──────────────────┘
+                    ┌───────────────────────┐
+                    │  global.data.js runs  │
+                    │  (receives PageData[])│
+                    │  stamps vars on pages │
+                    └───────────┬───────────┘
+                                │
+                                ▼
+                ┌───────────────────────────────┐
+                │  Parallel Render + Write      │
+                │ (Concurrency: min(CPUs, 24))  │
+                └───────────────────────────────┘
 ```
 
 Variable Resolution Layers:
 - **Global vars** - Site-wide variables from `global.vars.js` (resolved once)
 - **Layout vars** - Layout-specific variables from layout functions (resolved once)
 - **Page-specific vars** vary by type:
-  - **MD pages**: frontmatter → page.vars.js → postVars
-  - **HTML pages**: page.vars.js → postVars
-  - **JS pages**: exported vars → page.vars.js → postVars
-- **postVars** - Post-processing function that can modify variables based on all resolved data
+  - **MD pages**: page.vars.js + builder vars (from frontmatter)
+  - **HTML pages**: page.vars.js
+  - **JS pages**: exported vars → page.vars.js
+- **Global data** - Derived variables from `global.data.js`, stamped onto every page after all pages initialize (resolved once, after page init)
+
+### Watch Mode
+
+When you run `domstack --watch` (or `domstack -w`), domstack performs an initial build and then watches for changes, rebuilding only what's necessary. Watch mode uses two independent watch loops:
+
+**esbuild watch** — JS and CSS bundles are handled by esbuild's native `context.watch()`. In watch mode, output filenames are stable (no content hashes), so bundle changes never require a page HTML rebuild. Browser-sync detects the updated files on disk and reloads the browser directly.
+
+**chokidar watch** — Page files, layouts, templates, and config files are watched by chokidar. When a file changes, domstack determines the minimal set of pages to rebuild using dependency tracking maps built at startup.
+
+#### What triggers what
+
+| Change | Rebuild scope |
+|---|---|
+| `page.js`, `page.ts`, `page.html`, `page.md`, or `page.vars.*` | Only that page |
+| A file imported by a `page.js` or `page.vars.*` | Only the pages that import it (transitively) |
+| A layout file (`*.layout.js`) | Only the pages using that layout |
+| A file imported by a layout | Only the pages using the affected layout(s) |
+| A template file (`*.template.js`) | Only that template |
+| A file imported by a template | Only the affected template(s) |
+| `markdown-it.settings.*` | All `.md` pages |
+| `global.data.*` | All pages and templates |
+| `global.vars.*` or `esbuild.settings.*` | Full rebuild (esbuild restart + all pages) |
+| `client.js`, `style.css`, `*.layout.css`, `*.layout.client.*`, `global.client.*`, `global.css`, `*.worker.*` | esbuild handles it — no page rebuild |
+| Adding or removing an esbuild entry point (e.g. creating a new `client.js`) | esbuild restart + only the affected page(s) |
+| Adding or removing any other file | Full rebuild |
+
+#### Dependency tracking
+
+domstack uses [`@11ty/dependency-tree-typescript`](https://github.com/11ty/dependency-tree-typescript) to statically analyze ESM imports in page files, layout files, and template files. This means if your `page.js` imports a shared utility module, changing that module will only rebuild the pages that depend on it — not the entire site.
+
+esbuild tracks its own entry point dependencies independently. Changing a file imported by `client.js` will trigger an esbuild rebundle but will not trigger a page rebuild, since watch mode uses stable filenames.
+
+#### Stable filenames
+
+In watch mode, esbuild uses `[dir]/[name]` output patterns instead of `[dir]/[name]-[hash]`. This means the `<script>` and `<link>` tags in page HTML always point to the same filenames. When esbuild rebundles, the file contents change but the filenames don't, so page HTML never needs to be re-rendered just because a bundle changed.
+
+#### Build serialization
+
+Chokidar events are serialized through a promise chain, so rapid saves don't cause overlapping rebuilds. Each rebuild completes before the next one starts.
 
 ## Roadmap
 
-`domstack` works and has a rudimentary watch command, but hasn't been battle tested yet.
+`domstack` works and has a watch command with progressive rebuilds.
 If you end up trying it out, please open any issues or ideas that you have, and feel free to share what you build.
 
 Some notable features are included below, see the [roadmap](https://github.com/users/bcomnes/projects/3/) for a more in depth view of whats planned.
@@ -1488,6 +1538,9 @@ Some notable features are included below, see the [roadmap](https://github.com/u
 - [x] markdown-it.settings.ts support
 - [x] page-worker.worker.ts page worker support
 - [x] `page.md` page support
+- [x] Remove `postVars` and implement `global.data.{j,t}s`
+- [x] Harden behavior around conflicting `browserVars` and esbuild settings
+- [x] Progressive watch rebuilds with dependency tracking
 - ...[See roadmap](https://github.com/users/bcomnes/projects/3/)
 
 ## History

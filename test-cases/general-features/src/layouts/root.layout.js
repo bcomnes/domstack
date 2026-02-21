@@ -4,6 +4,7 @@
 
 import { html } from 'htm/preact'
 import { render } from 'preact-render-to-string'
+import { LAYOUT_MARKER } from '../libs/layout-helper.js'
 
 /**
  * @typedef {{
@@ -60,7 +61,7 @@ export default function defaultRootLayout ({
   `)
 
   return `<!DOCTYPE html>
-<html>
+<html data-marker="${LAYOUT_MARKER}">
   ${head}
   ${body}
 </html>`
