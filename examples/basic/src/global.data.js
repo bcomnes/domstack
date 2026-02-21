@@ -1,17 +1,16 @@
 /**
- * @import { PageInfo } from '@domstack/static'
+ * @import { PageData } from '@domstack/static'
  */
 import { html } from 'htm/preact'
 import { render } from 'preact-render-to-string'
 
 /**
- * @param {{ pages: PageInfo[] }} params
+ * @param {{ pages: PageData[] }} params
  */
 export default async function globalData ({ pages }) {
   const blogPosts = pages
     .filter(p => p.vars?.layout === 'blog')
-    // @ts-ignore
-    .sort((a, b) => new Date(b.vars.publishDate) - new Date(a.vars.publishDate))
+    .sort((a, b) => new Date(b.vars.publishDate).getTime() - new Date(a.vars.publishDate).getTime())
 
   /** @type {string} */
   const recentPostsHtml = render(html`

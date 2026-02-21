@@ -1,19 +1,16 @@
 /**
- * @import { PageInfo } from '../../../index.js'
+ * @import { PageData } from '../../../index.js'
  */
 import { html } from 'htm/preact'
 import { render } from 'preact-render-to-string'
 
 /**
- * @param {{ pages: PageInfo[] }} params
+ * @param {{ pages: PageData[] }} params
  */
 export default async function globalData ({ pages }) {
-  /** @type {any[]} */
   const blogPosts = pages
-    // @ts-ignore
     .filter(page => page.vars?.layout === 'blog' && page.vars?.publishDate)
-    // @ts-ignore
-    .sort((a, b) => new Date(b.vars.publishDate) - new Date(a.vars.publishDate))
+    .sort((a, b) => new Date(b.vars.publishDate).getTime() - new Date(a.vars.publishDate).getTime())
     .slice(0, 5)
 
   /** @type {string} */

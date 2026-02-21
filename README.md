@@ -885,7 +885,7 @@ export default const feedsTemplate: TemplateAsyncIterator<TemplateVars> = async 
 }) {
   const blogPosts = pages
     .filter(page => page.pageInfo.path.startsWith('blog/') && page.vars['layout'] === 'blog')
-    .sort((a, b) => new Date(b.vars.publishDate) - new Date(a.vars.publishDate))
+    .sort((a, b) => new Date(b.vars.publishDate).getTime() - new Date(a.vars.publishDate).getTime())
     .slice(0, 10)
 
   const jsonFeed = {
@@ -1072,12 +1072,12 @@ The returned object is merged into `vars` after `global.vars.ts`, so its values 
 
 ```typescript
 // src/global.data.ts
-import type { PageInfo } from '@domstack/static'
+import type { PageData } from '@domstack/static'
 
-export default async function globalData ({ pages }: { pages: PageInfo[] }) {
+export default async function globalData ({ pages }: { pages: PageData[] }) {
   const posts = pages
     .filter(p => p.vars?.layout === 'article')
-    .sort((a, b) => new Date(b.vars.publishDate) - new Date(a.vars.publishDate))
+    .sort((a, b) => new Date(b.vars.publishDate).getTime() - new Date(a.vars.publishDate).getTime())
 
   return {
     latestPosts: posts.slice(0, 5),
@@ -1095,7 +1095,7 @@ export default async function ({ vars }) {
 }
 ```
 
-`global.data.ts` runs inside the build worker on every full rebuild. It receives the raw `PageInfo` array (not yet rendered), so you can use it for aggregation, tag collection, feed generation data, and similar tasks. For rendering HTML from the page list, use a [template file](#templates) instead.
+`global.data.ts` runs inside the build worker on every full rebuild. It receives the fully initialized `PageData` array — with resolved `vars`, `pageInfo`, and all page metadata — so you can filter by layout, publishDate, title, and any other page variable. Use it for aggregation, tag collection, feed generation data, and similar tasks.
 
 ## Variables
 
@@ -1139,7 +1139,7 @@ import { render } from 'preact-render-to-string'
 export const postVars = async ({ pages }) => {
   const blogPosts = pages
     .filter(page => page.vars.layout === 'article')
-    .sort((a, b) => new Date(b.vars.publishDate) - new Date(a.vars.publishDate))
+    .sort((a, b) => new Date(b.vars.publishDate).getTime() - new Date(a.vars.publishDate).getTime())
     .slice(0, 5)
 
   return {
@@ -1155,12 +1155,12 @@ After (`src/global.data.ts`):
 ```typescript
 import { html } from 'htm/preact'
 import { render } from 'preact-render-to-string'
-import type { PageInfo } from '@domstack/static'
+import type { PageData } from '@domstack/static'
 
-export default async function globalData ({ pages }: { pages: PageInfo[] }) {
+export default async function globalData ({ pages }: { pages: PageData[] }) {
   const blogPosts = pages
     .filter(page => page.vars?.layout === 'article')
-    .sort((a, b) => new Date(b.vars.publishDate) - new Date(a.vars.publishDate))
+    .sort((a, b) => new Date(b.vars.publishDate).getTime() - new Date(a.vars.publishDate).getTime())
     .slice(0, 5)
 
   return {

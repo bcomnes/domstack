@@ -15,6 +15,7 @@ Aggregating blog posts for an index page or RSS feed:
 ```js
 // src/global.data.js
 export default async function globalData ({ pages }) {
+  // pages is PageData[] — fully resolved, so p.vars, p.pageInfo, etc. are available
   const posts = pages
     .filter(p => p.vars?.layout === 'blog')
     .sort((a, b) => new Date(b.vars.publishDate) - new Date(a.vars.publishDate))

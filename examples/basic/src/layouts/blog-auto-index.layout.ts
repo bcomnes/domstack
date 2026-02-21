@@ -16,22 +16,18 @@ const blogAutoIndexLayout: LayoutFunction<BlogIndexVars> = (args) => {
 
   const folderPages = args.pages
     .filter(p => dirname(p.pageInfo.path) === args.page.path)
-    // @ts-ignore
-    .sort((a, b) => new Date(b.vars.publishDate) - new Date(a.vars.publishDate))
+    .sort((a, b) => new Date(b.vars.publishDate).getTime() - new Date(a.vars.publishDate).getTime())
 
   const wrappedChildren = render(html`
     <ul class="blog-index-list">
       ${folderPages.map(p => {
-        const publishDate = p.vars.publishDate ? new Date(p.vars.publishDate as string) : null
+        const publishDate = new Date(p.vars.publishDate)
         return html`
           <li class="blog-entry h-entry">
             <a class="blog-entry-link u-url p-name" href="/${p.pageInfo.path}/">${p.vars.title}</a>
-            ${publishDate
-              ? html`<time class="blog-entry-date dt-published" datetime="${publishDate.toISOString()}">
-                  ${publishDate.toISOString().split('T')[0]}
-                </time>`
-              : null
-            }
+            <time class="blog-entry-date dt-published" datetime="${publishDate.toISOString()}">
+              ${publishDate.toISOString().split('T')[0]}
+            </time>
           </li>
         `
       })}

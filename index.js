@@ -86,7 +86,7 @@ import { DomStackAggregateError } from './lib/helpers/dom-stack-aggregate-error.
  */
 
 /**
- * @template {Record<string, any>} [T=object] T - The type of variables for the page data
+ * @template {Record<string, any>} [T=any] T - The type of variables for the page data
  * @template [U=any] U - The return type of the page function (defaults to any)
  * @template [V=string] V - The return type of the layout function (defaults to string)
  * @typedef {PageData<T, U, V>} PageData
@@ -103,7 +103,6 @@ const DEFAULT_IGNORES = /** @type {const} */ ([
   'pnpm-lock.yaml',
   'yarn.lock',
 ])
-
 
 /**
  * Find transitive ESM dependencies of a file.

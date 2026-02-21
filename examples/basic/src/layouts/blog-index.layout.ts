@@ -6,7 +6,7 @@ import defaultRootLayout from './root.layout.ts'
 import type { PageVars } from './root.layout.ts'
 
 export interface BlogIndexVars extends PageVars {
-  publishDate?: string;
+  publishDate: string;
 }
 
 const blogIndexLayout: LayoutFunction<BlogIndexVars> = (args) => {

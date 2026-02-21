@@ -123,6 +123,30 @@ test.describe('general-features', () => {
       assert.fail('Failed to verify markdown-it.settings.js customization: ' + error.message)
     }
 
+    // Test that global.data.js injected blogPostsHtml into the index page
+    await t.test('global.data.js injects data into vars', async () => {
+      const indexPath = path.join(dest, 'index.html')
+      const indexContent = await readFile(indexPath, 'utf8')
+      const indexDoc = cheerio.load(indexContent)
+
+      // global.data.js filters pages with layout:blog and publishDate, sorts by date desc
+      const blogList = indexDoc('ul.blog-index-list')
+      assert.ok(blogList.length > 0, 'global.data.js rendered blog-index-list into index page')
+
+      const blogEntries = indexDoc('ul.blog-index-list li.blog-entry')
+      assert.ok(blogEntries.length >= 4, `global.data.js found at least 4 blog posts (got ${blogEntries.length})`)
+
+      // Entries should be sorted newest first — first entry should be from 2023
+      const firstLink = indexDoc('ul.blog-index-list li.blog-entry:first-child a')
+      assert.ok(firstLink.length > 0, 'first blog entry has a link')
+
+      // Verify the first entry has a time element with a datetime attribute
+      const firstTime = indexDoc('ul.blog-index-list li.blog-entry:first-child time')
+      assert.ok(firstTime.length > 0, 'first blog entry has a time element')
+      const datetime = firstTime.attr('datetime')
+      assert.ok(datetime && datetime > '2023', 'first blog entry datetime is 2023 or later (sorted newest first)')
+    })
+
     // Check for worker files existence (used in the next test)
     const hasWorkerFiles = files.some(f => f.relname.includes('worker-page') && f.relname.includes('counter.worker-'))
     assert.ok(hasWorkerFiles, 'Worker files exist in the output')
