@@ -951,6 +951,9 @@ export const browser = {
 
 The exported object is passed to esbuild's [`define`](https://esbuild.github.io/api/#define) options and is available to every js bundle.
 
+> [!WARNING]
+> Setting `define` in [`esbuild.settings.ts`](#esbuild-settings) while also using the `browser` export will throw an error. Use one or the other.
+
 ### `global.client.ts`
 
 This is a script bundle that is included on every page. It provides an easy way to inject analytics, or other small scripts that every page should have. Try to minimize what you put in here.
@@ -989,6 +992,7 @@ Important esbuild settings you may want to set here are:
 - [target](https://esbuild.github.io/api/#target) - Set the `target` to make `esbuild` run a few small transforms on your CSS and JS code.
 - [jsx](https://esbuild.github.io/api/#jsx) - Unset this if you want default react transform.
 - [jsxImportSource](https://esbuild.github.io/api/#jsx-import-source)  - Unset this if you want default react transform.
+- [define](https://esbuild.github.io/api/#define) - Define compile-time constants for js bundles. Note: setting `define` here conflicts with the [`browser` export](#browser-variable) in `global.vars.ts` and will throw an error if both are set.
 
 ### `markdown-it.settings.ts`
 
