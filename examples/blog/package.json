@@ -1,0 +1,27 @@
+{
+  "name": "blog",
+  "version": "0.0.0",
+  "description": "A blog example for domstack demonstrating global.data.ts, nested layouts, and feeds.",
+  "type": "module",
+  "scripts": {
+    "start": "npm run watch",
+    "build": "npm run clean && domstack",
+    "clean": "rm -rf public && mkdir -p public",
+    "watch": "npm run clean && dom --watch",
+    "test": "tsc"
+  },
+  "keywords": [],
+  "author": "Bret Comnes <bcomnes@gmail.com> (https://bret.io/)",
+  "license": "MIT",
+  "devDependencies": {
+    "@voxpelli/tsconfig": "^16.0.0",
+    "typescript": "~5.9.2"
+  },
+  "dependencies": {
+    "@domstack/static": "file:../../.",
+    "htm": "^3.1.1",
+    "mine.css": "^10.0.0",
+    "preact": "^10.26.6",
+    "preact-render-to-string": "^6.5.13"
+  }
+}
