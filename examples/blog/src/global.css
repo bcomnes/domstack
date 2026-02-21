@@ -1,0 +1,39 @@
+@import 'mine.css/dist/mine.css';
+@import 'mine.css/dist/layout.css';
+
+/* ── Site-wide ── */
+
+.site-header {
+  border-bottom: 1px solid var(--border);
+  padding: 1rem 0;
+  margin-bottom: 2rem;
+}
+
+.site-header-inner {
+  display: flex;
+  align-items: baseline;
+  gap: 1.5rem;
+}
+
+.site-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  text-decoration: none;
+  color: inherit;
+}
+
+.site-nav {
+  display: flex;
+  gap: 1rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.site-footer {
+  border-top: 1px solid var(--border);
+  margin-top: 3rem;
+  padding: 1.5rem 0;
+  font-size: 0.875rem;
+  color: var(--text-2);
+}

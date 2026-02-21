@@ -1,0 +1,45 @@
+/* Base layout styles shared by all layout variants */
+
+/* ── Post index list (used by home + /blog/) ── */
+
+.post-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.post-list-item {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 1.5rem;
+}
+
+.post-list-item:last-child {
+  border-bottom: none;
+}
+
+.post-list-title {
+  font-size: 1.25rem;
+  margin: 0 0 0.25rem;
+}
+
+.post-list-title a {
+  text-decoration: none;
+}
+
+.post-list-title a:hover {
+  text-decoration: underline;
+}
+
+.post-list-meta {
+  font-size: 0.8rem;
+  color: var(--text-2);
+  margin: 0 0 0.5rem;
+}
+
+.post-list-description {
+  margin: 0;
+  color: var(--text-2);
+}
