@@ -74,6 +74,14 @@ test.describe('general-features', () => {
         style: true,
         worker: true
       },
+      'page-md-page/index.html': {
+        client: false,
+        style: false,
+      },
+      'page-md-precedence/index.html': {
+        client: false,
+        style: false,
+      },
     }
 
     const files = await allFiles(dest, { shaper: fwData => fwData })
@@ -89,6 +97,17 @@ test.describe('general-features', () => {
     assert.equal(generatedGlobalClient, globalAssets.globalClient, `${globalAssets.globalClient
             ? 'Generated'
             : 'Did not generate'} a global client`)
+
+    // Special test for page.md precedence over README.md
+    const pageMdPrecedencePath = path.join(dest, 'page-md-precedence/index.html')
+    try {
+      const pageMdContent = await readFile(pageMdPrecedencePath, 'utf8')
+      assert.ok(pageMdContent.includes('from page.md'), 'page.md content is rendered')
+      assert.ok(!pageMdContent.includes('from README.md'), 'README.md content is not rendered when page.md exists')
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error('Unknown error', { cause: err })
+      assert.fail('Failed to verify page.md precedence: ' + error.message)
+    }
 
     // Special test for markdown-it.settings.js
     const mdSettingsTestPath = path.join(dest, 'md-page/markdown-settings-test.html')

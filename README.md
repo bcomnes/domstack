@@ -70,12 +70,12 @@ A `src` directory tree might look something like this:
 src % tree
 .
 ├── md-page
-│        ├── README.md # directories with README.md in them turn into /md-page/index.html.
+│        ├── page.md # page.md (or README.md) in a directory turns into /md-page/index.html. page.md takes precedence.
 │        ├── client.ts # Every page can define its own client.ts script that loads only with it.
 │        ├── style.css # Every page can define its own style.css style that loads only with it.
 │        ├── loose-md-page.md # loose markdown get built in place, but lacks some page features.
 │        └── nested-page # pages are built in place and can nest.
-│               ├── README.md # This page is accessed at /md-page/nested-page/.
+│               ├── README.md # This page is accessed at /md-page/nested-page/. (page.md works here too)
 │               ├── style.css # nested pages are just pages, so they also can have a page scoped client and style.
 │               └── client.js # Anywhere JS loads, you can use .js or .ts
 ├── html-page
@@ -109,7 +109,7 @@ src % tree
 │        ├── global.vars.ts # site wide variables get defined in global.vars.ts
 │        ├── markdown-it.settings.ts # You can customize the markdown-it instance used to render markdown
 │        └── esbuild.settings.ts # You can even customize the build settings passed to esbuild
-├── README.md # This is just a top level page built from a README.md file.
+├── page.md # The top level page can also be a page.md (or README.md) file.
 ├── client.ts # the top level page can define a page scoped js client.
 ├── style.css # the top level page can define a page scoped css style.
 └── favicon-16x16.png # static assets can live anywhere. Anything other than JS, CSS and HTML get copied over automatically.
@@ -165,13 +165,15 @@ Because pages are just directories, they nest and structure naturally as a files
 A `md` page looks like this on the filesystem:
 
 ```bash
+src/page-name/page.md
+# or
 src/page-name/README.md
 # or
 src/page-name/loose-md.md
 ```
 
-- `md` pages have two types: a `README.md` in a folder, or a loose `whatever-name-you-want.md` file.
-- `README.md` files transform to an `index.html` at the same path, and `whatever-name-you-want.md` loose markdown files transform into `whatever-name-you-want.html` files at the same path in the `dest` directory.
+- `md` pages have three types: a `page.md`, a `README.md`, or a loose `whatever-name-you-want.md` file.
+- `page.md` and `README.md` files transform to an `index.html` at the same path. When both exist in the same directory, `page.md` takes precedence over `README.md`. `whatever-name-you-want.md` loose markdown files transform into `whatever-name-you-want.html` files at the same path in the `dest` directory.
 - `md` pages can have YAML frontmatter, with variables that are accessible to the page layout and handlebars template blocks when building.
 - You can include html in markdown files, so long as you adhere to the allowable markdown syntax around html tags.
 - `md` pages support [handlebars][hb] template placeholders.
@@ -1250,7 +1252,7 @@ const layout: LayoutFunction<{site: string}, VDOMNode, string> = ({ children }) 
 - Standardized entrypoints. Every page in a `domstack` site has a natural and obvious entrypoint. There is no magic redirection to learn about.
 - Pages build into `index.html` files inside of named directories. This allows for naturally colocated assets next to the page, pretty URLs and full support for relative URLs.
 - No parallel directory structures. You should never be forced to have two directories with identical layouts to put files next to each other. Everything should be colocatable.
-- Markdown entrypoints are named README.md. This allows for the `src` folder to be fully navigable in GitHub and other git repo hosting providing a natural hosted CMS UI.
+- Markdown entrypoints are named `page.md` or `README.md`. `README.md` allows for the `src` folder to be fully navigable in GitHub and other git repo hosting providing a natural hosted CMS UI. `page.md` is preferred when GitHub navigability is not a concern.
 - Real TC39 ESM from the start.
 - Garbage in, garbage out. Don't over-correct bad input.
 - Conventions + standards. Vanilla file types. No new file extensions. No weird syntax to learn. Language tools should just work because you aren't doing anything weird or out of band.
@@ -1485,6 +1487,7 @@ Some notable features are included below, see the [roadmap](https://github.com/u
 - [x] Rename to domstack
 - [x] markdown-it.settings.ts support
 - [x] page-worker.worker.ts page worker support
+- [x] `page.md` page support
 - ...[See roadmap](https://github.com/users/bcomnes/projects/3/)
 
 ## History
