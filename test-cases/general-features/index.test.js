@@ -98,6 +98,11 @@ test.describe('general-features', () => {
             ? 'Generated'
             : 'Did not generate'} a global client`)
 
+    // Shared chunks (html-page, js-page, and md-page/client.js all import client-helper.js)
+    // must be emitted with a hash in their filename to avoid output path collisions.
+    const jsChunkFiles = files.filter(f => f.relname.match(/chunks\/js\/chunk-.+\.js$/))
+    assert.ok(jsChunkFiles.length > 0, 'at least one shared JS chunk was produced with a hashed name')
+
     // Special test for global.data.js blogPostsHtml
     const indexPath = path.join(dest, 'index.html')
     try {

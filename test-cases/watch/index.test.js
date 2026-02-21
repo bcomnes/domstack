@@ -1,7 +1,7 @@
 import { test, mock } from 'node:test'
 import assert from 'node:assert'
 import { DomStack } from '../../index.js'
-import { cp, rm, writeFile, readFile, unlink, mkdtemp, stat } from 'fs/promises'
+import { cp, rm, writeFile, readFile, unlink, mkdtemp, stat, readdir } from 'fs/promises'
 import * as path from 'path'
 
 const fixtureDir = path.join(import.meta.dirname, '../general-features/src')
@@ -62,6 +62,18 @@ test.describe('watch', () => {
     const jsPageIndex = path.join(dest, 'js-page/index.html')
     const st = await stat(jsPageIndex)
     assert.ok(st.isFile(), 'js-page/index.html was built')
+
+    // ── Chunks have hashed names in watch mode ───────────────────────
+    // html-page/client.js, js-page/client.js, and md-page/client.js all import
+    // client-helper.js, so esbuild splits it into a shared chunk. The chunk must
+    // have a hash in its name even in watch mode to avoid output path collisions.
+    const chunkFiles = await readdir(path.join(dest, 'chunks', 'js'))
+    const jsChunks = chunkFiles.filter(f => f.endsWith('.js'))
+    assert.ok(jsChunks.length > 0, 'at least one shared JS chunk was produced')
+    assert.ok(
+      jsChunks.every(f => /chunk-.+\.js$/.test(f)),
+      `all chunk filenames must include a hash (got: ${jsChunks.join(', ')})`
+    )
 
     // ── Page file change → only that page rebuilds ───────────────────
     await t.test('page file change rebuilds only that page', async () => {

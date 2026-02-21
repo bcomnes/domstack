@@ -20,7 +20,8 @@
       "Bash(gh pr view:*)",
       "Bash(gh api:*)",
       "Bash(git -C /Users/bret/Developer/domstack log --oneline master..HEAD -- README.md)",
-      "Bash(git -C /Users/bret/Developer/domstack diff master -- README.md)"
+      "Bash(git -C /Users/bret/Developer/domstack diff master -- README.md)",
+      "Bash(node bin.js:*)"
     ]
   }
 }
