@@ -1,7 +1,7 @@
 {
   "name": "@domstack/static",
   "description": "@domstack/static: a traditional web bakery made with html, md, css and js.",
-  "version": "11.0.0",
+  "version": "11.0.1",
   "type": "module",
   "main": "./index.js",
   "types": "index.d.ts",
