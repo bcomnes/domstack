@@ -24,6 +24,21 @@ npm install @domstack/static
 - 📢 [v7 Announcement](https://bret.io/blog/2023/reintroducing-top-bun/)
 - 📘 [Full TypeScript Support](#typescript-support)
 
+## Migrating from top-bun
+
+domstack v11 is a major release that renames the project from `top-bun` to `@domstack/static`. The full migration guide is at [docs/v11-migration.md](docs/v11-migration.md). Key changes at a glance:
+
+- **Package**: `top-bun` → `@domstack/static`
+- **CLI**: `top-bun`/`tb` → `domstack`/`dom`
+- **Programmatic API**: `TopBun` class → `DomStack`, all `TopBun*` types/errors/warnings renamed to `DomStack*`
+- **`postVars` removed**: migrate `postVars` exports from `page.vars.js` files to a single `global.data.js` with a default export
+- **New reserved filenames**: `global.data.js`, `markdown-it.settings.js`, `page.md`, `*.worker.{js,ts}` are now special — rename any colliding files
+- **Default layout**: switched from `uhtml-isomorphic` to `preact`; add `uhtml-isomorphic` to your own deps if you import it directly
+- **Output paths**: `top-bun-esbuild-meta.json` → `dom-stack-esbuild-meta.json`, `top-bun-defaults/` → `dom-stack-defaults/`
+- **Conflict now throws**: using both `browser` in `global.vars.js` and `define` in `esbuild.settings.js` is now a hard error
+
+See [docs/v11-migration.md](docs/v11-migration.md) for the complete migration guide with code examples.
+
 ## Table of Contents
 
 [[toc]]
@@ -1555,6 +1570,7 @@ It is also an homage to [substack](https://substack.net) as well as a play on th
 - [CHANGELOG](CHANGELOG.md)
 - [CONTRIBUTING](CONTRIBUTING.md)
 - [Dependencies](dependencygraph.svg)
+- [v11 Migration Guide](docs/v11-migration.md)
 
 ## License
 
