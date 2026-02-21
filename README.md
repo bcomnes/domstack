@@ -250,7 +250,7 @@ export const vars = {
   favoriteCookie: 'Chocolate Chip with Sea Salt'
 }
 
-export default const page: PageFunction<typeof vars}> = async ({
+const page: PageFunction<typeof vars}> = async ({
   vars
 }) => {
   return /* html */`<div>
@@ -259,6 +259,7 @@ export default const page: PageFunction<typeof vars}> = async ({
   </div>`
 }
 
+export default page
 ```
 
 It is recommended to use some level of template processing over raw string templates so that HTML is well-formed and variable values are properly escaped. Here is a more realistic TypeScript example that uses [`preact`](https://preactjs.com/) with [`htm`](https://github.com/developit/htm) and `domstack` page introspection.
@@ -277,7 +278,7 @@ export const vars = {
   favoriteCake: 'Chocolate Cloud Cake'
 }
 
-export default const blogIndex: PageFunction<BlogVars> = async ({
+const blogIndex: PageFunction<BlogVars> = async ({
   vars: { favoriteCake },
   pages
 }) => {
@@ -289,6 +290,8 @@ export default const blogIndex: PageFunction<BlogVars> = async ({
     </ul>
   </div>`
 }
+
+export default blogIndex
 ```
 
 ### Page Styles
@@ -486,7 +489,7 @@ type RootLayoutVars = {
   basePath?: string
 }
 
-export default const defaultRootLayout: LayoutFunction<RootLayoutVars> = ({
+const defaultRootLayout: LayoutFunction<RootLayoutVars> = ({
   vars: {
     title,
     siteName = 'Domstack',
@@ -526,6 +529,8 @@ export default const defaultRootLayout: LayoutFunction<RootLayoutVars> = ({
     </html>
   `
 }
+
+export default defaultRootLayout
 ```
 
 If your `src` folder doesn't have a `root.layout.js` file somewhere in it, `domstack` will use the default [`default.root.layout.js`](./lib/defaults/default.root.layout.js) file it ships. The default `root` layout includes a special boolean variable called `defaultStyle` that lets you disable a default page style (provided by [mine.css](http://github.com/bcomnes/mine.css)) that it ships with.
@@ -746,7 +751,7 @@ interface TemplateVars {
   testVar: string;
 }
 
-export default const simpleTemplate: TemplateFunction<TemplateVars> = async ({
+const simpleTemplate: TemplateFunction<TemplateVars> = async ({
   vars: {
     foo,
     testVar
@@ -756,6 +761,8 @@ export default const simpleTemplate: TemplateFunction<TemplateVars> = async ({
 
 This is just a file with access to global vars: ${foo}`
 }
+
+export default simpleTemplate
 ```
 
 ### Object template
@@ -790,7 +797,7 @@ interface TemplateVars {
   testVar: string;
 }
 
-export default const objectArrayTemplate: TemplateFunction<TemplateVars> = async ({
+const objectArrayTemplate: TemplateFunction<TemplateVars> = async ({
   vars: {
     foo,
     testVar
@@ -811,6 +818,8 @@ This is just a file with access to global vars: ${testVar}`,
     }
   ]
 }
+
+export default objectArrayTemplate
 ```
 
 ### AsyncIterator template
@@ -825,7 +834,7 @@ interface TemplateVars {
   testVar: string;
 }
 
-export default const templateIterator: TemplateAsyncIterator<TemplateVars> = async function * ({
+const templateIterator: TemplateAsyncIterator<TemplateVars> = async function * ({
   vars: {
     foo,
     testVar
@@ -847,6 +856,8 @@ This is just a file with access to global vars: ${testVar}`,
     outputName: 'yielded-2.txt'
   }
 }
+
+export default templateIterator
 ```
 
 ### RSS Feed Template Example
@@ -872,7 +883,7 @@ interface TemplateVars {
   language: string;
 }
 
-export default const feedsTemplate: TemplateAsyncIterator<TemplateVars> = async function * ({
+const feedsTemplate: TemplateAsyncIterator<TemplateVars> = async function * ({
   vars: {
     siteName,
     siteDescription,
@@ -921,6 +932,8 @@ export default const feedsTemplate: TemplateAsyncIterator<TemplateVars> = async 
     outputName: './feeds/feed.xml'
   }
 }
+
+export default feedsTemplate
 ```
 
 ## Global Assets
@@ -984,7 +997,7 @@ type GlobalData = {
   blogPostsHtml: string
 }
 
-export default const buildGlobalData: AsyncGlobalDataFunction<GlobalData> = async ({ pages }) => {
+const buildGlobalData: AsyncGlobalDataFunction<GlobalData> = async ({ pages }) => {
   const blogPosts = pages
     .filter(p => p.vars?.layout === 'blog' && p.vars?.publishDate)
     .sort((a, b) => new Date(b.vars.publishDate) - new Date(a.vars.publishDate))
@@ -1004,6 +1017,8 @@ export default const buildGlobalData: AsyncGlobalDataFunction<GlobalData> = asyn
 
   return { blogPostsHtml }
 }
+
+export default buildGlobalData
 ```
 
 The returned object is stamped onto every page's vars before rendering, so any page or layout can read the derived data via `vars`:
@@ -1036,10 +1051,12 @@ import { polyfillNode } from 'esbuild-plugin-polyfill-node'
 // BuildOptions re-exported from esbuild
 import type { BuildOptions } from '@domstack/static'
 
-export default const esbuildSettingsOverride = async (esbuildSettings: BuildOptions): Promise<BuildOptions> => {
+const esbuildSettingsOverride = async (esbuildSettings: BuildOptions): Promise<BuildOptions> => {
   esbuildSettings.plugins = [polyfillNode()]
   return esbuildSettings
 }
+
+export default esbuildSettingsOverride
 ```
 
 Important esbuild settings you may want to set here are:
@@ -1061,7 +1078,7 @@ import markdownItContainer from 'markdown-it-container'
 import markdownItPlantuml from 'markdown-it-plantuml'
 import type { MarkdownIt } from 'markdown-it'
 
-export default const markdownItSettingsOverride = async (md: MarkdownIt) => {
+const markdownItSettingsOverride = async (md: MarkdownIt) => {
   // Add custom plugins
   md.use(markdownItContainer, 'spoiler', {
     validate: (params: string) => {
@@ -1081,13 +1098,15 @@ export default const markdownItSettingsOverride = async (md: MarkdownIt) => {
 
   return md
 }
+
+export default markdownItSettingsOverride
 ```
 
 ```typescript
 import markdownIt, { MarkdownIt } from 'markdown-it'
 import myCustomPlugin from './my-custom-plugin'
 
-export default const markdownItSettingsOverride = async (md: MarkdownIt) => {
+const markdownItSettingsOverride = async (md: MarkdownIt) => {
   // Create a new instance with different settings
   const newMd = markdownIt({
     html: false,        // Disable HTML tags in source
@@ -1101,7 +1120,7 @@ export default const markdownItSettingsOverride = async (md: MarkdownIt) => {
   return newMd
 }
 
-markdownItSettingsOverride
+export default markdownItSettingsOverride
 ```
 
 By default, DOMStack ships with the following markdown-it plugins enabled:
@@ -1436,9 +1455,48 @@ Variable Resolution Layers:
   - **JS pages**: exported vars → page.vars.js
 - **Global data** - Derived variables from `global.data.js`, stamped onto every page after all pages initialize (resolved once, after page init)
 
+### Watch Mode
+
+When you run `domstack --watch` (or `domstack -w`), domstack performs an initial build and then watches for changes, rebuilding only what's necessary. Watch mode uses two independent watch loops:
+
+**esbuild watch** — JS and CSS bundles are handled by esbuild's native `context.watch()`. In watch mode, output filenames are stable (no content hashes), so bundle changes never require a page HTML rebuild. Browser-sync detects the updated files on disk and reloads the browser directly.
+
+**chokidar watch** — Page files, layouts, templates, and config files are watched by chokidar. When a file changes, domstack determines the minimal set of pages to rebuild using dependency tracking maps built at startup.
+
+#### What triggers what
+
+| Change | Rebuild scope |
+|---|---|
+| `page.js`, `page.ts`, `page.html`, `page.md`, or `page.vars.*` | Only that page |
+| A file imported by a `page.js` or `page.vars.*` | Only the pages that import it (transitively) |
+| A layout file (`*.layout.js`) | Only the pages using that layout |
+| A file imported by a layout | Only the pages using the affected layout(s) |
+| A template file (`*.template.js`) | Only that template |
+| A file imported by a template | Only the affected template(s) |
+| `markdown-it.settings.*` | All `.md` pages |
+| `global.data.*` | All pages and templates |
+| `global.vars.*` or `esbuild.settings.*` | Full rebuild (esbuild restart + all pages) |
+| `client.js`, `style.css`, `*.layout.css`, `*.layout.client.*`, `global.client.*`, `global.css`, `*.worker.*` | esbuild handles it — no page rebuild |
+| Adding or removing an esbuild entry point (e.g. creating a new `client.js`) | esbuild restart + only the affected page(s) |
+| Adding or removing any other file | Full rebuild |
+
+#### Dependency tracking
+
+domstack uses [`@11ty/dependency-tree-typescript`](https://github.com/11ty/dependency-tree-typescript) to statically analyze ESM imports in page files, layout files, and template files. This means if your `page.js` imports a shared utility module, changing that module will only rebuild the pages that depend on it — not the entire site.
+
+esbuild tracks its own entry point dependencies independently. Changing a file imported by `client.js` will trigger an esbuild rebundle but will not trigger a page rebuild, since watch mode uses stable filenames.
+
+#### Stable filenames
+
+In watch mode, esbuild uses `[dir]/[name]` output patterns instead of `[dir]/[name]-[hash]`. This means the `<script>` and `<link>` tags in page HTML always point to the same filenames. When esbuild rebundles, the file contents change but the filenames don't, so page HTML never needs to be re-rendered just because a bundle changed.
+
+#### Build serialization
+
+Chokidar events are serialized through a promise chain, so rapid saves don't cause overlapping rebuilds. Each rebuild completes before the next one starts.
+
 ## Roadmap
 
-`domstack` works and has a rudimentary watch command, but hasn't been battle tested yet.
+`domstack` works and has a watch command with progressive rebuilds.
 If you end up trying it out, please open any issues or ideas that you have, and feel free to share what you build.
 
 Some notable features are included below, see the [roadmap](https://github.com/users/bcomnes/projects/3/) for a more in depth view of whats planned.
@@ -1480,6 +1538,9 @@ Some notable features are included below, see the [roadmap](https://github.com/u
 - [x] markdown-it.settings.ts support
 - [x] page-worker.worker.ts page worker support
 - [x] `page.md` page support
+- [x] Remove `postVars` and implement `global.data.{j,t}s`
+- [x] Harden behavior around conflicting `browserVars` and esbuild settings
+- [x] Progressive watch rebuilds with dependency tracking
 - ...[See roadmap](https://github.com/users/bcomnes/projects/3/)
 
 ## History

@@ -3,9 +3,11 @@
   "compilerOptions": {
     "skipLibCheck": true,
     "jsx": "react-jsx",
-    "jsxImportSource": "preact"
+    "jsxImportSource": "preact",
+    "typeRoots": ["./types", "./node_modules/@types"]
   },
   "include": [
+    "types/**/*",
     "lib/**/*",
     "test-cases/**/*",
     "index.js",
