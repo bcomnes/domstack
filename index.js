@@ -47,7 +47,7 @@ import {
 } from './lib/identify-pages.js'
 import { resolveVars } from './lib/build-pages/resolve-vars.js'
 import { ensureDest } from './lib/helpers/ensure-dest.js'
-import { DomStackAggregateError } from './lib/helpers/dom-stack-aggregate-error.js'
+import { DomStackAggregateError } from './lib/helpers/domstack-aggregate-error.js'
 
 /**
  * @typedef {BuildOptions} BuildOptions

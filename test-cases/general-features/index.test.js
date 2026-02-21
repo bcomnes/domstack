@@ -153,7 +153,7 @@ test.describe('general-features', () => {
       assert.ok(workerFiles.length > 0, 'Web worker files were bundled')
 
       // Check that the metafile contains worker entries
-      const metaFilePath = path.join(dest, 'dom-stack-esbuild-meta.json')
+      const metaFilePath = path.join(dest, 'domstack-esbuild-meta.json')
       const metaContent = await readFile(metaFilePath, 'utf8')
       const metaData = JSON.parse(metaContent)
 
@@ -210,7 +210,7 @@ test.describe('general-features', () => {
         const hasPageStyleHeader = headLinks.map(n => n?.attribs?.['href']).some(href => href && href.match(/\.\/style-([A-Z0-9])\w+.css/g))
         const generatedPageStyle = files.some(f => f.relname.match(/style-([A-Z0-9])\w+.css/g))
 
-        const wroteDomstackEsbuildMetaFile = files.find(f => f.relname.match(/dom-stack-esbuild-meta.json/g))
+        const wroteDomstackEsbuildMetaFile = files.find(f => f.relname.match(/domstack-esbuild-meta.json/g))
 
         assert.equal(
           hasGlboalClientHeader,
@@ -251,7 +251,7 @@ test.describe('general-features', () => {
 
         assert.ok(
           wroteDomstackEsbuildMetaFile,
-          'wrote out the dom-stack-esbuild-meta.json file'
+          'wrote out the domstack-esbuild-meta.json file'
         )
 
         if (hasPageStyleHeader) { // covering for loose files

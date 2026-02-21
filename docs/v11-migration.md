@@ -268,7 +268,7 @@ The bundled default `root.layout.js` (used when `--eject` has not been run, or w
   ```sh
   npm install uhtml-isomorphic
   ```
-- If you were using the unenjoyed default layout, the rendered HTML structure is equivalent but the implementation changed. No action needed unless you were relying on implementation details.
+- If you were using the un-ejected default layout, the rendered HTML structure is equivalent but the implementation changed. No action needed unless you were relying on implementation details.
 
 ---
 
@@ -296,14 +296,14 @@ Several filenames in the `dest` (output) directory changed. Update any tooling, 
 
 | Before | After |
 |--------|-------|
-| `dest/top-bun-esbuild-meta.json` | `dest/dom-stack-esbuild-meta.json` |
+| `dest/top-bun-esbuild-meta.json` | `dest/domstack-esbuild-meta.json` |
 
 ### Default layout assets
 
 | Before | After |
 |--------|-------|
-| `dest/top-bun-defaults/default.style-[hash].css` | `dest/dom-stack-defaults/default.style-[hash].css` |
-| `dest/top-bun-defaults/default.client-[hash].js` | `dest/dom-stack-defaults/default.client-[hash].js` |
+| `dest/top-bun-defaults/default.style-[hash].css` | `dest/domstack-defaults/default.style-[hash].css` |
+| `dest/top-bun-defaults/default.client-[hash].js` | `dest/domstack-defaults/default.client-[hash].js` |
 
 ---
 
@@ -373,6 +373,6 @@ const page: PageFunction<MyVars, string> = async ({ vars }) => { ... }
 - [ ] Rename any files accidentally named `global.data.js`, `markdown-it.settings.js`, `page.md`, or `*.worker.js` that weren't intended for those purposes
 - [ ] If using both `browser` in `global.vars.js` and `define` in `esbuild.settings.js`, consolidate to one
 - [ ] If importing `uhtml-isomorphic` from layouts without it in your own `package.json`, add it explicitly
-- [ ] Update any CI/scripts referencing `top-bun-esbuild-meta.json` → `dom-stack-esbuild-meta.json`
-- [ ] Update any CI/scripts referencing `top-bun-defaults/` → `dom-stack-defaults/` in the output dir
+- [ ] Update any CI/scripts referencing `top-bun-esbuild-meta.json` → `domstack-esbuild-meta.json`
+- [ ] Update any CI/scripts referencing `top-bun-defaults/` → `domstack-defaults/` in the output dir
 - [ ] Override `siteName` in `global.vars.js` if you were relying on the default value

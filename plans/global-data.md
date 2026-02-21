@@ -180,7 +180,7 @@ Duplicate detection follows the same warning pattern as globalVars
 | File | Change |
 |---|---|
 | `lib/identify-pages.js` | Added `globalDataNames`, `globalData` detection, `DOM_STACK_WARNING_DUPLICATE_GLOBAL_DATA` |
-| `lib/helpers/dom-stack-warning.js` | Added `DOM_STACK_WARNING_DUPLICATE_GLOBAL_DATA` to `DomStackWarningCode` union |
+| `lib/helpers/domstack-warning.js` | Added `DOM_STACK_WARNING_DUPLICATE_GLOBAL_DATA` to `DomStackWarningCode` union |
 | `lib/build-pages/resolve-vars.js` | Added `resolveGlobalData()`; replaced `checkForPostVars` with `resolvePostVars` (throws on detection) |
 | `lib/build-pages/page-data.js` | Added `globalDataVars` field; updated `vars` getter to merge it; calls `resolvePostVars` in `init()` |
 | `lib/build-pages/index.js` | Added `GlobalDataFunction`/`AsyncGlobalDataFunction` typedefs; post-init `resolveGlobalData` call + stamp loop |

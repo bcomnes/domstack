@@ -34,7 +34,7 @@ domstack v11 is a major release that renames the project from `top-bun` to `@dom
 - **`postVars` removed**: migrate `postVars` exports from `page.vars.js` files to a single `global.data.js` with a default export
 - **New reserved filenames**: `global.data.js`, `markdown-it.settings.js`, `page.md`, `*.worker.{js,ts}` are now special — rename any colliding files
 - **Default layout**: switched from `uhtml-isomorphic` to `preact`; add `uhtml-isomorphic` to your own deps if you import it directly
-- **Output paths**: `top-bun-esbuild-meta.json` → `dom-stack-esbuild-meta.json`, `top-bun-defaults/` → `dom-stack-defaults/`
+- **Output paths**: `top-bun-esbuild-meta.json` → `domstack-esbuild-meta.json`, `top-bun-defaults/` → `domstack-defaults/`
 - **Conflict now throws**: using both `browser` in `global.vars.js` and `define` in `esbuild.settings.js` is now a hard error
 
 See [docs/v11-migration.md](docs/v11-migration.md) for the complete migration guide with code examples.

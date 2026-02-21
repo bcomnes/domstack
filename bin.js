@@ -20,7 +20,7 @@ import { addPackageDependencies } from 'write-package'
 
 import { copyFile } from './lib/helpers/copy-file.js'
 import { DomStack } from './index.js'
-import { DomStackAggregateError } from './lib/helpers/dom-stack-aggregate-error.js'
+import { DomStackAggregateError } from './lib/helpers/domstack-aggregate-error.js'
 import { generateTreeData } from './lib/helpers/generate-tree-data.js'
 import { askYesNo } from './lib/helpers/cli-prompt.js'
 

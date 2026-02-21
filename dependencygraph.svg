@@ -120,9 +120,9 @@
 <text xml:space="preserve" text-anchor="middle" x="114.75" y="-1223.45" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="9.00">public</text>
 </g>
 <g id="clust23" class="cluster">
-<title>cluster_test&#45;cases/default&#45;layout/public/dom&#45;stack&#45;defaults</title>
+<title>cluster_test&#45;cases/default&#45;layout/public/domstack-defaults</title>
 <path fill="#ffffff" stroke="black" stroke-width="2" d="M51.12,-1158C51.12,-1158 178.38,-1158 178.38,-1158 184.38,-1158 190.38,-1164 190.38,-1170 190.38,-1170 190.38,-1198 190.38,-1198 190.38,-1204 184.38,-1210 178.38,-1210 178.38,-1210 51.13,-1210 51.13,-1210 45.12,-1210 39.12,-1204 39.12,-1198 39.12,-1198 39.12,-1170 39.12,-1170 39.12,-1164 45.12,-1158 51.12,-1158"/>
-<text xml:space="preserve" text-anchor="middle" x="114.75" y="-1197.45" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="9.00">dom&#45;stack&#45;defaults</text>
+<text xml:space="preserve" text-anchor="middle" x="114.75" y="-1197.45" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="9.00">domstack-defaults</text>
 </g>
 <g id="clust24" class="cluster">
 <title>cluster_test&#45;cases/default&#45;layout/src</title>
@@ -140,9 +140,9 @@
 <text xml:space="preserve" text-anchor="middle" x="114.75" y="-975.45" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="9.00">public</text>
 </g>
 <g id="clust27" class="cluster">
-<title>cluster_test&#45;cases/drafts/public/dom&#45;stack&#45;defaults</title>
+<title>cluster_test&#45;cases/drafts/public/domstack-defaults</title>
 <path fill="#ffffff" stroke="black" stroke-width="2" d="M51.12,-910C51.12,-910 178.38,-910 178.38,-910 184.38,-910 190.38,-916 190.38,-922 190.38,-922 190.38,-950 190.38,-950 190.38,-956 184.38,-962 178.38,-962 178.38,-962 51.13,-962 51.13,-962 45.12,-962 39.12,-956 39.12,-950 39.12,-950 39.12,-922 39.12,-922 39.12,-916 45.12,-910 51.12,-910"/>
-<text xml:space="preserve" text-anchor="middle" x="114.75" y="-949.45" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="9.00">dom&#45;stack&#45;defaults</text>
+<text xml:space="preserve" text-anchor="middle" x="114.75" y="-949.45" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="9.00">domstack-defaults</text>
 </g>
 <g id="clust28" class="cluster">
 <title>cluster_test&#45;cases/drafts/src</title>
@@ -335,9 +335,9 @@
 <text xml:space="preserve" text-anchor="middle" x="114.75" y="-791.45" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="9.00">public</text>
 </g>
 <g id="clust66" class="cluster">
-<title>cluster_test&#45;cases/nested&#45;dest/public/dom&#45;stack&#45;defaults</title>
+<title>cluster_test&#45;cases/nested&#45;dest/public/domstack-defaults</title>
 <path fill="#ffffff" stroke="black" stroke-width="2" d="M51.12,-666C51.12,-666 178.38,-666 178.38,-666 184.38,-666 190.38,-672 190.38,-678 190.38,-678 190.38,-706 190.38,-706 190.38,-712 184.38,-718 178.38,-718 178.38,-718 51.13,-718 51.13,-718 45.12,-718 39.12,-712 39.12,-706 39.12,-706 39.12,-678 39.12,-678 39.12,-672 45.12,-666 51.12,-666"/>
-<text xml:space="preserve" text-anchor="middle" x="114.75" y="-705.45" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="9.00">dom&#45;stack&#45;defaults</text>
+<text xml:space="preserve" text-anchor="middle" x="114.75" y="-705.45" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="9.00">domstack-defaults</text>
 </g>
 <g id="clust67" class="cluster">
 <title>cluster_test&#45;cases/nested&#45;dest/public/md&#45;page</title>
@@ -355,9 +355,9 @@
 <text xml:space="preserve" text-anchor="middle" x="114.75" y="-337.45" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="9.00">public</text>
 </g>
 <g id="clust70" class="cluster">
-<title>cluster_test&#45;cases/page&#45;build&#45;errors/public/dom&#45;stack&#45;defaults</title>
+<title>cluster_test&#45;cases/page&#45;build&#45;errors/public/domstack-defaults</title>
 <path fill="#ffffff" stroke="black" stroke-width="2" d="M51.12,-246C51.12,-246 178.38,-246 178.38,-246 184.38,-246 190.38,-252 190.38,-258 190.38,-258 190.38,-286 190.38,-286 190.38,-292 184.38,-298 178.38,-298 178.38,-298 51.13,-298 51.13,-298 45.12,-298 39.12,-292 39.12,-286 39.12,-286 39.12,-258 39.12,-258 39.12,-252 45.12,-246 51.12,-246"/>
-<text xml:space="preserve" text-anchor="middle" x="114.75" y="-285.45" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="9.00">dom&#45;stack&#45;defaults</text>
+<text xml:space="preserve" text-anchor="middle" x="114.75" y="-285.45" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="9.00">domstack-defaults</text>
 </g>
 <g id="clust71" class="cluster">
 <title>cluster_test&#45;cases/page&#45;build&#45;errors/src</title>
@@ -459,18 +459,18 @@
 <path fill="none" stroke="#000000" stroke-width="2" stroke-opacity="0.200000" d="M141.9,-4082.97C204.87,-4080.74 369.85,-4076.52 507,-4087 521.52,-4088.11 537.37,-4090.21 551.25,-4092.34"/>
 <polygon fill="#000000" fill-opacity="0.200000" stroke="#000000" stroke-width="2" stroke-opacity="0.200000" points="550.8,-4094.4 557.06,-4093.27 551.46,-4090.25 550.8,-4094.4"/>
 </g>
-<!-- lib/helpers/dom&#45;stack&#45;aggregate&#45;error.js -->
+<!-- lib/helpers/domstack-aggregate-error.js -->
 <g id="node9" class="node">
-<title>lib/helpers/dom&#45;stack&#45;aggregate&#45;error.js</title>
-<g id="a_node9"><a xlink:href="lib/helpers/dom-stack-aggregate-error.js" xlink:title="dom&#45;stack&#45;aggregate&#45;error.js">
+<title>lib/helpers/domstack-aggregate-error.js</title>
+<g id="a_node9"><a xlink:href="lib/helpers/domstack-aggregate-error.js" xlink:title="domstack-aggregate-error.js">
 <path fill="#ffffcc" stroke="black" d="M651.58,-4167.88C651.58,-4167.88 528.92,-4167.88 528.92,-4167.88 525.96,-4167.88 523,-4164.92 523,-4161.96 523,-4161.96 523,-4156.04 523,-4156.04 523,-4153.08 525.96,-4150.12 528.92,-4150.12 528.92,-4150.12 651.58,-4150.12 651.58,-4150.12 654.54,-4150.12 657.5,-4153.08 657.5,-4156.04 657.5,-4156.04 657.5,-4161.96 657.5,-4161.96 657.5,-4164.92 654.54,-4167.88 651.58,-4167.88"/>
-<text xml:space="preserve" text-anchor="start" x="531" y="-4155.32" font-family="Helvetica,sans-Serif" font-size="9.00">dom&#45;stack&#45;aggregate&#45;error.js</text>
+<text xml:space="preserve" text-anchor="start" x="531" y="-4155.32" font-family="Helvetica,sans-Serif" font-size="9.00">domstack-aggregate-error.js</text>
 </a>
 </g>
 </g>
-<!-- bin.js&#45;&gt;lib/helpers/dom&#45;stack&#45;aggregate&#45;error.js -->
+<!-- bin.js&#45;&gt;lib/helpers/domstack-aggregate-error.js -->
 <g id="edge4" class="edge">
-<title>bin.js&#45;&gt;lib/helpers/dom&#45;stack&#45;aggregate&#45;error.js</title>
+<title>bin.js&#45;&gt;lib/helpers/domstack-aggregate-error.js</title>
 <path fill="none" stroke="#000000" stroke-width="2" stroke-opacity="0.200000" d="M142.11,-4087.41C160.29,-4089.99 184.95,-4093.96 206.38,-4099 224.03,-4103.16 227.67,-4107.07 245.38,-4111 336.79,-4131.31 443.9,-4144.65 513.98,-4151.99"/>
 <polygon fill="#000000" fill-opacity="0.200000" stroke="#000000" stroke-width="2" stroke-opacity="0.200000" points="513.57,-4154.06 519.76,-4152.59 514,-4149.88 513.57,-4154.06"/>
 </g>
@@ -504,9 +504,9 @@
 <path fill="none" stroke="#000000" stroke-dasharray="5,2" stroke-opacity="0.200000" d="M126.23,-4074.76C159.52,-4045.29 265.4,-3950.36 346.25,-3865 577.02,-3621.35 832.54,-3300.56 889.82,-3228.01"/>
 <polygon fill="#000000" fill-opacity="0.200000" stroke="#000000" stroke-opacity="0.200000" points="891.45,-3229.33 893.52,-3223.32 888.15,-3226.73 891.45,-3229.33"/>
 </g>
-<!-- index.js&#45;&gt;lib/helpers/dom&#45;stack&#45;aggregate&#45;error.js -->
+<!-- index.js&#45;&gt;lib/helpers/domstack-aggregate-error.js -->
 <g id="edge10" class="edge">
-<title>index.js&#45;&gt;lib/helpers/dom&#45;stack&#45;aggregate&#45;error.js</title>
+<title>index.js&#45;&gt;lib/helpers/domstack-aggregate-error.js</title>
 <path fill="none" stroke="#000000" stroke-width="2" stroke-opacity="0.200000" d="M307.71,-4661.7C355.82,-4668.58 457.53,-4674.94 507,-4617 522.98,-4598.28 499.24,-4192.91 515,-4174 515.43,-4173.49 515.86,-4172.99 516.31,-4172.51"/>
 <polygon fill="#000000" fill-opacity="0.200000" stroke="#000000" stroke-width="2" stroke-opacity="0.200000" points="517.27,-4174.45 520.46,-4168.96 514.54,-4171.26 517.27,-4174.45"/>
 </g>
@@ -573,9 +573,9 @@
 </a>
 </g>
 </g>
-<!-- lib/builder.js&#45;&gt;lib/helpers/dom&#45;stack&#45;aggregate&#45;error.js -->
+<!-- lib/builder.js&#45;&gt;lib/helpers/domstack-aggregate-error.js -->
 <g id="edge33" class="edge">
-<title>lib/builder.js&#45;&gt;lib/helpers/dom&#45;stack&#45;aggregate&#45;error.js</title>
+<title>lib/builder.js&#45;&gt;lib/helpers/domstack-aggregate-error.js</title>
 <path fill="none" stroke="#000000" stroke-width="2" stroke-opacity="0.200000" d="M290.59,-4306.76C303.79,-4293.9 329.27,-4270.44 354.25,-4255 388.37,-4233.91 401.18,-4237.05 437,-4219 472.74,-4200.99 477.56,-4188.15 515,-4174 518.07,-4172.84 521.25,-4171.76 524.49,-4170.76"/>
 <polygon fill="#000000" fill-opacity="0.200000" stroke="#000000" stroke-width="2" stroke-opacity="0.200000" points="525.04,-4172.79 530.24,-4169.13 523.89,-4168.75 525.04,-4172.79"/>
 </g>
@@ -861,18 +861,18 @@
 <path fill="none" stroke="#000000" stroke-width="2" stroke-opacity="0.200000" d="M402.42,-4279.18C409.8,-4290.27 423.57,-4309.05 445.6,-4325.47"/>
 <polygon fill="#000000" fill-opacity="0.200000" stroke="#000000" stroke-width="2" stroke-opacity="0.200000" points="444.12,-4326.99 450.23,-4328.73 446.54,-4323.56 444.12,-4326.99"/>
 </g>
-<!-- lib/helpers/dom&#45;stack&#45;error.js -->
+<!-- lib/helpers/domstack-error.js -->
 <g id="node31" class="node">
-<title>lib/helpers/dom&#45;stack&#45;error.js</title>
-<g id="a_node31"><a xlink:href="lib/helpers/dom-stack-error.js" xlink:title="dom&#45;stack&#45;error.js">
+<title>lib/helpers/domstack-error.js</title>
+<g id="a_node31"><a xlink:href="lib/helpers/domstack-error.js" xlink:title="domstack-error.js">
 <path fill="#ffffcc" stroke="black" d="M629.08,-4227.88C629.08,-4227.88 551.42,-4227.88 551.42,-4227.88 548.46,-4227.88 545.5,-4224.92 545.5,-4221.96 545.5,-4221.96 545.5,-4216.04 545.5,-4216.04 545.5,-4213.08 548.46,-4210.12 551.42,-4210.12 551.42,-4210.12 629.08,-4210.12 629.08,-4210.12 632.04,-4210.12 635,-4213.08 635,-4216.04 635,-4216.04 635,-4221.96 635,-4221.96 635,-4224.92 632.04,-4227.88 629.08,-4227.88"/>
-<text xml:space="preserve" text-anchor="start" x="553.5" y="-4215.32" font-family="Helvetica,sans-Serif" font-size="9.00">dom&#45;stack&#45;error.js</text>
+<text xml:space="preserve" text-anchor="start" x="553.5" y="-4215.32" font-family="Helvetica,sans-Serif" font-size="9.00">domstack-error.js</text>
 </a>
 </g>
 </g>
-<!-- lib/identify&#45;pages.js&#45;&gt;lib/helpers/dom&#45;stack&#45;error.js -->
+<!-- lib/identify&#45;pages.js&#45;&gt;lib/helpers/domstack-error.js -->
 <g id="edge38" class="edge">
-<title>lib/identify&#45;pages.js&#45;&gt;lib/helpers/dom&#45;stack&#45;error.js</title>
+<title>lib/identify&#45;pages.js&#45;&gt;lib/helpers/domstack-error.js</title>
 <path fill="none" stroke="#000000" stroke-width="2" stroke-opacity="0.200000" d="M437.38,-4271.18C459.89,-4269.87 487.21,-4264.83 507,-4250 513.36,-4245.23 508.69,-4238.83 515,-4234 521.37,-4229.13 528.91,-4225.73 536.71,-4223.37"/>
 <polygon fill="#000000" fill-opacity="0.200000" stroke="#000000" stroke-width="2" stroke-opacity="0.200000" points="537,-4225.46 542.3,-4221.95 535.96,-4221.39 537,-4225.46"/>
 </g>
@@ -1026,10 +1026,10 @@
 <path fill="none" stroke="#000000" stroke-dasharray="5,2" stroke-opacity="0.200000" d="M147.17,-1317.17C167.08,-1317.91 191.74,-1314.96 206.38,-1299 282.45,-1216.03 280.26,-352.33 279.49,-221.55"/>
 <polygon fill="#000000" fill-opacity="0.200000" stroke="#000000" stroke-opacity="0.200000" points="281.59,-221.82 279.46,-215.83 277.39,-221.84 281.59,-221.82"/>
 </g>
-<!-- test&#45;cases/default&#45;layout/public/dom&#45;stack&#45;defaults/default.client.js&#45;QOQNIH5Z.js -->
+<!-- test&#45;cases/default&#45;layout/public/domstack-defaults/default.client.js&#45;QOQNIH5Z.js -->
 <g id="node42" class="node">
-<title>test&#45;cases/default&#45;layout/public/dom&#45;stack&#45;defaults/default.client.js&#45;QOQNIH5Z.js</title>
-<g id="a_node42"><a xlink:href="test-cases/default-layout/public/dom-stack-defaults/default.client.js-QOQNIH5Z.js" xlink:title="default.client.js&#45;QOQNIH5Z.js">
+<title>test&#45;cases/default&#45;layout/public/domstack-defaults/default.client.js&#45;QOQNIH5Z.js</title>
+<g id="a_node42"><a xlink:href="test-cases/default-layout/public/domstack-defaults/default.client.js-QOQNIH5Z.js" xlink:title="default.client.js&#45;QOQNIH5Z.js">
 <path fill="#ccffcc" stroke="black" d="M176.46,-1183.88C176.46,-1183.88 53.04,-1183.88 53.04,-1183.88 50.08,-1183.88 47.12,-1180.92 47.12,-1177.96 47.12,-1177.96 47.12,-1172.04 47.12,-1172.04 47.12,-1169.08 50.08,-1166.12 53.04,-1166.12 53.04,-1166.12 176.46,-1166.12 176.46,-1166.12 179.42,-1166.12 182.38,-1169.08 182.38,-1172.04 182.38,-1172.04 182.38,-1177.96 182.38,-1177.96 182.38,-1180.92 179.42,-1183.88 176.46,-1183.88"/>
 <text xml:space="preserve" text-anchor="start" x="55.12" y="-1171.33" font-family="Helvetica,sans-Serif" font-size="9.00">default.client.js&#45;QOQNIH5Z.js</text>
 </a>
@@ -1071,10 +1071,10 @@
 <path fill="none" stroke="#000000" stroke-dasharray="5,2" stroke-opacity="0.200000" d="M146.97,-1093.65C167.32,-1088.43 192.58,-1078.31 206.38,-1059 256.89,-988.27 276.01,-335.24 278.96,-221.77"/>
 <polygon fill="#000000" fill-opacity="0.200000" stroke="#000000" stroke-opacity="0.200000" points="281.06,-221.85 279.11,-215.8 276.86,-221.74 281.06,-221.85"/>
 </g>
-<!-- test&#45;cases/drafts/public/dom&#45;stack&#45;defaults/default.client.js&#45;QOQNIH5Z.js -->
+<!-- test&#45;cases/drafts/public/domstack-defaults/default.client.js&#45;QOQNIH5Z.js -->
 <g id="node45" class="node">
-<title>test&#45;cases/drafts/public/dom&#45;stack&#45;defaults/default.client.js&#45;QOQNIH5Z.js</title>
-<g id="a_node45"><a xlink:href="test-cases/drafts/public/dom-stack-defaults/default.client.js-QOQNIH5Z.js" xlink:title="default.client.js&#45;QOQNIH5Z.js">
+<title>test&#45;cases/drafts/public/domstack-defaults/default.client.js&#45;QOQNIH5Z.js</title>
+<g id="a_node45"><a xlink:href="test-cases/drafts/public/domstack-defaults/default.client.js-QOQNIH5Z.js" xlink:title="default.client.js&#45;QOQNIH5Z.js">
 <path fill="#ccffcc" stroke="black" d="M176.46,-935.88C176.46,-935.88 53.04,-935.88 53.04,-935.88 50.08,-935.88 47.12,-932.92 47.12,-929.96 47.12,-929.96 47.12,-924.04 47.12,-924.04 47.12,-921.08 50.08,-918.12 53.04,-918.12 53.04,-918.12 176.46,-918.12 176.46,-918.12 179.42,-918.12 182.38,-921.08 182.38,-924.04 182.38,-924.04 182.38,-929.96 182.38,-929.96 182.38,-932.92 179.42,-935.88 176.46,-935.88"/>
 <text xml:space="preserve" text-anchor="start" x="55.12" y="-923.33" font-family="Helvetica,sans-Serif" font-size="9.00">default.client.js&#45;QOQNIH5Z.js</text>
 </a>
@@ -1593,10 +1593,10 @@
 </a>
 </g>
 </g>
-<!-- test&#45;cases/nested&#45;dest/public/dom&#45;stack&#45;defaults/default.client.js&#45;QOQNIH5Z.js -->
+<!-- test&#45;cases/nested&#45;dest/public/domstack-defaults/default.client.js&#45;QOQNIH5Z.js -->
 <g id="node97" class="node">
-<title>test&#45;cases/nested&#45;dest/public/dom&#45;stack&#45;defaults/default.client.js&#45;QOQNIH5Z.js</title>
-<g id="a_node97"><a xlink:href="test-cases/nested-dest/public/dom-stack-defaults/default.client.js-QOQNIH5Z.js" xlink:title="default.client.js&#45;QOQNIH5Z.js">
+<title>test&#45;cases/nested&#45;dest/public/domstack-defaults/default.client.js&#45;QOQNIH5Z.js</title>
+<g id="a_node97"><a xlink:href="test-cases/nested-dest/public/domstack-defaults/default.client.js-QOQNIH5Z.js" xlink:title="default.client.js&#45;QOQNIH5Z.js">
 <path fill="#ccffcc" stroke="black" d="M176.46,-691.88C176.46,-691.88 53.04,-691.88 53.04,-691.88 50.08,-691.88 47.12,-688.92 47.12,-685.96 47.12,-685.96 47.12,-680.04 47.12,-680.04 47.12,-677.08 50.08,-674.12 53.04,-674.12 53.04,-674.12 176.46,-674.12 176.46,-674.12 179.42,-674.12 182.38,-677.08 182.38,-680.04 182.38,-680.04 182.38,-685.96 182.38,-685.96 182.38,-688.92 179.42,-691.88 176.46,-691.88"/>
 <text xml:space="preserve" text-anchor="start" x="55.12" y="-679.33" font-family="Helvetica,sans-Serif" font-size="9.00">default.client.js&#45;QOQNIH5Z.js</text>
 </a>
@@ -1647,10 +1647,10 @@
 </a>
 </g>
 </g>
-<!-- test&#45;cases/page&#45;build&#45;errors/public/dom&#45;stack&#45;defaults/default.client.js&#45;QOQNIH5Z.js -->
+<!-- test&#45;cases/page&#45;build&#45;errors/public/domstack-defaults/default.client.js&#45;QOQNIH5Z.js -->
 <g id="node101" class="node">
-<title>test&#45;cases/page&#45;build&#45;errors/public/dom&#45;stack&#45;defaults/default.client.js&#45;QOQNIH5Z.js</title>
-<g id="a_node101"><a xlink:href="test-cases/page-build-errors/public/dom-stack-defaults/default.client.js-QOQNIH5Z.js" xlink:title="default.client.js&#45;QOQNIH5Z.js">
+<title>test&#45;cases/page&#45;build&#45;errors/public/domstack-defaults/default.client.js&#45;QOQNIH5Z.js</title>
+<g id="a_node101"><a xlink:href="test-cases/page-build-errors/public/domstack-defaults/default.client.js-QOQNIH5Z.js" xlink:title="default.client.js&#45;QOQNIH5Z.js">
 <path fill="#ccffcc" stroke="black" d="M176.46,-271.88C176.46,-271.88 53.04,-271.88 53.04,-271.88 50.08,-271.88 47.12,-268.92 47.12,-265.96 47.12,-265.96 47.12,-260.04 47.12,-260.04 47.12,-257.08 50.08,-254.12 53.04,-254.12 53.04,-254.12 176.46,-254.12 176.46,-254.12 179.42,-254.12 182.38,-257.08 182.38,-260.04 182.38,-260.04 182.38,-265.96 182.38,-265.96 182.38,-268.92 179.42,-271.88 176.46,-271.88"/>
 <text xml:space="preserve" text-anchor="start" x="55.12" y="-259.32" font-family="Helvetica,sans-Serif" font-size="9.00">default.client.js&#45;QOQNIH5Z.js</text>
 </a>
