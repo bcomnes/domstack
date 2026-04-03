@@ -156,7 +156,7 @@ async function run () {
     const highlightVersion = tbPkgContents?.['dependencies']?.['highlight.js']
 
     if (!mineVersion || !uhtmlVersion || !highlightVersion) {
-      console.error('Unable to resolve ejected depdeency versions. Exiting...')
+      console.error('Unable to resolve ejected dependency versions. Exiting...')
       process.exit(1)
     }
 
