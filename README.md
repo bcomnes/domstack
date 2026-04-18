@@ -1284,6 +1284,40 @@ const layout: LayoutFunction<{site: string}, VDOMNode, string> = ({ children }) 
 }
 ```
 
+### Using `async-htm-to-string` for string-based rendering
+
+DomStack's default layout pattern uses `htm/preact` and `preact-render-to-string` for HTML generation. If you only need server-side rendering and have no client-side Preact components, [`async-htm-to-string`](https://github.com/nicferrier/async-htm-to-string) is a lighter alternative. It uses the same `htm` tagged template syntax but renders directly to a string without a virtual DOM layer.
+
+```js
+import { html, rawHtml } from 'async-htm-to-string'
+
+export default async function layout ({ children, vars }) {
+  return await html`
+    <!DOCTYPE html>
+    <html lang="${vars.lang}">
+      <head><title>${vars.title}</title></head>
+      <body>${rawHtml(children)}</body>
+    </html>
+  `
+}
+```
+
+Key differences from `htm/preact`:
+
+- **Attribute names are standard HTML.** Use `class`, `for`, `tabindex` rather than `className`, `htmlFor`, `tabIndex`. Using React-style attribute names with `async-htm-to-string` outputs them literally as invalid attributes with no warning.
+- **Always `await` the `html` tag.** It returns a thenable object, not a plain string. Returning without `await` produces `[object Object]` in the rendered output with no error thrown.
+- **`rawHtml()` bypasses escaping.** Use it only for content you trust, such as the output of `page.renderInnerPage()` or your own markdown renderer. Passing user-controlled input through `rawHtml()` is a direct XSS risk.
+
+```js
+import { html, rawHtml } from 'async-htm-to-string'
+
+// safe: vars.title is escaped automatically
+// trusted: children is already-rendered HTML from the page builder
+export default async function layout ({ children, vars }) {
+  return await html`<main class="content"><h1>${vars.title}</h1>${rawHtml(children)}</main>`
+}
+```
+
 ## Design Goals
 
 - Convention over configuration. All configuration should be optional, and at most it should be minimal.
