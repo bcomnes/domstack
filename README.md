@@ -875,6 +875,19 @@ This is just a file with access to global vars: ${testVar}`,
 export default templateIterator
 ```
 
+### Choosing a template return type
+
+Use the simplest return type that fits your needs:
+
+| Return type | Multiple outputs | Custom filename | Use when |
+|---|---|---|---|
+| String | No | No (derived from template filename) | Single file, filename from template name |
+| Object | No | Yes | Single file with a custom output path |
+| Array | Yes | Yes | Fixed set of output files known at build time |
+| AsyncIterator | Yes | Yes | Any async work, or a dynamic number of outputs |
+
+Start with a string return and only switch to a more complex type when you need what it provides. An async generator is the right choice when you need to do async work (such as calling `renderInnerPage` on multiple pages) and produce more than one output file.
+
 ### RSS Feed Template Example
 
 Templates receive the standard variables available to pages, so its possible to perform page introspection and generate RSS feeds of website content.
