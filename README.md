@@ -640,25 +640,24 @@ If you find your layouts nesting more than one or two levels, perhaps compositio
 
 ```js
 // wrong: scripts and styles are dropped
-return rootLayout({ children: wrappedContent, vars })
+return defaultRootLayout({ children, vars })
 
 // correct: forward them along
-return rootLayout({ children: wrappedContent, vars, scripts, styles })
+return defaultRootLayout({ children, vars, scripts, styles })
 ```
 
 **Vars can be modified before forwarding.** The rest-spread pattern shown above forwards vars unchanged, but you can extend the object before passing it to the base layout. This is useful for setting layout-specific flags that the root layout reads:
 
 ```js
 const layoutVars = { ...vars, showSidebar: true, pageType: 'article' }
-return rootLayout({ children: wrappedContent, vars: layoutVars, scripts, styles })
+return defaultRootLayout({ children, vars: layoutVars, scripts, styles })
 ```
 
 **Forward `page`, `pages`, and `workers` when the base layout uses them.** If your root layout accesses `page.path` for canonical URLs, iterates `pages` for navigation, or uses `workers`, those params must also be forwarded:
 
 ```js
 export default function articleLayout ({ children, vars, scripts, styles, page, pages, workers }) {
-  const wrappedContent = wrapContent(children, vars)
-  return rootLayout({ children: wrappedContent, vars, scripts, styles, page, pages, workers })
+  return defaultRootLayout({ children, vars, scripts, styles, page, pages, workers })
 }
 ```
 
