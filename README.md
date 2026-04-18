@@ -301,7 +301,7 @@ const blogIndex: PageFunction<BlogVars> = async ({
   return html`<div>
     <p>I love ${favoriteCake}!!</p>
     <ul>
-      ${yearPages.map(yearPage => html`<li><a href="${`/${yearPage.pageInfo.path}/`}">${basename(yearPage.pageInfo.path)}</a></li>`)}
+      ${yearPages.map(yearPage => html`<li><a href="${yearPage.pageInfo.url}">${basename(yearPage.pageInfo.path)}</a></li>`)}
     </ul>
   </div>`
 }
@@ -930,8 +930,8 @@ const feedsTemplate: TemplateAsyncIterator<TemplateVars> = async function * ({
       return {
         date_published: page.vars['publishDate'],
         title: page.vars['title'],
-        url: `${homePageUrl}/${page.pageInfo.path}/`,
-        id: `${homePageUrl}/${page.pageInfo.path}/#${page.vars['publishDate']}`,
+        url: `${homePageUrl}${page.pageInfo.url}`,
+        id: `${homePageUrl}${page.pageInfo.url}#${page.vars['publishDate']}`,
         content_html: await page.renderInnerPage({ pages })
       }
     }, { concurrency: 4 })
@@ -1022,7 +1022,7 @@ const buildGlobalData: AsyncGlobalDataFunction<GlobalData> = async ({ pages }) =
     <ul className="blog-index-list">
       ${blogPosts.map(p => html`
         <li className="blog-entry h-entry">
-          <a className="blog-entry-link u-url u-uid p-name" href="/${p.pageInfo.path}/">
+          <a className="blog-entry-link u-url u-uid p-name" href={p.pageInfo.url}>
             ${p.vars?.title}
           </a>
         </li>
@@ -1164,6 +1164,7 @@ Pages and Layouts receive an object with the following parameters:
 - `page`: An object of the page being rendered with the following parameters:
   - `type`: The type of page (`md`, `html`, or `js`)
   - `path`: The directory path for the page.
+  - `url`: The canonical URL path for the page (e.g. `/blog/my-post/` for index pages, `/blog/loose-page.html` for loose non-index pages). Combine with a `siteUrl` from `global.vars.ts` to build full URLs: `` `${vars.siteUrl}${page.url}` ``.
   - `outputName`: The output name of the final file.
   - `outputRelname`: The relative output name/path of the output file.
   - `pageFile`: Raw `src` path details of the page file
