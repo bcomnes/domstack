@@ -955,7 +955,7 @@ export default feedsTemplate
 
 Any `PageData` instance exposes two methods for accessing rendered output:
 
-- `await page.renderInnerPage({ pages })` returns the page content as rendered by its builder (markdown converted to HTML, for example) without a layout wrapper applied.
+- `await page.renderInnerPage({ pages })` returns the page's inner render output as produced by its builder, without a layout wrapper applied. This is often an HTML string (for example, markdown rendered to HTML), but the type depends on the page builder.
 - `await page.renderFullPage({ pages })` returns the complete page output with its layout applied.
 
 Both methods are async and require the full `pages` array. They are available inside templates, in `global.data.js`, inside page functions, and inside layouts.
