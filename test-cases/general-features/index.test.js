@@ -103,6 +103,21 @@ test.describe('general-features', () => {
     const jsChunkFiles = files.filter(f => f.relname.match(/chunks\/js\/chunk-.+\.js$/))
     assert.ok(jsChunkFiles.length > 0, 'at least one shared JS chunk was produced with a hashed name')
 
+    // Verify that CSS asset loaders work: images inline as data URLs, fonts are emitted as files
+    const globalCssFile = files.find(f => f.relname.match(/global-([A-Z0-9])\w+\.css$/))
+    if (globalCssFile) {
+      const cssContent = await readFile(path.join(dest, globalCssFile.relname), 'utf8')
+      assert.ok(
+        cssContent.includes('data:image/gif;base64,'),
+        'global CSS inlines GIF image as a base64 data URL'
+      )
+    } else {
+      assert.fail('Could not find global CSS output file to verify asset loaders')
+    }
+
+    const woff2Files = files.filter(f => f.relname.endsWith('.woff2'))
+    assert.ok(woff2Files.length > 0, 'woff2 font file was emitted to the output directory')
+
     // Special test for global.data.js blogPostsHtml
     const indexPath = path.join(dest, 'index.html')
     try {
