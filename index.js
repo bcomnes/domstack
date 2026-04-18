@@ -160,8 +160,7 @@ export class DomStack {
     this.#src = src
     this.#dest = dest
 
-    const basedir = dirname(resolve(src))
-    const copyDirs = (opts?.copy ?? []).map(dir => resolve(basedir, dir))
+    const copyDirs = (opts?.copy ?? []).map(dir => resolve(dir))
 
     this.opts = {
       ...opts,
