@@ -7,6 +7,7 @@
  * @import { TemplateFunction } from './lib/build-pages/page-builders/template-builder.js'
  * @import { TemplateAsyncIterator } from './lib/build-pages/page-builders/template-builder.js'
  * @import { TemplateOutputOverride } from './lib/build-pages/page-builders/template-builder.js'
+ * @import { TemplateFunctionParams } from './lib/build-pages/page-builders/template-builder.js'
  * @import { GlobalDataFunction, AsyncGlobalDataFunction, WorkerBuildStepResult, GlobalDataFunctionParams } from './lib/build-pages/index.js'
  * @import { BuildOptions, BuildContext } from 'esbuild'
  * @import { PageInfo, TemplateInfo } from './lib/identify-pages.js'
@@ -130,6 +131,10 @@ export { PageData } from './lib/build-pages/page-data.js'
  * @typedef {PageFunctionParams<T, U>} PageFunctionParams
  */
 
+/**
+ * @template {Record<string, any>} [T=Record<string, any>] - The type of variables for the template function
+ * @typedef {TemplateFunctionParams<T>} TemplateFunctionParams
+ */
 
 const DEFAULT_IGNORES = /** @type {const} */ ([
   '.*',
