@@ -1069,19 +1069,20 @@ const date = page.vars.date
 
 For large sites with hundreds of pages, caching the result once per page reduces build time noticeably.
 
-**`page.vars` can throw.** If a page vars module has a syntax error, a missing dependency, or a runtime error, accessing `.vars` will throw. Wrap accesses in `try/catch` when iterating all pages so one broken page does not abort the whole function:
+**`page.vars` can throw.** If a page failed to initialize (often due to page vars module syntax errors, missing dependencies, or runtime errors), accessing `.vars` will throw. Wrap accesses in `try/catch` when iterating all pages so one broken page does not abort the whole function:
 
 ```js
 const posts = pages.filter(p => {
   try {
-    return p.vars.layout === 'article' && p.vars.date
+    const vars = p.vars
+    return vars.layout === 'article' && vars.date
   } catch {
     return false
   }
 })
 ```
 
-**`page.vars.content` is raw source, not rendered HTML.** For markdown pages, `vars.content` is the raw markdown string read from the file. To get rendered HTML, call `page.renderInnerPage({ pages })`.
+**Raw markdown source is not exposed as `page.vars.content` by default.** For markdown pages, `page.vars` contains front matter-derived values such as `title`, but does not automatically include the raw markdown body as `content`. If you need the raw source, read it from `page.pageInfo.pageFile.filepath`. To get rendered HTML, call `page.renderInnerPage({ pages })`.
 
 **`renderInnerPage()` is available.** `global.data.js` receives fully initialized `PageData` instances, so you can call `renderInnerPage()` here. See [Accessing rendered page content](#accessing-rendered-page-content) for usage and performance guidance.
 
