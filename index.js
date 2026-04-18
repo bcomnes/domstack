@@ -247,7 +247,7 @@ export class DomStack {
     await this.#rebuildMaps(siteData)
 
     // ── Copy watchers & browser-sync ─────────────────────────────────────
-    const copyDirs = getCopyDirs(this.opts.copy)
+    const copyDirs = await getCopyDirs(this.opts.copy)
 
     this.#cpxWatchers = [
       cpx.watch(getCopyGlob(this.#src), this.#dest, { ignore: this.opts.ignore }),
