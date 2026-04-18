@@ -1295,6 +1295,8 @@ npm install async-htm-to-string
 ```js
 import { html, rawHtml } from 'async-htm-to-string'
 
+// Note: rawHtml(children) assumes children is a pre-rendered HTML string from a
+// trusted source such as page.renderInnerPage(). Do not pass unsanitized user input.
 export default async function layout ({ children, vars }) {
   return await html`
     <!DOCTYPE html>
@@ -1308,7 +1310,7 @@ export default async function layout ({ children, vars }) {
 
 Key differences from `htm/preact`:
 
-- **Attribute names are standard HTML.** Use `class`, `for`, `tabindex` rather than `className`, `htmlFor`, `tabIndex`. Using React-style attribute names with `async-htm-to-string` outputs them literally as invalid attributes with no warning.
+- **Attribute names are standard HTML.** Use `class` and `for` rather than React aliases like `className` and `htmlFor`, which `async-htm-to-string` will output literally with no warning. For attributes like `tabindex`, `tabIndex` is only a casing preference in HTML, but using standard lowercase keeps templates consistent.
 - **Always `await` the `html` tag.** The tag returns an object that resolves to a string asynchronously. If you return it without `await` from a non-async function (or assign it where a string is expected), you will get `[object Object]` in the output with no error thrown. Use `async function` and `await` the result.
 - **`rawHtml()` bypasses escaping.** It is equivalent to setting `innerHTML` directly. Use it only for HTML you generated yourself (such as the output of `page.renderInnerPage()` or a trusted markdown renderer). `children` passed to a layout can be any type returned by a page function, and may contain unsanitized content depending on the page. Always verify the source before passing it through `rawHtml()`.
 
