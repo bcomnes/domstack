@@ -1055,36 +1055,31 @@ Use `GlobalDataFunction<T>` or `AsyncGlobalDataFunction<T>` to type the function
 
 **Caveats:**
 
-**`page.vars` is a computed getter.** Each access performs a fresh merge of all variable sources. Cache the result when reading multiple properties from the same page:
+**`page.vars` is a cached, read-only computed getter.** The first access merges all variable sources and DomStack caches a shallow-frozen result. Direct access and destructuring are both fine. Treat the returned object as read-only; if you need derived values, create a new object instead of mutating `page.vars`.
+
+**`page.vars` can throw.** If a page failed to initialize (often due to page vars module syntax errors, missing dependencies, or runtime errors), accessing `.vars` will throw. Treat this as a build issue to fix.
+
+**Raw markdown source is not exposed as `page.vars.content` by default.** For markdown pages, `page.vars` contains front matter-derived values such as `title`, but does not automatically include the raw markdown body as `content`. If you need the raw markdown body, call `await page.readMarkdownContent()`. To get rendered HTML, call `page.renderInnerPage({ pages })`.
+
+**`renderInnerPage()` is available.** `global.data.js` runs after page initialization has been attempted, and receives `PageData` instances (some may be uninitialized if they failed to initialize), so you can call `renderInnerPage()` here with the same care described above for `page.vars` and other page-dependent access. It renders the page body without its layout.
 
 ```js
-// good: one merge per page
-const vars = page.vars
-const { title, date } = vars
+import pMap from 'p-map'
 
-// avoid: merges on every property access
-const title = page.vars.title
-const date = page.vars.date
+export default async function globalData ({ pages }) {
+  const posts = pages
+    .filter(page => page.vars.layout === 'blog')
+    .sort((a, b) => new Date(b.vars.publishDate) - new Date(a.vars.publishDate))
+
+  const renderedPosts = await pMap(posts, async page => ({
+    title: page.vars.title,
+    url: page.pageInfo.url,
+    html: await page.renderInnerPage({ pages }),
+  }), { concurrency: 4 })
+
+  return { renderedPosts }
+}
 ```
-
-For large sites with hundreds of pages, caching the result once per page reduces build time noticeably.
-
-**`page.vars` can throw.** If a page failed to initialize (often due to page vars module syntax errors, missing dependencies, or runtime errors), accessing `.vars` will throw. Wrap accesses in `try/catch` when iterating all pages so one broken page does not abort the whole function:
-
-```js
-const posts = pages.filter(p => {
-  try {
-    const vars = p.vars
-    return vars.layout === 'article' && vars.date
-  } catch {
-    return false
-  }
-})
-```
-
-**Raw markdown source is not exposed as `page.vars.content` by default.** For markdown pages, `page.vars` contains front matter-derived values such as `title`, but does not automatically include the raw markdown body as `content`. If you need the raw source, read it from `page.pageInfo.pageFile.filepath`. To get rendered HTML, call `page.renderInnerPage({ pages })`.
-
-**`renderInnerPage()` is available.** `global.data.js` receives fully initialized `PageData` instances, so you can call `renderInnerPage()` here. See [Accessing rendered page content](#accessing-rendered-page-content) for usage and performance guidance.
 
 ### `esbuild.settings.ts`
 
