@@ -884,9 +884,9 @@ Use the simplest return type that fits your needs:
 | String | No | No (derived from template filename) | Single file, filename from template name |
 | Object | No | Yes | Single file with a custom output path |
 | Array | Yes | Yes | Fixed set of output files known at build time |
-| AsyncIterator | Yes | Yes | Any async work, or a dynamic number of outputs |
+| AsyncIterator | Yes | Yes | Dynamic or unknown number of outputs at build time |
 
-Start with a string return and only switch to a more complex type when you need what it provides. An async generator is the right choice when you need to do async work (such as calling `renderInnerPage` on multiple pages) and produce more than one output file.
+Start with a string return and only switch to a more complex type when you need what it provides. All template forms can do async work (string, object, and array all support `async` functions). Choose AsyncIterator specifically when the number of output files is not known until the template runs, or when you want to stream outputs one at a time rather than building the full list in memory first.
 
 ### RSS Feed Template Example
 
