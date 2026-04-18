@@ -1082,9 +1082,9 @@ const posts = pages.filter(p => {
 })
 ```
 
-**Raw markdown source is not exposed as `page.vars.content` by default.** For markdown pages, `page.vars` contains front matter-derived values such as `title`, but does not automatically include the raw markdown body as `content`. If you need the raw source, read it from `page.pageInfo.pageFile.filepath`. To get rendered HTML, call `page.renderInnerPage({ pages })`.
+**Raw markdown source is not exposed as `page.vars.content` by default.** For markdown pages, `page.vars` contains front matter-derived values such as `title`, but does not automatically include the raw markdown body as `content`. If you need the raw source, use `page.pageInfo.pageFile.filepath` to locate the source file on disk and read that file. To get rendered HTML, call `page.renderInnerPage({ pages })`.
 
-**`renderInnerPage()` is available.** `global.data.js` receives fully initialized `PageData` instances, so you can call `renderInnerPage()` here. See [Accessing rendered page content](#accessing-rendered-page-content) for usage and performance guidance.
+**`renderInnerPage()` is available.** `global.data.js` runs after page initialization has been attempted, and receives `PageData` instances (some may be uninitialized if they failed to initialize), so you can call `renderInnerPage()` here with the same care described above for `page.vars` and other page-dependent access.
 
 ### `esbuild.settings.ts`
 
