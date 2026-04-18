@@ -992,9 +992,9 @@ function escapeXml (str) {
 }
 ```
 
-The `outputName` field controls the output path. Using `${from}/index.html` creates a directory-style URL at the old path. The `escapeXml` helper prevents HTML injection in attribute values. Note that `escapeXml` alone does not block dangerous URL schemes like `javascript:` — keep redirect targets to known-safe URL patterns (relative paths or verified external URLs). Also avoid leading `/` in `from` values: because `outputName` is resolved with `path.resolve`, a leading `/` would resolve as an absolute filesystem path and write the file outside the build directory.
+The `outputName` field controls the output path. Using `${from}/index.html` creates a directory-style URL at the old path. The `escapeXml` helper prevents HTML injection in attribute values. Note that `escapeXml` alone does not block dangerous URL schemes like `javascript:` — keep redirect targets to known-safe URL patterns (relative paths or verified external URLs). Be careful with `from` values used in `outputName`: a leading `/` makes `path.resolve` treat it as an absolute filesystem path, writing the file outside the build directory. Path segments containing `..` can also escape the build directory. If `from` values come from any external source, sanitize them before use — for example, strip any leading slashes and reject entries that contain `..`.
 
-**SEO note:** Meta-refresh is a client-side redirect. Search engines may not treat it as a permanent 301 redirect. For static hosting platforms that support server-side redirects, you can instead generate a `_redirects` file (Netlify, Cloudflare Pages) or `vercel.json` (Vercel) using the single-object template type:
+**SEO note:** Meta-refresh is a client-side redirect. Search engines may not treat it as a permanent 301 redirect. For static hosting platforms that support server-side redirects, you can instead generate a `_redirects` file (Netlify, Cloudflare Pages) or `vercel.json` (Vercel) using the object template type:
 
 ```js
 // src/redirects-netlify.txt.template.js
