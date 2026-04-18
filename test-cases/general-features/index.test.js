@@ -103,6 +103,21 @@ test.describe('general-features', () => {
     const jsChunkFiles = files.filter(f => f.relname.match(/chunks\/js\/chunk-.+\.js$/))
     assert.ok(jsChunkFiles.length > 0, 'at least one shared JS chunk was produced with a hashed name')
 
+    // Verify that global.data.js output reaches template vars
+    const feedJsonPath = path.join(dest, 'feeds/feed.json')
+    try {
+      const feedContent = await readFile(feedJsonPath, 'utf8')
+      const feedData = JSON.parse(feedContent)
+      assert.strictEqual(
+        feedData._globalDataSentinel,
+        'data-from-global-dot-data',
+        'feeds template received globalDataSentinel from global.data.js via vars'
+      )
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error('Unknown error', { cause: err })
+      assert.fail('Failed to verify global.data.js output in template vars: ' + error.message)
+    }
+
     // Special test for global.data.js blogPostsHtml
     const indexPath = path.join(dest, 'index.html')
     try {
