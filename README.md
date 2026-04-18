@@ -636,7 +636,7 @@ If you find your layouts nesting more than one or two levels, perhaps compositio
 
 #### Layout composition pitfalls
 
-**Scripts and styles must be forwarded explicitly.** If you call a base layout without passing `scripts` and `styles`, those arrays are lost and the rendered page will have no CSS or JS bundles. No error is reported — the page simply renders without styles:
+**Scripts and styles must be forwarded explicitly.** If you call a base layout without passing `scripts` and `styles`, those arrays are lost and the rendered page will have no CSS or JS bundles. No error is reported -- the page simply renders unstyled and without client-side JS:
 
 ```js
 // wrong: scripts and styles are dropped
