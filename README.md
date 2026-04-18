@@ -958,18 +958,20 @@ Any `PageData` instance exposes two methods for accessing rendered output:
 - `await page.renderInnerPage({ pages })` returns the page content as rendered by its builder (markdown converted to HTML, for example) without a layout wrapper applied.
 - `await page.renderFullPage({ pages })` returns the complete page output with its layout applied.
 
-Both methods are async and require the full `pages` array. They are available inside templates and in `global.data.js`. They are not available inside page functions or layouts.
+Both methods are async and require the full `pages` array. They are available inside templates, in `global.data.js`, inside page functions, and inside layouts.
 
 For templates that render many pages, pre-render in parallel and cache results to avoid doing the same work twice when producing several output files from one template:
 
 ```js
+import pMap from 'p-map'
+
 const renderCache = new Map()
-await Promise.all(allPosts.map(async (page) => {
+await pMap(allPosts, async (page) => {
   renderCache.set(page.pageInfo.path, await page.renderInnerPage({ pages }))
-}))
+}, { concurrency: 4 })
 
 // later, when building output:
-const html = renderCache.get(post.path) ?? ''
+const html = renderCache.get(page.pageInfo.path) ?? ''
 ```
 
 ## Global Assets
