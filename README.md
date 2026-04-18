@@ -879,9 +879,9 @@ export default templateIterator
 
 Use the simplest return type that fits your needs:
 
-| Return type | Multiple outputs | Custom filename | Use when |
+| Return type | Multiple outputs | Custom output path | Use when |
 |---|---|---|---|
-| String | No | No (derived from template filename) | Single file, filename from template name |
+| String | No | No (derived from template filename) | Single file, output path derived from template filename |
 | Object | No | Yes | Single file with a custom output path |
 | Array | Yes | Yes | Fixed set of output files known at build time |
 | AsyncIterator | Yes | Yes | Dynamic or unknown number of outputs at build time |
