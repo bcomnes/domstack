@@ -1288,6 +1288,10 @@ const layout: LayoutFunction<{site: string}, VDOMNode, string> = ({ children }) 
 
 DomStack's default layout pattern uses `htm/preact` and `preact-render-to-string` for HTML generation. If you only need server-side rendering and have no client-side Preact components, [`async-htm-to-string`](https://github.com/nicferrier/async-htm-to-string) is a lighter alternative. It uses the same `htm` tagged template syntax but renders directly to a string without a virtual DOM layer.
 
+```console
+npm install async-htm-to-string
+```
+
 ```js
 import { html, rawHtml } from 'async-htm-to-string'
 
@@ -1305,14 +1309,14 @@ export default async function layout ({ children, vars }) {
 Key differences from `htm/preact`:
 
 - **Attribute names are standard HTML.** Use `class`, `for`, `tabindex` rather than `className`, `htmlFor`, `tabIndex`. Using React-style attribute names with `async-htm-to-string` outputs them literally as invalid attributes with no warning.
-- **Always `await` the `html` tag.** It returns a thenable object, not a plain string. Returning without `await` produces `[object Object]` in the rendered output with no error thrown.
-- **`rawHtml()` bypasses escaping.** Use it only for content you trust, such as the output of `page.renderInnerPage()` or your own markdown renderer. Passing user-controlled input through `rawHtml()` is a direct XSS risk.
+- **Always `await` the `html` tag.** The tag returns an object that resolves to a string asynchronously. If you return it without `await` from a non-async function (or assign it where a string is expected), you will get `[object Object]` in the output with no error thrown. Use `async function` and `await` the result.
+- **`rawHtml()` bypasses escaping.** It is equivalent to setting `innerHTML` directly. Use it only for HTML you generated yourself (such as the output of `page.renderInnerPage()` or a trusted markdown renderer). `children` passed to a layout can be any type returned by a page function, and may contain unsanitized content depending on the page. Always verify the source before passing it through `rawHtml()`.
 
 ```js
 import { html, rawHtml } from 'async-htm-to-string'
 
 // safe: vars.title is escaped automatically
-// trusted: children is already-rendered HTML from the page builder
+// children here is the HTML string produced by page.renderInnerPage() — trusted
 export default async function layout ({ children, vars }) {
   return await html`<main class="content"><h1>${vars.title}</h1>${rawHtml(children)}</main>`
 }
