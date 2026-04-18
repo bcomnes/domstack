@@ -951,6 +951,27 @@ const feedsTemplate: TemplateAsyncIterator<TemplateVars> = async function * ({
 export default feedsTemplate
 ```
 
+### Accessing rendered page content
+
+Any `PageData` instance exposes two methods for accessing rendered output:
+
+- `await page.renderInnerPage({ pages })` returns the page content as rendered by its builder (markdown converted to HTML, for example) without a layout wrapper applied.
+- `await page.renderFullPage({ pages })` returns the complete page output with its layout applied.
+
+Both methods are async and require the full `pages` array. They are available inside templates and in `global.data.js`. They are not available inside page functions or layouts.
+
+For templates that render many pages, pre-render in parallel and cache results to avoid doing the same work twice when producing several output files from one template:
+
+```js
+const renderCache = new Map()
+await Promise.all(allPosts.map(async (page) => {
+  renderCache.set(page.pageInfo.path, await page.renderInnerPage({ pages }))
+}))
+
+// later, when building output:
+const html = renderCache.get(post.path) ?? ''
+```
+
 ## Global Assets
 
 There are a few important (and optional) global assets that live anywhere in the `src` directory. If duplicate named files that match the global asset file name pattern are found, a build error will occur until the duplicate file error is resolved.
