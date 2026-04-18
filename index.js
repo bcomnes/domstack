@@ -160,10 +160,12 @@ export class DomStack {
     this.#src = src
     this.#dest = dest
 
-    const copyDirs = opts?.copy ?? []
+    const basedir = dirname(resolve(src))
+    const copyDirs = (opts?.copy ?? []).map(dir => resolve(basedir, dir))
 
     this.opts = {
       ...opts,
+      copy: copyDirs,
       ignore: [
         ...DEFAULT_IGNORES,
         basename(dest),
@@ -172,12 +174,11 @@ export class DomStack {
       ],
     }
 
-    if (copyDirs && copyDirs.length > 0) {
+    if (copyDirs.length > 0) {
       const absDest = resolve(this.#dest)
       for (const copyDir of copyDirs) {
         // Copy dirs can be in the src dir (nested builds), but not in the dest dir.
-        const absCopyDir = resolve(copyDir)
-        const relToDest = relative(absDest, absCopyDir)
+        const relToDest = relative(absDest, copyDir)
         if (relToDest === '' || !relToDest.startsWith('..')) {
           throw new Error(`copyDir ${copyDir} is within the dest directory`)
         }
