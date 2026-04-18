@@ -4,7 +4,7 @@
  * @import { FSWatcher } from 'chokidar'
  * @import { AsyncLayoutFunction, LayoutFunction, LayoutFunctionParams } from './lib/build-pages/page-data.js'
  * @import { PageFunction, AsyncPageFunction, PageFunctionParams } from './lib/build-pages/page-builders/page-writer.js'
- * @import { TemplateFunction, TemplateFunctionParams } from './lib/build-pages/page-builders/template-builder.js'
+ * @import { TemplateFunction } from './lib/build-pages/page-builders/template-builder.js'
  * @import { TemplateAsyncIterator } from './lib/build-pages/page-builders/template-builder.js'
  * @import { TemplateOutputOverride } from './lib/build-pages/page-builders/template-builder.js'
  * @import { GlobalDataFunction, AsyncGlobalDataFunction, WorkerBuildStepResult, GlobalDataFunctionParams } from './lib/build-pages/index.js'
@@ -130,10 +130,6 @@ export { PageData } from './lib/build-pages/page-data.js'
  * @typedef {PageFunctionParams<T, U>} PageFunctionParams
  */
 
-/**
- * @template {Record<string, any>} T - The type of variables for the template function
- * @typedef {TemplateFunctionParams<T>} TemplateFunctionParams
- */
 
 const DEFAULT_IGNORES = /** @type {const} */ ([
   '.*',
