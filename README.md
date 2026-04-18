@@ -1053,6 +1053,38 @@ The returned object is stamped onto every page's vars before rendering, so any p
 
 Use `GlobalDataFunction<T>` or `AsyncGlobalDataFunction<T>` to type the function where `T` is the shape of the object you return.
 
+**Caveats:**
+
+**`page.vars` is a computed getter.** Each access performs a fresh merge of all variable sources. Cache the result when reading multiple properties from the same page:
+
+```js
+// good: one merge per page
+const vars = page.vars
+const { title, date } = vars
+
+// avoid: merges on every property access
+const title = page.vars.title
+const date = page.vars.date
+```
+
+For large sites with hundreds of pages, caching the result once per page reduces build time noticeably.
+
+**`page.vars` can throw.** If a page vars module has a syntax error, a missing dependency, or a runtime error, accessing `.vars` will throw. Wrap accesses in `try/catch` when iterating all pages so one broken page does not abort the whole function:
+
+```js
+const posts = pages.filter(p => {
+  try {
+    return p.vars.layout === 'article' && p.vars.date
+  } catch {
+    return false
+  }
+})
+```
+
+**`page.vars.content` is raw source, not rendered HTML.** For markdown pages, `vars.content` is the raw markdown string read from the file. To get rendered HTML, call `page.renderInnerPage({ pages })`.
+
+**`renderInnerPage()` is available.** `global.data.js` receives fully initialized `PageData` instances, so you can call `renderInnerPage()` here. See [Accessing rendered page content](#accessing-rendered-page-content) for usage and performance guidance.
+
 ### `esbuild.settings.ts`
 
 This is an optional file you can create anywhere.
