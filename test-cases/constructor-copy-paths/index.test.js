@@ -1,11 +1,15 @@
 import { test } from 'node:test'
 import assert from 'node:assert'
-import { isAbsolute } from 'node:path'
+import { isAbsolute, resolve, join } from 'node:path'
+import { tmpdir } from 'node:os'
 import { DomStack } from '../../index.js'
+
+const tmpSrc = join(tmpdir(), 'domstack-test-src')
+const tmpDest = join(tmpdir(), 'domstack-test-dest')
 
 test.describe('DomStack constructor - copy path resolution', () => {
   test('resolves a relative copy path to an absolute path', () => {
-    const ds = new DomStack('/tmp/test-src', '/tmp/test-dest', {
+    const ds = new DomStack(tmpSrc, tmpDest, {
       copy: ['some-relative-copy-dir'],
     })
 
@@ -13,17 +17,19 @@ test.describe('DomStack constructor - copy path resolution', () => {
     assert.ok(isAbsolute(ds.opts.copy[0]), `copy path should be absolute, got: "${ds.opts.copy[0]}"`)
   })
 
-  test('leaves an already-absolute copy path unchanged', () => {
-    const ds = new DomStack('/tmp/test-src', '/tmp/test-dest', {
-      copy: ['/absolute/copy/dir'],
+  test('leaves an already-absolute copy path normalized', () => {
+    const absPath = join(tmpdir(), 'absolute', 'copy', 'dir')
+    const ds = new DomStack(tmpSrc, tmpDest, {
+      copy: [absPath],
     })
 
-    assert.strictEqual(ds.opts.copy[0], '/absolute/copy/dir', 'absolute path is preserved')
+    assert.strictEqual(ds.opts.copy[0], resolve(absPath), 'absolute path is preserved and normalized')
   })
 
   test('resolves multiple mixed copy paths', () => {
-    const ds = new DomStack('/tmp/test-src', '/tmp/test-dest', {
-      copy: ['relative-dir', '/absolute/dir'],
+    const absPath = join(tmpdir(), 'absolute', 'dir')
+    const ds = new DomStack(tmpSrc, tmpDest, {
+      copy: ['relative-dir', absPath],
     })
 
     assert.strictEqual(ds.opts.copy.length, 2, 'two copy entries')
