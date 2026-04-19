@@ -1012,7 +1012,7 @@ export default function () {
 }
 ```
 
-Both approaches can coexist. Using `--copy` to include a hand-crafted `_redirects` file is also an option when you prefer to manage redirects outside the build.
+Both approaches can coexist. Copying a directory that contains a hand-crafted `_redirects` file via `--copy` is also an option when you prefer to manage redirects outside the build.
 
 ## Global Assets
 
