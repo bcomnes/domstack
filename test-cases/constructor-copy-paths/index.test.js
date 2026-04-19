@@ -14,7 +14,8 @@ test.describe('DomStack constructor - copy path resolution', () => {
     })
 
     assert.strictEqual(ds.opts.copy.length, 1, 'one copy entry')
-    assert.ok(isAbsolute(ds.opts.copy[0]), `copy path should be absolute, got: "${ds.opts.copy[0]}"`)
+    const copyPath = /** @type {string} */ (ds.opts.copy[0])
+    assert.ok(isAbsolute(copyPath), `copy path should be absolute, got: "${copyPath}"`)
   })
 
   test('leaves an already-absolute copy path normalized', () => {
