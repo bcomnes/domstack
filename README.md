@@ -960,6 +960,8 @@ Any `PageData` instance exposes two methods for accessing rendered output:
 
 Both methods are async and require the full `pages` array. They are available inside templates, in `global.data.js`, inside page functions, and inside layouts.
 
+These methods also require that the `PageData` instance was successfully initialized first. When iterating the full `pages` array -- especially in `global.data.js` -- some entries may represent pages that failed initialization before the build aborts, and calling `renderInnerPage()` or `renderFullPage()` on those pages will throw.
+
 For templates that render many pages, pre-render in parallel and cache results to avoid doing the same work twice when producing several output files from one template:
 
 ```js
