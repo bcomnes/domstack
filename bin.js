@@ -81,7 +81,7 @@ const options = {
   },
   copy: {
     type: 'string',
-    help: 'path to directories to copy into dist; can be used multiple times',
+    help: 'path to directories or individual files to copy into dist; can be used multiple times',
     multiple: true
   },
   help: {
