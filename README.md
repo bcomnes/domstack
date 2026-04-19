@@ -649,8 +649,8 @@ return defaultRootLayout({ children, vars, scripts, styles })
 **Vars can be modified before forwarding.** The rest-spread pattern shown above forwards vars unchanged, but you can extend the object before passing it to the base layout. This is useful for setting layout-specific flags that the root layout reads:
 
 ```js
-const layoutVars = { ...vars, showSidebar: true, pageType: 'article' }
-return defaultRootLayout({ children, vars: layoutVars, scripts, styles })
+const extendedVars = { ...vars, showSidebar: true, pageType: 'article' }
+return defaultRootLayout({ children, vars: extendedVars, scripts, styles })
 ```
 
 **Forward `page`, `pages`, and `workers` when the base layout uses them.** If your root layout accesses `page.path` for canonical URLs, iterates `pages` for navigation, or uses `workers`, those params must also be forwarded:
