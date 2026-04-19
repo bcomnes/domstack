@@ -960,6 +960,8 @@ Any `PageData` instance exposes two methods for accessing rendered output:
 
 Both methods are async and require the full `pages` array. They are available inside templates, in `global.data.js`, inside page functions, and inside layouts.
 
+These methods also require that the `PageData` instance was successfully initialized first. When iterating the full `pages` array -- especially in `global.data.js` -- some entries may represent pages that failed initialization before the build aborts, and calling `renderInnerPage()` or `renderFullPage()` on those pages will throw.
+
 For templates that render many pages, pre-render in parallel and cache results to avoid doing the same work twice when producing several output files from one template:
 
 ```js
@@ -1082,27 +1084,9 @@ Use `GlobalDataFunction<T>` or `AsyncGlobalDataFunction<T>` to type the function
 
 **`page.vars` can throw.** If a page failed to initialize (often due to page vars module syntax errors, missing dependencies, or runtime errors), accessing `.vars` will throw. Treat this as a build issue to fix.
 
-**Raw markdown source is not exposed as `page.vars.content` by default.** For markdown pages, `page.vars` contains front matter-derived values such as `title`, but does not automatically include the raw markdown body as `content`. If you need the raw markdown body, call `await page.readMarkdownContent()`. To get rendered HTML, call `page.renderInnerPage({ pages })`.
+**Raw markdown source is not exposed as `page.vars.content` by default.** For markdown pages, `page.vars` contains front matter-derived values such as `title`, but does not automatically include the raw markdown body as `content`. If you need the raw markdown body, call `await page.readMarkdownContent()`. For rendered output, see [Accessing rendered page content](#accessing-rendered-page-content).
 
-**`renderInnerPage()` is available.** `global.data.js` runs after page initialization has been attempted, and receives `PageData` instances (some may be uninitialized if they failed to initialize), so you can call `renderInnerPage()` here with the same care described above for `page.vars` and other page-dependent access. It renders the page body without its layout.
-
-```js
-import pMap from 'p-map'
-
-export default async function globalData ({ pages }) {
-  const posts = pages
-    .filter(page => page.vars.layout === 'blog')
-    .sort((a, b) => new Date(b.vars.publishDate) - new Date(a.vars.publishDate))
-
-  const renderedPosts = await pMap(posts, async page => ({
-    title: page.vars.title,
-    url: page.pageInfo.url,
-    html: await page.renderInnerPage({ pages }),
-  }), { concurrency: 4 })
-
-  return { renderedPosts }
-}
-```
+**`renderInnerPage()` is available.** `global.data.js` runs after page initialization has been attempted, and receives `PageData` instances (some may be uninitialized if they failed to initialize), so you can call `renderInnerPage()` here with the same care described above for `page.vars` and other page-dependent access. For examples and performance guidance, see [Accessing rendered page content](#accessing-rendered-page-content).
 
 ### `esbuild.settings.ts`
 
