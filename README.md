@@ -951,6 +951,69 @@ const feedsTemplate: TemplateAsyncIterator<TemplateVars> = async function * ({
 export default feedsTemplate
 ```
 
+### Redirect Pages
+
+Sites migrating from another platform often need redirect pages for old URLs that no longer exist. DomStack has no built-in redirect mechanism, but the object array template type makes it straightforward to generate as many HTML meta-refresh redirect pages as you need from a single template file.
+
+```js
+// src/redirects.template.js
+// Generates one index.html per redirect entry using the meta-refresh pattern.
+
+const redirects = [
+  { from: '2020/old-slug', to: '/2020/new-slug/' },
+  { from: '2021/another-old', to: '/2021/another-new/' },
+]
+
+export default function redirectsTemplate () {
+  return redirects.map(({ from, to }) => ({
+    outputName: `${from}/index.html`,
+    content: `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="refresh" content="0;url=${escapeXml(to)}" />
+  <link rel="canonical" href="${escapeXml(to)}" />
+  <title>Redirecting...</title>
+</head>
+<body>
+  <p>Redirecting to <a href="${escapeXml(to)}">${escapeXml(to)}</a></p>
+</body>
+</html>`,
+  }))
+}
+
+function escapeXml (str) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+```
+
+The `outputName` field controls the output path. Using `${from}/index.html` creates a directory-style URL at the old path. The `escapeXml` helper prevents HTML injection in attribute values. Note that `escapeXml` alone does not block dangerous URL schemes like `javascript:` — keep redirect targets to known-safe URL patterns (relative paths or verified external URLs). Be careful with `from` values used in `outputName`: a leading `/` makes `path.resolve` treat it as an absolute filesystem path, writing the file outside the build directory. Path segments containing `..` can also escape the build directory. If `from` values come from any external source, sanitize them before use — for example, strip any leading slashes and reject entries that contain `..`.
+
+**SEO note:** Meta-refresh is a client-side redirect. Search engines may not treat it as a permanent 301 redirect. For static hosting platforms that support server-side redirects, you can instead generate a `_redirects` file (Netlify, Cloudflare Pages) or `vercel.json` (Vercel) using the object template type:
+
+```js
+// src/redirects-netlify.txt.template.js
+// Generates a _redirects file for Netlify / Cloudflare Pages.
+
+const redirects = [
+  { from: '/2020/old-slug/', to: '/2020/new-slug/' },
+]
+
+export default function () {
+  return {
+    outputName: '_redirects',
+    content: redirects.map(({ from, to }) => `${from}  ${to}  301`).join('\n'),
+  }
+}
+```
+
+Both approaches can coexist. Copying a directory that contains a hand-crafted `_redirects` file via `--copy` is also an option when you prefer to manage redirects outside the build.
+
 ## Global Assets
 
 There are a few important (and optional) global assets that live anywhere in the `src` directory. If duplicate named files that match the global asset file name pattern are found, a build error will occur until the duplicate file error is resolved.
