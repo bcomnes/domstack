@@ -710,11 +710,11 @@ When you run `domstack --eject`, it will:
 
 It is recomended to eject early in your project so that you can customize the root layout as you see fit, and de-couple yourself from potential unwanted changes in the default layout as new versions of DOMStack are released.
 
-### `--copy` directories
+### `--copy` directories and files
 
-You can specify directories to copy into your `dest` directory using the `--copy` flag. Everything in those directories will be copied as-is into the destination, including js, css, html and markdown, preserving the internal directory structure. Conflicting files are not detected or reported and will cause undefined behavior.
+You can specify directories or individual files to copy into your `dest` directory using the `--copy` flag. Everything in those directories will be copied as-is into the destination, including js, css, html and markdown, preserving the internal directory structure. Individual files (such as a `_redirects` or `sw.js`) are copied to the root of the destination. Conflicting files are not detected or reported and will cause undefined behavior.
 
-Copy folders must live **outside** of the `dest` directory. Copy directories can be in the src directory allowing for nested builds. In this case they are added to the ignore glob and ignored by the rest of `domstack`.
+Copy paths must live **outside** of the `dest` directory. Copy directories can be in the src directory allowing for nested builds. In this case they are added to the ignore glob and ignored by the rest of `domstack`.
 
 This is useful when you have legacy or archived site content that you want to include in your site, but don't want `domstack` to process or modify it.
 In general, static content should live in your primary `src` directory, however for merging in old static assets over your domstack build is sometimes easier to reason about when it's kept in a separate folder and isn't processed in any way.
