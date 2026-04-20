@@ -5,7 +5,7 @@
 import { html } from 'htm/preact'
 import { render } from 'preact-render-to-string'
 
-/** @type {AsyncGlobalDataFunction<{ blogPostsHtml: string }>} */
+/** @type {AsyncGlobalDataFunction<{ blogPostsHtml: string, globalDataSentinel: string }>} */
 export default async function ({ pages }) {
   const blogPosts = pages
     .filter(page => page.vars?.layout === 'blog' && page.vars?.publishDate)
@@ -36,5 +36,5 @@ export default async function ({ pages }) {
     </ul>
   `)
 
-  return { blogPostsHtml }
+  return { blogPostsHtml, globalDataSentinel: 'data-from-global-dot-data' }
 }
