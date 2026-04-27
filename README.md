@@ -634,6 +634,33 @@ Now the `blog.layout.js` becomes a nested layout of `root.layout.js`. No magic, 
 Alternatively, you could compose your layouts from re-usable template functions and strings.
 If you find your layouts nesting more than one or two levels, perhaps composition would be a better strategy.
 
+#### Layout composition pitfalls
+
+**Scripts and styles must be forwarded explicitly.** If you call a base layout without passing `scripts` and `styles`, those arrays are lost and the rendered page will have no CSS or JS bundles. No error is reported -- the page simply renders unstyled and without client-side JS:
+
+```js
+// wrong: scripts and styles are dropped
+return defaultRootLayout({ children, vars })
+
+// correct: forward them along
+return defaultRootLayout({ children, vars, scripts, styles })
+```
+
+**Vars can be modified before forwarding.** The rest-spread pattern shown above forwards vars unchanged, but you can extend the object before passing it to the base layout. This is useful for setting layout-specific flags that the root layout reads:
+
+```js
+const extendedVars = { ...vars, showSidebar: true, pageType: 'article' }
+return defaultRootLayout({ children, vars: extendedVars, scripts, styles })
+```
+
+**Forward `page`, `pages`, and `workers` when the base layout uses them.** If your root layout accesses `page.path` for canonical URLs, iterates `pages` for navigation, or uses `workers`, those params must also be forwarded:
+
+```js
+export default function articleLayout ({ children, vars, scripts, styles, page, pages, workers }) {
+  return defaultRootLayout({ children, vars, scripts, styles, page, pages, workers })
+}
+```
+
 ### Layout styles
 
 You can create a `${layout-name}.layout.css` next to any layout file.
