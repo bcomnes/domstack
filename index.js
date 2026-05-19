@@ -18,8 +18,7 @@ import { basename, dirname, relative, resolve } from 'node:path'
 // @ts-expect-error
 import makeArray from 'make-array'
 import ignore from 'ignore'
-// @ts-expect-error
-import cpx from 'cpx2'
+import { watch as cpxWatch } from 'cpx2'
 import { inspect } from 'util'
 import browserSync from 'browser-sync'
 import { find } from '@11ty/dependency-tree-typescript'
@@ -250,8 +249,8 @@ export class DomStack {
     const copyDirs = getCopyDirs(this.opts.copy)
 
     this.#cpxWatchers = [
-      cpx.watch(getCopyGlob(this.#src), this.#dest, { ignore: this.opts.ignore }),
-      ...copyDirs.map(copyDir => cpx.watch(copyDir, this.#dest))
+      cpxWatch(getCopyGlob(this.#src), this.#dest, { ignore: this.opts.ignore }),
+      ...copyDirs.map(copyDir => cpxWatch(copyDir, this.#dest))
     ]
     if (serve) {
       const bs = browserSync.create()
