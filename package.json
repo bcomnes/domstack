@@ -88,7 +88,7 @@
     "test": "npm run clean && run-s test:*",
     "test:installed-check": "installed-check --ignore-dev",
     "test:neostandard": "eslint . --ignore-pattern 'test-cases/build-errors/src/**/*.js' --ignore-pattern 'test-cases/page-build-errors/src/**/*.js'",
-    "test:node-test": "node --test --experimental-test-coverage --test-reporter=spec",
+    "test:node-test": "node --test --experimental-test-coverage --test-reporter=spec --test-reporter=lcov --test-reporter-destination=stdout --test-reporter-destination=lcov.info",
     "test:tsc": "tsc",
     "build-examples": "run-p example:*",
     "clean": "run-p clean:*",
