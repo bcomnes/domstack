@@ -29,7 +29,7 @@ jobs:
     - run: npm test
     - run: git reset --hard && git clean -fd
     - name: npm version && npm test
-      uses: bcomnes/npm-bump@v2
+      uses: bcomnes/npm-bump@v3
       with:
         git_email: bcomnes@gmail.com
         git_username: ${{ github.actor }}
