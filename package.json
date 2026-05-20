@@ -71,7 +71,7 @@
     "jsonfeed-to-atom": "^1.2.5",
     "neostandard": "^0.13.0",
     "npm-run-all2": "^8.0.1",
-    "typescript": "~5.9.2"
+    "typescript": "~6.0.3"
   },
   "homepage": "https://github.com/bcomnes/domstack",
   "keywords": [],
