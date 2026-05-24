@@ -2,12 +2,13 @@
  * @import { DomStackOpts as DomStackOpts, Results, SiteData } from './lib/builder.js'
  * @import { Stats } from 'node:fs'
  * @import { FSWatcher } from 'chokidar'
- * @import { AsyncLayoutFunction, LayoutFunction } from './lib/build-pages/page-data.js'
- * @import { PageFunction, AsyncPageFunction } from './lib/build-pages/page-builders/page-writer.js'
+ * @import { AsyncLayoutFunction, LayoutFunction, LayoutFunctionParams } from './lib/build-pages/page-data.js'
+ * @import { PageFunction, AsyncPageFunction, PageFunctionParams } from './lib/build-pages/page-builders/page-writer.js'
  * @import { TemplateFunction } from './lib/build-pages/page-builders/template-builder.js'
  * @import { TemplateAsyncIterator } from './lib/build-pages/page-builders/template-builder.js'
  * @import { TemplateOutputOverride } from './lib/build-pages/page-builders/template-builder.js'
- * @import { GlobalDataFunction, AsyncGlobalDataFunction, WorkerBuildStepResult } from './lib/build-pages/index.js'
+ * @import { TemplateFunctionParams } from './lib/build-pages/page-builders/template-builder.js'
+ * @import { GlobalDataFunction, AsyncGlobalDataFunction, WorkerBuildStepResult, GlobalDataFunctionParams } from './lib/build-pages/index.js'
  * @import { BuildOptions, BuildContext } from 'esbuild'
  * @import { PageInfo, TemplateInfo } from './lib/identify-pages.js'
 */
@@ -47,6 +48,8 @@ import {
 import { resolveVars } from './lib/build-pages/resolve-vars.js'
 import { ensureDest } from './lib/helpers/ensure-dest.js'
 import { DomStackAggregateError } from './lib/helpers/domstack-aggregate-error.js'
+
+export { PageData } from './lib/build-pages/page-data.js'
 
 /**
  * @typedef {BuildOptions} BuildOptions
@@ -100,6 +103,36 @@ import { DomStackAggregateError } from './lib/helpers/domstack-aggregate-error.j
 
 /**
  * @typedef {TemplateOutputOverride} TemplateOutputOverride
+ */
+
+/**
+ * @typedef {PageInfo} PageInfo
+ */
+
+/**
+ * @typedef {TemplateInfo} TemplateInfo
+ */
+
+/**
+ * @template {Record<string, any>} Vars - The type of variables passed to the layout function
+ * @template [PageReturn=any] PageReturn - The return type of the page function
+ * @template [LayoutReturn=string] LayoutReturn - The return type of the layout function
+ * @typedef {LayoutFunctionParams<Vars, PageReturn, LayoutReturn>} LayoutFunctionParams
+ */
+
+/**
+ * @typedef {GlobalDataFunctionParams} GlobalDataFunctionParams
+ */
+
+/**
+ * @template {Record<string, any>} Vars - The type of variables passed to the page function
+ * @template [PageReturn=any] PageReturn - The return type of the page function
+ * @typedef {PageFunctionParams<Vars, PageReturn>} PageFunctionParams
+ */
+
+/**
+ * @template {Record<string, any>} [Vars=Record<string, any>] - The type of variables for the template function
+ * @typedef {TemplateFunctionParams<Vars>} TemplateFunctionParams
  */
 
 const DEFAULT_IGNORES = /** @type {const} */ ([
