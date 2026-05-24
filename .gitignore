@@ -5,6 +5,7 @@ sandbox.js
 package-lock.json
 public
 coverage
+lcov.info
 .tap
 .tmp-*
 
