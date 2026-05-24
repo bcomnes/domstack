@@ -1232,6 +1232,7 @@ You can use `domstack`'s built-in types to strongly type your layout, page, and 
 
 ```ts
 import type {
+  // Function types
   LayoutFunction,
   AsyncLayoutFunction,
   GlobalDataFunction,
@@ -1239,13 +1240,34 @@ import type {
   PageFunction,
   AsyncPageFunction,
   TemplateFunction,
-  TemplateAsyncIterator
+  TemplateAsyncIterator,
+  // Data/param types
+  PageData,
+  PageInfo,
+  TemplateInfo,
+  LayoutFunctionParams,
+  GlobalDataFunctionParams,
+  PageFunctionParams,
+  TemplateFunctionParams,
 } from '@domstack/static'
 ```
 
 > **Note:** All function types have both synchronous and asynchronous variants (e.g., `LayoutFunction` and `AsyncLayoutFunction`). Use the async variants when your function is an `async` function.
 
 They are all generic and accept a variable template that you can develop and share between files.
+
+The data and param types (`PageData`, `PageInfo`, `TemplateInfo`, `*FunctionParams`) are useful when you want to annotate variables or helper functions that receive these objects without using the function types directly:
+
+```ts
+import type { GlobalDataFunctionParams, PageData, PageInfo } from '@domstack/static'
+
+function getPublishedPages({ pages }: GlobalDataFunctionParams): PageData[] {
+  return pages.filter((p: PageData) => {
+    const info: PageInfo = p.pageInfo
+    return !info.draft
+  })
+}
+```
 
 #### Advanced Type Parameters for PageFunction and LayoutFunction
 

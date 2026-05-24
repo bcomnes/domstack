@@ -115,10 +115,10 @@ export { PageData } from './lib/build-pages/page-data.js'
  */
 
 /**
- * @template {Record<string, any>} T - The type of variables passed to the layout function
- * @template [U=any] U - The return type of the page function
- * @template [V=string] V - The return type of the layout function
- * @typedef {LayoutFunctionParams<T, U, V>} LayoutFunctionParams
+ * @template {Record<string, any>} Vars - The type of variables passed to the layout function
+ * @template [PageReturn=any] PageReturn - The return type of the page function
+ * @template [LayoutReturn=string] LayoutReturn - The return type of the layout function
+ * @typedef {LayoutFunctionParams<Vars, PageReturn, LayoutReturn>} LayoutFunctionParams
  */
 
 /**
@@ -126,14 +126,14 @@ export { PageData } from './lib/build-pages/page-data.js'
  */
 
 /**
- * @template {Record<string, any>} T - The type of variables passed to the page function
- * @template [U=any] U - The return type of the page function
- * @typedef {PageFunctionParams<T, U>} PageFunctionParams
+ * @template {Record<string, any>} Vars - The type of variables passed to the page function
+ * @template [PageReturn=any] PageReturn - The return type of the page function
+ * @typedef {PageFunctionParams<Vars, PageReturn>} PageFunctionParams
  */
 
 /**
- * @template {Record<string, any>} [T=Record<string, any>] - The type of variables for the template function
- * @typedef {TemplateFunctionParams<T>} TemplateFunctionParams
+ * @template {Record<string, any>} [Vars=Record<string, any>] - The type of variables for the template function
+ * @typedef {TemplateFunctionParams<Vars>} TemplateFunctionParams
  */
 
 const DEFAULT_IGNORES = /** @type {const} */ ([
