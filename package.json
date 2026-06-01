@@ -18,9 +18,9 @@
   },
   "dependencies": {
     "@11ty/dependency-tree-typescript": "^1.0.0",
+    "@domstack/sync": "^0.0.4",
     "argsclopts": "^1.0.4",
     "async-folder-walker": "^3.0.5",
-    "browser-sync": "^3.0.2",
     "chokidar": "^5.0.0",
     "clean-deep": "^3.4.0",
     "cpx2": "^9.0.0",
@@ -57,7 +57,6 @@
     "write-package": "^7.0.1"
   },
   "devDependencies": {
-    "@types/browser-sync": "^2.29.0",
     "@types/markdown-it": "^14.1.1",
     "@types/markdown-it-footnote": "^3.0.4",
     "@types/node": "^25.3.0",
