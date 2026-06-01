@@ -32,7 +32,7 @@ Two separate, parallel watch loops:
   - `outputMap` only needs to be computed once at startup — stable across rebuilds
 - A `domstack-on-end` esbuild plugin logs errors after each bundle rebuild
 - Since watch mode uses stable filenames, page HTML never changes when bundles rebuild — no
-  page rebuild triggered. Browser-sync reloads the browser directly.
+  page rebuild triggered. `@domstack/sync` reloads the browser directly.
 - esbuild's `context()` API does NOT support modifying entry points after creation. Adding or
   removing an esbuild entry point requires `dispose()` + recreating the context.
 
@@ -305,7 +305,7 @@ Uses `t.after()` hooks for cleanup (stopWatching, mock restore, temp dir removal
 - **global.data.js trigger rule**: Always full page rebuild. Since `global.data.js` output is
   stamped onto every page's vars, there's no safe subset to rebuild. No esbuild restart needed.
 - **esbuild onEnd**: No page rebuild triggered. Watch mode uses stable filenames so page HTML
-  never references changed bundle paths. Browser-sync reloads the browser directly.
+  never references changed bundle paths. `@domstack/sync` reloads the browser directly.
 - **esbuild entry point detection**: Uses a concrete `Set<filepath>` built from siteData
   properties, checked BEFORE dep map rules in the decision tree. This prevents dep maps
   (which may contain esbuild entry files as transitive dependencies) from triggering

@@ -11,5 +11,3 @@ at build time, with no manual wiring needed in this file.
 {{{ vars.recentPostsHtml }}}
 
 See [all posts →](/blog/)
-
-Hello

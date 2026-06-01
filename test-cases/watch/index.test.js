@@ -21,21 +21,50 @@ async function setupTempSite () {
 
 /**
  * Wait for chokidar to detect a change and the rebuild to settle.
- * @param {DomStack} siteUp
+ * @param {DomStack} domStack
  * @param {number} [ms=800]
  */
-async function settle (siteUp, ms = 800) {
+async function settle (domStack, ms = 800) {
   await new Promise(resolve => setTimeout(resolve, ms))
-  await siteUp.settled()
+  await domStack.settled()
 }
 
 /**
- * Collect all console.log call arguments into a flat string array.
+ * Collect all console.log call arguments and logger chunks into a flat string array.
  * @param {ReturnType<typeof mock.method>} mockLog
+ * @param {string[]} loggerLogs
  * @returns {string[]}
  */
-function getLogLines (mockLog) {
-  return mockLog.mock.calls.map(c => c.arguments.map(String).join(' '))
+function getLogLines (mockLog, loggerLogs) {
+  const consoleLines = mockLog.mock.calls.map(c => c.arguments.map(String).join(' '))
+  return [...consoleLines, ...loggerLogs]
+}
+
+/**
+ * @param {string[]} logs
+ */
+function createTestLogger (logs) {
+  /** @param {unknown[]} args */
+  const write = (args) => {
+    const first = args[0]
+    const messageArgs = first && typeof first === 'object'
+      ? args.slice(1)
+      : args
+    logs.push(messageArgs.map(String).join(' '))
+  }
+
+  const logger = {
+    level: 'info',
+    /** @param {...unknown} args */
+    info (...args) { write(args) },
+    /** @param {...unknown} args */
+    warn (...args) { write(args) },
+    /** @param {...unknown} args */
+    error (...args) { write(args) },
+    child () { return logger },
+  }
+
+  return /** @type {import('pino').Logger} */ (/** @type {unknown} */ (logger))
 }
 
 test.describe('watch', () => {
@@ -46,16 +75,18 @@ test.describe('watch', () => {
       await rm(tmp, { recursive: true, force: true })
     })
 
-    const siteUp = new DomStack(src, dest)
     const mockLog = mock.method(console, 'log')
+    const loggerLogs = /** @type {string[]} */ ([])
+    const logger = createTestLogger(loggerLogs)
+    const domStack = new DomStack(src, dest, { logger })
 
     t.after(async () => {
-      if (siteUp.watching) await siteUp.stopWatching()
+      if (domStack.watching) await domStack.stopWatching()
       mockLog.mock.restore()
     })
 
     // ── Initial build ────────────────────────────────────────────────
-    const results = await siteUp.watch({ serve: false })
+    const results = await domStack.watch({ serve: false })
     assert.ok(results, 'watch() returned initial build results')
     assert.ok(results.siteData, 'results include siteData')
 
@@ -78,14 +109,15 @@ test.describe('watch', () => {
     // ── Page file change → only that page rebuilds ───────────────────
     await t.test('page file change rebuilds only that page', async () => {
       mockLog.mock.resetCalls()
+      loggerLogs.length = 0
 
       const pageFile = path.join(src, 'js-page/page.js')
       const original = await readFile(pageFile, 'utf8')
       await writeFile(pageFile, original.replace('jus some html', 'UPDATED html'))
 
-      await settle(siteUp)
+      await settle(domStack)
 
-      const logs = getLogLines(mockLog)
+      const logs = getLogLines(mockLog, loggerLogs)
       assert.ok(
         logs.some(l => l.includes('"page.js" changed:')),
         'log shows page.js triggered a rebuild'
@@ -106,14 +138,14 @@ test.describe('watch', () => {
     // ── Layout change → pages using that layout rebuild ──────────────
     await t.test('layout change rebuilds only pages using that layout', async () => {
       mockLog.mock.resetCalls()
-
+      loggerLogs.length = 0
       const layoutFile = path.join(src, 'layouts/root.layout.js')
       const original = await readFile(layoutFile, 'utf8')
       await writeFile(layoutFile, original.replace('safe-area-inset', 'safe-area-inset layout-touched'))
 
-      await settle(siteUp)
+      await settle(domStack)
 
-      const logs = getLogLines(mockLog)
+      const logs = getLogLines(mockLog, loggerLogs)
       assert.ok(
         logs.some(l => l.includes('"root.layout.js" changed:')),
         'log shows root.layout.js triggered a rebuild'
@@ -132,14 +164,14 @@ test.describe('watch', () => {
     // ── esbuild entry point change → no page rebuild ─────────────────
     await t.test('esbuild entry point change does not rebuild pages', async () => {
       mockLog.mock.resetCalls()
-
+      loggerLogs.length = 0
       const clientFile = path.join(src, 'js-page/client.js')
       const original = await readFile(clientFile, 'utf8')
       await writeFile(clientFile, original + '\n// touch')
 
-      await settle(siteUp)
+      await settle(domStack)
 
-      const logs = getLogLines(mockLog)
+      const logs = getLogLines(mockLog, loggerLogs)
       assert.ok(
         logs.some(l => l.includes('esbuild will handle rebundling')),
         'log confirms esbuild handles the change'
@@ -153,14 +185,14 @@ test.describe('watch', () => {
     // ── esbuild dep change → esbuild rebuilds, no page rebuild ─────
     await t.test('changing a client.js dependency triggers esbuild rebuild only', async () => {
       mockLog.mock.resetCalls()
-
+      loggerLogs.length = 0
       const helperFile = path.join(src, 'libs/client-helper.js')
       const original = await readFile(helperFile, 'utf8')
       await writeFile(helperFile, original.replace('hello from client-helper', 'UPDATED client-helper'))
 
-      await settle(siteUp)
+      await settle(domStack)
 
-      const logs = getLogLines(mockLog)
+      const logs = getLogLines(mockLog, loggerLogs)
       // client-helper.js is NOT an esbuild entry point itself, but it IS imported by
       // client.js which IS an esbuild entry point. esbuild's own watcher tracks the
       // transitive imports of its entry points, so it should detect this and rebuild.
@@ -174,14 +206,14 @@ test.describe('watch', () => {
     // ── page dependency change → only that page rebuilds ─────────────
     await t.test('changing a page.js dependency rebuilds only affected pages', async () => {
       mockLog.mock.resetCalls()
-
+      loggerLogs.length = 0
       const helperFile = path.join(src, 'libs/page-helper.js')
       const original = await readFile(helperFile, 'utf8')
       await writeFile(helperFile, original.replace('page-helper-stamp', 'UPDATED-page-stamp'))
 
-      await settle(siteUp)
+      await settle(domStack)
 
-      const logs = getLogLines(mockLog)
+      const logs = getLogLines(mockLog, loggerLogs)
       assert.ok(
         logs.some(l => l.includes('"page-helper.js" changed:')),
         'log shows page-helper.js triggered a rebuild'
@@ -202,14 +234,14 @@ test.describe('watch', () => {
     // ── layout dependency change → only pages using that layout rebuild
     await t.test('changing a layout dependency rebuilds only pages using that layout', async () => {
       mockLog.mock.resetCalls()
-
+      loggerLogs.length = 0
       const helperFile = path.join(src, 'libs/layout-helper.js')
       const original = await readFile(helperFile, 'utf8')
       await writeFile(helperFile, original.replace('layout-helper-marker', 'UPDATED-layout-marker'))
 
-      await settle(siteUp)
+      await settle(domStack)
 
-      const logs = getLogLines(mockLog)
+      const logs = getLogLines(mockLog, loggerLogs)
       assert.ok(
         logs.some(l => l.includes('"layout-helper.js" changed:')),
         'log shows layout-helper.js triggered a rebuild'
@@ -231,13 +263,13 @@ test.describe('watch', () => {
     // ── Add client.js to page dir → esbuild restart + targeted rebuild
     await t.test('adding client.js restarts esbuild and rebuilds only that page', async () => {
       mockLog.mock.resetCalls()
-
+      loggerLogs.length = 0
       const newClient = path.join(src, 'js-page/js-no-style-client/client.js')
       await writeFile(newClient, 'console.log("new client")\n')
 
-      await settle(siteUp, 1200)
+      await settle(domStack, 1200)
 
-      const logs = getLogLines(mockLog)
+      const logs = getLogLines(mockLog, loggerLogs)
       assert.ok(
         logs.some(l => l.includes('"client.js" added, restarting esbuild')),
         'log shows esbuild restart on client.js add'
@@ -255,13 +287,13 @@ test.describe('watch', () => {
     // ── Remove the client.js we just added → esbuild restart + targeted rebuild
     await t.test('removing client.js restarts esbuild and rebuilds only that page', async () => {
       mockLog.mock.resetCalls()
-
+      loggerLogs.length = 0
       const clientToRemove = path.join(src, 'js-page/js-no-style-client/client.js')
       await unlink(clientToRemove)
 
-      await settle(siteUp, 1200)
+      await settle(domStack, 1200)
 
-      const logs = getLogLines(mockLog)
+      const logs = getLogLines(mockLog, loggerLogs)
       assert.ok(
         logs.some(l => l.includes('"client.js" removed, restarting esbuild')),
         'log shows esbuild restart on client.js removal'
@@ -275,14 +307,14 @@ test.describe('watch', () => {
     // ── global.data.js change → all pages rebuild ────────────────────
     await t.test('global.data.js change rebuilds all pages', async () => {
       mockLog.mock.resetCalls()
-
+      loggerLogs.length = 0
       const globalData = path.join(src, 'global.data.js')
       const original = await readFile(globalData, 'utf8')
       await writeFile(globalData, original + '\n// touch')
 
-      await settle(siteUp)
+      await settle(domStack)
 
-      const logs = getLogLines(mockLog)
+      const logs = getLogLines(mockLog, loggerLogs)
       assert.ok(
         logs.some(l => l.includes('rebuilding all pages')),
         'log shows all pages are being rebuilt'
@@ -295,8 +327,8 @@ test.describe('watch', () => {
 
     // ── stopWatching cleans up ───────────────────────────────────────
     await t.test('stopWatching completes without error', async () => {
-      await siteUp.stopWatching()
-      assert.ok(!siteUp.watching, 'watcher is stopped')
+      await domStack.stopWatching()
+      assert.ok(!domStack.watching, 'watcher is stopped')
     })
   })
 })
