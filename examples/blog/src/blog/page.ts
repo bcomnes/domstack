@@ -1,5 +1,4 @@
-import { html } from 'htm/preact'
-import { render } from 'preact-render-to-string'
+import { html, render } from 'fragtml'
 import type { PageFunction } from '@domstack/static/types.js'
 import type { GlobalData } from '../global.data.js'
 import type { SiteVars } from '../global.vars.js'

@@ -11,13 +11,13 @@
   "author": "Bret Comnes <bcomnes@gmail.com> (https://bret.io/)",
   "license": "MIT",
   "dependencies": {
+    "@domstack/static": "file:../../.",
     "@preact/signals": "^2.0.0",
+    "fragtml": "^0.0.9",
     "highlight.js": "^11.9.0",
     "htm": "^3.1.1",
     "mine.css": "^9.0.1",
-    "preact": "^10.24.0",
-    "preact-render-to-string": "^6.5.11",
-    "@domstack/static": "file:../../."
+    "preact": "^10.24.0"
   },
   "devDependencies": {
     "@voxpelli/tsconfig": "^15.0.0",

@@ -1,4 +1,4 @@
-import { html } from 'htm/preact'
+import { html } from 'fragtml'
 // import styles from './app.module.css' THIS DOESN'T WORK IN NODE.JS
 
 export default () => {

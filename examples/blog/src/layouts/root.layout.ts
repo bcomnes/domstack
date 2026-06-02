@@ -1,5 +1,5 @@
-import { html } from 'htm/preact'
-import { render } from 'preact-render-to-string'
+import { html, raw, render } from 'fragtml'
+import type { HtmlResult } from 'fragtml/types.js'
 import type { LayoutFunction } from '@domstack/static/types.js'
 import type { SiteVars } from '../global.vars.js'
 import type { GlobalData } from '../global.data.js'
@@ -8,7 +8,7 @@ export type RootVars = SiteVars & GlobalData & {
   title?: string
 }
 
-const rootLayout: LayoutFunction<RootVars> = ({
+const rootLayout: LayoutFunction<RootVars, string | HtmlResult, string> = ({
   vars: { title, siteName, homePageUrl },
   scripts,
   styles,
@@ -16,9 +16,8 @@ const rootLayout: LayoutFunction<RootVars> = ({
 }) => {
   const pageTitle = title ? `${title} | ${siteName}` : siteName
 
-  return /* html */`<!DOCTYPE html>
+  return render(html`<!DOCTYPE html>
 <html lang="en">
-${render(html`
   <head>
     <meta charset="utf-8" />
     <title>${pageTitle}</title>
@@ -28,8 +27,6 @@ ${render(html`
     <link rel="alternate" type="application/json" href="/feeds/feed.json" title="${siteName}" />
     <link rel="alternate" type="application/atom+xml" href="/feeds/feed.xml" title="${siteName}" />
   </head>
-`)}
-${render(html`
   <body class="safe-area-inset">
     <header class="site-header">
       <div class="mine-layout site-header-inner">
@@ -45,10 +42,7 @@ ${render(html`
       </div>
     </header>
     <main class="mine-layout">
-      ${typeof children === 'string'
-        ? html`<div dangerouslySetInnerHTML=${{ __html: children }} />`
-        : children
-      }
+      ${typeof children === 'string' ? raw(children) : children}
     </main>
     <footer class="site-footer">
       <div class="mine-layout">
@@ -56,8 +50,7 @@ ${render(html`
       </div>
     </footer>
   </body>
-`)}
-</html>`
+</html>`)
 }
 
 export default rootLayout

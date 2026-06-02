@@ -20,24 +20,9 @@ npm install @domstack/static
 
 - 🌎 [domstack docs website](https://domstack.net)
 - 💬 [Discord Chat](https://discord.gg/AVTsPRGeR9)
-- 📢 [v11 - top-bun is now domstack](./docs/v11-migration.md)
+- 📢 [v12 Migration Guide](docs/v12-migration.md)
 - 📢 [v7 Announcement](https://bret.io/blog/2023/reintroducing-top-bun/)
 - 📘 [Full TypeScript Support](#typescript-support)
-
-## Migrating from top-bun
-
-domstack v11 is a major release that renames the project from `top-bun` to `@domstack/static`. The full migration guide is at [docs/v11-migration.md](docs/v11-migration.md). Key changes at a glance:
-
-- **Package**: `top-bun` → `@domstack/static`
-- **CLI**: `top-bun`/`tb` → `domstack`/`dom`
-- **Programmatic API**: `TopBun` class → `DomStack`, all `TopBun*` types/errors/warnings renamed to `DomStack*`
-- **`postVars` removed**: migrate `postVars` exports from `page.vars.js` files to a single `global.data.js` with a default export
-- **New reserved filenames**: `global.data.js`, `markdown-it.settings.js`, `page.md`, `*.worker.{js,ts}` are now special — rename any colliding files
-- **Default layout**: switched from `uhtml-isomorphic` to `preact`; add `uhtml-isomorphic` to your own deps if you import it directly
-- **Output paths**: `top-bun-esbuild-meta.json` → `domstack-esbuild-meta.json`, `top-bun-defaults/` → `domstack-defaults/`
-- **Conflict now throws**: using both `browser` in `global.vars.js` and `define` in `esbuild.settings.js` is now a hard error
-
-See [docs/v11-migration.md](docs/v11-migration.md) for the complete migration guide with code examples.
 
 ## Table of Contents
 
@@ -61,14 +46,14 @@ Usage: domstack [options]
     --copy                path to directories to copy into dist; can be used multiple times
     --help, -h            show help
     --version, -v         show version information
-domstack (v11.0.0)
+domstack (v11.0.3)
 ```
 
 `domstack` builds a `src` directory into a `dest` directory (default: `public`).
 `domstack` is also aliased to a `dom` bin.
 
 - Running `domstack` will result in a `build` by default.
-- Running `domstack --watch` or `domstack -w` will build the site and start an auto-reloading development web-server that watches for changes (provided by [Browsersync](https://browsersync.io)).
+- Running `domstack --watch` or `domstack -w` will build the site and start an auto-reloading development web-server that watches for changes (provided by [`@domstack/sync`][domstack-sync]).
 - Running `domstack --eject` or `domstack -e` will extract the default layout, global styles, and client-side JavaScript into your source directory and add the necessary dependencies to your package.json.
 
 `domstack` is primarily a unix `bin` written for the [Node.js](https://nodejs.org) runtime that is intended to be installed from `npm` as a `devDependency` inside a `package.json` committed to a `git` repository.
@@ -300,11 +285,12 @@ const page: PageFunction<typeof vars}> = async ({
 export default page
 ```
 
-It is recommended to use some level of template processing over raw string templates so that HTML is well-formed and variable values are properly escaped. Here is a more realistic TypeScript example that uses [`preact`](https://preactjs.com/) with [`htm`](https://github.com/developit/htm) and `domstack` page introspection.
+It is recommended to use some level of template processing over raw string templates so that HTML is well-formed and variable values are properly escaped. DOMStack's default layout uses [`fragtml`][fragtml], a safe-by-default HTML tagged template library. Here is a more realistic TypeScript example that uses `fragtml` and `domstack` page introspection.
 
 
 ```typescript
-import { html } from 'htm/preact'
+import { html } from 'fragtml'
+import type { HtmlResult } from 'fragtml/types.js'
 import { dirname, basename } from 'node:path'
 import type { PageFunction } from '@domstack/static/types.js'
 
@@ -316,7 +302,7 @@ export const vars = {
   favoriteCake: 'Chocolate Cloud Cake'
 }
 
-const blogIndex: PageFunction<BlogVars> = async ({
+const blogIndex: PageFunction<BlogVars, HtmlResult> = async ({
   vars: { favoriteCake },
   pages
 }) => {
@@ -378,8 +364,24 @@ await funnyLibrary()
 
 #### .tsx/.jsx
 
-Client bundles support .jsx and .tsx. They default to preact, so if you want mainlain react, customize your esbuild settings to load that instead.
-See the [react](./examples/react/) example for more details.
+Client bundles support .jsx and .tsx through esbuild. DOMStack does not include a JSX runtime by default; install the runtime you want and configure it with `esbuild.settings`.
+See the [react](./examples/react/) and [preact-isomorphic](./examples/preact-isomorphic/) examples for more details.
+
+For example, to use [Preact][preact] in browser JSX/TSX bundles, add it to your project and opt into Preact's automatic JSX runtime:
+
+```console
+npm install preact
+```
+
+```js
+// src/esbuild.settings.js
+export default async function esbuildSettingsOverride (esbuildSettings) {
+  esbuildSettings.jsx = 'automatic'
+  esbuildSettings.jsxImportSource = 'preact'
+
+  return esbuildSettings
+}
+```
 
 ### Page variable files
 
@@ -511,13 +513,13 @@ It is always passed a single object argument with the following entries:
 - `pages`: An array of page data that you can use to generate index pages with, or any other page-introspection based content that you desire.
 - `page`: An object with metadata and other facts about the current page being rendered into the template. This will also be found somewhere in the `pages` array.
 
-The default `root.layout.ts` is featured below, and is implemented with [`preact`](https://preactjs.com/) and [`htm`](https://github.com/developit/htm), though it could just be done with a template literal or any other template system that runs in Node.js.
+The default `root.layout.ts` is featured below, and is implemented with [`fragtml`][fragtml], though it could just be done with a template literal or any other template system that runs in Node.js. See the [`fragtml` docs][fragtml-docs] for escaping, raw HTML, rendering, and fragment usage.
 
 `root.layout.ts` can live anywhere in the `src` directory.
 
 ```typescript
-import { html } from 'htm/preact'
-import { render } from 'preact-render-to-string'
+import { html, raw, render } from 'fragtml'
+import type { HtmlResult } from 'fragtml/types.js'
 import type { LayoutFunction } from '@domstack/static/types.js'
 
 type RootLayoutVars = {
@@ -527,7 +529,7 @@ type RootLayoutVars = {
   basePath?: string
 }
 
-const defaultRootLayout: LayoutFunction<RootLayoutVars> = ({
+const defaultRootLayout: LayoutFunction<RootLayoutVars, string | HtmlResult, string> = ({
   vars: {
     title,
     siteName = 'Domstack',
@@ -540,32 +542,25 @@ const defaultRootLayout: LayoutFunction<RootLayoutVars> = ({
   pages,
   page,
 }) => {
-  return /* html */`
+  return render(html`
     <!DOCTYPE html>
     <html>
-      ${render(html`
-        <head>
-          <meta charset="utf-8" />
-          <title>${title ? `${title}` : ''}${title && siteName ? ' | ' : ''}${siteName}</title>
-          <meta name="viewport" content="width=device-width, user-scalable=no" />
-          ${scripts
-            ? scripts.map(script => html`<script type='module' src="${script.startsWith('/') ? `${basePath ?? ''}${script}` : script}" />`)
-            : null}
-          ${styles
-            ? styles.map(style => html`<link rel="stylesheet" href="${style.startsWith('/') ? `${basePath ?? ''}${style}` : style}" />`)
-            : null}
-        </head>
-      `)}
-      ${render(html`
-        <body className="safe-area-inset">
-        ${typeof children === 'string'
-            ? html`<main className="mine-layout app-main" dangerouslySetInnerHTML=${{ __html: children }}></main>`
-            : html`<main className="mine-layout app-main">${children}</main>`
-        }
-        </body>
-      `)}
+      <head>
+        <meta charset="utf-8" />
+        <title>${title ? `${title}` : ''}${title && siteName ? ' | ' : ''}${siteName}</title>
+        <meta name="viewport" content="width=device-width, user-scalable=no" />
+        ${scripts
+          ? scripts.map(script => html`<script type="module" src="${script.startsWith('/') ? `${basePath ?? ''}${script}` : script}"></script>`)
+          : null}
+        ${styles
+          ? styles.map(style => html`<link rel="stylesheet" href="${style.startsWith('/') ? `${basePath ?? ''}${style}` : style}" />`)
+          : null}
+      </head>
+      <body class="safe-area-inset">
+        <main class="mine-layout app-main">${typeof children === 'string' ? raw(children) : children}</main>
+      </body>
     </html>
-  `
+  `)
 }
 
 export default defaultRootLayout
@@ -581,8 +576,8 @@ For example, you could define a `blog.layout.ts` that re-uses the `root.layout.t
 
 ```typescript
 import defaultRootLayout from './root.layout.js'
-import { html } from 'htm/preact'
-import { render } from 'preact-render-to-string'
+import { html, raw, render } from 'fragtml'
+import type { HtmlResult } from 'fragtml/types.js'
 import type { LayoutFunction } from '@domstack/static/types.js'
 
 // Import the type from root layout
@@ -598,23 +593,23 @@ interface BlogLayoutVars extends RootLayoutVars {
   updatedDate?: string;
 }
 
-const blogLayout: LayoutFunction<BlogLayoutVars> = (layoutVars) => {
+const blogLayout: LayoutFunction<BlogLayoutVars, string | HtmlResult, string> = (layoutVars) => {
   const { children: innerChildren, ...rest } = layoutVars
   const vars = layoutVars.vars
 
   const children = render(html`
-    <article className="article-layout h-entry" itemscope itemtype="http://schema.org/NewsArticle">
-      <header className="article-header">
-        <h1 className="p-name article-title" itemprop="headline">${vars.title}</h1>
-        <div className="metadata">
-          <address className="author-info" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <article class="article-layout h-entry" itemscope itemtype="http://schema.org/NewsArticle">
+      <header class="article-header">
+        <h1 class="p-name article-title" itemprop="headline">${vars.title}</h1>
+        <div class="metadata">
+          <address class="author-info" itemprop="author" itemscope itemtype="http://schema.org/Person">
             ${vars.authorImgUrl
-              ? html`<img height="40" width="40" src="${vars.authorImgUrl}" alt="${vars.authorImgAlt}" className="u-photo" itemprop="image" />`
+              ? html`<img height="40" width="40" src="${vars.authorImgUrl}" alt="${vars.authorImgAlt}" class="u-photo" itemprop="image" />`
               : null
             }
             ${vars.authorName && vars.authorUrl
               ? html`
-                  <a href="${vars.authorUrl}" className="p-author h-card" itemprop="url">
+                  <a href="${vars.authorUrl}" class="p-author h-card" itemprop="url">
                     <span itemprop="name">${vars.authorName}</span>
                   </a>`
               : null
@@ -622,23 +617,23 @@ const blogLayout: LayoutFunction<BlogLayoutVars> = (layoutVars) => {
           </address>
           ${vars.publishDate
             ? html`
-              <time className="dt-published" itemprop="datePublished" datetime="${vars.publishDate}">
-                <a href="#" className="u-url">
+              <time class="dt-published" itemprop="datePublished" datetime="${vars.publishDate}">
+                <a href="#" class="u-url">
                   ${(new Date(vars.publishDate)).toLocaleString()}
                 </a>
               </time>`
             : null
           }
           ${vars.updatedDate
-            ? html`<time className="dt-updated" itemprop="dateModified" datetime="${vars.updatedDate}">Updated ${(new Date(vars.updatedDate)).toLocaleString()}</time>`
+            ? html`<time class="dt-updated" itemprop="dateModified" datetime="${vars.updatedDate}">Updated ${(new Date(vars.updatedDate)).toLocaleString()}</time>`
             : null
           }
         </div>
       </header>
 
-      <section className="e-content" itemprop="articleBody">
+      <section class="e-content" itemprop="articleBody">
         ${typeof innerChildren === 'string'
-          ? html`<div dangerouslySetInnerHTML=${{ __html: innerChildren }}></div>`
+          ? html`<div>${raw(innerChildren)}</div>`
           : innerChildren
         }
       </section>
@@ -755,9 +750,7 @@ When you run `domstack --eject`, it will:
 3. Create a default client-side JavaScript file at `globals/global.client.js`
 4. Add the necessary dependencies to your package.json:
    - mine.css
-   - preact
-   - htm
-   - preact-render-to-string
+   - fragtml
    - highlight.js
 
 It is recomended to eject early in your project so that you can customize the root layout as you see fit, and de-couple yourself from potential unwanted changes in the default layout as new versions of DOMStack are released.
@@ -1097,8 +1090,7 @@ It receives a fully resolved `PageData[]` array and returns an object that is st
 
 ```typescript
 import type { AsyncGlobalDataFunction } from '@domstack/static/types.js'
-import { html } from 'htm/preact'
-import { render } from 'preact-render-to-string'
+import { html, render } from 'fragtml'
 
 type GlobalData = {
   blogPostsHtml: string
@@ -1111,10 +1103,10 @@ const buildGlobalData: AsyncGlobalDataFunction<GlobalData> = async ({ pages }) =
     .slice(0, 5)
 
   const blogPostsHtml = render(html`
-    <ul className="blog-index-list">
+    <ul class="blog-index-list">
       ${blogPosts.map(p => html`
-        <li className="blog-entry h-entry">
-          <a className="blog-entry-link u-url u-uid p-name" href={p.pageInfo.url}>
+        <li class="blog-entry h-entry">
+          <a class="blog-entry-link u-url u-uid p-name" href="${p.pageInfo.url}">
             ${p.vars?.title}
           </a>
         </li>
@@ -1217,8 +1209,8 @@ export default esbuildSettingsOverride
 Important esbuild settings you may want to set here are:
 
 - [target](https://esbuild.github.io/api/#target) - Set the `target` to make `esbuild` run a few small transforms on your CSS and JS code.
-- [jsx](https://esbuild.github.io/api/#jsx) - Unset this if you want default react transform.
-- [jsxImportSource](https://esbuild.github.io/api/#jsx-import-source)  - Unset this if you want default react transform.
+- [jsx](https://esbuild.github.io/api/#jsx) - Configure how esbuild transforms JSX and TSX.
+- [jsxImportSource](https://esbuild.github.io/api/#jsx-import-source)  - Set this when using an automatic JSX runtime such as React or Preact.
 - [define](https://esbuild.github.io/api/#define) - Define compile-time constants for js bundles. Note: setting `define` here conflicts with the [`browser` export](#browser-variable) in `global.vars.ts` and will throw an error if both are set.
 
 ### `markdown-it.settings.ts`
@@ -1721,6 +1713,20 @@ Some notable features are included below, see the [roadmap](https://github.com/u
 - [x] Progressive watch rebuilds with dependency tracking
 - ...[See roadmap](https://github.com/users/bcomnes/projects/3/)
 
+## Migrating to v12
+
+domstack v12 moves the default server-side HTML path to [`fragtml`][fragtml] and makes browser UI runtimes opt-in. The package remains `@domstack/static`, and the CLI remains `domstack`/`dom`.
+
+Key changes at a glance:
+
+- **Default layout**: The bundled and ejected `root.layout.js` now uses [`fragtml`][fragtml].
+- **Included dependencies**: `domstack --eject` adds `mine.css`, `fragtml`, and `highlight.js`; Preact, HTM, and `preact-render-to-string` are no longer included for the default template.
+- **JSX runtime**: Client `.jsx` and `.tsx` bundles still work through esbuild, but DOMStack no longer configures Preact as the default runtime. Install React, Preact, or another runtime in your own project and configure it with `esbuild.settings`.
+- **Preact examples**: Examples that actually mount Preact in the browser still use Preact and configure it locally.
+- **Development server**: Watch/serve mode uses [`@domstack/sync`][domstack-sync] for live reload, CSS injection, ghost mode, and the UI panel.
+
+See [docs/v12-migration.md](docs/v12-migration.md) for the v12 migration guide. If you are migrating from `top-bun`, the historical v11 guide remains at [docs/v11-migration.md](docs/v11-migration.md).
+
 ## History
 
 DOMStack started its life as `top-bun` in 2023, named after the bakery from Wallace and Gromit. The project was created to provide a simple, fast, and flexible static site generator that could handle modern web development needs while staying true to web standards.
@@ -1733,14 +1739,19 @@ It is also an homage to [substack](https://substack.net) as well as a play on th
 - [CHANGELOG](CHANGELOG.md)
 - [CONTRIBUTING](CONTRIBUTING.md)
 - [Dependencies](dependencygraph.svg)
-- [v11 Migration Guide](docs/v11-migration.md)
+- [v12 Migration Guide](docs/v12-migration.md)
+- [v11 top-bun Migration Guide](docs/v11-migration.md)
+- [fragtml docs][fragtml-docs]
 
 ## License
 
 [MIT](LICENSE)
 
-[preact]: https://preactjs.com/
 [htm]: https://github.com/developit/htm
+[fragtml]: https://www.npmjs.com/package/fragtml
+[fragtml-docs]: https://github.com/bcomnes/fragtml#readme
+[domstack-sync]: https://www.npmjs.com/package/@domstack/sync
+[preact]: https://preactjs.com/
 [hb]: https://handlebarsjs.com
 [esbuild]: http://esbuild.github.io
 [neocities-img]: https://img.shields.io/website/https/domstack.neocities.org?label=neocities&logo=data:image/png;base64,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
