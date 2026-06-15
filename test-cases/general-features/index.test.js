@@ -99,6 +99,33 @@ test.describe('general-features', () => {
       'output manifest version is stable across identical builds'
     )
 
+    await t.test('outputManifest exclude handles root page URL', async () => {
+      const excludeDest = path.join(__dirname, './public-exclude-root')
+      const excludeSite = new DomStack(src, excludeDest, {
+        copy: [path.join(__dirname, './copyfolder')],
+        outputManifest: {
+          exclude: ['oldsite/**'],
+        },
+      })
+      t.after(async () => {
+        await rm(excludeDest, { recursive: true, force: true })
+      })
+
+      await rm(excludeDest, { recursive: true, force: true })
+
+      const excludeResults = await excludeSite.build()
+      const excludeEntries = excludeResults.outputManifest?.entries ?? []
+
+      assert.ok(
+        excludeEntries.some(entry => entry.url === '/'),
+        'root page URL survives non-root exclude filters'
+      )
+      assert.ok(
+        !excludeEntries.some(entry => entry.url.startsWith('/oldsite/')),
+        'exclude filters still remove matching output paths'
+      )
+    })
+
     await t.test('metafile false skips esbuild metadata without breaking output manifest', async () => {
       const noMetaDest = path.join(__dirname, './public-no-meta')
       const noMetaSite = new DomStack(src, noMetaDest, {
