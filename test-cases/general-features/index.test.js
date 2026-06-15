@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert'
-import { DomStack } from '../../index.js'
+import { BUILD_OUTPUT_MANIFEST_SCHEMA_ID, DomStack } from '../../index.js'
 import * as path from 'path'
 import { rm, stat, readFile } from 'fs/promises'
 import * as cheerio from 'cheerio'
@@ -18,6 +18,120 @@ test.describe('general-features', () => {
 
     const results = await siteUp.build()
     assert.ok(results, 'DomStack built site and returned build results')
+    assert.ok(results.outputManifest, 'build returned an output manifest')
+    assert.strictEqual(
+      results.outputManifest.$schema,
+      BUILD_OUTPUT_MANIFEST_SCHEMA_ID,
+      'build output manifest includes its schema URL'
+    )
+
+    const outputManifestPath = path.join(dest, 'domstack-output-manifest.json')
+    const writtenOutputManifest = JSON.parse(await readFile(outputManifestPath, 'utf8'))
+    assert.strictEqual(
+      writtenOutputManifest.$schema,
+      results.outputManifest.$schema,
+      'written output manifest schema URL matches returned output manifest'
+    )
+    assert.strictEqual(
+      writtenOutputManifest.version,
+      results.outputManifest.version,
+      'written output manifest matches returned output manifest'
+    )
+
+    const manifestEntries = results.outputManifest.entries
+    const manifestEntryByUrl = new Map(manifestEntries.map(entry => [entry.url, entry]))
+
+    assert.ok(manifestEntryByUrl.has('/'), 'output manifest includes root page URL')
+    assert.ok(manifestEntryByUrl.has('/md-page/'), 'output manifest includes nested page URL')
+    assert.ok(manifestEntryByUrl.has('/md-page/loose-md.html'), 'output manifest includes loose markdown URL')
+    assert.ok(manifestEntryByUrl.has('/feeds/feed.json'), 'output manifest includes normal template output')
+    assert.ok(manifestEntryByUrl.has('/service-worker.js'), 'output manifest includes service worker template output')
+    assert.ok(manifestEntryByUrl.has('/worker-page/workers.json'), 'output manifest includes worker manifest')
+    assert.ok(
+      !manifestEntryByUrl.has('/domstack-output-manifest.json'),
+      'output manifest does not include itself'
+    )
+
+    assert.ok(
+      manifestEntries.some(entry => entry.kind === 'chunk' && entry.url.startsWith('/chunks/js/chunk-')),
+      'output manifest classifies shared JS chunks'
+    )
+    assert.ok(
+      manifestEntries.some(entry => entry.kind === 'sourcemap' && entry.url.endsWith('.map')),
+      'output manifest classifies source maps'
+    )
+    assert.ok(
+      manifestEntries.some(entry => entry.kind === 'worker' && entry.url.includes('/worker-page/counter.worker-')),
+      'output manifest classifies worker bundles'
+    )
+    assert.ok(
+      manifestEntries.some(entry => entry.kind === 'copy' && entry.url === '/oldsite/client.js'),
+      'output manifest includes copy directory outputs'
+    )
+    assert.ok(
+      manifestEntries.some(entry => entry.kind === 'static' && entry.url === '/static.json'),
+      'output manifest includes static outputs'
+    )
+    assert.deepStrictEqual(
+      manifestEntryByUrl.get('/js-page/')?.page?.vars,
+      { precache: false, offline: false },
+      'output manifest includes page-level precache/offline vars'
+    )
+
+    for (const entry of manifestEntries) {
+      assert.ok(entry.url.startsWith('/'), `${entry.outputRelname} has an absolute URL`)
+      assert.ok(entry.revision, `${entry.outputRelname} has a content revision`)
+      assert.ok(Number.isInteger(entry.bytes), `${entry.outputRelname} has byte size`)
+    }
+
+    const serviceWorkerContent = await readFile(path.join(dest, 'service-worker.js'), 'utf8')
+    assert.ok(serviceWorkerContent.includes('DOMSTACK_MANIFEST_URL'), 'service worker template was emitted')
+    assert.ok(
+      serviceWorkerContent.includes("fetch(DOMSTACK_MANIFEST_URL, { cache: 'no-store' })"),
+      'service worker fetches the output manifest at runtime'
+    )
+    assert.ok(serviceWorkerContent.includes('caches.match(request)'), 'service worker has cache-first fetch handling')
+
+    const stableResults = await siteUp.build()
+    assert.strictEqual(
+      stableResults.outputManifest?.version,
+      results.outputManifest.version,
+      'output manifest version is stable across identical builds'
+    )
+
+    await t.test('metafile false skips esbuild metadata without breaking output manifest', async () => {
+      const noMetaDest = path.join(__dirname, './public-no-meta')
+      const noMetaSite = new DomStack(src, noMetaDest, {
+        copy: [path.join(__dirname, './copyfolder')],
+        metafile: false,
+      })
+      t.after(async () => {
+        await rm(noMetaDest, { recursive: true, force: true })
+      })
+
+      await rm(noMetaDest, { recursive: true, force: true })
+
+      const noMetaResults = await noMetaSite.build()
+      const noMetaEntries = noMetaResults.outputManifest?.entries ?? []
+
+      assert.ok(noMetaResults.outputManifest, 'build returned an output manifest with metafile disabled')
+      assert.ok(
+        noMetaEntries.some(entry => entry.kind === 'script'),
+        'output manifest still includes esbuild script outputs'
+      )
+      assert.ok(
+        noMetaEntries.some(entry => entry.kind === 'sourcemap'),
+        'output manifest still includes esbuild sourcemap outputs'
+      )
+      assert.ok(
+        !noMetaEntries.some(entry => entry.kind === 'metadata' && entry.url === '/domstack-esbuild-meta.json'),
+        'output manifest does not include skipped esbuild metafile'
+      )
+      await assert.rejects(
+        () => stat(path.join(noMetaDest, 'domstack-esbuild-meta.json')),
+        'esbuild metafile was not written'
+      )
+    })
 
     const globalAssets = {
       globalStyle: true,

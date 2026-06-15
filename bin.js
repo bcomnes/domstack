@@ -65,6 +65,14 @@ const options = {
     type: 'boolean',
     help: 'skip writing the esbuild metafile to disk',
   },
+  outputManifest: {
+    type: 'string',
+    help: 'write the domstack output manifest to this filename',
+  },
+  noOutputManifest: {
+    type: 'boolean',
+    help: 'skip writing the domstack output manifest to disk',
+  },
   eject: {
     type: 'boolean',
     short: 'e',
@@ -205,6 +213,13 @@ domstack eject actions:
   if (argv['ignore']) opts.ignore = String(argv['ignore']).split(',')
   if (argv['target']) opts.target = String(argv['target']).split(',')
   if (argv['noEsbuildMeta']) opts.metafile = false
+  if (argv['noOutputManifest']) opts.outputManifest = false
+  if (argv['outputManifest']) {
+    opts.outputManifest = {
+      ...(typeof opts.outputManifest === 'object' ? opts.outputManifest : {}),
+      filename: String(argv['outputManifest']),
+    }
+  }
   if (argv['drafts']) opts.buildDrafts = true
   if (argv['copy']) {
     const copyPaths = Array.isArray(argv['copy']) ? argv['copy'] : [argv['copy']]

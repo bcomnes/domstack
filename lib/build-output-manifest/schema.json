@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://unpkg.com/@domstack/static@11.0.3/lib/build-output-manifest/schema.json",
+  "title": "DomStack build output manifest",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "const": "https://unpkg.com/@domstack/static@11.0.3/lib/build-output-manifest/schema.json"
+    },
+    "version": {
+      "type": "string"
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "outputRelname": {
+            "type": "string"
+          },
+          "filepath": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "page",
+              "template",
+              "script",
+              "style",
+              "chunk",
+              "worker",
+              "worker-manifest",
+              "static",
+              "copy",
+              "sourcemap",
+              "metadata"
+            ]
+          },
+          "url": {
+            "type": "string"
+          },
+          "revision": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "bytes": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "sourceRelname": {
+            "type": "string"
+          },
+          "entryPoint": {
+            "type": "string"
+          },
+          "pagePath": {
+            "type": "string"
+          },
+          "pageUrl": {
+            "type": "string"
+          },
+          "templatePath": {
+            "type": "string"
+          },
+          "page": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string"
+              },
+              "vars": {
+                "type": "object",
+                "properties": {
+                  "precache": true,
+                  "offline": true
+                },
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "path",
+              "url"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "outputRelname",
+          "filepath",
+          "kind",
+          "url",
+          "revision",
+          "bytes"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "$schema",
+    "version",
+    "generatedAt",
+    "entries"
+  ],
+  "additionalProperties": false
+}

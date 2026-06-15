@@ -11,6 +11,10 @@
  * @import { GlobalDataFunction, AsyncGlobalDataFunction, WorkerBuildStepResult, GlobalDataFunctionParams } from './lib/build-pages/index.js'
  * @import { BuildOptions, BuildContext } from 'esbuild'
  * @import { PageInfo, TemplateInfo } from './lib/identify-pages.js'
+ * @import { BuildOutputManifest } from './lib/build-output-manifest/index.js'
+ * @import { BuildOutputEntry } from './lib/build-output-manifest/index.js'
+ * @import { BuildOutputEntryPageMeta } from './lib/build-output-manifest/index.js'
+ * @import { BuildOutputKind } from './lib/build-output-manifest/index.js'
 */
 import { once } from 'events'
 import assert from 'node:assert'
@@ -50,6 +54,16 @@ import { ensureDest } from './lib/helpers/ensure-dest.js'
 import { DomStackAggregateError } from './lib/helpers/domstack-aggregate-error.js'
 
 export { PageData } from './lib/build-pages/page-data.js'
+export {
+  BUILD_OUTPUT_MANIFEST_SCHEMA_ID,
+  BUILD_OUTPUT_MANIFEST_SCHEMA_PATH,
+  buildOutputEntryPageMetaSchema,
+  buildOutputEntrySchema,
+  buildOutputKindSchema,
+  buildOutputManifest,
+  buildOutputManifestSchema,
+  getBuildOutputManifestSchemaId,
+} from './lib/build-output-manifest/index.js'
 
 /**
  * @typedef {BuildOptions} BuildOptions
@@ -111,6 +125,22 @@ export { PageData } from './lib/build-pages/page-data.js'
 
 /**
  * @typedef {TemplateInfo} TemplateInfo
+ */
+
+/**
+ * @typedef {BuildOutputManifest} BuildOutputManifest
+ */
+
+/**
+ * @typedef {BuildOutputEntry} BuildOutputEntry
+ */
+
+/**
+ * @typedef {BuildOutputEntryPageMeta} BuildOutputEntryPageMeta
+ */
+
+/**
+ * @typedef {BuildOutputKind} BuildOutputKind
  */
 
 /**
@@ -261,7 +291,15 @@ export class DomStack {
     // Build pages (initial full build)
     let report
     try {
-      const pageBuildResults = await buildPages(this.#src, this.#dest, siteData, this.opts)
+      const pageBuildResults = await buildPages(this.#src, this.#dest, siteData, {
+        ...this.opts,
+      })
+      if (pageBuildResults.errors.length > 0) {
+        throw new DomStackAggregateError(pageBuildResults.errors, 'Page build finished but there were errors.', {
+          siteData,
+          pageBuildResults,
+        })
+      }
       report = {
         warnings: [...siteData.warnings, ...pageBuildResults.warnings],
         siteData,
@@ -342,8 +380,8 @@ export class DomStack {
 
     await once(watcher, 'ready')
 
-    const enqueue = (/** @type {() => Promise<void>} */ fn) => {
-      this.#buildLock = this.#buildLock.then(() => fn().catch(errorLogger))
+    const enqueue = (/** @type {() => Promise<unknown>} */ fn) => {
+      this.#enqueueBuild(fn)
     }
 
     watcher.on('add', path => {
@@ -496,14 +534,34 @@ export class DomStack {
         ...(pageFilterPaths ? { pageFilterPaths } : {}),
         ...(templateFilterPaths ? { templateFilterPaths } : {}),
       })
+      if (pageBuildResults.errors.length > 0) {
+        throw new DomStackAggregateError(pageBuildResults.errors, 'Page build finished but there were errors.', {
+          siteData,
+          pageBuildResults,
+        })
+      }
       const isFiltered = pageFilterPaths !== null || templateFilterPaths !== null
       buildLogger(
         isFiltered ? pageBuildResults : { warnings: pageBuildResults.warnings, siteData, pageBuildResults },
         isFiltered ? this.#dest : undefined
       )
+      return pageBuildResults
     } catch (err) {
       errorLogger(err)
     }
+  }
+
+  /**
+   * @param {() => Promise<unknown>} fn
+   */
+  #enqueueBuild (fn) {
+    this.#buildLock = this.#buildLock.then(async () => {
+      try {
+        await fn()
+      } catch (err) {
+        errorLogger(err)
+      }
+    })
   }
 
   /**
@@ -844,8 +902,8 @@ function buildLogger (results, dest) {
         console.log(`  Built ${relative(dest, p.pageFilePath)}`)
       }
       for (const t of report.templates) {
-        for (const output of t.outputs ?? []) {
-          console.log(`  Built ${output}`)
+        for (const output of t.outputFiles ?? []) {
+          console.log(`  Built ${relative(dest, output.filepath)}`)
         }
       }
     }

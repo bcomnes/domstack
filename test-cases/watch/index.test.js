@@ -58,10 +58,17 @@ test.describe('watch', () => {
     const results = await siteUp.watch({ serve: false })
     assert.ok(results, 'watch() returned initial build results')
     assert.ok(results.siteData, 'results include siteData')
+    assert.equal(results.outputManifest, undefined, 'watch mode does not return an output manifest')
 
     const jsPageIndex = path.join(dest, 'js-page/index.html')
     const st = await stat(jsPageIndex)
     assert.ok(st.isFile(), 'js-page/index.html was built')
+    await assert.rejects(
+      () => stat(path.join(dest, 'domstack-output-manifest.json')),
+      'watch mode does not write an output manifest'
+    )
+    const serviceWorkerStat = await stat(path.join(dest, 'service-worker.js'))
+    assert.ok(serviceWorkerStat.isFile(), 'watch mode renders normal service-worker templates')
 
     // ── Chunks have hashed names in watch mode ───────────────────────
     // html-page/client.js, js-page/client.js, and md-page/client.js all import
