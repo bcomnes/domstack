@@ -10,7 +10,7 @@
  * @import { TemplateFunctionParams } from './lib/build-pages/page-builders/template-builder.js'
  * @import { GlobalDataFunction, AsyncGlobalDataFunction, WorkerBuildStepResult, GlobalDataFunctionParams } from './lib/build-pages/index.js'
  * @import { BuildOptions, BuildContext } from 'esbuild'
- * @import { PageInfo, TemplateInfo } from './lib/identify-pages.js'
+ * @import { PageInfo, ServiceWorkerInfo, TemplateInfo } from './lib/identify-pages.js'
  * @import { BuildOutputManifest } from './lib/build-output-manifest/index.js'
  * @import { BuildOutputEntry } from './lib/build-output-manifest/index.js'
  * @import { BuildOutputEntryPageMeta } from './lib/build-output-manifest/index.js'
@@ -49,6 +49,7 @@ import {
   globalStyleNames,
   pageStyleName,
   pageWorkerSuffixs,
+  serviceWorkerNames,
 } from './lib/identify-pages.js'
 import { resolveVars } from './lib/build-pages/resolve-vars.js'
 import { ensureDest } from './lib/helpers/ensure-dest.js'
@@ -126,6 +127,10 @@ export {
 
 /**
  * @typedef {TemplateInfo} TemplateInfo
+ */
+
+/**
+ * @typedef {ServiceWorkerInfo} ServiceWorkerInfo
  */
 
 /**
@@ -441,6 +446,7 @@ export class DomStack {
    */
   async #handleAddUnlink (changedPath, event) {
     const changedBasename = basename(changedPath)
+    const changedDir = relative(this.#src, dirname(changedPath))
 
     // Check if this is an esbuild entry point by basename pattern
     const isEsbuildEntry = (
@@ -448,6 +454,7 @@ export class DomStack {
       layoutClientSuffixs.some(s => changedBasename.endsWith(s)) ||
       changedBasename.endsWith(layoutStyleSuffix) ||
       pageWorkerSuffixs.some(s => changedBasename.endsWith(s)) ||
+      serviceWorkerNames.includes(changedBasename) ||
       globalClientNames.includes(changedBasename) ||
       globalStyleNames.includes(changedBasename) ||
       changedBasename === pageStyleName
@@ -476,9 +483,10 @@ export class DomStack {
       this.#siteData = siteData
 
       // Determine which pages are affected by this entry point change
-      const changedDir = relative(this.#src, dirname(changedPath))
-
-      if (globalClientNames.includes(changedBasename) || globalStyleNames.includes(changedBasename)) {
+      if (serviceWorkerNames.includes(changedBasename)) {
+        // Service workers are site-level esbuild entries and do not affect page HTML.
+        console.log(`"${changedBasename}" ${event}, no page rebuild needed.`)
+      } else if (globalClientNames.includes(changedBasename) || globalStyleNames.includes(changedBasename)) {
         // Global asset: rebuild all pages
         logRebuildTree(changedBasename, new Set(siteData.pages))
         await this.#runPageBuild(siteData)
@@ -665,6 +673,7 @@ export class DomStack {
     const esbuildEntryPoints = /** @type {Set<string>} */ (new Set())
     if (siteData.globalClient) esbuildEntryPoints.add(resolve(siteData.globalClient.filepath))
     if (siteData.globalStyle) esbuildEntryPoints.add(resolve(siteData.globalStyle.filepath))
+    if (siteData.serviceWorker) esbuildEntryPoints.add(resolve(siteData.serviceWorker.filepath))
     for (const page of siteData.pages) {
       if (page.clientBundle) esbuildEntryPoints.add(resolve(page.clientBundle.filepath))
       if (page.pageStyle) esbuildEntryPoints.add(resolve(page.pageStyle.filepath))

@@ -1,6 +1,6 @@
 # First-Class Service Workers
 
-## Status: Planned
+## Status: Implemented in the stacked PR
 
 ## Goal
 
@@ -25,16 +25,22 @@ different requirements:
 
 ## Proposed Source Conventions
 
-Support one site-level service worker entry point:
+Support one site-level service worker entry point anywhere under `src`, matching domstack's other
+global asset patterns:
 
 ```txt
 src/
-  service-worker.js
-  service-worker.ts
+  globals/
+    service-worker.js
+    service-worker.ts
 ```
 
-Only one service worker entry should be allowed. If both `.js` and `.ts` forms are present, fail with
-a clear duplicate-entry error.
+Supported JavaScript filenames are `service-worker.js`, `service-worker.mjs`, and
+`service-worker.cjs`. When Node's TypeScript support is available, `service-worker.ts`,
+`service-worker.mts`, and `service-worker.cts` are also supported.
+
+Only one service worker entry should be allowed. If multiple forms are present anywhere in `src`,
+fail with a clear duplicate-entry error.
 
 The output should be:
 
@@ -47,7 +53,7 @@ the normal chunk naming rules.
 
 ## Build Pipeline
 
-1. `identifyPages()` detects a root service worker entry and stores it on `siteData.serviceWorker`.
+1. `identifyPages()` detects a site service worker entry and stores it on `siteData.serviceWorker`.
 2. `buildEsbuild()` adds that entry to esbuild's entry points.
 3. esbuild emits the entry as `service-worker.js` at the destination root.
 4. `createEsbuildOutputRecords()` classifies it as `kind: 'service-worker'`.
@@ -120,7 +126,7 @@ This keeps lifecycle UX, update prompts, and online/offline handling in the appl
 
 Add fixture coverage for:
 
-- `service-worker.js` detection and output at `/service-worker.js`.
+- `service-worker.js` detection anywhere in `src` and output at `/service-worker.js`.
 - `service-worker.ts` detection when TypeScript is enabled.
 - duplicate service worker source files fail clearly.
 - service worker imports are bundled.
@@ -132,7 +138,7 @@ Add fixture coverage for:
 Breadcrum can replace its service-worker template/static workaround with:
 
 ```txt
-packages/web/client/src/service-worker.ts
+packages/web/client/globals/service-worker.ts
 ```
 
 That file should fetch `/domstack-output-manifest.json`, cache entries selected by Breadcrum policy,

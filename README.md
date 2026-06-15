@@ -32,7 +32,7 @@ domstack v11 is a major release that renames the project from `top-bun` to `@dom
 - **CLI**: `top-bun`/`tb` → `domstack`/`dom`
 - **Programmatic API**: `TopBun` class → `DomStack`, all `TopBun*` types/errors/warnings renamed to `DomStack*`
 - **`postVars` removed**: migrate `postVars` exports from `page.vars.js` files to a single `global.data.js` with a default export
-- **New reserved filenames**: `global.data.js`, `markdown-it.settings.js`, `page.md`, `*.worker.{js,ts}` are now special — rename any colliding files
+- **New reserved filenames**: `global.data.js`, `markdown-it.settings.js`, `page.md`, `service-worker.*`, `*.worker.{js,ts}` are now special — rename any colliding files
 - **Default layout**: switched from `uhtml-isomorphic` to `preact`; add `uhtml-isomorphic` to your own deps if you import it directly
 - **Output paths**: `top-bun-esbuild-meta.json` → `domstack-esbuild-meta.json`, `top-bun-defaults/` → `domstack-defaults/`
 - **Conflict now throws**: using both `browser` in `global.vars.js` and `define` in `esbuild.settings.js` is now a hard error
@@ -128,7 +128,8 @@ src % tree
 │        ├── global.vars.ts # site wide variables get defined in global.vars.ts
 │        ├── global.data.ts # optional file to derive and aggregate data from all pages before rendering
 │        ├── markdown-it.settings.ts # You can customize the markdown-it instance used to render markdown
-│        └── esbuild.settings.ts # You can even customize the build settings passed to esbuild
+│        ├── esbuild.settings.ts # You can even customize the build settings passed to esbuild
+│        └── service-worker.ts # a site service worker builds to /service-worker.js.
 ├── page.md # The top level page can also be a page.md (or README.md) file.
 ├── client.ts # the top level page can define a page scoped js client.
 ├── style.css # the top level page can define a page scoped css style.
@@ -980,8 +981,9 @@ type BuildOutputEntry = {
   url: string
   outputRelname: string
   filepath: string
-  kind: 'page' | 'template' | 'script' | 'style' | 'chunk' | 'worker' |
-    'worker-manifest' | 'static' | 'copy' | 'sourcemap' | 'metadata'
+  kind: 'page' | 'template' | 'script' | 'style' | 'chunk' |
+    'service-worker' | 'worker' | 'worker-manifest' | 'static' |
+    'copy' | 'sourcemap' | 'metadata'
   revision: string | null
   bytes: number | null
   sourceRelname?: string
@@ -1048,29 +1050,37 @@ automatically apply those flags; service workers and deployment tools can use th
 
 ### Service workers
 
-Service workers do not need build-time access to the manifest. A stable `service-worker.js` can be
-written as a normal template or copied static file, then fetch `domstack-output-manifest.json` during
-installation:
+Put one site service worker source file anywhere under `src` and domstack will build it to a stable
+root `/service-worker.js` output:
+
+```txt
+src/
+  globals/
+    service-worker.js
+```
+
+When Node's TypeScript support is available, the same convention also supports
+`service-worker.ts`, `service-worker.mts`, and `service-worker.cts`. JavaScript projects can use
+`service-worker.js`, `service-worker.mjs`, or `service-worker.cjs`.
+
+Only one site service worker source is allowed. If multiple `service-worker.*` sources are present,
+domstack fails with `DOM_STACK_ERROR_DUPLICATE_SERVICE_WORKER`. Service workers are bundled by
+esbuild, so imports work the same way they do for client bundles and page-scoped web workers. The
+entry filename is intentionally not content-hashed because browser service-worker update checks need
+a stable URL.
+
+Service workers do not need build-time access to the manifest. The built worker can fetch
+`domstack-output-manifest.json` during installation:
 
 ```js
-/**
- * @import { TemplateFunction } from '@domstack/static'
- */
-
-/**
- * @type {TemplateFunction}
- */
-export default function serviceWorkerTemplate () {
-  return {
-    outputName: 'service-worker.js',
-    content: `const DOMSTACK_MANIFEST_URL = '/domstack-output-manifest.json'
+const DOMSTACK_MANIFEST_URL = '/domstack-output-manifest.json'
 const CACHE_PREFIX = 'domstack-precache-'
 
-self.addEventListener('install', event => {
+self.addEventListener('install', (event) => {
   event.waitUntil(precache())
 })
 
-self.addEventListener('fetch', event => {
+self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return
   event.respondWith(cacheFirst(event.request))
 })
@@ -1092,18 +1102,27 @@ async function cacheFirst (request) {
   const cached = await caches.match(request)
   return cached || fetch(request)
 }
-`,
-  }
+```
+
+Register the built service worker from your site client code, usually `global.client.js`:
+
+```js
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/service-worker.js')
 }
 ```
+
+domstack does not inject this into the default layout. Registration timing, update prompts,
+development opt-outs, and recovery behavior are application policy, so keep that logic in your
+global client or an imported client module.
 
 This keeps domstack's build pipeline to one page/template pass and one manifest reconciliation. Use
 `buildManifest.exclude` or `buildManifest.includeOutput(entry)` to keep entries such as source maps,
 admin routes, or blog pages out of the written manifest before the service worker sees it.
 
-Watch mode renders normal service-worker templates but does not write `domstack-output-manifest.json`
-or return `results.outputManifest`. Use one-shot builds when testing service-worker and PWA cache
-behavior.
+Watch mode builds and rebundles site service-worker entries, but it does not write
+`domstack-output-manifest.json` or return `results.outputManifest`. Use one-shot builds when testing
+service-worker and PWA cache behavior.
 
 ## Global Assets
 
@@ -1665,10 +1684,9 @@ When you run `domstack --watch` (or `domstack -w`), domstack performs an initial
 
 **chokidar watch** — Page files, layouts, templates, and config files are watched by chokidar. When a file changes, domstack determines the minimal set of pages to rebuild using dependency tracking maps built at startup.
 
-Output manifests are build-only artifacts. Watch mode renders normal templates, including a
-`service-worker.js` template if your site has one, but it does not write
-`domstack-output-manifest.json` or return `results.outputManifest`. Use a normal build when testing
-PWA cache lifecycle behavior.
+Output manifests are build-only artifacts. Watch mode builds and rebundles site service-worker
+entries, but it does not write `domstack-output-manifest.json` or return `results.outputManifest`.
+Use a normal build when testing PWA cache lifecycle behavior.
 
 #### What triggers what
 
@@ -1683,7 +1701,7 @@ PWA cache lifecycle behavior.
 | `markdown-it.settings.*` | All `.md` pages |
 | `global.data.*` | All pages and templates |
 | `global.vars.*` or `esbuild.settings.*` | Full rebuild (esbuild restart + all pages) |
-| `client.js`, `style.css`, `*.layout.css`, `*.layout.client.*`, `global.client.*`, `global.css`, `*.worker.*` | esbuild handles it — no page rebuild |
+| `client.js`, `style.css`, `*.layout.css`, `*.layout.client.*`, `global.client.*`, `global.css`, `*.worker.*`, `service-worker.*` | esbuild handles it — no page rebuild |
 | Adding or removing an esbuild entry point (e.g. creating a new `client.js`) | esbuild restart + only the affected page(s) |
 | Adding or removing any other file | Full rebuild |
 

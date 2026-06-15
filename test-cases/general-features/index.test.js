@@ -45,11 +45,18 @@ test.describe('general-features', () => {
     assert.ok(manifestEntryByUrl.has('/md-page/'), 'output manifest includes nested page URL')
     assert.ok(manifestEntryByUrl.has('/md-page/loose-md.html'), 'output manifest includes loose markdown URL')
     assert.ok(manifestEntryByUrl.has('/feeds/feed.json'), 'output manifest includes normal template output')
-    assert.ok(manifestEntryByUrl.has('/service-worker.js'), 'output manifest includes service worker template output')
     assert.ok(manifestEntryByUrl.has('/worker-page/workers.json'), 'output manifest includes worker manifest')
     assert.ok(
       !manifestEntryByUrl.has('/domstack-output-manifest.json'),
       'output manifest does not include itself'
+    )
+
+    const serviceWorkerEntry = manifestEntryByUrl.get('/service-worker.js')
+    assert.equal(serviceWorkerEntry?.kind, 'service-worker', 'output manifest classifies the site service worker')
+    assert.equal(
+      serviceWorkerEntry?.sourceRelname,
+      'globals/service-worker.mts',
+      'output manifest records the service worker source file'
     )
 
     assert.ok(
@@ -85,12 +92,16 @@ test.describe('general-features', () => {
     }
 
     const serviceWorkerContent = await readFile(path.join(dest, 'service-worker.js'), 'utf8')
-    assert.ok(serviceWorkerContent.includes('DOMSTACK_MANIFEST_URL'), 'service worker template was emitted')
-    assert.ok(
-      serviceWorkerContent.includes("fetch(DOMSTACK_MANIFEST_URL, { cache: 'no-store' })"),
-      'service worker fetches the output manifest at runtime'
-    )
+    assert.ok(serviceWorkerContent.includes('/domstack-output-manifest.json'), 'service worker was bundled')
+    assert.ok(serviceWorkerContent.includes('cache: "no-store"'), 'service worker fetches the output manifest at runtime')
     assert.ok(serviceWorkerContent.includes('caches.match(request)'), 'service worker has cache-first fetch handling')
+
+    const metaContent = await readFile(path.join(dest, 'domstack-esbuild-meta.json'), 'utf8')
+    const metaData = JSON.parse(metaContent)
+    assert.ok(
+      Object.keys(metaData.outputs).some(outputPath => outputPath.endsWith('/service-worker.js')),
+      'esbuild metafile includes the service worker output'
+    )
 
     const stableResults = await siteUp.build()
     assert.strictEqual(

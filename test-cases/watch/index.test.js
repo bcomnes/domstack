@@ -68,7 +68,7 @@ test.describe('watch', () => {
       'watch mode does not write an output manifest'
     )
     const serviceWorkerStat = await stat(path.join(dest, 'service-worker.js'))
-    assert.ok(serviceWorkerStat.isFile(), 'watch mode renders normal service-worker templates')
+    assert.ok(serviceWorkerStat.isFile(), 'watch mode builds site service-worker entries')
 
     // ── Chunks have hashed names in watch mode ───────────────────────
     // html-page/client.js, js-page/client.js, and md-page/client.js all import
@@ -150,6 +150,27 @@ test.describe('watch', () => {
       assert.ok(
         logs.some(l => l.includes('esbuild will handle rebundling')),
         'log confirms esbuild handles the change'
+      )
+      assert.ok(
+        !logs.some(l => l.includes('Pages built')),
+        'no page rebuild was triggered'
+      )
+    })
+
+    // ── service worker change → esbuild rebuilds, no page rebuild ───
+    await t.test('service worker change does not rebuild pages', async () => {
+      mockLog.mock.resetCalls()
+
+      const serviceWorkerFile = path.join(src, 'globals/service-worker.mts')
+      const original = await readFile(serviceWorkerFile, 'utf8')
+      await writeFile(serviceWorkerFile, original + '\n// touch')
+
+      await settle(siteUp)
+
+      const logs = getLogLines(mockLog)
+      assert.ok(
+        logs.some(l => l.includes('JS/CSS rebuild complete.')),
+        'esbuild rebundled the service worker'
       )
       assert.ok(
         !logs.some(l => l.includes('Pages built')),

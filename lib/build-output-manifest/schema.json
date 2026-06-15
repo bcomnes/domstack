@@ -32,6 +32,7 @@
               "script",
               "style",
               "chunk",
+              "service-worker",
               "worker",
               "worker-manifest",
               "static",
