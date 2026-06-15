@@ -15,6 +15,7 @@
  * @import { BuildOutputEntry } from './lib/build-output-manifest/index.js'
  * @import { BuildOutputEntryPageMeta } from './lib/build-output-manifest/index.js'
  * @import { BuildOutputKind } from './lib/build-output-manifest/index.js'
+ * @import { BuildOutputRecord } from './lib/build-output-manifest/index.js'
 */
 import { once } from 'events'
 import assert from 'node:assert'
@@ -890,24 +891,44 @@ function buildLogger (results, dest) {
     // Full build: show site totals
     const layoutCount = Object.keys(results.siteData.layouts).length
     console.log(`Pages: ${results.siteData.pages.length} Layouts: ${layoutCount} Templates: ${results.siteData.templates.length}`)
-    const report = results.pageBuildResults?.report
-    if (report) {
-      console.log(`Pages built: ${report.pages.length} Templates built: ${report.templates.length}`)
+    const outputs = results.pageBuildResults?.report?.outputs
+    if (outputs) {
+      const summary = summarizePageBuildOutputs(outputs)
+      console.log(`Pages built: ${summary.pages} Templates built: ${summary.templates}`)
     }
   } else if ('report' in results && results.report) {
     // Filtered build: show what was actually built
     const report = results.report
+    const outputs = report.outputs ?? []
     if (dest) {
-      for (const p of report.pages) {
-        console.log(`  Built ${relative(dest, p.pageFilePath)}`)
-      }
-      for (const t of report.templates) {
-        for (const output of t.outputFiles ?? []) {
+      for (const output of outputs) {
+        if (output.kind === 'page' || output.kind === 'template') {
           console.log(`  Built ${relative(dest, output.filepath)}`)
         }
       }
     }
-    console.log(`Pages built: ${report.pages.length} Templates built: ${report.templates.length}`)
+    const summary = summarizePageBuildOutputs(outputs)
+    console.log(`Pages built: ${summary.pages} Templates built: ${summary.templates}`)
   }
   console.log('\nBuild Success!\n\n')
+}
+
+/**
+ * @param {BuildOutputRecord[]} outputs
+ */
+function summarizePageBuildOutputs (outputs) {
+  const templateSources = new Set()
+  let pages = 0
+
+  for (const output of outputs) {
+    if (output.kind === 'page') pages += 1
+    if (output.kind === 'template') {
+      templateSources.add(output.sourceRelname ?? output.templatePath ?? output.outputRelname)
+    }
+  }
+
+  return {
+    pages,
+    templates: templateSources.size,
+  }
 }

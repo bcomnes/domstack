@@ -125,8 +125,7 @@ precache list. Runtime online/offline handling and data sync remain Breadcrum-si
   - `buildCopy()`
   - `pageWriter()`
   - `templateBuilder()`
-- Added `TemplateReport.outputFiles` and `TemplateReport.outputRecords` while preserving
-  `TemplateReport.outputs`.
+- Simplified build reports so emitted files flow through `report.outputs`.
 - Added destination escape protection for template output names.
 - Added `results.outputManifest`.
 - Added manifest writing controls:

@@ -1,9 +1,12 @@
+/**
+ * @import { TemplateAsyncIterator } from '../../../index.js'
+ */
 import pMap from 'p-map'
 // @ts-ignore
 import jsonfeedToAtom from 'jsonfeed-to-atom'
 
 /**
- * @type {import('../../../index.js').TemplateAsyncIterator<{
+ * @type {TemplateAsyncIterator<{
  *  title: string,
  *  layout: string,
  *  siteName: string,
