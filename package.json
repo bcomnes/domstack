@@ -66,7 +66,7 @@
     "@voxpelli/tsconfig": "^16.0.0",
     "auto-changelog": "^2.4.0",
     "cheerio": "^1.0.0-rc.10",
-    "gh-release": "^7.0.2",
+    "gh-release": "^8.1.0",
     "installed-check": "^10.0.1",
     "jsonfeed-to-atom": "^1.2.5",
     "neostandard": "^0.13.0",
