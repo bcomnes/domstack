@@ -1,21 +1,19 @@
 import { test } from 'node:test'
 import assert from 'node:assert'
-import { DomStack } from '../../index.js'
+import { testBuild } from '../../index.js'
 import * as path from 'path'
-import { rm } from 'fs/promises'
 
 const __dirname = import.meta.dirname
 
 test.describe('default-layout', () => {
-  test('should build site with default layout', async () => {
+  test('should build site with default layout', async (t) => {
     const src = path.join(__dirname, './src')
-    const dest = path.join(__dirname, './public')
-    const siteUp = new DomStack(src, dest)
+    const build = await testBuild(src)
 
-    await rm(dest, { recursive: true, force: true })
+    t.after(async () => {
+      await build.cleanup()
+    })
 
-    await siteUp.build()
-
-    assert.ok(true, 'built with default layout')
+    assert.ok(build.results, 'built with default layout')
   })
 })
