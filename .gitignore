@@ -3,6 +3,7 @@ node_modules
 sandbox.js
 .nyc_output
 package-lock.json
+!/package-lock.json
 public
 coverage
 lcov.info
