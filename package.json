@@ -112,5 +112,8 @@
   "funding": {
     "type": "individual",
     "url": "https://github.com/sponsors/bcomnes"
+  },
+  "allowScripts": {
+    "esbuild@0.28.1": true
   }
 }
