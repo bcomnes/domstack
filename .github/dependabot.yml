@@ -19,11 +19,6 @@ updates:
     directory: "/"
     schedule:
       interval: "daily"
-    ignore:
-      - dependency-name: "*"
-        update-types:
-          - "version-update:semver-patch"
-          - "version-update:semver-minor"
   - package-ecosystem: "npm"
     directory: "/examples/basic"
     groups:
@@ -34,11 +29,6 @@ updates:
           - "typescript"
     schedule:
       interval: "daily"
-    ignore:
-      - dependency-name: "*"
-        update-types:
-          - "version-update:semver-patch"
-          - "version-update:semver-minor"
   - package-ecosystem: "npm"
     directory: "/examples/css-modules/"
     groups:
@@ -49,11 +39,6 @@ updates:
           - "typescript"
     schedule:
       interval: "daily"
-    ignore:
-      - dependency-name: "*"
-        update-types:
-          - "version-update:semver-patch"
-          - "version-update:semver-minor"
   - package-ecosystem: "npm"
     directory: "/examples/default-layout/"
     groups:
@@ -64,11 +49,6 @@ updates:
           - "typescript"
     schedule:
       interval: "daily"
-    ignore:
-      - dependency-name: "*"
-        update-types:
-          - "version-update:semver-patch"
-          - "version-update:semver-minor"
   - package-ecosystem: "npm"
     directory: "/examples/esbuild-settings"
     groups:
@@ -79,11 +59,6 @@ updates:
           - "typescript"
     schedule:
       interval: "daily"
-    ignore:
-      - dependency-name: "*"
-        update-types:
-          - "version-update:semver-patch"
-          - "version-update:semver-minor"
   - package-ecosystem: "npm"
     directory: "/examples/markdown-settings/"
     groups:
@@ -94,11 +69,6 @@ updates:
           - "typescript"
     schedule:
       interval: "daily"
-    ignore:
-      - dependency-name: "*"
-        update-types:
-          - "version-update:semver-patch"
-          - "version-update:semver-minor"
   - package-ecosystem: "npm"
     directory: "/examples/nested-dest/"
     groups:
@@ -109,11 +79,6 @@ updates:
           - "typescript"
     schedule:
       interval: "daily"
-    ignore:
-      - dependency-name: "*"
-        update-types:
-          - "version-update:semver-patch"
-          - "version-update:semver-minor"
   - package-ecosystem: "npm"
     directory: "/examples/preact-isomorphic/"
     groups:
@@ -124,11 +89,6 @@ updates:
           - "typescript"
     schedule:
       interval: "daily"
-    ignore:
-      - dependency-name: "*"
-        update-types:
-          - "version-update:semver-patch"
-          - "version-update:semver-minor"
   - package-ecosystem: "npm"
     directory: "/examples/react/"
     groups:
@@ -145,11 +105,6 @@ updates:
           - "@types/react-dom"
     schedule:
       interval: "daily"
-    ignore:
-      - dependency-name: "*"
-        update-types:
-          - "version-update:semver-patch"
-          - "version-update:semver-minor"
   - package-ecosystem: "npm"
     directory: "/examples/string-layouts/"
     groups:
@@ -160,11 +115,6 @@ updates:
           - "typescript"
     schedule:
       interval: "daily"
-    ignore:
-      - dependency-name: "*"
-        update-types:
-          - "version-update:semver-patch"
-          - "version-update:semver-minor"
   - package-ecosystem: "npm"
     directory: "/examples/tailwind/"
     groups:
@@ -175,11 +125,6 @@ updates:
           - "typescript"
     schedule:
       interval: "daily"
-    ignore:
-      - dependency-name: "*"
-        update-types:
-          - "version-update:semver-patch"
-          - "version-update:semver-minor"
   - package-ecosystem: "npm"
     directory: "/examples/type-stripping/"
     groups:
@@ -190,11 +135,6 @@ updates:
           - "typescript"
     schedule:
       interval: "daily"
-    ignore:
-      - dependency-name: "*"
-        update-types:
-          - "version-update:semver-patch"
-          - "version-update:semver-minor"
   - package-ecosystem: "npm"
     directory: "/examples/uhtml-isomorphic/"
     groups:
@@ -205,11 +145,6 @@ updates:
           - "typescript"
     schedule:
       interval: "daily"
-    ignore:
-      - dependency-name: "*"
-        update-types:
-          - "version-update:semver-patch"
-          - "version-update:semver-minor"
   - package-ecosystem: "npm"
     directory: "/examples/worker-examples/"
     groups:
@@ -220,11 +155,6 @@ updates:
           - "typescript"
     schedule:
       interval: "daily"
-    ignore:
-      - dependency-name: "*"
-        update-types:
-          - "version-update:semver-patch"
-          - "version-update:semver-minor"
   # Enable version updates for pnpm
   # Enable updates to github actions
   - package-ecosystem: "github-actions"
