@@ -951,6 +951,31 @@ const feedsTemplate: TemplateAsyncIterator<TemplateVars> = async function * ({
 export default feedsTemplate
 ```
 
+### Accessing rendered page content
+
+Any `PageData` instance exposes two methods for accessing rendered output:
+
+- `await page.renderInnerPage({ pages })` returns the page's inner render output as produced by its builder, without a layout wrapper applied. This is often an HTML string (for example, markdown rendered to HTML), but the type depends on the page builder.
+- `await page.renderFullPage({ pages })` returns the complete page output with its layout applied.
+
+Both methods are async and require the full `pages` array. They are available inside templates, in `global.data.js`, inside page functions, and inside layouts.
+
+These methods also require that the `PageData` instance was successfully initialized first. When iterating the full `pages` array -- especially in `global.data.js` -- some entries may represent pages that failed initialization before the build aborts, and calling `renderInnerPage()` or `renderFullPage()` on those pages will throw.
+
+For templates that render many pages, pre-render in parallel and cache results to avoid doing the same work twice when producing several output files from one template:
+
+```js
+import pMap from 'p-map'
+
+const renderCache = new Map()
+await pMap(allPosts, async (page) => {
+  renderCache.set(page.pageInfo.path, await page.renderInnerPage({ pages }))
+}, { concurrency: 4 })
+
+// later, when building output:
+const html = renderCache.get(page.pageInfo.path) ?? ''
+```
+
 ## Global Assets
 
 There are a few important (and optional) global assets that live anywhere in the `src` directory. If duplicate named files that match the global asset file name pattern are found, a build error will occur until the duplicate file error is resolved.
@@ -1059,27 +1084,9 @@ Use `GlobalDataFunction<T>` or `AsyncGlobalDataFunction<T>` to type the function
 
 **`page.vars` can throw.** If a page failed to initialize (often due to page vars module syntax errors, missing dependencies, or runtime errors), accessing `.vars` will throw. Treat this as a build issue to fix.
 
-**Raw markdown source is not exposed as `page.vars.content` by default.** For markdown pages, `page.vars` contains front matter-derived values such as `title`, but does not automatically include the raw markdown body as `content`. If you need the raw markdown body, call `await page.readMarkdownContent()`. To get rendered HTML, call `page.renderInnerPage({ pages })`.
+**Raw markdown source is not exposed as `page.vars.content` by default.** For markdown pages, `page.vars` contains front matter-derived values such as `title`, but does not automatically include the raw markdown body as `content`. If you need the raw markdown body, call `await page.readMarkdownContent()`. For rendered output, see [Accessing rendered page content](#accessing-rendered-page-content).
 
-**`renderInnerPage()` is available.** `global.data.js` runs after page initialization has been attempted, and receives `PageData` instances (some may be uninitialized if they failed to initialize), so you can call `renderInnerPage()` here with the same care described above for `page.vars` and other page-dependent access. It renders the page body without its layout.
-
-```js
-import pMap from 'p-map'
-
-export default async function globalData ({ pages }) {
-  const posts = pages
-    .filter(page => page.vars.layout === 'blog')
-    .sort((a, b) => new Date(b.vars.publishDate) - new Date(a.vars.publishDate))
-
-  const renderedPosts = await pMap(posts, async page => ({
-    title: page.vars.title,
-    url: page.pageInfo.url,
-    html: await page.renderInnerPage({ pages }),
-  }), { concurrency: 4 })
-
-  return { renderedPosts }
-}
-```
+**`renderInnerPage()` is available.** `global.data.js` runs after page initialization has been attempted, and receives `PageData` instances (some may be uninitialized if they failed to initialize), so you can call `renderInnerPage()` here with the same care described above for `page.vars` and other page-dependent access. For examples and performance guidance, see [Accessing rendered page content](#accessing-rendered-page-content).
 
 ### `esbuild.settings.ts`
 
