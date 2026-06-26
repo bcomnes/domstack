@@ -22,9 +22,12 @@ test.describe('page-build-errors', () => {
       assert.ok(Array.isArray(err.errors), 'Should have an array of errors')
 
       const pageResolveError = err.errors.find(err => err.message.includes('Error resolving page vars'))
+      const nestedPageResolveError = err.errors.find(err => err.page?.path === 'another-broken-page')
 
       assert.ok(pageResolveError, 'Should include a page resolve build error')
       assert.ok(pageResolveError.cause, 'Should include an error cause')
+      assert.ok(nestedPageResolveError, 'Should include a page resolve build error for the nested broken page')
+      assert.match(nestedPageResolveError.message, /page: "another-broken-page"/, 'Should include the page path in the error message')
     }
   })
 })
