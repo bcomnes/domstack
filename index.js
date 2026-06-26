@@ -14,8 +14,10 @@
 */
 import { once } from 'events'
 import assert from 'node:assert'
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import chokidar from 'chokidar'
-import { basename, dirname, relative, resolve } from 'node:path'
+import { basename, dirname, join, relative, resolve } from 'node:path'
 // @ts-expect-error
 import makeArray from 'make-array'
 import ignore from 'ignore'
@@ -133,6 +135,14 @@ export { PageData } from './lib/build-pages/page-data.js'
 /**
  * @template {Record<string, any>} [Vars=Record<string, any>] - The type of variables for the template function
  * @typedef {TemplateFunctionParams<Vars>} TemplateFunctionParams
+ */
+
+/**
+ * @typedef TestBuildResult
+ * @property {string} dest - Temporary destination directory used for the build.
+ * @property {Results} results - DomStack build results.
+ * @property {(path: string) => Promise<string>} readOutput - Read a UTF-8 file from the temporary destination directory.
+ * @property {() => Promise<void>} cleanup - Remove the temporary destination directory.
  */
 
 const DEFAULT_IGNORES = /** @type {const} */ ([
@@ -770,6 +780,26 @@ export class DomStack {
    */
   async settled () {
     await this.#buildLock
+  }
+}
+
+/**
+ * Build a DomStack site into a temporary directory for isolated tests.
+ *
+ * @param {string} src - Source directory to build.
+ * @param {DomStackOpts} [opts] - DomStack build options.
+ * @returns {Promise<TestBuildResult>}
+ */
+export async function testBuild (src, opts = {}) {
+  const dest = await mkdtemp(join(tmpdir(), 'domstack-test-'))
+  const domstack = new DomStack(resolve(src), dest, opts)
+  const results = await domstack.build()
+
+  return {
+    dest,
+    results,
+    readOutput: path => readFile(join(dest, path), 'utf8'),
+    cleanup: () => rm(dest, { recursive: true, force: true }),
   }
 }
 

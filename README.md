@@ -74,6 +74,29 @@ domstack (v11.0.0)
 `domstack` is primarily a unix `bin` written for the [Node.js](https://nodejs.org) runtime that is intended to be installed from `npm` as a `devDependency` inside a `package.json` committed to a `git` repository.
 It can be used outside of this context, but it works best within it.
 
+## Programmatic test builds
+
+Use the top-level `testBuild` helper to build into a temporary directory from tests without managing setup and cleanup yourself.
+
+```js
+import { test } from 'node:test'
+import assert from 'node:assert'
+import { testBuild } from '@domstack/static'
+
+test('site output', async () => {
+  const build = await testBuild('./src')
+
+  try {
+    const html = await build.readOutput('index.html')
+    assert.match(html, /Hello/)
+  } finally {
+    await build.cleanup()
+  }
+})
+```
+
+`testBuild(src, opts)` creates a temporary destination directory, runs `new DomStack(src, dest, opts).build()`, and returns `{ dest, results, readOutput, cleanup }`. Options are passed through to `DomStack`, including `copy` paths.
+
 ## Core Concepts
 
 `domstack` is a static site generator that builds a website from "pages" in a `src` directory, nearly 1:1 into a `dest` directory.
