@@ -179,6 +179,10 @@ export class DomStack {
   #buildLock = Promise.resolve()
 
   /**
+   * Create a DomStack build instance.
+   *
+   * Copy paths supplied through `opts.copy` are resolved to absolute paths from
+   * the current working directory, matching the CLI `--copy` behavior.
    *
    * @param {string} src - The src path of the page build
    * @param {string} dest - The dest path of the page build
