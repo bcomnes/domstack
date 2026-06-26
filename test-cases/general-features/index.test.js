@@ -1,8 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert'
-import { DomStack } from '../../index.js'
+import { testBuild } from '../../index.js'
 import * as path from 'path'
-import { rm, stat, readFile } from 'fs/promises'
+import { stat, readFile } from 'fs/promises'
 import * as cheerio from 'cheerio'
 import { allFiles } from 'async-folder-walker'
 
@@ -11,12 +11,13 @@ const __dirname = import.meta.dirname
 test.describe('general-features', () => {
   test('should build site with all features', async (t) => {
     const src = path.join(__dirname, './src')
-    const dest = path.join(__dirname, './public')
-    const siteUp = new DomStack(src, dest, { copy: [path.join(__dirname, './copyfolder')] })
+    const build = await testBuild(src, { copy: [path.join(__dirname, './copyfolder')] })
+    const { dest, results } = build
 
-    await rm(dest, { recursive: true, force: true })
+    t.after(async () => {
+      await build.cleanup()
+    })
 
-    const results = await siteUp.build()
     assert.ok(results, 'DomStack built site and returned build results')
 
     const globalAssets = {
