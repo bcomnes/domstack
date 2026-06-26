@@ -3,16 +3,36 @@ name: npm bump
 on:
   workflow_dispatch:
     inputs:
-      newversion:
-        description: 'npm version {major,minor,patch}'
+      version-type:
+        description: 'Version type'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - custom
+        default: 'patch'
         required: true
+      new-version:
+        description: 'Custom version (only used when version-type is "custom")'
+        required: false
 
 env:
-  FORCE_COLOR: 1
+  FORCE_COLOR: 3
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: npm-bump
+  cancel-in-progress: true
 
 jobs:
   version_and_release:
     runs-on: ubuntu-latest
+    outputs:
+      tagName: ${{ steps.npm-bump.outputs.release-tag }}
     steps:
     - uses: actions/checkout@v7
       with:
@@ -23,16 +43,13 @@ jobs:
       with:
         node-version-file: package.json
         check-latest: true
-        # setting a registry enables the NODE_AUTH_TOKEN env variable where we can set an npm token.  REQUIRED
-        registry-url: 'https://registry.npmjs.org'
     - run: npm i
     - run: npm test
     - run: git reset --hard && git clean -fd
-    - name: npm version && npm test
+    - name: Version and publish to npm
+      id: npm-bump
       uses: bcomnes/npm-bump@v3
       with:
-        git_email: bcomnes@gmail.com
-        git_username: ${{ github.actor }}
-        newversion: ${{ github.event.inputs.newversion }}
-        github_token: ${{ secrets.GITHUB_TOKEN }} # built in actions token.  Passed tp gh-release if in use.
-        npm_token: ${{ secrets.NPM_TOKEN }} # user set secret token generated at npm
+        version-type: ${{ github.event.inputs['version-type'] }}
+        new-version: ${{ github.event.inputs['new-version'] }}
+        github-token: ${{ secrets.GITHUB_TOKEN }}
