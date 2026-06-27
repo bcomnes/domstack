@@ -364,10 +364,13 @@ await funnyLibrary()
 
 #### .tsx/.jsx
 
-Client bundles support .jsx and .tsx through esbuild. DOMStack does not include a JSX runtime by default; install the runtime you want and configure it with `esbuild.settings`.
-See the [react](./examples/react/) and [preact-isomorphic](./examples/preact-isomorphic/) examples for more details.
+Client bundles support `.jsx` and `.tsx` through esbuild.
+DOMStack does not include a JSX runtime by default.
+Install the runtime you want and configure it with `esbuild.settings`.
+[Preact][preact] is the recommended JSX runtime for DomStack because it is small, browser-focused, and works well with page-scoped client bundles.
+See the [preact-isomorphic](./examples/preact-isomorphic/) and [react](./examples/react/) examples for complete projects.
 
-For example, to use [Preact][preact] in browser JSX/TSX bundles, add it to your project and opt into Preact's automatic JSX runtime:
+To use Preact in browser JSX/TSX bundles, add it to your project and opt into Preact's automatic JSX runtime:
 
 ```console
 npm install preact
@@ -378,6 +381,35 @@ npm install preact
 export default async function esbuildSettingsOverride (esbuildSettings) {
   esbuildSettings.jsx = 'automatic'
   esbuildSettings.jsxImportSource = 'preact'
+
+  return esbuildSettings
+}
+```
+
+If a dependency expects React, you can often swap React for `@preact/compat` with an npm package alias.
+This installs `@preact/compat` into `node_modules/react`.
+See [Simple TanStack Query in Preact](https://bret.io/blog/2026/simple-tanstack-query-in-preact/) for more details.
+
+```json
+{
+  "dependencies": {
+    "react": "npm:@preact/compat@^18.3.1"
+  }
+}
+```
+
+React also works if your project needs React-specific APIs or ecosystem packages.
+To use React in browser JSX/TSX bundles, add React to your project and opt into React's automatic JSX runtime:
+
+```console
+npm install react react-dom
+```
+
+```js
+// src/esbuild.settings.js
+export default async function esbuildSettingsOverride (esbuildSettings) {
+  esbuildSettings.jsx = 'automatic'
+  esbuildSettings.jsxImportSource = 'react'
 
   return esbuildSettings
 }
@@ -1168,7 +1200,10 @@ const esbuildSettingsOverride = async (esbuildSettings: BuildOptions): Promise<B
 export default esbuildSettingsOverride
 ```
 
-DOMStack passes its default `BuildOptions` into this function, including Preact JSX defaults and asset loader defaults for common images, icons, and fonts. You can return a shallow copy that modifies those defaults when you only need a small change. For example, this keeps DOMStack's default asset loaders and adds a custom loader for `.wasm` files:
+DOMStack passes its default `BuildOptions` into this function, including asset loader defaults for common images, icons, and fonts.
+DOMStack does not set a JSX runtime by default.
+You can return a shallow copy that modifies those defaults when you only need a small change.
+For example, this keeps DOMStack's default asset loaders and adds a custom loader for `.wasm` files:
 
 ```typescript
 import type { BuildOptions } from '@domstack/static/types.js'
@@ -1186,7 +1221,8 @@ const esbuildSettingsOverride = async (esbuildSettings: BuildOptions): Promise<B
 export default esbuildSettingsOverride
 ```
 
-If you want full control, reset DOMStack's convenience defaults back to esbuild's defaults while preserving the required DOMStack build wiring (`entryPoints`, `outdir`, `outbase`, etc.). From there, define only the settings you want:
+If you want full control, reset DOMStack's convenience defaults back to esbuild's defaults while preserving the required DOMStack build wiring (`entryPoints`, `outdir`, `outbase`, etc.).
+From there, define only the settings you want:
 
 ```typescript
 import type { BuildOptions } from '@domstack/static/types.js'
@@ -1438,6 +1474,94 @@ const layout: LayoutFunction<{site: string}, VDOMNode, string> = ({ children }) 
   return `<html><body>${html}</body></html>`
 }
 ```
+
+### Swapping the default layout template renderer
+
+DOMStack's bundled default layout uses [`fragtml`][fragtml] because the default template only needs safe string manipulation.
+You can eject or replace that layout with any Node-compatible renderer that returns an HTML string.
+The previous incumbent for this job was `htm/preact` with `preact-render-to-string`.
+That is still a good fit when your Node-side pages or layouts produce Preact VNodes, or when you want the same component model on the server and in browser bundles.
+If you also want Preact or React in browser JSX/TSX bundles, configure that separately as described in [`.tsx/.jsx`](#tsxjsx).
+
+```console
+npm install htm preact preact-render-to-string
+```
+
+```js
+/**
+ * @import { LayoutFunction } from '@domstack/static/types.js'
+ * @import { VNode } from 'preact'
+ */
+import { html } from 'htm/preact'
+import { render } from 'preact-render-to-string'
+
+/** @type {LayoutFunction<Record<string, any>, string | VNode, string>} */
+export default function rootLayout ({ children, vars, scripts, styles }) {
+  return `<!DOCTYPE html>
+${render(html`
+    <html lang=${vars.lang ?? 'en'}>
+      <head>
+        <title>${vars.title}</title>
+        ${styles?.map(style => html`<link rel="stylesheet" href=${style} />`)}
+        ${scripts?.map(script => html`<script type="module" src=${script}></script>`)}
+      </head>
+      <body>
+        ${typeof children === 'string'
+          ? html`<main dangerouslySetInnerHTML=${{ __html: children }} />`
+          : html`<main>${children}</main>`}
+      </body>
+    </html>
+  `)}`
+}
+```
+
+`preact-render-to-string` works, but it builds a virtual DOM tree just to serialize layout HTML.
+For layouts that mostly combine strings and already-rendered page content, [`async-htm-to-string`](https://github.com/voxpelli/async-htm-to-string) keeps the familiar HTM tagged-template style while rendering directly to strings.
+That can be a better-performing and more direct tool for server-only layout templates.
+You can still use Preact for browser-side components and use `async-htm-to-string` for Node-side layout rendering.
+
+```console
+npm install async-htm-to-string
+```
+
+```js
+/**
+ * @import { LayoutFunction } from '@domstack/static/types.js'
+ */
+import { html, rawHtml } from 'async-htm-to-string'
+
+/** @type {LayoutFunction<Record<string, any>, string, Promise<string>>} */
+export default async function rootLayout ({ children, vars, scripts, styles }) {
+  return await html`
+    <!DOCTYPE html>
+    <html lang="${vars.lang ?? 'en'}">
+      <head>
+        <title>${vars.title}</title>
+        ${styles?.map(style => html`<link rel="stylesheet" href="${style}" />`)}
+        ${scripts?.map(script => html`<script type="module" src="${script}"></script>`)}
+      </head>
+      <body>
+        <main>${rawHtml(children)}</main>
+      </body>
+    </html>
+  `
+}
+```
+
+Key differences from `htm/preact` and DOMStack's `fragtml` default:
+
+- **Attribute names are standard HTML.**
+Use `class` and `for` rather than React aliases like `className` and `htmlFor`, which `async-htm-to-string` will output literally with no warning.
+For attributes like `tabindex`, `tabIndex` is only a casing preference in HTML, but using standard lowercase keeps templates consistent.
+- **Always `await` the `html` tag.**
+The tag returns an object that resolves to a string asynchronously.
+If you return it without `await` from a non-async function, or assign it where a string is expected, you will get `[object Object]` in the output with no error thrown.
+Use `async function` and `await` the result.
+- **`rawHtml()` bypasses escaping.**
+It is equivalent to setting `innerHTML` directly.
+Use it only for HTML you generated yourself, such as the output of `await page.renderInnerPage({ pages })` or a trusted markdown renderer.
+`children` passed to a layout can be any type returned by a page function, and may contain unsanitized content depending on the page.
+Always verify the source before passing it through `rawHtml()`.
 
 ## Design Goals
 
