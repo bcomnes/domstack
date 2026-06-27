@@ -258,10 +258,11 @@ Previously this silently allowed both to coexist. Choose one approach:
 
 ## 12. Default Layout: uhtml-isomorphic → preact
 
-The bundled default `root.layout.js` (used when `--eject` has not been run, or when using the default layout) was rewritten from `uhtml-isomorphic` to use `preact` + `preact-render-to-string`.
+The bundled default `root.layout.js` (used when `--eject` has not been run, or when using the default layout) was rewritten from `uhtml-isomorphic` to use `htm/preact` and `preact-render-to-string`.
 
 - `uhtml-isomorphic` is **no longer a production dependency** of `@domstack/static`
-- `preact` and `preact-render-to-string` are now production dependencies
+- `preact` is now a production dependency
+- `preact-render-to-string` is now a production dependency
 
 **Action required:**
 - If your layout files import `uhtml-isomorphic` and rely on it being hoisted from domstack's `node_modules`, you must now add it explicitly to your project:

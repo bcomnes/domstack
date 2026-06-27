@@ -86,7 +86,7 @@ Both global and page-specific CSS is demonstrated, showing how to scope styles a
 
 This is one of several examples in the DOMStack repository. For more advanced features, check out the other examples like:
 - css-modules
-- preact
+- fragtml
 - tailwind
 - and more...
 
