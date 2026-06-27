@@ -1,0 +1,22 @@
+{
+  "name": "@domstack/pwa-example",
+  "version": "0.0.0",
+  "description": "DOMStack PWA offline cache example",
+  "type": "module",
+  "scripts": {
+    "start": "npm run serve",
+    "build": "npm run clean && domstack",
+    "clean": "rm -rf public && mkdir -p public",
+    "serve": "npm run clean && domstack --serve",
+    "watch": "npm run clean && dom --watch"
+  },
+  "keywords": ["domstack", "pwa", "service-worker", "offline"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@domstack/static": "file:../../."
+  },
+  "devDependencies": {
+    "npm-run-all2": "^9.0.0"
+  }
+}

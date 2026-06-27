@@ -201,7 +201,7 @@ Key differences:
 
 ## 8. New Reserved Filenames
 
-Two new filenames are now recognized and processed by domstack. If you have existing files with these names used for other purposes, they will now be treated as special files:
+New filenames are now recognized and processed by domstack. If you have existing files with these names used for other purposes, they will now be treated as special files:
 
 ### `global.data.js` (and `.ts`, `.mjs`, `.mts`, `.cjs`, `.cts`)
 
@@ -218,7 +218,12 @@ export default function (md) {
 }
 ```
 
-If you have a file with either of these names that was serving another purpose, rename it.
+### `domstack-manifest.settings.js` (and `.ts`, `.mjs`, `.mts`, `.cjs`, `.cts`)
+
+Now treated as the domstack manifest settings file. Its default export can return `exclude`
+patterns and an `includeEntry(entry)` filter for `domstack-manifest.json`.
+
+If you have a file with any of these names that was serving another purpose, rename it.
 
 ---
 
@@ -370,7 +375,7 @@ const page: PageFunction<MyVars, string> = async ({ vars }) => { ... }
 - [ ] Replace `TopBunAggregateError`/`TopBunDuplicatePageError` with `DomStack*` equivalents
 - [ ] Replace `TOP_BUN_*` error/warning codes with `DOM_STACK_*`
 - [ ] Migrate `postVars` exports from `page.vars.js` to a `global.data.js` default export
-- [ ] Rename any files accidentally named `global.data.js`, `markdown-it.settings.js`, `page.md`, or `*.worker.js` that weren't intended for those purposes
+- [ ] Rename any files accidentally named `global.data.js`, `domstack-manifest.settings.js`, `markdown-it.settings.js`, `page.md`, or `*.worker.js` that weren't intended for those purposes
 - [ ] If using both `browser` in `global.vars.js` and `define` in `esbuild.settings.js`, consolidate to one
 - [ ] If importing `uhtml-isomorphic` from layouts without it in your own `package.json`, add it explicitly
 - [ ] Update any CI/scripts referencing `top-bun-esbuild-meta.json` → `domstack-esbuild-meta.json`
