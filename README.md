@@ -74,6 +74,29 @@ domstack (v11.0.0)
 `domstack` is primarily a unix `bin` written for the [Node.js](https://nodejs.org) runtime that is intended to be installed from `npm` as a `devDependency` inside a `package.json` committed to a `git` repository.
 It can be used outside of this context, but it works best within it.
 
+## Programmatic test builds
+
+Use the top-level `testBuild` helper to build into a temporary directory from tests without managing setup and cleanup yourself.
+
+```js
+import { test } from 'node:test'
+import assert from 'node:assert'
+import { testBuild } from '@domstack/static'
+
+test('site output', async () => {
+  const build = await testBuild('./src')
+
+  try {
+    const html = await build.readOutput('index.html')
+    assert.match(html, /Hello/)
+  } finally {
+    await build.cleanup()
+  }
+})
+```
+
+`testBuild(src, opts)` creates a temporary destination directory, runs `new DomStack(src, dest, opts).build()`, and returns `{ dest, results, readOutput, cleanup }`. Options are passed through to `DomStack`, including `copy` paths.
+
 ## Core Concepts
 
 `domstack` is a static site generator that builds a website from "pages" in a `src` directory, nearly 1:1 into a `dest` directory.
@@ -744,6 +767,8 @@ It is recomended to eject early in your project so that you can customize the ro
 You can specify directories to copy into your `dest` directory using the `--copy` flag. Everything in those directories will be copied as-is into the destination, including js, css, html and markdown, preserving the internal directory structure. Conflicting files are not detected or reported and will cause undefined behavior.
 
 Copy folders must live **outside** of the `dest` directory. Copy directories can be in the src directory allowing for nested builds. In this case they are added to the ignore glob and ignored by the rest of `domstack`.
+
+When using the programmatic `DomStack` constructor, `copy` entries may be relative or absolute paths. Relative `copy` paths are resolved to absolute paths from the current working directory, matching the CLI `--copy` behavior, before they are stored on `domstack.opts.copy` and passed to the copy build step.
 
 This is useful when you have legacy or archived site content that you want to include in your site, but don't want `domstack` to process or modify it.
 In general, static content should live in your primary `src` directory, however for merging in old static assets over your domstack build is sometimes easier to reason about when it's kept in a separate folder and isn't processed in any way.
