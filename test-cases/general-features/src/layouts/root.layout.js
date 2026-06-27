@@ -1,9 +1,9 @@
 /**
  * @import { LayoutFunction } from '#types'
+ * @import { HtmlResult } from 'fragtml/types.js'
  */
 
-import { html } from 'htm/preact'
-import { render } from 'preact-render-to-string'
+import { html, raw, render } from 'fragtml'
 import { LAYOUT_MARKER } from '../libs/layout-helper.js'
 
 /**
@@ -19,7 +19,7 @@ import { LAYOUT_MARKER } from '../libs/layout-helper.js'
  * }} SiteVars
  */
 
-/** @type {LayoutFunction<SiteVars>} */
+/** @type {LayoutFunction<SiteVars, string | HtmlResult, string>} */
 export default function defaultRootLayout ({
   vars: {
     title,
@@ -41,7 +41,7 @@ export default function defaultRootLayout ({
       <meta itemprop="publisher" content="${siteName}" />
       <meta property="og:site_name" content="${siteName}" />
       ${scripts?.map(script =>
-        html`<script type="module" src="${script}" />`
+        html`<script type="module" src="${script}"></script>`
       )}
       ${styles?.map(style =>
         html`<link rel="stylesheet" href="${style}" />`
@@ -50,12 +50,9 @@ export default function defaultRootLayout ({
   `)
 
   const body = render(html`
-    <body className="safe-area-inset">
-      <main className="mine-layout">
-        ${typeof children === 'string'
-          ? html`<div dangerouslySetInnerHTML="${{ __html: children }}" />`
-          : children
-        }
+    <body class="safe-area-inset">
+      <main class="mine-layout">
+        ${typeof children === 'string' ? raw(children) : children}
       </main>
     </body>
   `)

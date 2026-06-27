@@ -1,10 +1,10 @@
 # React with TypeScript in DOMStack
 
-This example demonstrates how to use React with TypeScript in DOMStack for client-side rendering. Unlike the Preact examples that come with DOMStack by default, this example shows how to override the default JSX configuration to use React with TypeScript instead.
+This example demonstrates how to use React with TypeScript in DOMStack for client-side rendering. DOMStack does not include a JSX runtime by default, so this example opts into React with an `esbuild.settings.ts` file.
 
 ## What This Example Shows
 
-- How to configure ESBuild to use React instead of Preact for TSX
+- How to configure ESBuild to use React for TSX
 - Client-side rendering with React components written in TypeScript
 - Type-safe React hooks for state management
 - TypeScript interfaces and type definitions
@@ -12,7 +12,7 @@ This example demonstrates how to use React with TypeScript in DOMStack for clien
 
 ## Key Components
 
-1. **ESBuild Configuration**: Custom `esbuild.settings.ts` that overrides the default Preact JSX settings
+1. **ESBuild Configuration**: Custom `esbuild.settings.ts` that configures React JSX settings
 2. **React Components**: Client-side components with typed hooks and state
 3. **Static HTML Mount Points**: HTML pages with mount points for React components
 4. **TypeScript Interfaces**: Type definitions for props, state, and functions
@@ -46,8 +46,8 @@ To watch for changes during development:
 npm run watch
 ```
 
-## React with TypeScript vs. Preact in DOMStack
+## React with TypeScript
 
-DOMStack uses Preact by default because it's smaller and has a compatible API with React. This example shows how to use React with TypeScript instead if you prefer or need specific React features with type safety.
+This example shows how to use React with TypeScript when you want React-specific features with type safety.
 
-The key difference is in the `esbuild.settings.ts` file, which configures ESBuild to use React's TSX transformer and runtime, along with TypeScript support.
+The key setup is in the `esbuild.settings.ts` file, which configures ESBuild to use React's TSX transformer and runtime, along with TypeScript support.

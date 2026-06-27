@@ -2,8 +2,7 @@
  * @import { AsyncGlobalDataFunction } from '#types'
  */
 
-import { html } from 'htm/preact'
-import { render } from 'preact-render-to-string'
+import { html, render } from 'fragtml'
 
 /** @type {AsyncGlobalDataFunction<{ blogPostsHtml: string, globalDataSentinel: string }>} */
 export default async function ({ pages }) {
@@ -15,17 +14,17 @@ export default async function ({ pages }) {
 
   /** @type {string} */
   const blogPostsHtml = render(html`
-    <ul className="blog-index-list">
+    <ul class="blog-index-list">
       ${blogPosts.map(p => {
         const publishDate = p.vars?.publishDate ? new Date(p.vars.publishDate) : null
         return html`
-          <li className="blog-entry h-entry">
-            <a className="blog-entry-link u-url u-uid p-name" href="/${p.pageInfo.path}/">
+          <li class="blog-entry h-entry">
+            <a class="blog-entry-link u-url u-uid p-name" href="/${p.pageInfo.path}/">
               ${p.vars?.title}
             </a>
             ${publishDate
               ? html`
-                  <time className="blog-entry-date dt-published" datetime="${publishDate.toISOString()}">
+                  <time class="blog-entry-date dt-published" datetime="${publishDate.toISOString()}">
                     ${publishDate.toISOString().split('T')[0]}
                   </time>`
               : null

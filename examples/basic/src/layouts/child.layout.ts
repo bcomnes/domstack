@@ -1,11 +1,11 @@
 import type { LayoutFunction } from '@domstack/static/types.js'
-import { html } from 'htm/preact'
-import { render } from 'preact-render-to-string'
+import { html, raw, render } from 'fragtml'
+import type { HtmlResult } from 'fragtml/types.js'
 
-import defaultRootLayout from './root.layout.js'
-import type { PageVars } from './root.layout.js'
+import defaultRootLayout from './root.layout.ts'
+import type { PageVars } from './root.layout.ts'
 
-const articleLayout: LayoutFunction<PageVars> = (args) => {
+const articleLayout: LayoutFunction<PageVars, string | HtmlResult, string> = (args) => {
   const { children, ...rest } = args
   const wrappedChildren = render(html`
     <article class="bc-article h-entry" itemscope itemtype="http://schema.org/NewsArticle">
@@ -14,8 +14,8 @@ const articleLayout: LayoutFunction<PageVars> = (args) => {
 
       <section class="e-content" itemprop="articleBody">
         ${typeof children === 'string'
-          ? html`<div dangerouslySetInnerHTML=${{ __html: children }}></div>`
-          : children /* Support both preact and string children */
+          ? html`<div>${raw(children)}</div>`
+          : children
         }
       </section>
     </article>
