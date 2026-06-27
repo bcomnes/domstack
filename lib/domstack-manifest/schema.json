@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://unpkg.com/@domstack/static@11.0.3/lib/domstack-manifest/schema.json",
+  "title": "Domstack manifest",
+  "description": "A normalized, revisioned manifest of public files emitted by a domstack build.",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "description": "Versioned URL of the JSON Schema that describes this manifest.",
+      "const": "https://unpkg.com/@domstack/static@11.0.3/lib/domstack-manifest/schema.json"
+    },
+    "version": {
+      "description": "SHA-256 hex digest derived from the final cache-relevant manifest entries.",
+      "type": "string"
+    },
+    "generatedAt": {
+      "description": "ISO 8601 timestamp for when domstack generated this manifest.",
+      "type": "string",
+      "format": "date-time"
+    },
+    "entries": {
+      "description": "Sorted public output entries included in the manifest after excludes and filters are applied.",
+      "type": "array",
+      "items": {
+        "description": "One public output emitted by domstack and included in the reconciled domstack manifest.",
+        "type": "object",
+        "properties": {
+          "outputRelname": {
+            "description": "Destination-relative output path using POSIX separators, such as \"index.html\" or \"chunks/js/chunk-ABC.js\".",
+            "type": "string"
+          },
+          "kind": {
+            "description": "Classifies the build pipeline step or artifact type that produced this output.",
+            "enum": [
+              "page",
+              "template",
+              "script",
+              "style",
+              "chunk",
+              "service-worker",
+              "worker",
+              "worker-manifest",
+              "static",
+              "copy",
+              "sourcemap",
+              "metadata"
+            ]
+          },
+          "url": {
+            "description": "Public same-origin URL for the output, normalized with a leading slash.",
+            "type": "string"
+          },
+          "revision": {
+            "description": "SHA-256 hex digest of the output file contents. Null is reserved for outputs without a content revision.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "bytes": {
+            "description": "Output file size in bytes. Null is reserved for outputs whose size is unavailable.",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "sourceRelname": {
+            "description": "Source-relative path that produced this output when a direct source file is known.",
+            "type": "string"
+          },
+          "entryPoint": {
+            "description": "esbuild entry point path for script, style, worker, and service-worker outputs when available.",
+            "type": "string"
+          },
+          "pagePath": {
+            "description": "Source-relative page path associated with this output when the output belongs to a page.",
+            "type": "string"
+          },
+          "pageUrl": {
+            "description": "Canonical public page URL associated with this output when the output belongs to a page.",
+            "type": "string"
+          },
+          "templatePath": {
+            "description": "Source-relative template path associated with this output when the output was emitted by a template.",
+            "type": "string"
+          },
+          "page": {
+            "description": "Page-specific metadata recorded for manifest entries whose kind is \"page\".",
+            "type": "object",
+            "properties": {
+              "path": {
+                "description": "Source-relative page path used by domstack routing, without a leading slash.",
+                "type": "string"
+              },
+              "url": {
+                "description": "Canonical public URL for the page, such as \"/\" or \"/docs/\".",
+                "type": "string"
+              },
+              "vars": {
+                "description": "Selected page variables that can affect offline or precache policy.",
+                "type": "object",
+                "properties": {
+                  "precache": {
+                    "description": "Application-defined page precache policy metadata. Domstack records this value but does not interpret it."
+                  },
+                  "offline": {
+                    "description": "Application-defined page offline availability metadata. Domstack records this value but does not interpret it."
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "path",
+              "url"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "outputRelname",
+          "kind",
+          "url",
+          "revision",
+          "bytes"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "$schema",
+    "version",
+    "generatedAt",
+    "entries"
+  ],
+  "additionalProperties": false
+}

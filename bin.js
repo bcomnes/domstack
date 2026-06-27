@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * @import {DomStackOpts as DomStackOpts} from './lib/builder.js'
+ * @import {DomStackOpts as DomStackOpts, Results} from './lib/builder.js'
  * @import { ArgscloptsParseArgsOptionsConfig } from 'argsclopts'
  */
 
@@ -14,6 +14,7 @@ import process from 'process'
 // @ts-expect-error
 import tree from 'pretty-tree'
 import { inspect } from 'util'
+import browserSync from 'browser-sync'
 import { packageDirectory } from 'package-directory'
 import { readPackage } from 'read-pkg'
 import { addPackageDependencies } from 'write-package'
@@ -65,6 +66,14 @@ const options = {
     type: 'boolean',
     help: 'skip writing the esbuild metafile to disk',
   },
+  domstackManifest: {
+    type: 'string',
+    help: 'write the domstack manifest to this filename',
+  },
+  noDomstackManifest: {
+    type: 'boolean',
+    help: 'skip writing the domstack manifest to disk',
+  },
   eject: {
     type: 'boolean',
     short: 'e',
@@ -78,6 +87,10 @@ const options = {
   'watch-only': {
     type: 'boolean',
     help: 'watch and build the src folder without serving',
+  },
+  serve: {
+    type: 'boolean',
+    help: 'build once and serve the destination directory without watching',
   },
   copy: {
     type: 'string',
@@ -205,6 +218,13 @@ domstack eject actions:
   if (argv['ignore']) opts.ignore = String(argv['ignore']).split(',')
   if (argv['target']) opts.target = String(argv['target']).split(',')
   if (argv['noEsbuildMeta']) opts.metafile = false
+  if (argv['noDomstackManifest']) opts.domstackManifest = false
+  if (argv['domstackManifest']) {
+    opts.domstackManifest = {
+      ...(typeof opts.domstackManifest === 'object' ? opts.domstackManifest : {}),
+      filename: String(argv['domstackManifest']),
+    }
+  }
   if (argv['drafts']) opts.buildDrafts = true
   if (argv['copy']) {
     const copyPaths = Array.isArray(argv['copy']) ? argv['copy'] : [argv['copy']]
@@ -213,6 +233,12 @@ domstack eject actions:
   }
 
   const domStack = new DomStack(src, dest, opts)
+  /** @type {browserSync.BrowserSyncInstance | null} */
+  let buildServer = null
+
+  if (argv['serve'] && (argv['watch'] || argv['watch-only'])) {
+    throw new Error('--serve cannot be combined with --watch or --watch-only')
+  }
 
   process.once('SIGINT', quit)
   process.once('SIGTERM', quit)
@@ -223,6 +249,11 @@ domstack eject actions:
       console.log(results)
       console.log('watching stopped')
     }
+    if (buildServer) {
+      buildServer.exit()
+      buildServer = null
+      console.log('server stopped')
+    }
     console.log('\nquitting cleanly')
     process.exit(0)
   }
@@ -230,20 +261,16 @@ domstack eject actions:
   if (!argv['watch'] && !argv['watch-only']) {
     try {
       const results = await domStack.build()
-      console.log(tree(generateTreeData(cwd, src, dest, results)))
-      if (results?.warnings?.length > 0) {
-        console.log(
-          '\nThere were build warnings:\n'
-        )
-      }
-      for (const warning of results?.warnings) {
-        if ('message' in warning) {
-          console.log(`  ${warning.message}`)
-        } else {
-          console.warn(warning)
-        }
-      }
+      logBuildResults(cwd, src, dest, results)
       console.log('\nBuild Success!\n\n')
+      if (argv['serve']) {
+        buildServer = browserSync.create()
+        buildServer.init({
+          open: false,
+          server: dest,
+        })
+        console.log(`Serving ${relative(cwd, dest)} without watching. Press Ctrl-C to stop.`)
+      }
     } catch (err) {
       if (!(err instanceof Error || err instanceof AggregateError)) throw new Error('Non-error thrown', { cause: err })
       if (err instanceof DomStackAggregateError) {
@@ -261,18 +288,28 @@ domstack eject actions:
     const initialResults = await domStack.watch({
       serve: !argv['watch-only'],
     })
-    console.log(tree(generateTreeData(cwd, src, dest, initialResults)))
-    if (initialResults?.warnings?.length > 0) {
-      console.log(
-        '\nThere were build warnings:\n'
-      )
-    }
-    for (const warning of initialResults?.warnings) {
-      if ('message' in warning) {
-        console.log(`  ${warning.message}`)
-      } else {
-        console.warn(warning)
-      }
+    logBuildResults(cwd, src, dest, initialResults)
+  }
+}
+
+/**
+ * @param {string} cwd
+ * @param {string} src
+ * @param {string} dest
+ * @param {Results} results
+ */
+function logBuildResults (cwd, src, dest, results) {
+  console.log(tree(generateTreeData(cwd, src, dest, results)))
+  if (results?.warnings?.length > 0) {
+    console.log(
+      '\nThere were build warnings:\n'
+    )
+  }
+  for (const warning of results?.warnings) {
+    if ('message' in warning) {
+      console.log(`  ${warning.message}`)
+    } else {
+      console.warn(warning)
     }
   }
 }

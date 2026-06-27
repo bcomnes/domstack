@@ -1,5 +1,9 @@
 /**
- * @type {import('../../../../index.js').TemplateAsyncIterator<{
+ * @import { TemplateAsyncIterator } from '../../../../index.js'
+ */
+
+/**
+ * @type {TemplateAsyncIterator<{
  * foo: string,
  * testVar: string
  * }>}

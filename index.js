@@ -10,7 +10,12 @@
  * @import { TemplateFunctionParams } from './lib/build-pages/page-builders/template-builder.js'
  * @import { GlobalDataFunction, AsyncGlobalDataFunction, WorkerBuildStepResult, GlobalDataFunctionParams } from './lib/build-pages/index.js'
  * @import { BuildOptions, BuildContext } from 'esbuild'
- * @import { PageInfo, TemplateInfo } from './lib/identify-pages.js'
+ * @import { PageInfo, ServiceWorkerInfo, TemplateInfo } from './lib/identify-pages.js'
+ * @import { DomstackManifest } from './lib/domstack-manifest/index.js'
+ * @import { DomstackManifestEntry } from './lib/domstack-manifest/index.js'
+ * @import { DomstackManifestEntryPageMeta } from './lib/domstack-manifest/index.js'
+ * @import { DomstackManifestKind } from './lib/domstack-manifest/index.js'
+ * @import { DomstackManifestRecord } from './lib/domstack-manifest/index.js'
 */
 import { once } from 'events'
 import assert from 'node:assert'
@@ -40,18 +45,30 @@ import {
   globalDataNames,
   esbuildSettingsNames,
   markdownItSettingsNames,
+  domstackManifestSettingsNames,
   pageClientNames,
   layoutClientSuffixs,
   globalClientNames,
   globalStyleNames,
   pageStyleName,
   pageWorkerSuffixs,
+  serviceWorkerNames,
 } from './lib/identify-pages.js'
 import { resolveVars } from './lib/build-pages/resolve-vars.js'
 import { ensureDest } from './lib/helpers/ensure-dest.js'
 import { DomStackAggregateError } from './lib/helpers/domstack-aggregate-error.js'
 
 export { PageData } from './lib/build-pages/page-data.js'
+export {
+  DOMSTACK_MANIFEST_SCHEMA_ID,
+  DOMSTACK_MANIFEST_SCHEMA_PATH,
+  domstackManifestEntryPageMetaSchema,
+  domstackManifestEntrySchema,
+  domstackManifestKindSchema,
+  buildDomstackManifest,
+  domstackManifestSchema,
+  getDomstackManifestSchemaId,
+} from './lib/domstack-manifest/index.js'
 
 /**
  * @typedef {BuildOptions} BuildOptions
@@ -113,6 +130,26 @@ export { PageData } from './lib/build-pages/page-data.js'
 
 /**
  * @typedef {TemplateInfo} TemplateInfo
+ */
+
+/**
+ * @typedef {ServiceWorkerInfo} ServiceWorkerInfo
+ */
+
+/**
+ * @typedef {DomstackManifest} DomstackManifest
+ */
+
+/**
+ * @typedef {DomstackManifestEntry} DomstackManifestEntry
+ */
+
+/**
+ * @typedef {DomstackManifestEntryPageMeta} DomstackManifestEntryPageMeta
+ */
+
+/**
+ * @typedef {DomstackManifestKind} DomstackManifestKind
  */
 
 /**
@@ -275,7 +312,15 @@ export class DomStack {
     // Build pages (initial full build)
     let report
     try {
-      const pageBuildResults = await buildPages(this.#src, this.#dest, siteData, this.opts)
+      const pageBuildResults = await buildPages(this.#src, this.#dest, siteData, {
+        ...this.opts,
+      })
+      if (pageBuildResults.errors.length > 0) {
+        throw new DomStackAggregateError(pageBuildResults.errors, 'Page build finished but there were errors.', {
+          siteData,
+          pageBuildResults,
+        })
+      }
       report = {
         warnings: [...siteData.warnings, ...pageBuildResults.warnings],
         siteData,
@@ -356,8 +401,8 @@ export class DomStack {
 
     await once(watcher, 'ready')
 
-    const enqueue = (/** @type {() => Promise<void>} */ fn) => {
-      this.#buildLock = this.#buildLock.then(() => fn().catch(errorLogger))
+    const enqueue = (/** @type {() => Promise<unknown>} */ fn) => {
+      this.#enqueueBuild(fn)
     }
 
     watcher.on('add', path => {
@@ -416,6 +461,7 @@ export class DomStack {
    */
   async #handleAddUnlink (changedPath, event) {
     const changedBasename = basename(changedPath)
+    const changedDir = relative(this.#src, dirname(changedPath))
 
     // Check if this is an esbuild entry point by basename pattern
     const isEsbuildEntry = (
@@ -423,6 +469,7 @@ export class DomStack {
       layoutClientSuffixs.some(s => changedBasename.endsWith(s)) ||
       changedBasename.endsWith(layoutStyleSuffix) ||
       pageWorkerSuffixs.some(s => changedBasename.endsWith(s)) ||
+      serviceWorkerNames.includes(changedBasename) ||
       globalClientNames.includes(changedBasename) ||
       globalStyleNames.includes(changedBasename) ||
       changedBasename === pageStyleName
@@ -451,9 +498,10 @@ export class DomStack {
       this.#siteData = siteData
 
       // Determine which pages are affected by this entry point change
-      const changedDir = relative(this.#src, dirname(changedPath))
-
-      if (globalClientNames.includes(changedBasename) || globalStyleNames.includes(changedBasename)) {
+      if (serviceWorkerNames.includes(changedBasename)) {
+        // Service workers are site-level esbuild entries and do not affect page HTML.
+        console.log(`"${changedBasename}" ${event}, no page rebuild needed.`)
+      } else if (globalClientNames.includes(changedBasename) || globalStyleNames.includes(changedBasename)) {
         // Global asset: rebuild all pages
         logRebuildTree(changedBasename, new Set(siteData.pages))
         await this.#runPageBuild(siteData)
@@ -510,14 +558,34 @@ export class DomStack {
         ...(pageFilterPaths ? { pageFilterPaths } : {}),
         ...(templateFilterPaths ? { templateFilterPaths } : {}),
       })
+      if (pageBuildResults.errors.length > 0) {
+        throw new DomStackAggregateError(pageBuildResults.errors, 'Page build finished but there were errors.', {
+          siteData,
+          pageBuildResults,
+        })
+      }
       const isFiltered = pageFilterPaths !== null || templateFilterPaths !== null
       buildLogger(
         isFiltered ? pageBuildResults : { warnings: pageBuildResults.warnings, siteData, pageBuildResults },
         isFiltered ? this.#dest : undefined
       )
+      return pageBuildResults
     } catch (err) {
       errorLogger(err)
     }
+  }
+
+  /**
+   * @param {() => Promise<unknown>} fn
+   */
+  #enqueueBuild (fn) {
+    this.#buildLock = this.#buildLock.then(async () => {
+      try {
+        await fn()
+      } catch (err) {
+        errorLogger(err)
+      }
+    })
   }
 
   /**
@@ -620,6 +688,7 @@ export class DomStack {
     const esbuildEntryPoints = /** @type {Set<string>} */ (new Set())
     if (siteData.globalClient) esbuildEntryPoints.add(resolve(siteData.globalClient.filepath))
     if (siteData.globalStyle) esbuildEntryPoints.add(resolve(siteData.globalStyle.filepath))
+    if (siteData.serviceWorker) esbuildEntryPoints.add(resolve(siteData.serviceWorker.filepath))
     for (const page of siteData.pages) {
       if (page.clientBundle) esbuildEntryPoints.add(resolve(page.clientBundle.filepath))
       if (page.pageStyle) esbuildEntryPoints.add(resolve(page.pageStyle.filepath))
@@ -675,6 +744,13 @@ export class DomStack {
       const mdPages = new Set(siteData.pages.filter(p => p.type === 'md'))
       logRebuildTree(changedBasename, mdPages)
       return this.#runPageBuild(siteData, Array.from(mdPages).map(p => p.pageFile.filepath), [])
+    }
+
+    // domstack-manifest.settings.* only affects one-shot domstack manifest generation.
+    // Watch mode intentionally does not write or return a domstack manifest.
+    if (domstackManifestSettingsNames.some(n => changedBasename === n)) {
+      console.log(`"${changedBasename}" changed but domstack manifests are disabled in watch mode, skipping.`)
+      return
     }
 
     // 6. esbuild entry point (client.js, style.css, .layout.css, .layout.client.*, *.worker.*, global.client.*, global.css)
@@ -866,24 +942,44 @@ function buildLogger (results, dest) {
     // Full build: show site totals
     const layoutCount = Object.keys(results.siteData.layouts).length
     console.log(`Pages: ${results.siteData.pages.length} Layouts: ${layoutCount} Templates: ${results.siteData.templates.length}`)
-    const report = results.pageBuildResults?.report
-    if (report) {
-      console.log(`Pages built: ${report.pages.length} Templates built: ${report.templates.length}`)
+    const outputs = results.pageBuildResults?.report?.outputs
+    if (outputs) {
+      const summary = summarizePageDomstackManifests(outputs)
+      console.log(`Pages built: ${summary.pages} Templates built: ${summary.templates}`)
     }
   } else if ('report' in results && results.report) {
     // Filtered build: show what was actually built
     const report = results.report
+    const outputs = report.outputs ?? []
     if (dest) {
-      for (const p of report.pages) {
-        console.log(`  Built ${relative(dest, p.pageFilePath)}`)
-      }
-      for (const t of report.templates) {
-        for (const output of t.outputs ?? []) {
-          console.log(`  Built ${output}`)
+      for (const output of outputs) {
+        if (output.kind === 'page' || output.kind === 'template') {
+          console.log(`  Built ${relative(dest, output.filepath)}`)
         }
       }
     }
-    console.log(`Pages built: ${report.pages.length} Templates built: ${report.templates.length}`)
+    const summary = summarizePageDomstackManifests(outputs)
+    console.log(`Pages built: ${summary.pages} Templates built: ${summary.templates}`)
   }
   console.log('\nBuild Success!\n\n')
+}
+
+/**
+ * @param {DomstackManifestRecord[]} outputs
+ */
+function summarizePageDomstackManifests (outputs) {
+  const templateSources = new Set()
+  let pages = 0
+
+  for (const output of outputs) {
+    if (output.kind === 'page') pages += 1
+    if (output.kind === 'template') {
+      templateSources.add(output.sourceRelname ?? output.templatePath ?? output.outputRelname)
+    }
+  }
+
+  return {
+    pages,
+    templates: templateSources.size,
+  }
 }
