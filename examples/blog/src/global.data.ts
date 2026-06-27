@@ -1,5 +1,4 @@
-import { html } from 'htm/preact'
-import { render } from 'preact-render-to-string'
+import { html, render } from 'fragtml'
 import type { AsyncGlobalDataFunction } from '@domstack/static/types.js'
 
 export interface BlogPost {

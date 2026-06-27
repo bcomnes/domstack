@@ -1,5 +1,5 @@
-import { html } from 'htm/preact'
-import { render } from 'preact-render-to-string'
+import { html, raw, render } from 'fragtml'
+import type { HtmlResult } from 'fragtml/types.js'
 import type { LayoutFunction } from '@domstack/static/types.js'
 import rootLayout from './root.layout.ts'
 import type { RootVars } from './root.layout.ts'
@@ -15,7 +15,7 @@ export type PostVars = RootVars & {
  * Blog post layout. Wraps root layout with full article chrome:
  * schema.org/h-entry microformats, publish date, author card, tag list.
  */
-const postLayout: LayoutFunction<PostVars> = (args) => {
+const postLayout: LayoutFunction<PostVars, string | HtmlResult, string> = (args) => {
   const { children, page, pages, ...rest } = args
   const { vars } = args
 
@@ -71,10 +71,7 @@ const postLayout: LayoutFunction<PostVars> = (args) => {
       </header>
 
       <div class="e-content post-body" itemprop="articleBody">
-        ${typeof children === 'string'
-          ? html`<div dangerouslySetInnerHTML=${{ __html: children }} />`
-          : children
-        }
+        ${typeof children === 'string' ? raw(children) : children}
       </div>
 
       <footer class="post-footer">

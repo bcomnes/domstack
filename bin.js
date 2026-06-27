@@ -152,10 +152,10 @@ async function run () {
 
     const tbPkgContents = await readPackage({ cwd: __dirname })
     const mineVersion = tbPkgContents?.['dependencies']?.['mine.css']
-    const uhtmlVersion = tbPkgContents?.['dependencies']?.['uhtml-isomorphic']
+    const fragtmlVersion = tbPkgContents?.['dependencies']?.['fragtml']
     const highlightVersion = tbPkgContents?.['dependencies']?.['highlight.js']
 
-    if (!mineVersion || !uhtmlVersion || !highlightVersion) {
+    if (!mineVersion || !fragtmlVersion || !highlightVersion) {
       console.error('Unable to resolve ejected dependency versions. Exiting...')
       process.exit(1)
     }
@@ -166,7 +166,7 @@ domstack eject actions:
   - Write ${join(relativeSrc, targetGlobalStylePath)}
   - Write ${join(relativeSrc, targetGlobalClientPath)}
   - Add mine.css@${mineVersion} to ${relativePkg}
-  - Add uhtml-isomorphic@${uhtmlVersion} to ${relativePkg}
+  - Add fragtml@${fragtmlVersion} to ${relativePkg}
   - Add highlight.js@${highlightVersion} to ${relativePkg}
 `)
     const answer = await askYesNo(rl, 'Continue?')
@@ -190,7 +190,7 @@ domstack eject actions:
       {
         dependencies: {
           'mine.css': mineVersion,
-          'uhtml-isomorphic': uhtmlVersion,
+          fragtml: fragtmlVersion,
           'highlight.js': highlightVersion,
         },
       })

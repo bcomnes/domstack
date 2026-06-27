@@ -6,8 +6,7 @@
     "allowImportingTsExtensions": true,
     "rewriteRelativeImportExtensions": true,
     "verbatimModuleSyntax": true,
-    "jsx": "react-jsx",
-    "jsxImportSource": "preact"
+    "lib": ["ES2024", "DOM"]
   },
   "include": [
     "**/*",
