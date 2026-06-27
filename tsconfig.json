@@ -4,6 +4,8 @@
     "skipLibCheck": true,
     "jsx": "react-jsx",
     "jsxImportSource": "preact",
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
     "typeRoots": ["./types", "./node_modules/@types"]
   },
   "include": [
@@ -11,7 +13,8 @@
     "lib/**/*",
     "test-cases/**/*",
     "index.js",
-    "bin.js"
+    "bin.js",
+    "types.ts"
   ],
   "exclude": [
     "node_modules",

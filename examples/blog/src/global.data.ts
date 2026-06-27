@@ -1,6 +1,6 @@
 import { html } from 'htm/preact'
 import { render } from 'preact-render-to-string'
-import type { AsyncGlobalDataFunction } from '@domstack/static'
+import type { AsyncGlobalDataFunction } from '@domstack/static/types.js'
 
 export interface BlogPost {
   path: string

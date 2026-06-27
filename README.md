@@ -282,7 +282,7 @@ src/page-name/page.js
 An example TypeScript page:
 
 ```typescript
-import type { PageFunction } from '@domstack/static'
+import type { PageFunction } from '@domstack/static/types.js'
 
 export const vars = {
   favoriteCookie: 'Chocolate Chip with Sea Salt'
@@ -306,7 +306,7 @@ It is recommended to use some level of template processing over raw string templ
 ```typescript
 import { html } from 'htm/preact'
 import { dirname, basename } from 'node:path'
-import type { PageFunction } from '@domstack/static'
+import type { PageFunction } from '@domstack/static/types.js'
 
 type BlogVars = {
   favoriteCake: string
@@ -518,7 +518,7 @@ The default `root.layout.ts` is featured below, and is implemented with [`preact
 ```typescript
 import { html } from 'htm/preact'
 import { render } from 'preact-render-to-string'
-import type { LayoutFunction } from '@domstack/static'
+import type { LayoutFunction } from '@domstack/static/types.js'
 
 type RootLayoutVars = {
   title: string,
@@ -583,7 +583,7 @@ For example, you could define a `blog.layout.ts` that re-uses the `root.layout.t
 import defaultRootLayout from './root.layout.js'
 import { html } from 'htm/preact'
 import { render } from 'preact-render-to-string'
-import type { LayoutFunction } from '@domstack/static'
+import type { LayoutFunction } from '@domstack/static/types.js'
 
 // Import the type from root layout
 import type { RootLayoutVars } from './root.layout'
@@ -813,7 +813,7 @@ A function that returns a string. The `name-of-template.txt` portion of the temp
 
 ```typescript
 // name-of-template.txt.template.ts
-import type { TemplateFunction } from '@domstack/static'
+import type { TemplateFunction } from '@domstack/static/types.js'
 
 interface TemplateVars {
   foo: string;
@@ -839,7 +839,7 @@ export default simpleTemplate
 A function that returns a single object with a `content` and `outputName` entries. The `outputName` overrides the name portion of the template file name.
 
 ```typescript
-import type { TemplateFunction } from '@domstack/static'
+import type { TemplateFunction } from '@domstack/static/types.js'
 
 interface TemplateVars {
   foo: string;
@@ -859,7 +859,7 @@ This is just a file with access to global vars: ${foo}`,
 A function that returns an array of objects with a `content` and `outputName` entries. This template file generates more than one file from a single template file.
 
 ```typescript
-import type { TemplateFunction } from '@domstack/static'
+import type { TemplateFunction } from '@domstack/static/types.js'
 
 interface TemplateVars {
   foo: string;
@@ -896,7 +896,7 @@ export default objectArrayTemplate
 An [AsyncIterator](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/AsyncIterator) that `yields` objects with `content` and `outputName` entries.
 
 ```typescript
-import type { TemplateAsyncIterator } from '@domstack/static'
+import type { TemplateAsyncIterator } from '@domstack/static/types.js'
 
 interface TemplateVars {
   foo: string;
@@ -951,7 +951,7 @@ The following example shows how to generate an [RSS](https://www.rssboard.org) a
 ```typescript
 import pMap from 'p-map'
 import jsonfeedToAtom from 'jsonfeed-to-atom'
-import type { TemplateAsyncIterator } from '@domstack/static'
+import type { TemplateAsyncIterator } from '@domstack/static/types.js'
 
 interface TemplateVars {
   title: string;
@@ -1096,7 +1096,7 @@ The `global.data.js` (or `.ts`, `.mjs`, etc.) file is an optional file that can 
 It receives a fully resolved `PageData[]` array and returns an object that is stamped onto every page's vars — making the derived data available to every page, layout, and template.
 
 ```typescript
-import type { AsyncGlobalDataFunction } from '@domstack/static'
+import type { AsyncGlobalDataFunction } from '@domstack/static/types.js'
 import { html } from 'htm/preact'
 import { render } from 'preact-render-to-string'
 
@@ -1166,7 +1166,7 @@ Here is an example of using this file to polyfill node builtins in the browser b
 ```typescript
 import { polyfillNode } from 'esbuild-plugin-polyfill-node'
 // BuildOptions re-exported from esbuild
-import type { BuildOptions } from '@domstack/static'
+import type { BuildOptions } from '@domstack/static/types.js'
 
 const esbuildSettingsOverride = async (esbuildSettings: BuildOptions): Promise<BuildOptions> => {
   esbuildSettings.plugins = [polyfillNode()]
@@ -1179,7 +1179,7 @@ export default esbuildSettingsOverride
 DOMStack passes its default `BuildOptions` into this function, including Preact JSX defaults and asset loader defaults for common images, icons, and fonts. You can return a shallow copy that modifies those defaults when you only need a small change. For example, this keeps DOMStack's default asset loaders and adds a custom loader for `.wasm` files:
 
 ```typescript
-import type { BuildOptions } from '@domstack/static'
+import type { BuildOptions } from '@domstack/static/types.js'
 
 const esbuildSettingsOverride = async (esbuildSettings: BuildOptions): Promise<BuildOptions> => {
   return {
@@ -1197,7 +1197,7 @@ export default esbuildSettingsOverride
 If you want full control, reset DOMStack's convenience defaults back to esbuild's defaults while preserving the required DOMStack build wiring (`entryPoints`, `outdir`, `outbase`, etc.). From there, define only the settings you want:
 
 ```typescript
-import type { BuildOptions } from '@domstack/static'
+import type { BuildOptions } from '@domstack/static/types.js'
 
 const esbuildSettingsOverride = async (esbuildSettings: BuildOptions): Promise<BuildOptions> => {
   return {
@@ -1369,7 +1369,7 @@ Install [@voxpelli/tsconfig](https://ghub.io/@voxpelli/tsconfig) which provides 
 
 ### Using TypeScript with domstack Types
 
-You can use `domstack`'s built-in types to strongly type your layout, page, and template functions. The following types are available:
+You can use `domstack`'s built-in types to strongly type your layout, page, and template functions. Runtime values are imported from `@domstack/static`; types are imported from the dedicated `@domstack/static/types.js` entry. The following types are available:
 
 ```ts
 import type {
@@ -1390,7 +1390,7 @@ import type {
   GlobalDataFunctionParams,
   PageFunctionParams,
   TemplateFunctionParams,
-} from '@domstack/static'
+} from '@domstack/static/types.js'
 ```
 
 > **Note:** All function types have both synchronous and asynchronous variants (e.g., `LayoutFunction` and `AsyncLayoutFunction`). Use the async variants when your function is an `async` function.
@@ -1400,7 +1400,7 @@ They are all generic and accept a variable template that you can develop and sha
 The data and param types (`PageData`, `PageInfo`, `TemplateInfo`, `*FunctionParams`) are useful when you want to annotate variables or helper functions that receive these objects without using the function types directly:
 
 ```ts
-import type { GlobalDataFunctionParams, PageData, PageInfo } from '@domstack/static'
+import type { GlobalDataFunctionParams, PageData, PageInfo } from '@domstack/static/types.js'
 
 function getPublishedPages({ pages }: GlobalDataFunctionParams): PageData[] {
   return pages.filter((p: PageData) => {

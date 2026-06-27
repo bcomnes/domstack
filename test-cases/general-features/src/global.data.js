@@ -1,5 +1,5 @@
 /**
- * @import { AsyncGlobalDataFunction } from '../../../index.js'
+ * @import { AsyncGlobalDataFunction } from '#types'
  */
 
 import { html } from 'htm/preact'

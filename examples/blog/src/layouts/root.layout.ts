@@ -1,6 +1,6 @@
 import { html } from 'htm/preact'
 import { render } from 'preact-render-to-string'
-import type { LayoutFunction } from '@domstack/static'
+import type { LayoutFunction } from '@domstack/static/types.js'
 import type { SiteVars } from '../global.vars.js'
 import type { GlobalData } from '../global.data.js'
 

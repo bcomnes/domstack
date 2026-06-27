@@ -1,4 +1,4 @@
-import type { TemplateAsyncIterator } from '@domstack/static'
+import type { TemplateAsyncIterator } from '@domstack/static/types.js'
 import type { SiteVars } from './global.vars.js'
 import type { GlobalData, BlogPost } from './global.data.js'
 

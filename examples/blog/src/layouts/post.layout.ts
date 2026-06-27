@@ -1,6 +1,6 @@
 import { html } from 'htm/preact'
 import { render } from 'preact-render-to-string'
-import type { LayoutFunction } from '@domstack/static'
+import type { LayoutFunction } from '@domstack/static/types.js'
 import rootLayout from './root.layout.ts'
 import type { RootVars } from './root.layout.ts'
 

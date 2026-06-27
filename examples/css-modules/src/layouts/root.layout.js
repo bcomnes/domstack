@@ -1,5 +1,5 @@
 /**
- * @import { LayoutFunction } from '@domstack/static'
+ * @import { LayoutFunction } from '@domstack/static/types.js'
  */
 
 import { html } from 'htm/preact'
