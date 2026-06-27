@@ -1176,6 +1176,44 @@ const esbuildSettingsOverride = async (esbuildSettings: BuildOptions): Promise<B
 export default esbuildSettingsOverride
 ```
 
+DOMStack passes its default `BuildOptions` into this function, including Preact JSX defaults and asset loader defaults for common images, icons, and fonts. You can return a shallow copy that modifies those defaults when you only need a small change. For example, this keeps DOMStack's default asset loaders and adds a custom loader for `.wasm` files:
+
+```typescript
+import type { BuildOptions } from '@domstack/static'
+
+const esbuildSettingsOverride = async (esbuildSettings: BuildOptions): Promise<BuildOptions> => {
+  return {
+    ...esbuildSettings,
+    loader: {
+      ...esbuildSettings.loader,
+      '.wasm': 'file',
+    },
+  }
+}
+
+export default esbuildSettingsOverride
+```
+
+If you want full control, reset DOMStack's convenience defaults back to esbuild's defaults while preserving the required DOMStack build wiring (`entryPoints`, `outdir`, `outbase`, etc.). From there, define only the settings you want:
+
+```typescript
+import type { BuildOptions } from '@domstack/static'
+
+const esbuildSettingsOverride = async (esbuildSettings: BuildOptions): Promise<BuildOptions> => {
+  return {
+    ...esbuildSettings,
+    jsx: undefined,
+    jsxImportSource: undefined,
+    loader: {
+      '.png': 'file',
+      '.svg': 'text',
+    },
+  }
+}
+
+export default esbuildSettingsOverride
+```
+
 Important esbuild settings you may want to set here are:
 
 - [target](https://esbuild.github.io/api/#target) - Set the `target` to make `esbuild` run a few small transforms on your CSS and JS code.
