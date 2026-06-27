@@ -9,7 +9,7 @@
 
 import { html } from 'htm/preact'
 import { render } from 'preact-render-to-string'
-import type { LayoutFunction } from '@domstack/static'
+import type { LayoutFunction } from '@domstack/static/types.js'
 
 export interface PageVars {
   title: string;

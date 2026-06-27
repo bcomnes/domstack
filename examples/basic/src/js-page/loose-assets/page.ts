@@ -1,5 +1,5 @@
 import { html } from 'htm/preact'
-import type { PageFunction } from '@domstack/static'
+import type { PageFunction } from '@domstack/static/types.js'
 
 import sharedData from './shared-lib.js'
 import type { PageVars } from '../../layouts/root.layout.ts'

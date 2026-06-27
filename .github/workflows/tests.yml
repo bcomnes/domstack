@@ -36,6 +36,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           files: lcov.info
           parallel: true
+          fail-on-error: false
 
   coverage:
     needs: test
@@ -45,6 +46,7 @@ jobs:
         uses: coverallsapp/github-action@v2
         with:
           parallel-finished: true
+          fail-on-error: false
 
 
   automerge:

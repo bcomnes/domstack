@@ -1,8 +1,13 @@
 /**
- * @type {import('../../../../index.js').TemplateFunction<{
- * foo: string,
- * }>}
+ * @import { TemplateFunction } from '#types'
  */
+
+/**
+ * @typedef SingleObjectTemplateVars
+ * @property {string} foo
+ */
+
+/** @type {TemplateFunction<SingleObjectTemplateVars>} */
 export default async ({
   vars: { foo },
 }) => ({

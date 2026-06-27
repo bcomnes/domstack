@@ -1,9 +1,14 @@
 /**
- * @type {import('../../../../index.js').TemplateFunction<{
- * foo: string,
- * testVar: string
- * }>}
+ * @import { TemplateFunction } from '#types'
  */
+
+/**
+ * @typedef ObjectArrayTemplateVars
+ * @property {string} foo
+ * @property {string} testVar
+ */
+
+/** @type {TemplateFunction<ObjectArrayTemplateVars>} */
 export default async function objectArrayTemplate ({
   vars: {
     foo,

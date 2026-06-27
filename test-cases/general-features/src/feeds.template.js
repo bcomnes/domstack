@@ -1,21 +1,25 @@
+/**
+ * @import { TemplateAsyncIterator } from '#types'
+ */
 import pMap from 'p-map'
 // @ts-ignore
 import jsonfeedToAtom from 'jsonfeed-to-atom'
 
 /**
- * @type {import('../../../index.js').TemplateAsyncIterator<{
- *  title: string,
- *  layout: string,
- *  siteName: string,
- *  homePageUrl: string,
- *  authorName: string,
- *  authorUrl: string,
- *  authorImgUrl: string,
- *  publishDate: string,
- *  siteDescription: string,
- *  globalDataSentinel: string,
- * }>}
+ * @typedef FeedTemplateVars
+ * @property {string} title
+ * @property {string} layout
+ * @property {string} siteName
+ * @property {string} homePageUrl
+ * @property {string} authorName
+ * @property {string} authorUrl
+ * @property {string} authorImgUrl
+ * @property {string} publishDate
+ * @property {string} siteDescription
+ * @property {string} globalDataSentinel
  */
+
+/** @type {TemplateAsyncIterator<FeedTemplateVars>} */
 export default async function * feedsTemplate ({
   vars: {
     siteName,

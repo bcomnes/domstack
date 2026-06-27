@@ -4,7 +4,13 @@
   "version": "11.0.3",
   "type": "module",
   "main": "./index.js",
-  "types": "index.d.ts",
+  "types": "./index.d.ts",
+  "imports": {
+    "#types": {
+      "types": "./types.d.ts",
+      "default": "./types.ts"
+    }
+  },
   "bin": {
     "domstack": "./bin.js",
     "dom": "./bin.js"

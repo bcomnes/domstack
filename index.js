@@ -1,17 +1,12 @@
 /**
- * @import { DomStackOpts as DomStackOpts, Results, SiteData } from './lib/builder.js'
+ * @import { DomStackOpts, Results, SiteData } from './lib/builder.js'
  * @import { Stats } from 'node:fs'
  * @import { FSWatcher } from 'chokidar'
- * @import { AsyncLayoutFunction, LayoutFunction, LayoutFunctionParams } from './lib/build-pages/page-data.js'
- * @import { PageFunction, AsyncPageFunction, PageFunctionParams } from './lib/build-pages/page-builders/page-writer.js'
- * @import { TemplateFunction } from './lib/build-pages/page-builders/template-builder.js'
- * @import { TemplateAsyncIterator } from './lib/build-pages/page-builders/template-builder.js'
- * @import { TemplateOutputOverride } from './lib/build-pages/page-builders/template-builder.js'
- * @import { TemplateFunctionParams } from './lib/build-pages/page-builders/template-builder.js'
- * @import { GlobalDataFunction, AsyncGlobalDataFunction, WorkerBuildStepResult, GlobalDataFunctionParams } from './lib/build-pages/index.js'
- * @import { BuildOptions, BuildContext } from 'esbuild'
+ * @import { WorkerBuildStepResult } from './lib/build-pages/index.js'
+ * @import { BuildContext } from 'esbuild'
  * @import { PageInfo, TemplateInfo } from './lib/identify-pages.js'
-*/
+ * @import { TestBuildResult } from './types.js'
+ */
 import { once } from 'events'
 import assert from 'node:assert'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
@@ -52,98 +47,6 @@ import { ensureDest } from './lib/helpers/ensure-dest.js'
 import { DomStackAggregateError } from './lib/helpers/domstack-aggregate-error.js'
 
 export { PageData } from './lib/build-pages/page-data.js'
-
-/**
- * @typedef {BuildOptions} BuildOptions
- */
-
-/**
- * @template {Record<string, any>} Vars - The type of variables passed to the layout function
- * @template [PageReturn=any] PageReturn - The return type of the page function (defaults to any)
- * @template [LayoutReturn=string] LayoutReturn - The return type of the layout function (defaults to string)
- * @typedef {LayoutFunction<Vars, PageReturn, LayoutReturn>} LayoutFunction
- */
-
-/**
- * @template {Record<string, any>} Vars - The type of variables passed to the async layout function
- * @template [PageReturn=any] PageReturn - The return type of the page function (defaults to any)
- * @template [LayoutReturn=string] LayoutReturn - The return type of the layout function (defaults to string)
- * @typedef {AsyncLayoutFunction<Vars, PageReturn, LayoutReturn>} AsyncLayoutFunction
- */
-
-/**
- * @template {Record<string, any>} [T=Record<string, any>] - The shape of the derived vars object returned.
- * @typedef {GlobalDataFunction<T>} GlobalDataFunction
- */
-
-/**
- * @template {Record<string, any>} [T=Record<string, any>] - The shape of the derived vars object returned.
- * @typedef {AsyncGlobalDataFunction<T>} AsyncGlobalDataFunction
- */
-
-/**
- * @template {Record<string, any>} Vars - The type of variables passed to the page function
- * @template [PageReturn=any] PageReturn - The return type of the page function (defaults to any)
- * @typedef {PageFunction<Vars, PageReturn>} PageFunction
- */
-
-/**
- * @template {Record<string, any>} Vars - The type of variables passed to the async page function
- * @template [PageReturn=any] PageReturn - The return type of the page function (defaults to any)
- * @typedef {AsyncPageFunction<Vars, PageReturn>} AsyncPageFunction
- */
-
-/**
- * @template {Record<string, any>} Vars - The type of variables for the template function
- * @typedef {TemplateFunction<Vars>} TemplateFunction
- */
-
-/**
- * @template {Record<string, any>} Vars - The type of variables for the template async iterator
- * @typedef {TemplateAsyncIterator<Vars>} TemplateAsyncIterator
- */
-
-/**
- * @typedef {TemplateOutputOverride} TemplateOutputOverride
- */
-
-/**
- * @typedef {PageInfo} PageInfo
- */
-
-/**
- * @typedef {TemplateInfo} TemplateInfo
- */
-
-/**
- * @template {Record<string, any>} Vars - The type of variables passed to the layout function
- * @template [PageReturn=any] PageReturn - The return type of the page function
- * @template [LayoutReturn=string] LayoutReturn - The return type of the layout function
- * @typedef {LayoutFunctionParams<Vars, PageReturn, LayoutReturn>} LayoutFunctionParams
- */
-
-/**
- * @typedef {GlobalDataFunctionParams} GlobalDataFunctionParams
- */
-
-/**
- * @template {Record<string, any>} Vars - The type of variables passed to the page function
- * @template [PageReturn=any] PageReturn - The return type of the page function
- * @typedef {PageFunctionParams<Vars, PageReturn>} PageFunctionParams
- */
-
-/**
- * @template {Record<string, any>} [Vars=Record<string, any>] - The type of variables for the template function
- * @typedef {TemplateFunctionParams<Vars>} TemplateFunctionParams
- */
-
-/**
- * @typedef TestBuildResult
- * @property {string} dest - Temporary destination directory used for the build.
- * @property {Results} results - DomStack build results.
- * @property {(path: string) => Promise<string>} readOutput - Read a UTF-8 file from the temporary destination directory.
- * @property {() => Promise<void>} cleanup - Remove the temporary destination directory.
- */
 
 const DEFAULT_IGNORES = /** @type {const} */ ([
   '.*',

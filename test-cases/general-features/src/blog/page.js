@@ -1,5 +1,5 @@
 /**
- * @import { AsyncLayoutFunction } from '../../../../index.js'
+ * @import { AsyncLayoutFunction } from '#types'
  */
 import { html } from 'htm/preact'
 import { dirname, basename } from 'node:path'
