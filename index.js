@@ -11,6 +11,7 @@
  * @import { GlobalDataFunction, AsyncGlobalDataFunction, WorkerBuildStepResult, GlobalDataFunctionParams } from './lib/build-pages/index.js'
  * @import { BuildOptions, BuildContext } from 'esbuild'
  * @import { PageInfo, TemplateInfo } from './lib/identify-pages.js'
+ * @import { BsInstance } from '@domstack/sync'
 */
 import { once } from 'events'
 import assert from 'node:assert'
@@ -23,7 +24,7 @@ import makeArray from 'make-array'
 import ignore from 'ignore'
 import { watch as cpxWatch } from 'cpx2'
 import { inspect } from 'util'
-import browserSync from 'browser-sync'
+import { createLogger as createSyncLogger, createServer } from '@domstack/sync'
 import { find } from '@11ty/dependency-tree-typescript'
 
 import { getCopyGlob } from './lib/build-static/index.js'
@@ -52,6 +53,13 @@ import { ensureDest } from './lib/helpers/ensure-dest.js'
 import { DomStackAggregateError } from './lib/helpers/domstack-aggregate-error.js'
 
 export { PageData } from './lib/build-pages/page-data.js'
+export { wrapPinoLogger } from '@domstack/sync'
+
+const LOG_PREFIX = '[domstack]'
+
+export function createLogger (level = 'info', streams = {}, options = {}) {
+  return createSyncLogger(level, streams, { prefix: LOG_PREFIX, ...options })
+}
 
 /**
  * @typedef {BuildOptions} BuildOptions
@@ -164,9 +172,10 @@ export class DomStack {
   /** @type {Readonly<CurrentOpts & { ignore: string[] }>} */ opts
   /** @type {FSWatcher?} */ #watcher = null
   /** @type {any[]?} */ #cpxWatchers = null
-  /** @type {browserSync.BrowserSyncInstance?} */ #browserSyncServer = null
+  /** @type {BsInstance?} */ #syncServer = null
   /** @type {BuildContext?} */ #esbuildContext = null
   /** @type {SiteData?} */ #siteData = null
+  /** @type {ReturnType<typeof createLogger>} */ #logger
 
   // Watch maps (rebuilt after every full rebuild)
   /** @type {Map<string, Set<string>>} depFilepath → Set<layoutName> */
@@ -206,18 +215,20 @@ export class DomStack {
     this.#src = src
     this.#dest = dest
 
-    const copyDirs = (opts?.copy ?? []).map(dir => resolve(dir))
+    const { logger, ...buildOpts } = opts
+    const copyDirs = (buildOpts?.copy ?? []).map(dir => resolve(dir))
 
-    this.opts = {
-      ...opts,
+    this.opts = /** @type {Readonly<CurrentOpts & { ignore: string[] }>} */ ({
+      ...buildOpts,
       copy: copyDirs,
       ignore: [
         ...DEFAULT_IGNORES,
         basename(dest),
         ...copyDirs.map(dir => basename(dir)),
-        ...makeArray(opts.ignore),
+        ...makeArray(buildOpts.ignore),
       ],
-    }
+    })
+    this.#logger = logger ?? createLogger('info')
 
     if (copyDirs.length > 0) {
       const absDest = resolve(this.#dest)
@@ -243,10 +254,12 @@ export class DomStack {
    * Build and watch a domstack build
    * @param  {object} [params]
    * @param  {boolean} params.serve
+   * @param  {(results: Results) => void | Promise<void>} [params.onInitialBuild]
    * @return {Promise<Results>}
    */
   async watch ({
     serve,
+    onInitialBuild,
   } = {
     serve: true,
   }) {
@@ -282,7 +295,7 @@ export class DomStack {
         pageBuildResults,
       }
       buildLogger(report)
-      console.log('Initial JS, CSS and Page Build Complete')
+      this.#logger.info('Initial JS, CSS and page build complete')
     } catch (err) {
       errorLogger(err)
       if (!(err instanceof DomStackAggregateError)) throw new Error('Non-aggregate error thrown', { cause: err })
@@ -292,38 +305,29 @@ export class DomStack {
     // Build watch maps after initial build
     await this.#rebuildMaps(siteData)
 
-    // ── Copy watchers & browser-sync ─────────────────────────────────────
+    // ── Copy watchers & dev server ───────────────────────────────────────
     const copyDirs = getCopyDirs(this.opts.copy)
 
     this.#cpxWatchers = [
       cpxWatch(getCopyGlob(this.#src), this.#dest, { ignore: this.opts.ignore }),
       ...copyDirs.map(copyDir => cpxWatch(copyDir, this.#dest))
     ]
-    if (serve) {
-      const bs = browserSync.create()
-      this.#browserSyncServer = bs
-      bs.watch(basename(this.#dest), { ignoreInitial: true }).on('change', bs.reload)
-      bs.init({
-        server: this.#dest,
+
+    const copyWatchersReady = this.#cpxWatchers.map(async w => {
+      w.on('copy', (/** @type{{ srcPath: string, dstPath: string }} */e) => {
+        this.#logger.info({ srcPath: e.srcPath, dstPath: e.dstPath }, 'Copy file')
       })
-    }
 
-    this.#cpxWatchers.forEach(w => {
-      w.on('watch-ready', () => {
-        console.log('Copy watcher ready')
-
-        w.on('copy', (/** @type{{ srcPath: string, dstPath: string }} */e) => {
-          console.log(`Copy ${e.srcPath} to ${e.dstPath}`)
-        })
-
-        w.on('remove', (/** @type{{ path: string }} */e) => {
-          console.log(`Remove ${e.path}`)
-        })
-
-        w.on('watch-error', (/** @type{Error} */err) => {
-          console.log(`Copy error: ${err.message}`)
-        })
+      w.on('remove', (/** @type{{ path: string }} */e) => {
+        this.#logger.info({ path: e.path }, 'Remove file')
       })
+
+      w.on('watch-error', (/** @type{Error} */err) => {
+        this.#logger.error({ err }, 'Copy error')
+      })
+
+      await once(w, 'watch-ready')
+      this.#logger.info('Copy watcher ready')
     })
 
     // ── Chokidar watcher ─────────────────────────────────────────────────
@@ -354,7 +358,20 @@ export class DomStack {
 
     this.#watcher = watcher
 
-    await once(watcher, 'ready')
+    await Promise.all([
+      ...copyWatchersReady,
+      once(watcher, 'ready'),
+    ])
+
+    await onInitialBuild?.(report)
+
+    if (serve) {
+      this.#syncServer = await createServer({
+        server: this.#dest,
+        files: basename(this.#dest),
+        logger: this.#logger.child({ component: 'sync' }, { prefix: '[domstack-sync]' }),
+      })
+    }
 
     const enqueue = (/** @type {() => Promise<void>} */ fn) => {
       this.#buildLock = this.#buildLock.then(() => fn().catch(errorLogger))
@@ -381,7 +398,7 @@ export class DomStack {
    * Used for structural changes (add/unlink), global.vars.*, esbuild.settings.*.
    */
   async #fullRebuild () {
-    console.log('Triggering full rebuild...')
+    this.#logger.info('Triggering full rebuild')
     // Dispose the old esbuild context
     if (this.#esbuildContext) {
       await this.#esbuildContext.dispose()
@@ -391,8 +408,7 @@ export class DomStack {
     const siteData = await identifyPages(this.#src, this.opts)
 
     if (siteData.errors.length > 0) {
-      console.error('identifyPages errors:')
-      for (const err of siteData.errors) console.error(' ', err.message)
+      this.#logger.error({ errors: siteData.errors.map(err => err.message) }, 'identifyPages errors')
       return
     }
 
@@ -429,13 +445,12 @@ export class DomStack {
     )
 
     if (isEsbuildEntry) {
-      console.log(`"${changedBasename}" ${event}, restarting esbuild...`)
+      this.#logger.info({ file: changedBasename, event }, 'Restarting esbuild')
 
       // Re-identify pages to discover the new/removed entry point
       const siteData = await identifyPages(this.#src, this.opts)
       if (siteData.errors.length > 0) {
-        console.error('identifyPages errors:')
-        for (const err of siteData.errors) console.error(' ', err.message)
+        this.#logger.error({ errors: siteData.errors.map(err => err.message) }, 'identifyPages errors')
         return
       }
 
@@ -490,7 +505,7 @@ export class DomStack {
       await this.#rebuildMaps(siteData)
     } else {
       // Non-esbuild file: structural change (page, layout, template, config, etc.)
-      console.log(`"${changedBasename}" ${event}, triggering full rebuild...`)
+      this.#logger.info({ file: changedBasename, event }, 'Triggering full rebuild')
       return this.#fullRebuild()
     }
   }
@@ -654,19 +669,19 @@ export class DomStack {
 
     // 2. global.vars.* → full rebuild (esbuild restart + all pages)
     if (globalVarsNames.some(n => changedBasename === n)) {
-      console.log(`"${changedBasename}" changed, triggering full rebuild...`)
+      this.#logger.info({ file: changedBasename }, 'Triggering full rebuild')
       return this.#fullRebuild()
     }
 
     // 3. global.data.* → full page rebuild (no esbuild restart)
     if (globalDataNames.some(n => changedBasename === n)) {
-      console.log(`"${changedBasename}" changed, rebuilding all pages...`)
+      this.#logger.info({ file: changedBasename }, 'Rebuilding all pages')
       return this.#runPageBuild(siteData)
     }
 
     // 4. esbuild.settings.* → full rebuild
     if (esbuildSettingsNames.some(n => changedBasename === n)) {
-      console.log(`"${changedBasename}" changed, triggering full rebuild...`)
+      this.#logger.info({ file: changedBasename }, 'Triggering full rebuild')
       return this.#fullRebuild()
     }
 
@@ -681,7 +696,7 @@ export class DomStack {
     // esbuild's own watcher handles these. Stable filenames mean page HTML doesn't
     // change, so no page rebuild is needed.
     if (this.#esbuildEntryPoints.has(changedPath)) {
-      console.log(`"${changedBasename}" changed, esbuild will handle rebundling.`)
+      this.#logger.info({ file: changedBasename }, 'Esbuild will handle rebundling')
       return
     }
 
@@ -695,7 +710,7 @@ export class DomStack {
           const pageFilterPaths = Array.from(affectedPages).map(p => p.pageFile.filepath)
           return this.#runPageBuild(siteData, pageFilterPaths, [])
         }
-        console.log(`"${changedBasename}" changed but no pages use layout "${layoutName}", skipping.`)
+        this.#logger.info({ file: changedBasename, layout: layoutName }, 'Layout changed but no pages use it; skipping')
         return
       }
       // Not a registered layout — fall through to dep checks
@@ -755,7 +770,7 @@ export class DomStack {
     }
 
     // 13. No matching rule — skip.
-    console.log(`"${changedBasename}" changed but did not match any rebuild rule, skipping.`)
+    this.#logger.info({ file: changedBasename }, 'Changed file did not match any rebuild rule; skipping')
   }
 
   async stopWatching () {
@@ -770,8 +785,8 @@ export class DomStack {
       await this.#esbuildContext.dispose()
       this.#esbuildContext = null
     }
-    this.#browserSyncServer?.exit() // This will kill the process
-    this.#browserSyncServer = null
+    await this.#syncServer?.exit()
+    this.#syncServer = null
   }
 
   /**

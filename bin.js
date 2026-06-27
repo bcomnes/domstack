@@ -19,7 +19,7 @@ import { readPackage } from 'read-pkg'
 import { addPackageDependencies } from 'write-package'
 
 import { copyFile } from './lib/helpers/copy-file.js'
-import { DomStack } from './index.js'
+import { DomStack, createLogger } from './index.js'
 import { DomStackAggregateError } from './lib/helpers/domstack-aggregate-error.js'
 import { generateTreeData } from './lib/helpers/generate-tree-data.js'
 import { askYesNo } from './lib/helpers/cli-prompt.js'
@@ -201,6 +201,8 @@ domstack eject actions:
 
   /** @type {DomStackOpts} */
   const opts = {}
+  const logger = createLogger('info')
+  opts.logger = logger
 
   if (argv['ignore']) opts.ignore = String(argv['ignore']).split(',')
   if (argv['target']) opts.target = String(argv['target']).split(',')
@@ -219,11 +221,10 @@ domstack eject actions:
 
   async function quit () {
     if (domStack.watching) {
-      const results = await domStack.stopWatching()
-      console.log(results)
-      console.log('watching stopped')
+      await domStack.stopWatching()
+      logger.info('Watching stopped')
     }
-    console.log('\nquitting cleanly')
+    logger.info('Quitting cleanly')
     process.exit(0)
   }
 
@@ -258,22 +259,24 @@ domstack eject actions:
       process.exit(1)
     }
   } else {
-    const initialResults = await domStack.watch({
+    await domStack.watch({
       serve: !argv['watch-only'],
+      onInitialBuild: (initialResults) => {
+        console.log(tree(generateTreeData(cwd, src, dest, initialResults)))
+        if (initialResults?.warnings?.length > 0) {
+          console.log(
+            '\nThere were build warnings:\n'
+          )
+        }
+        for (const warning of initialResults?.warnings) {
+          if ('message' in warning) {
+            console.log(`  ${warning.message}`)
+          } else {
+            console.warn(warning)
+          }
+        }
+      },
     })
-    console.log(tree(generateTreeData(cwd, src, dest, initialResults)))
-    if (initialResults?.warnings?.length > 0) {
-      console.log(
-        '\nThere were build warnings:\n'
-      )
-    }
-    for (const warning of initialResults?.warnings) {
-      if ('message' in warning) {
-        console.log(`  ${warning.message}`)
-      } else {
-        console.warn(warning)
-      }
-    }
   }
 }
 
