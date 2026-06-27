@@ -1,0 +1,291 @@
+import { test } from 'node:test'
+import assert from 'node:assert'
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
+import * as cheerio from 'cheerio'
+import { DomStack, testBuild } from '../../index.js'
+
+const __dirname = import.meta.dirname
+const fixturePrefix = '.tmp-'
+
+async function cleanupTempFixtures () {
+  const entries = await readdir(__dirname, { withFileTypes: true })
+  await Promise.all(entries
+    .filter(entry => entry.isDirectory() && entry.name.startsWith(fixturePrefix))
+    .map(entry => rm(join(__dirname, entry.name), { recursive: true, force: true })))
+}
+
+test.before(cleanupTempFixtures)
+test.after(cleanupTempFixtures)
+
+/**
+ * @param {string} src
+ * @param {string} relname
+ * @param {string} content
+ */
+async function writeFixtureFile (src, relname, content) {
+  const filepath = join(src, relname)
+  await mkdir(dirname(filepath), { recursive: true })
+  await writeFile(filepath, content)
+}
+
+/**
+ * @param {Record<string, string>} files
+ * @param {(paths: { src: string, dest: string }) => Promise<void>} run
+ */
+async function withTempFixture (files, run) {
+  const root = await mkdtemp(join(__dirname, fixturePrefix))
+  const src = join(root, 'src')
+  const dest = join(root, 'dist')
+  await mkdir(src, { recursive: true })
+
+  for (const [relname, content] of Object.entries(files)) {
+    await writeFixtureFile(src, relname, content)
+  }
+
+  try {
+    await run({ src, dest })
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+}
+
+const minimalRootLayout = `import { html, raw, render } from 'fragtml'
+
+export default function rootLayout ({ vars, children }) {
+  return render(html\`<!doctype html><title>\${vars.title}</title><main>\${typeof children === 'string' ? raw(children) : children}</main>\`)
+}
+`
+
+const minimalGlobalVars = `export default { layout: 'root', title: 'Test' }
+`
+
+/**
+ * @param {unknown} error
+ * @returns {string}
+ */
+function aggregateErrorMessage (error) {
+  if (!(error instanceof Error)) return String(error)
+  const aggregate = /** @type {Error & { errors?: Error[] }} */ (error)
+  return String(aggregate.errors?.[0]?.message ?? aggregate.message)
+}
+
+test.describe('generated pages', () => {
+  test('builds generated pages through layouts and exposes them to global data and templates', async (t) => {
+    const src = join(__dirname, './src')
+    const build = await testBuild(src)
+    const { results, readOutput } = build
+
+    t.after(async () => {
+      await build.cleanup()
+    })
+
+    assert.equal(results.siteData.pagesFiles.length, 4, 'four pages files are discovered')
+
+    const redirectCases = [
+      { from: 'old-url', to: '/new-url/', destination: 'new-url/index.html', heading: 'New URL' },
+      { from: 'docs/old-guide', to: '/guides/current/', destination: 'guides/current/index.html', heading: 'Current Guide' },
+      { from: 'company', to: '/about/', destination: 'about/index.html', heading: 'About' },
+    ]
+
+    for (const { from, to, destination, heading } of redirectCases) {
+      const redirectHtml = await readOutput(`${from}/index.html`)
+      assert.match(redirectHtml, new RegExp(`<meta http-equiv="refresh" content="0;url=${to}">`), `${from} renders through the redirect layout`)
+      assert.match(redirectHtml, new RegExp(`<a href="${to}">${to}</a>`), `${from} links to its canonical destination`)
+      assert.match(await readOutput(destination), new RegExp(`<h1[^>]*>${heading}</h1>`), `${to} is backed by a concrete page`)
+    }
+
+    const blogIndexHtml = await readOutput('blog/2024/index.html')
+    const blogIndexDoc = cheerio.load(blogIndexHtml)
+    assert.equal(blogIndexDoc('#post-count').text(), '1', 'generated blog index can inspect concrete blog pages')
+
+    const introspectionHtml = await readOutput('generated-introspection/index.html')
+    const introspectionDoc = cheerio.load(introspectionHtml)
+    assert.equal(introspectionDoc('#saw-generated').text(), 'false', 'pages files receive concrete pages only')
+    assert.equal(introspectionDoc('meta[name="generated-page-count"]').attr('content'), '6', 'global.data sees generated pages after pages files run')
+
+    const stylesheetHrefs = Array.from(introspectionDoc('link[rel="stylesheet"]')).map(link => introspectionDoc(link).attr('href') ?? '')
+    assert.ok(stylesheetHrefs.some(href => href.startsWith('/global-') && href.endsWith('.css')), 'generated page includes global stylesheet')
+    assert.ok(stylesheetHrefs.some(href => href.startsWith('/root.layout-') && href.endsWith('.css')), 'generated page includes layout stylesheet')
+    assert.ok(!stylesheetHrefs.some(href => href.startsWith('./style-')), 'generated page does not include page-local stylesheet')
+
+    const scriptSrcs = Array.from(introspectionDoc('script[type="module"]')).map(script => introspectionDoc(script).attr('src') ?? '')
+    assert.ok(scriptSrcs.some(src => src.startsWith('/global.client-') && src.endsWith('.js')), 'generated page includes global client')
+    assert.ok(scriptSrcs.some(src => src.startsWith('/root.layout.client-') && src.endsWith('.js')), 'generated page includes layout client')
+    assert.ok(!scriptSrcs.some(src => src.startsWith('./client-')), 'generated page does not include page-local client')
+
+    const asyncHtml = await readOutput('async-generated/index.html')
+    assert.match(asyncHtml, /async generated page/, 'async iterable pages files are supported')
+
+    const summary = JSON.parse(await readOutput('summary.json'))
+    assert.equal(summary.generatedPageCount, 6, 'template vars include global.data generated page count')
+    assert.equal(summary.generatedPagesInTemplate, 6, 'template pages include generated pages')
+  })
+
+  test('includes generated pages in the domstack manifest as page entries', async () => {
+    await withTempFixture({
+      'root.layout.js': minimalRootLayout,
+      'global.vars.js': minimalGlobalVars,
+      'archive.pages.js': `export default {
+  outputName: 'archive/index.html',
+  vars: {
+    layout: 'root',
+    title: 'Archive',
+    archiveYear: 2024,
+    manifestRole: 'generated-index',
+  },
+  children: '<p>Generated archive</p>',
+}
+`,
+    }, async ({ src, dest }) => {
+      const domstack = new DomStack(src, dest, {
+        domstackManifest: {
+          manifestVars: ['archiveYear'],
+        },
+      })
+      const results = await domstack.build()
+      const entry = results.domstackManifest?.entries.find(entry => entry.outputRelname === 'archive/index.html')
+
+      assert.ok(entry, 'generated page is present in the domstack manifest')
+      assert.equal(entry.kind, 'page')
+      assert.equal(entry.url, '/archive/')
+      assert.equal(entry.sourceRelname, 'archive.pages.js#0')
+      assert.equal(entry.pagePath, 'archive')
+      assert.equal(entry.pageUrl, '/archive/')
+      assert.deepEqual(entry.page, {
+        path: 'archive',
+        url: '/archive/',
+      })
+      assert.equal(entry.role, 'generated-index', 'generated page vars can override the manifest role')
+      assert.deepEqual(entry.manifestVars, {
+        archiveYear: 2024,
+      }, 'selected generated page vars are exposed in the manifest')
+      assert.match(entry.revision ?? '', /^[a-f0-9]{64}$/, 'generated page content is revisioned')
+    })
+  })
+
+  test('throws a conflict error for generated pages that collide with concrete pages', async () => {
+    await withTempFixture({
+      'root.layout.js': minimalRootLayout,
+      'global.vars.js': minimalGlobalVars,
+      'README.md': '# Concrete root page\n',
+      'conflict.pages.js': `export default function () {
+  return { outputName: 'index.html', vars: { title: 'Generated root' }, children: 'generated' }
+}
+`,
+    }, async ({ src, dest }) => {
+      const domstack = new DomStack(src, dest)
+      await assert.rejects(
+        () => domstack.build(),
+        error => {
+          assert.match(aggregateErrorMessage(error), /Output path conflict/)
+          return true
+        }
+      )
+    })
+  })
+
+  test('rejects invalid definitions returned in arrays', async () => {
+    await withTempFixture({
+      'root.layout.js': minimalRootLayout,
+      'global.vars.js': minimalGlobalVars,
+      'invalid.pages.js': 'export default [{ outputName: "valid/index.html" }, 42]\n',
+    }, async ({ src, dest }) => {
+      const domstack = new DomStack(src, dest)
+      await assert.rejects(
+        () => domstack.build(),
+        error => {
+          assert.match(aggregateErrorMessage(error), /Generated page definition must be an object/)
+          return true
+        }
+      )
+    })
+  })
+
+  test('throws a clear error for invalid generated page paths', async () => {
+    await withTempFixture({
+      'root.layout.js': minimalRootLayout,
+      'global.vars.js': minimalGlobalVars,
+      'invalid.pages.js': `export default function () {
+  return { outputName: '../outside/index.html', vars: { title: 'Invalid' }, children: 'invalid' }
+}
+`,
+    }, async ({ src, dest }) => {
+      const domstack = new DomStack(src, dest)
+      await assert.rejects(
+        () => domstack.build(),
+        error => {
+          assert.match(aggregateErrorMessage(error), /must not contain "\.\." segments/)
+          return true
+        }
+      )
+    })
+  })
+
+  test('rebuilds generated pages when a concrete page changes in watch mode', { timeout: 15_000 }, async () => {
+    await withTempFixture({
+      'root.layout.js': minimalRootLayout,
+      'global.vars.js': minimalGlobalVars,
+      'page.js': 'export default ({ vars }) => vars.title\n',
+      'page.vars.js': "export default { title: 'First title' }\n",
+      'watch-indexes.pages.js': `export default function ({ pages }) {
+  const title = pages[0].vars.title
+  return { outputName: 'watch-generated/index.html', children: () => title }
+}
+`,
+    }, async ({ src, dest }) => {
+      const domstack = new DomStack(src, dest)
+      try {
+        await domstack.watch({ serve: false })
+        const outputPath = join(dest, 'watch-generated/index.html')
+        assert.match(await readFile(outputPath, 'utf8'), /First title/)
+
+        await writeFile(join(src, 'page.vars.js'), "export default { title: 'Updated title' }\n")
+        await new Promise(resolve => setTimeout(resolve, 800))
+        await domstack.settled()
+
+        assert.match(await readFile(outputPath, 'utf8'), /Updated title/)
+      } finally {
+        if (domstack.watching) await domstack.stopWatching()
+      }
+    })
+  })
+
+  test('refreshes pages-file dependency trees in watch mode', { timeout: 15_000 }, async () => {
+    await withTempFixture({
+      'root.layout.js': minimalRootLayout,
+      'global.vars.js': minimalGlobalVars,
+      'generated-value.js': "export const value = 'First value'\n",
+      'watched.pages.js': `export default {
+  outputName: 'watched/index.html',
+  children: 'Initial value',
+}
+`,
+    }, async ({ src, dest }) => {
+      const domstack = new DomStack(src, dest)
+      try {
+        await domstack.watch({ serve: false })
+        const outputPath = join(dest, 'watched/index.html')
+        assert.match(await readFile(outputPath, 'utf8'), /Initial value/)
+
+        await writeFile(join(src, 'watched.pages.js'), `import { value } from './generated-value.js'
+
+export default {
+  outputName: 'watched/index.html',
+  children: value + ' after pages edit',
+}
+`)
+        await new Promise(resolve => setTimeout(resolve, 800))
+        await domstack.settled()
+        assert.match(await readFile(outputPath, 'utf8'), /First value after pages edit/)
+
+        await writeFile(join(src, 'generated-value.js'), "export const value = 'Updated dependency'\n")
+        await new Promise(resolve => setTimeout(resolve, 800))
+        await domstack.settled()
+        assert.match(await readFile(outputPath, 'utf8'), /Updated dependency after pages edit/)
+      } finally {
+        if (domstack.watching) await domstack.stopWatching()
+      }
+    })
+  })
+})
