@@ -8,9 +8,9 @@
  * @import { TemplateAsyncIterator } from './lib/build-pages/page-builders/template-builder.js'
  * @import { TemplateOutputOverride } from './lib/build-pages/page-builders/template-builder.js'
  * @import { TemplateFunctionParams } from './lib/build-pages/page-builders/template-builder.js'
- * @import { GlobalDataFunction, AsyncGlobalDataFunction, WorkerBuildStepResult, GlobalDataFunctionParams } from './lib/build-pages/index.js'
+ * @import { GlobalDataFunction, AsyncGlobalDataFunction, WorkerBuildStepResult, GlobalDataFunctionParams, PagesFunction, AsyncPagesFunction, PagesFunctionParams, GeneratedPageDefinition } from './lib/build-pages/index.js'
  * @import { BuildOptions, BuildContext } from 'esbuild'
- * @import { PageInfo, TemplateInfo } from './lib/identify-pages.js'
+ * @import { PageInfo, TemplateInfo, PagesFileInfo } from './lib/identify-pages.js'
 */
 import { once } from 'events'
 import assert from 'node:assert'
@@ -36,6 +36,7 @@ import {
   layoutSuffixs,
   layoutStyleSuffix,
   templateSuffixs,
+  pagesSuffixs,
   globalVarsNames,
   globalDataNames,
   esbuildSettingsNames,
@@ -116,6 +117,10 @@ export { PageData } from './lib/build-pages/page-data.js'
  */
 
 /**
+ * @typedef {PagesFileInfo} PagesFileInfo
+ */
+
+/**
  * @template {Record<string, any>} Vars - The type of variables passed to the layout function
  * @template [PageReturn=any] PageReturn - The return type of the page function
  * @template [LayoutReturn=string] LayoutReturn - The return type of the layout function
@@ -127,6 +132,10 @@ export { PageData } from './lib/build-pages/page-data.js'
  */
 
 /**
+ * @typedef {PagesFunctionParams} PagesFunctionParams
+ */
+
+/**
  * @template {Record<string, any>} Vars - The type of variables passed to the page function
  * @template [PageReturn=any] PageReturn - The return type of the page function
  * @typedef {PageFunctionParams<Vars, PageReturn>} PageFunctionParams
@@ -135,6 +144,24 @@ export { PageData } from './lib/build-pages/page-data.js'
 /**
  * @template {Record<string, any>} [Vars=Record<string, any>] - The type of variables for the template function
  * @typedef {TemplateFunctionParams<Vars>} TemplateFunctionParams
+ */
+
+/**
+ * @template {Record<string, any>} [Vars=Record<string, any>] - The type of variables for the generated pages function
+ * @template [Children=any]
+ * @typedef {PagesFunction<Vars, Children>} PagesFunction
+ */
+
+/**
+ * @template {Record<string, any>} [Vars=Record<string, any>] - The type of variables for the async generated pages function
+ * @template [Children=any]
+ * @typedef {AsyncPagesFunction<Vars, Children>} AsyncPagesFunction
+ */
+
+/**
+ * @template {Record<string, any>} [Vars=Record<string, any>] - The type of variables for a generated page
+ * @template [Children=any]
+ * @typedef {GeneratedPageDefinition<Vars, Children>} GeneratedPageDefinition
  */
 
 /**
@@ -181,6 +208,8 @@ export class DomStack {
   #pageDepMap = new Map()
   /** @type {Map<string, Set<TemplateInfo>>} depFilepath → Set<TemplateInfo> */
   #templateDepMap = new Map()
+  /** @type {Map<string, Set<PagesFileInfo>>} depFilepath → Set<PagesFileInfo> */
+  #pagesFileDepMap = new Map()
   /** @type {Set<string>} absolute filepaths of esbuild entry points */
   #esbuildEntryPoints = new Set()
 
@@ -533,6 +562,7 @@ export class DomStack {
     const layoutFileMap = /** @type {Map<string, string>} */ (new Map())
     const pageDepMap = /** @type {Map<string, Set<PageInfo>>} */ (new Map())
     const templateDepMap = /** @type {Map<string, Set<TemplateInfo>>} */ (new Map())
+    const pagesFileDepMap = /** @type {Map<string, Set<PagesFileInfo>>} */ (new Map())
 
     // layoutFileMap: layout filepath → layoutName
     for (const layout of Object.values(siteData.layouts)) {
@@ -616,6 +646,20 @@ export class DomStack {
       }
     }
 
+    // pagesFileDepMap: dep filepath → Set<PagesFileInfo>
+    for (const pagesFileInfo of siteData.pagesFiles ?? []) {
+      try {
+        const deps = await find(pagesFileInfo.pagesFile.filepath)
+        for (const dep of deps) {
+          const absPath = resolve(dep)
+          if (!pagesFileDepMap.has(absPath)) pagesFileDepMap.set(absPath, new Set())
+          pagesFileDepMap.get(absPath)?.add(pagesFileInfo)
+        }
+      } catch {
+        // best-effort
+      }
+    }
+
     // esbuildEntryPoints: absolute filepaths of all esbuild entry points
     const esbuildEntryPoints = /** @type {Set<string>} */ (new Set())
     if (siteData.globalClient) esbuildEntryPoints.add(resolve(siteData.globalClient.filepath))
@@ -638,6 +682,7 @@ export class DomStack {
     this.#layoutFileMap = layoutFileMap
     this.#pageDepMap = pageDepMap
     this.#templateDepMap = templateDepMap
+    this.#pagesFileDepMap = pagesFileDepMap
     this.#esbuildEntryPoints = esbuildEntryPoints
   }
 
@@ -687,6 +732,11 @@ export class DomStack {
 
     // 7. Layout file itself → rebuild pages using that layout
     if (layoutSuffixs.some(s => changedBasename.endsWith(s))) {
+      if ((siteData.pagesFiles?.length ?? 0) > 0) {
+        console.log(`"${changedBasename}" changed, rebuilding all pages...`)
+        return this.#runPageBuild(siteData)
+      }
+
       const layoutName = this.#layoutFileMap.get(changedPath)
       if (layoutName) {
         const affectedPages = this.#layoutPageMap.get(layoutName)
@@ -703,6 +753,10 @@ export class DomStack {
 
     // 8. Dep of a layout
     if (this.#layoutDepMap.has(changedPath)) {
+      if ((siteData.pagesFiles?.length ?? 0) > 0) {
+        console.log(`"${changedBasename}" changed, rebuilding all pages...`)
+        return this.#runPageBuild(siteData)
+      }
       const affectedLayoutNames = this.#layoutDepMap.get(changedPath) ?? new Set()
       const affectedPages = new Set(/** @type {PageInfo[]} */ ([]))
       for (const layoutName of affectedLayoutNames) {
@@ -725,7 +779,15 @@ export class DomStack {
       }
     }
 
-    // 10. Template file itself
+    // 10. Pages file itself → full page rebuild
+    if (pagesSuffixs.some(s => changedBasename.endsWith(s))) {
+      if (siteData.pagesFiles?.some(p => p.pagesFile.filepath === changedPath)) {
+        console.log(`"${changedBasename}" changed, rebuilding all pages...`)
+        return this.#runPageBuild(siteData)
+      }
+    }
+
+    // 11. Template file itself
     if (templateSuffixs.some(s => changedBasename.endsWith(s))) {
       const templateInfo = siteData.templates.find(t => t.templateFile.filepath === changedPath)
       if (templateInfo) {
@@ -734,7 +796,7 @@ export class DomStack {
       }
     }
 
-    // 11. Dep of a page.js or page.vars
+    // 12. Dep of a page.js or page.vars
     if (this.#pageDepMap.has(changedPath)) {
       const affectedPages = this.#pageDepMap.get(changedPath) ?? new Set()
       if (affectedPages.size > 0) {
@@ -744,7 +806,13 @@ export class DomStack {
       }
     }
 
-    // 12. Dep of a template file
+    // 13. Dep of a pages file → full page rebuild
+    if (this.#pagesFileDepMap.has(changedPath)) {
+      console.log(`"${changedBasename}" changed, rebuilding all pages...`)
+      return this.#runPageBuild(siteData)
+    }
+
+    // 14. Dep of a template file
     if (this.#templateDepMap.has(changedPath)) {
       const affectedTemplates = this.#templateDepMap.get(changedPath) ?? new Set()
       if (affectedTemplates.size > 0) {
@@ -754,7 +822,7 @@ export class DomStack {
       }
     }
 
-    // 13. No matching rule — skip.
+    // 15. No matching rule — skip.
     console.log(`"${changedBasename}" changed but did not match any rebuild rule, skipping.`)
   }
 
