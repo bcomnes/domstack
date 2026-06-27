@@ -1,0 +1,11 @@
+{
+  "name": "Domstack PWA Example",
+  "short_name": "Domstack PWA",
+  "description": "A Domstack static PWA example using the unstable domstack manifest preview.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f7f4ed",
+  "theme_color": "#3f5f46",
+  "icons": []
+}

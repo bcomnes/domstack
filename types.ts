@@ -27,7 +27,14 @@ export type {
   TemplateFunctionParams,
   TemplateOutputOverride,
 } from './lib/build-pages/page-builders/template-builder.js'
-export type { PageInfo, TemplateInfo } from './lib/identify-pages.js'
+export type { PageInfo, ServiceWorkerInfo, TemplateInfo } from './lib/identify-pages.js'
+export type {
+  DomstackManifest,
+  DomstackManifestEntry,
+  DomstackManifestEntryPageMeta,
+  DomstackManifestKind,
+  DomstackManifestRecord,
+} from './lib/domstack-manifest/index.js'
 
 export type TestBuildResult = {
   dest: string
