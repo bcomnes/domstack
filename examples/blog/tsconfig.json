@@ -5,9 +5,7 @@
     "erasableSyntaxOnly": true,
     "allowImportingTsExtensions": true,
     "rewriteRelativeImportExtensions": true,
-    "verbatimModuleSyntax": true,
-    "jsx": "react-jsx",
-    "jsxImportSource": "preact"
+    "verbatimModuleSyntax": true
   },
   "include": [
     "**/*"

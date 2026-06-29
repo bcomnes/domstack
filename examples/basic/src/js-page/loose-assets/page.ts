@@ -1,10 +1,11 @@
-import { html } from 'htm/preact'
+import { html } from 'fragtml'
+import type { HtmlResult } from 'fragtml/types.js'
 import type { PageFunction } from '@domstack/static/types.js'
 
-import sharedData from './shared-lib.js'
+import sharedData from './shared-lib.ts'
 import type { PageVars } from '../../layouts/root.layout.ts'
 
-const JSPage: PageFunction<PageVars> = async () => {
+const JSPage: PageFunction<PageVars, HtmlResult> = async () => {
   return html`
   <div>
     <p>

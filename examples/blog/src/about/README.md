@@ -19,7 +19,7 @@ first computer programmer.
 Built with:
 
 - [domstack](https://github.com/bcomnes/domstack) — the build system
-- [preact](https://preactjs.com) — JSX rendering for layouts
+- [fragtml](https://github.com/bcomnes/fragtml) — typed HTML rendering for layouts
 - [mine.css](https://mine.css.bret.io) — baseline styles
 - [esbuild](https://esbuild.github.io) — JS/CSS bundling
 

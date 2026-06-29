@@ -1,3 +1,4 @@
+/** @jsxImportSource preact */
 import { render } from 'preact'
 
 export const page = () => {

@@ -1,11 +1,12 @@
 /**
  * @import { PageFunction } from '@domstack/static/types.js'
- * @import { PageVars } from '../layouts/root.layout.js
+ * @import { PageVars } from '../layouts/root.layout.ts'
+ * @import { HtmlResult } from 'fragtml/types.js'
  */
-import { html } from 'htm/preact'
+import { html } from 'fragtml'
 
 /**
-* @type { PageFunction <PageVars> }
+* @type { PageFunction <PageVars, HtmlResult> }
 */
 export default async function JSPage ({
   vars: {
@@ -26,7 +27,7 @@ export default async function JSPage ({
       <ul>
         <li>Access and use variables directly in your rendering logic</li>
         <li>Generate dynamic content based on data or conditions</li>
-        <li>Use component-based architecture with Preact or other libraries</li>
+        <li>Use typed HTML templates or component libraries</li>
         <li>Return either HTML strings or component objects</li>
       </ul>
     </section>
@@ -36,7 +37,7 @@ export default async function JSPage ({
       <p>
         Export a default function (async or sync) that returns a string or any
         type that your layout can handle. In this example, we're using
-        <a href="https://github.com/developit/htm"><code>htm/preact</code></a> for JSX-like syntax.
+        <a href="https://github.com/bcomnes/fragtml"><code>fragtml</code></a> for typed, safe HTML templates.
       </p>
       <div class="code-example">
         <pre><code>export default async function MyPage({ vars }) {

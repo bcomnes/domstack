@@ -12,7 +12,7 @@ tags:
 
 Welcome to this blog. It's built with [domstack](https://github.com/bcomnes/domstack),
 a static site generator that lets you write pages in TypeScript, Markdown, or plain HTML
-and compose them with layouts written in JSX (via preact).
+and compose them with typed HTML layouts written with fragtml.
 
 ## What makes this interesting
 

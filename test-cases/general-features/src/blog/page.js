@@ -1,7 +1,7 @@
 /**
  * @import { AsyncLayoutFunction } from '#types'
  */
-import { html } from 'htm/preact'
+import { html } from 'fragtml'
 import { dirname, basename } from 'node:path'
 
 /**
