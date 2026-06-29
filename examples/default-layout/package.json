@@ -7,16 +7,10 @@
     "start": "npm run watch",
     "build": "npm run clean && domstack",
     "clean": "rm -rf public && mkdir -p public",
-    "watch": "npm run clean && run-p watch:*",
-    "watch:serve": "browser-sync start --server 'public' --files 'public'",
-    "watch:domstack": "npm run build -- --watch"
+    "watch": "npm run clean && domstack --watch"
   },
   "dependencies": {
     "@domstack/static": "file:../../."
-  },
-  "devDependencies": {
-    "browser-sync": "^2.26.7",
-    "npm-run-all2": "^6.0.0"
   },
   "keywords": [],
   "author": "Bret Comnes <bcomnes@gmail.com> (https://bret.io/)",

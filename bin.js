@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 
 /**
- * @import {DomStackOpts as DomStackOpts} from './lib/builder.js'
+ * @import { BuildStepWarnings, DomStackOpts as DomStackOpts } from './lib/builder.js'
  * @import { ArgscloptsParseArgsOptionsConfig } from 'argsclopts'
+ * @import { Logger as PinoLogger } from 'pino'
  */
 
 import { readFile } from 'node:fs/promises'
@@ -23,6 +24,7 @@ import { DomStack } from './index.js'
 import { DomStackAggregateError } from './lib/helpers/domstack-aggregate-error.js'
 import { generateTreeData } from './lib/helpers/generate-tree-data.js'
 import { askYesNo } from './lib/helpers/cli-prompt.js'
+import { createDomStackLogger } from './lib/logger.js'
 
 const __dirname = import.meta.dirname
 
@@ -212,6 +214,8 @@ domstack eject actions:
     opts.copy = copyPaths.map(p => resolve(cwd, p))
   }
 
+  const logger = createDomStackLogger()
+  opts.logger = logger
   const domStack = new DomStack(src, dest, opts)
 
   process.once('SIGINT', quit)
@@ -219,60 +223,55 @@ domstack eject actions:
 
   async function quit () {
     if (domStack.watching) {
-      const results = await domStack.stopWatching()
-      console.log(results)
-      console.log('watching stopped')
+      await domStack.stopWatching()
+      logger.info('Watching stopped')
     }
-    console.log('\nquitting cleanly')
+    logger.info('Quitting cleanly')
     process.exit(0)
   }
 
   if (!argv['watch'] && !argv['watch-only']) {
     try {
       const results = await domStack.build()
-      console.log(tree(generateTreeData(cwd, src, dest, results)))
-      if (results?.warnings?.length > 0) {
-        console.log(
-          '\nThere were build warnings:\n'
-        )
-      }
-      for (const warning of results?.warnings) {
-        if ('message' in warning) {
-          console.log(`  ${warning.message}`)
-        } else {
-          console.warn(warning)
-        }
-      }
-      console.log('\nBuild Success!\n\n')
+      logger.info(tree(generateTreeData(cwd, src, dest, results)))
+      logWarnings(logger, results?.warnings)
+      logger.info('\nBuild Success!\n\n')
     } catch (err) {
       if (!(err instanceof Error || err instanceof AggregateError)) throw new Error('Non-error thrown', { cause: err })
       if (err instanceof DomStackAggregateError) {
         if (err?.results?.siteData?.pages) {
-          console.log(tree(generateTreeData(cwd, src, dest, err.results)))
+          logger.error(tree(generateTreeData(cwd, src, dest, err.results)))
         }
       }
       if ('results' in err) delete err.results
-      console.error(inspect(err, { depth: 999, colors: true }))
-
-      console.log('\nBuild Failed!\n\n')
+      logger.error(inspect(err, { depth: 999, colors: true }))
+      logger.error('\nBuild Failed!\n\n')
       process.exit(1)
     }
   } else {
-    const initialResults = await domStack.watch({
+    await domStack.watch({
       serve: !argv['watch-only'],
+      onInitialBuild: (initialResults) => {
+        logger.info(tree(generateTreeData(cwd, src, dest, initialResults)))
+        logWarnings(logger, initialResults?.warnings)
+      },
     })
-    console.log(tree(generateTreeData(cwd, src, dest, initialResults)))
-    if (initialResults?.warnings?.length > 0) {
-      console.log(
-        '\nThere were build warnings:\n'
-      )
-    }
-    for (const warning of initialResults?.warnings) {
-      if ('message' in warning) {
-        console.log(`  ${warning.message}`)
-      } else {
-        console.warn(warning)
-      }
+  }
+}
+
+/**
+ * @param {PinoLogger} logger
+ * @param {BuildStepWarnings | undefined} warnings
+ */
+function logWarnings (logger, warnings) {
+  if ((warnings?.length ?? 0) === 0) return
+
+  logger.warn('\nThere were build warnings:\n')
+  for (const warning of warnings ?? []) {
+    if ('message' in warning) {
+      logger.warn(`  ${warning.message}`)
+    } else {
+      logger.warn(inspect(warning, { depth: 999, colors: true }))
     }
   }
 }

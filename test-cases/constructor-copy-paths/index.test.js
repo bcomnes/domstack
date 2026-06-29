@@ -13,8 +13,9 @@ test.describe('DomStack constructor - copy path resolution', () => {
       copy: ['some-relative-copy-dir'],
     })
 
-    assert.strictEqual(ds.opts.copy.length, 1, 'one copy entry')
-    const copyPath = /** @type {string} */ (ds.opts.copy[0])
+    const copy = ds.opts.copy ?? []
+    assert.strictEqual(copy.length, 1, 'one copy entry')
+    const copyPath = /** @type {string} */ (copy[0])
     assert.ok(isAbsolute(copyPath), `copy path should be absolute, got: "${copyPath}"`)
   })
 
@@ -24,7 +25,8 @@ test.describe('DomStack constructor - copy path resolution', () => {
       copy: [absPath],
     })
 
-    assert.strictEqual(ds.opts.copy[0], resolve(absPath), 'absolute path is preserved and normalized')
+    const copy = ds.opts.copy ?? []
+    assert.strictEqual(copy[0], resolve(absPath), 'absolute path is preserved and normalized')
   })
 
   test('resolves multiple mixed copy paths', () => {
@@ -33,8 +35,9 @@ test.describe('DomStack constructor - copy path resolution', () => {
       copy: ['relative-dir', absPath],
     })
 
-    assert.strictEqual(ds.opts.copy.length, 2, 'two copy entries')
-    for (const p of ds.opts.copy) {
+    const copy = ds.opts.copy ?? []
+    assert.strictEqual(copy.length, 2, 'two copy entries')
+    for (const p of copy) {
       assert.ok(isAbsolute(p), `each copy path should be absolute, got: "${p}"`)
     }
   })

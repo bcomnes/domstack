@@ -6,6 +6,8 @@
  * @import { BuildContext } from 'esbuild'
  * @import { PageInfo, TemplateInfo } from './lib/identify-pages.js'
  * @import { TestBuildResult } from './types.js'
+ * @import { BsInstance } from '@domstack/sync'
+ * @import { Logger as PinoLogger } from 'pino'
  */
 import { once } from 'events'
 import assert from 'node:assert'
@@ -18,7 +20,7 @@ import makeArray from 'make-array'
 import ignore from 'ignore'
 import { watch as cpxWatch } from 'cpx2'
 import { inspect } from 'util'
-import browserSync from 'browser-sync'
+import { createServer } from '@domstack/sync'
 import { find } from '@11ty/dependency-tree-typescript'
 
 import { getCopyGlob } from './lib/build-static/index.js'
@@ -45,6 +47,7 @@ import {
 import { resolveVars } from './lib/build-pages/resolve-vars.js'
 import { ensureDest } from './lib/helpers/ensure-dest.js'
 import { DomStackAggregateError } from './lib/helpers/domstack-aggregate-error.js'
+import { createDomStackLogger } from './lib/logger.js'
 
 export { PageData } from './lib/build-pages/page-data.js'
 
@@ -58,18 +61,16 @@ const DEFAULT_IGNORES = /** @type {const} */ ([
   'yarn.lock',
 ])
 
-/**
- * @template {DomStackOpts} [CurrentOpts=DomStackOpts] - The type of options for the DomStack instance
- */
 export class DomStack {
   /** @type {string} */ #src = ''
   /** @type {string} */ #dest = ''
-  /** @type {Readonly<CurrentOpts & { ignore: string[] }>} */ opts
+  /** @type {Readonly<DomStackOpts>} */ opts
   /** @type {FSWatcher?} */ #watcher = null
   /** @type {any[]?} */ #cpxWatchers = null
-  /** @type {browserSync.BrowserSyncInstance?} */ #browserSyncServer = null
+  /** @type {BsInstance?} */ #syncServer = null
   /** @type {BuildContext?} */ #esbuildContext = null
   /** @type {SiteData?} */ #siteData = null
+  /** @type {PinoLogger} */ #logger
 
   // Watch maps (rebuilt after every full rebuild)
   /** @type {Map<string, Set<string>>} depFilepath → Set<layoutName> */
@@ -99,29 +100,19 @@ export class DomStack {
    *
    * @param {string} src - The src path of the page build
    * @param {string} dest - The dest path of the page build
-   * @param {CurrentOpts} [opts] - The options for the site build
+   * @param {DomStackOpts} [opts] - The options for the site build
    */
-  constructor (src, dest, opts = /** @type {CurrentOpts} */ ({})) {
+  constructor (src, dest, opts = {}) {
     if (!src || typeof src !== 'string') throw new TypeError('src should be a (non-empty) string')
     if (!dest || typeof dest !== 'string') throw new TypeError('dest should be a (non-empty) string')
     if (!opts || typeof opts !== 'object') throw new TypeError('opts should be an object')
 
     this.#src = src
     this.#dest = dest
+    this.#logger = opts.logger ?? createDomStackLogger()
+    this.opts = normalizeDomStackOpts(opts, dest)
 
-    const copyDirs = (opts?.copy ?? []).map(dir => resolve(dir))
-
-    this.opts = {
-      ...opts,
-      copy: copyDirs,
-      ignore: [
-        ...DEFAULT_IGNORES,
-        basename(dest),
-        ...copyDirs.map(dir => basename(dir)),
-        ...makeArray(opts.ignore),
-      ],
-    }
-
+    const copyDirs = this.opts.copy ?? []
     if (copyDirs.length > 0) {
       const absDest = resolve(this.#dest)
       for (const copyDir of copyDirs) {
@@ -146,10 +137,12 @@ export class DomStack {
    * Build and watch a domstack build
    * @param  {object} [params]
    * @param  {boolean} params.serve
+   * @param  {(results: Results) => void | Promise<void>} [params.onInitialBuild]
    * @return {Promise<Results>}
    */
   async watch ({
     serve,
+    onInitialBuild,
   } = {
     serve: true,
   }) {
@@ -184,10 +177,10 @@ export class DomStack {
         siteData,
         pageBuildResults,
       }
-      buildLogger(report)
-      console.log('Initial JS, CSS and Page Build Complete')
+      buildLogger(report, this.#logger)
+      this.#logger.info('Initial JS, CSS and Page Build Complete')
     } catch (err) {
-      errorLogger(err)
+      errorLogger(err, this.#logger)
       if (!(err instanceof DomStackAggregateError)) throw new Error('Non-aggregate error thrown', { cause: err })
       report = err.results
     }
@@ -195,38 +188,29 @@ export class DomStack {
     // Build watch maps after initial build
     await this.#rebuildMaps(siteData)
 
-    // ── Copy watchers & browser-sync ─────────────────────────────────────
-    const copyDirs = getCopyDirs(this.opts.copy)
+    // ── Copy watchers & dev server ───────────────────────────────────────
+    const copyDirs = getCopyDirs(this.opts.copy ?? [])
 
     this.#cpxWatchers = [
-      cpxWatch(getCopyGlob(this.#src), this.#dest, { ignore: this.opts.ignore }),
+      cpxWatch(getCopyGlob(this.#src), this.#dest, { ignore: this.opts.ignore ?? [] }),
       ...copyDirs.map(copyDir => cpxWatch(copyDir, this.#dest))
     ]
-    if (serve) {
-      const bs = browserSync.create()
-      this.#browserSyncServer = bs
-      bs.watch(basename(this.#dest), { ignoreInitial: true }).on('change', bs.reload)
-      bs.init({
-        server: this.#dest,
+
+    const copyWatchersReady = this.#cpxWatchers.map(async w => {
+      w.on('copy', (/** @type{{ srcPath: string, dstPath: string }} */e) => {
+        this.#logger.info(`Copy ${e.srcPath} to ${e.dstPath}`)
       })
-    }
 
-    this.#cpxWatchers.forEach(w => {
-      w.on('watch-ready', () => {
-        console.log('Copy watcher ready')
-
-        w.on('copy', (/** @type{{ srcPath: string, dstPath: string }} */e) => {
-          console.log(`Copy ${e.srcPath} to ${e.dstPath}`)
-        })
-
-        w.on('remove', (/** @type{{ path: string }} */e) => {
-          console.log(`Remove ${e.path}`)
-        })
-
-        w.on('watch-error', (/** @type{Error} */err) => {
-          console.log(`Copy error: ${err.message}`)
-        })
+      w.on('remove', (/** @type{{ path: string }} */e) => {
+        this.#logger.info(`Remove ${e.path}`)
       })
+
+      w.on('watch-error', (/** @type{Error} */err) => {
+        this.#logger.error(`Copy error: ${err.message}`)
+      })
+
+      await once(w, 'watch-ready')
+      this.#logger.info('Copy watcher ready')
     })
 
     // ── Chokidar watcher ─────────────────────────────────────────────────
@@ -257,10 +241,23 @@ export class DomStack {
 
     this.#watcher = watcher
 
-    await once(watcher, 'ready')
+    await Promise.all([
+      ...copyWatchersReady,
+      once(watcher, 'ready'),
+    ])
+
+    await onInitialBuild?.(report)
+
+    if (serve) {
+      this.#syncServer = await createServer({
+        server: this.#dest,
+        files: basename(this.#dest),
+        logger: this.#logger.child({ component: 'sync', logPrefix: '[domstack-sync]' }),
+      })
+    }
 
     const enqueue = (/** @type {() => Promise<void>} */ fn) => {
-      this.#buildLock = this.#buildLock.then(() => fn().catch(errorLogger))
+      this.#buildLock = this.#buildLock.then(() => fn().catch(err => errorLogger(err, this.#logger)))
     }
 
     watcher.on('add', path => {
@@ -274,7 +271,7 @@ export class DomStack {
     watcher.on('unlink', path => {
       enqueue(() => this.#handleAddUnlink(path, 'removed'))
     })
-    watcher.on('error', errorLogger)
+    watcher.on('error', err => errorLogger(err, this.#logger))
 
     return report
   }
@@ -284,7 +281,7 @@ export class DomStack {
    * Used for structural changes (add/unlink), global.vars.*, esbuild.settings.*.
    */
   async #fullRebuild () {
-    console.log('Triggering full rebuild...')
+    this.#logger.info('Triggering full rebuild...')
     // Dispose the old esbuild context
     if (this.#esbuildContext) {
       await this.#esbuildContext.dispose()
@@ -294,8 +291,8 @@ export class DomStack {
     const siteData = await identifyPages(this.#src, this.opts)
 
     if (siteData.errors.length > 0) {
-      console.error('identifyPages errors:')
-      for (const err of siteData.errors) console.error(' ', err.message)
+      this.#logger.error(`identifyPages errors:
+${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
       return
     }
 
@@ -332,13 +329,12 @@ export class DomStack {
     )
 
     if (isEsbuildEntry) {
-      console.log(`"${changedBasename}" ${event}, restarting esbuild...`)
+      this.#logger.info(`"${changedBasename}" ${event}, restarting esbuild...`)
 
       // Re-identify pages to discover the new/removed entry point
       const siteData = await identifyPages(this.#src, this.opts)
       if (siteData.errors.length > 0) {
-        console.error('identifyPages errors:')
-        for (const err of siteData.errors) console.error(' ', err.message)
+        this.#logger.error(`identifyPages errors:\n${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
         return
       }
 
@@ -358,7 +354,7 @@ export class DomStack {
 
       if (globalClientNames.includes(changedBasename) || globalStyleNames.includes(changedBasename)) {
         // Global asset: rebuild all pages
-        logRebuildTree(changedBasename, new Set(siteData.pages))
+        logRebuildTree(changedBasename, this.#logger, new Set(siteData.pages))
         await this.#runPageBuild(siteData)
       } else if (layoutClientSuffixs.some(s => changedBasename.endsWith(s)) || changedBasename.endsWith(layoutStyleSuffix)) {
         // Layout asset: rebuild pages using that layout
@@ -370,7 +366,7 @@ export class DomStack {
           await this.#rebuildMaps(siteData)
           const affectedPages = this.#layoutPageMap.get(layoutName)
           if (affectedPages && affectedPages.size > 0) {
-            logRebuildTree(changedBasename, affectedPages)
+            logRebuildTree(changedBasename, this.#logger, affectedPages)
             const pageFilterPaths = Array.from(affectedPages).map(p => p.pageFile.filepath)
             await this.#runPageBuild(siteData, pageFilterPaths, [])
             return
@@ -382,7 +378,7 @@ export class DomStack {
         // Page-level asset (client.*, style.css, *.worker.*): rebuild only that page
         const affectedPage = siteData.pages.find(p => p.path === changedDir)
         if (affectedPage) {
-          logRebuildTree(changedBasename, new Set([affectedPage]))
+          logRebuildTree(changedBasename, this.#logger, new Set([affectedPage]))
           await this.#runPageBuild(siteData, [affectedPage.pageFile.filepath], [])
         } else {
           // Page not found (maybe it was removed) — rebuild all pages
@@ -393,7 +389,7 @@ export class DomStack {
       await this.#rebuildMaps(siteData)
     } else {
       // Non-esbuild file: structural change (page, layout, template, config, etc.)
-      console.log(`"${changedBasename}" ${event}, triggering full rebuild...`)
+      this.#logger.info(`"${changedBasename}" ${event}, triggering full rebuild...`)
       return this.#fullRebuild()
     }
   }
@@ -416,10 +412,11 @@ export class DomStack {
       const isFiltered = pageFilterPaths !== null || templateFilterPaths !== null
       buildLogger(
         isFiltered ? pageBuildResults : { warnings: pageBuildResults.warnings, siteData, pageBuildResults },
+        this.#logger,
         isFiltered ? this.#dest : undefined
       )
     } catch (err) {
-      errorLogger(err)
+      errorLogger(err, this.#logger)
     }
   }
 
@@ -557,26 +554,26 @@ export class DomStack {
 
     // 2. global.vars.* → full rebuild (esbuild restart + all pages)
     if (globalVarsNames.some(n => changedBasename === n)) {
-      console.log(`"${changedBasename}" changed, triggering full rebuild...`)
+      this.#logger.info(`"${changedBasename}" changed, triggering full rebuild...`)
       return this.#fullRebuild()
     }
 
     // 3. global.data.* → full page rebuild (no esbuild restart)
     if (globalDataNames.some(n => changedBasename === n)) {
-      console.log(`"${changedBasename}" changed, rebuilding all pages...`)
+      this.#logger.info(`"${changedBasename}" changed, rebuilding all pages...`)
       return this.#runPageBuild(siteData)
     }
 
     // 4. esbuild.settings.* → full rebuild
     if (esbuildSettingsNames.some(n => changedBasename === n)) {
-      console.log(`"${changedBasename}" changed, triggering full rebuild...`)
+      this.#logger.info(`"${changedBasename}" changed, triggering full rebuild...`)
       return this.#fullRebuild()
     }
 
     // 5. markdown-it.settings.* → rebuild all md pages only
     if (markdownItSettingsNames.some(n => changedBasename === n)) {
       const mdPages = new Set(siteData.pages.filter(p => p.type === 'md'))
-      logRebuildTree(changedBasename, mdPages)
+      logRebuildTree(changedBasename, this.#logger, mdPages)
       return this.#runPageBuild(siteData, Array.from(mdPages).map(p => p.pageFile.filepath), [])
     }
 
@@ -584,7 +581,7 @@ export class DomStack {
     // esbuild's own watcher handles these. Stable filenames mean page HTML doesn't
     // change, so no page rebuild is needed.
     if (this.#esbuildEntryPoints.has(changedPath)) {
-      console.log(`"${changedBasename}" changed, esbuild will handle rebundling.`)
+      this.#logger.info(`"${changedBasename}" changed, esbuild will handle rebundling.`)
       return
     }
 
@@ -594,11 +591,11 @@ export class DomStack {
       if (layoutName) {
         const affectedPages = this.#layoutPageMap.get(layoutName)
         if (affectedPages && affectedPages.size > 0) {
-          logRebuildTree(changedBasename, affectedPages)
+          logRebuildTree(changedBasename, this.#logger, affectedPages)
           const pageFilterPaths = Array.from(affectedPages).map(p => p.pageFile.filepath)
           return this.#runPageBuild(siteData, pageFilterPaths, [])
         }
-        console.log(`"${changedBasename}" changed but no pages use layout "${layoutName}", skipping.`)
+        this.#logger.info(`"${changedBasename}" changed but no pages use layout "${layoutName}", skipping.`)
         return
       }
       // Not a registered layout — fall through to dep checks
@@ -613,7 +610,7 @@ export class DomStack {
         if (pages) for (const p of pages) affectedPages.add(p)
       }
       if (affectedPages.size > 0) {
-        logRebuildTree(changedBasename, affectedPages)
+        logRebuildTree(changedBasename, this.#logger, affectedPages)
         const pageFilterPaths = Array.from(affectedPages).map(p => p.pageFile.filepath)
         return this.#runPageBuild(siteData, pageFilterPaths, [])
       }
@@ -623,7 +620,7 @@ export class DomStack {
     if (this.#pageFileMap.has(changedPath)) {
       const affectedPage = this.#pageFileMap.get(changedPath)
       if (affectedPage) {
-        logRebuildTree(changedBasename, new Set([affectedPage]))
+        logRebuildTree(changedBasename, this.#logger, new Set([affectedPage]))
         return this.#runPageBuild(siteData, [affectedPage.pageFile.filepath], [])
       }
     }
@@ -632,7 +629,7 @@ export class DomStack {
     if (templateSuffixs.some(s => changedBasename.endsWith(s))) {
       const templateInfo = siteData.templates.find(t => t.templateFile.filepath === changedPath)
       if (templateInfo) {
-        logRebuildTree(changedBasename, undefined, new Set([templateInfo]))
+        logRebuildTree(changedBasename, this.#logger, undefined, new Set([templateInfo]))
         return this.#runPageBuild(siteData, [], [templateInfo.templateFile.filepath])
       }
     }
@@ -641,7 +638,7 @@ export class DomStack {
     if (this.#pageDepMap.has(changedPath)) {
       const affectedPages = this.#pageDepMap.get(changedPath) ?? new Set()
       if (affectedPages.size > 0) {
-        logRebuildTree(changedBasename, affectedPages)
+        logRebuildTree(changedBasename, this.#logger, affectedPages)
         const pageFilterPaths = Array.from(affectedPages).map(p => p.pageFile.filepath)
         return this.#runPageBuild(siteData, pageFilterPaths, [])
       }
@@ -651,14 +648,14 @@ export class DomStack {
     if (this.#templateDepMap.has(changedPath)) {
       const affectedTemplates = this.#templateDepMap.get(changedPath) ?? new Set()
       if (affectedTemplates.size > 0) {
-        logRebuildTree(changedBasename, undefined, affectedTemplates)
+        logRebuildTree(changedBasename, this.#logger, undefined, affectedTemplates)
         const templateFilterPaths = Array.from(affectedTemplates).map(t => t.templateFile.filepath)
         return this.#runPageBuild(siteData, [], templateFilterPaths)
       }
     }
 
     // 13. No matching rule — skip.
-    console.log(`"${changedBasename}" changed but did not match any rebuild rule, skipping.`)
+    this.#logger.info(`"${changedBasename}" changed but did not match any rebuild rule, skipping.`)
   }
 
   async stopWatching () {
@@ -673,8 +670,8 @@ export class DomStack {
       await this.#esbuildContext.dispose()
       this.#esbuildContext = null
     }
-    this.#browserSyncServer?.exit() // This will kill the process
-    this.#browserSyncServer = null
+    await this.#syncServer?.exit()
+    this.#syncServer = null
   }
 
   /**
@@ -717,12 +714,35 @@ function relname (root, name) {
 }
 
 /**
+ * @param {DomStackOpts} opts
+ * @param {string} dest
+ * @returns {DomStackOpts}
+ */
+function normalizeDomStackOpts (opts, dest) {
+  const buildOpts = { ...opts }
+  delete buildOpts.logger
+  const copyDirs = (buildOpts.copy ?? []).map(dir => resolve(dir))
+
+  return {
+    ...buildOpts,
+    copy: copyDirs,
+    ignore: [
+      ...DEFAULT_IGNORES,
+      basename(dest),
+      ...copyDirs.map(dir => basename(dir)),
+      ...makeArray(buildOpts.ignore),
+    ],
+  }
+}
+
+/**
  * Log a rebuild tree showing what triggered a rebuild and what will be rebuilt.
  * @param {string} trigger - The changed file (display name)
+ * @param {PinoLogger} logger
  * @param {Set<PageInfo>} [pages]
  * @param {Set<TemplateInfo>} [templates]
  */
-function logRebuildTree (trigger, pages, templates) {
+function logRebuildTree (trigger, logger, pages, templates) {
   const lines = [`"${trigger}" changed:`]
   for (const p of pages ?? []) {
     lines.push(`  → ${p.outputRelname}`)
@@ -730,63 +750,61 @@ function logRebuildTree (trigger, pages, templates) {
   for (const t of templates ?? []) {
     lines.push(`  → ${t.outputName} (template)`)
   }
-  console.log(lines.join('\n'))
+  logger.info(lines.join('\n'))
 }
 
 /**
  * An error logger
  * @param  {Error | AggregateError | any } err The error to log
+ * @param {PinoLogger} logger
  */
-function errorLogger (err) {
+function errorLogger (err, logger) {
   if (!(err instanceof Error || err instanceof AggregateError)) throw new Error('Non-error thrown', { cause: err })
   if ('results' in err) delete err.results
-  console.error(inspect(err, { depth: 999, colors: true }))
-
-  console.log('\nBuild Failed!\n\n')
-  console.error(err)
+  logger.error(inspect(err, { depth: 999, colors: true }))
+  logger.error('\nBuild Failed!\n\n')
 }
 
 /**
  * Log build results.
  * @param  {Partial<Results> | WorkerBuildStepResult} results
+ * @param {PinoLogger} logger
  * @param  {string} [dest] - dest path for relativizing output paths in filtered builds
  */
-function buildLogger (results, dest) {
+function buildLogger (results, logger, dest) {
   if ((results?.warnings?.length ?? 0) > 0) {
-    console.log(
-      '\nThere were build warnings:\n'
-    )
+    logger.warn('\nThere were build warnings:\n')
   }
   for (const warning of results?.warnings ?? []) {
     if ('message' in warning) {
-      console.log(`  ${warning.message}`)
+      logger.warn(`  ${warning.message}`)
     } else {
-      console.warn(warning)
+      logger.warn(inspect(warning, { depth: 999, colors: true }))
     }
   }
 
   if ('siteData' in results && results.siteData) {
     // Full build: show site totals
     const layoutCount = Object.keys(results.siteData.layouts).length
-    console.log(`Pages: ${results.siteData.pages.length} Layouts: ${layoutCount} Templates: ${results.siteData.templates.length}`)
+    logger.info(`Pages: ${results.siteData.pages.length} Layouts: ${layoutCount} Templates: ${results.siteData.templates.length}`)
     const report = results.pageBuildResults?.report
     if (report) {
-      console.log(`Pages built: ${report.pages.length} Templates built: ${report.templates.length}`)
+      logger.info(`Pages built: ${report.pages.length} Templates built: ${report.templates.length}`)
     }
   } else if ('report' in results && results.report) {
     // Filtered build: show what was actually built
     const report = results.report
     if (dest) {
       for (const p of report.pages) {
-        console.log(`  Built ${relative(dest, p.pageFilePath)}`)
+        logger.info(`  Built ${relative(dest, p.pageFilePath)}`)
       }
       for (const t of report.templates) {
-        for (const output of t.outputs ?? []) {
-          console.log(`  Built ${output}`)
+        for (const outputFile of t.outputs ?? []) {
+          logger.info(`  Built ${outputFile}`)
         }
       }
     }
-    console.log(`Pages built: ${report.pages.length} Templates built: ${report.templates.length}`)
+    logger.info(`Pages built: ${report.pages.length} Templates built: ${report.templates.length}`)
   }
-  console.log('\nBuild Success!\n\n')
+  logger.info('\nBuild Success!\n\n')
 }

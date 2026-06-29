@@ -8,10 +8,11 @@ Then apply the v12 changes below.
 ## Table of Contents
 
 1. [Type exports moved to `@domstack/static/types.js`](#1-type-exports-moved-to-domstackstatictypesjs)
-2. [Default Layout Uses fragtml](#2-default-layout-uses-fragtml)
-3. [Keep Layout Dependencies Explicit](#3-keep-layout-dependencies-explicit)
-4. [JSX Runtime Is Opt-In](#4-jsx-runtime-is-opt-in)
-5. [Migration Checklist](#5-migration-checklist)
+2. [Development Server Uses @domstack/sync](#2-development-server-uses-domstacksync)
+3. [Default Layout Uses fragtml](#3-default-layout-uses-fragtml)
+4. [Keep Layout Dependencies Explicit](#4-keep-layout-dependencies-explicit)
+5. [JSX Runtime Is Opt-In](#5-jsx-runtime-is-opt-in)
+6. [Migration Checklist](#6-migration-checklist)
 
 ---
 
@@ -30,7 +31,16 @@ import type { LayoutFunction, PageFunction, DomStackOpts } from '@domstack/stati
 
 ---
 
-## 2. Default Layout Uses fragtml
+## 2. Development Server Uses @domstack/sync
+
+Watch/serve mode now uses [`@domstack/sync`](https://www.npmjs.com/package/@domstack/sync) for the local development server.
+
+This provides live reload, CSS injection, ghost mode, and the UI panel.
+If you were relying on BrowserSync-specific behavior or output, update your expectations around logs, access URLs, and reload handling.
+
+---
+
+## 3. Default Layout Uses fragtml
 
 The bundled default `root.layout.js` now uses [`fragtml`](https://github.com/bcomnes/fragtml#readme) for server-side HTML rendering.
 
@@ -62,7 +72,7 @@ Markdown output passed to a layout as `children` is one example.
 
 ---
 
-## 3. Keep Layout Dependencies Explicit
+## 4. Keep Layout Dependencies Explicit
 
 DOMStack only installs dependencies for its bundled defaults.
 Your project is responsible for any packages imported by pages, layouts, globals, or browser clients.
@@ -72,7 +82,7 @@ If you migrate those server-side templates to `fragtml`, replace those dependenc
 
 ---
 
-## 4. JSX Runtime Is Opt-In
+## 5. JSX Runtime Is Opt-In
 
 Client `.jsx` and `.tsx` bundles are still supported through esbuild.
 Domstack no longer configures Preact as the default JSX runtime.
@@ -113,9 +123,10 @@ export default async function esbuildSettingsOverride (esbuildSettings) {
 
 ---
 
-## 5. Migration Checklist
+## 6. Migration Checklist
 
 - [ ] If you import public types from `@domstack/static`, update those imports to `@domstack/static/types.js`.
+- [ ] If you rely on BrowserSync-specific dev-server behavior, test watch mode with `@domstack/sync`.
 - [ ] If you rely on the bundled default layout, make sure pages and child layouts return HTML strings or `fragtml` template results, not Preact or HTM VNodes.
 - [ ] If you want to keep the v11 Preact default layout, eject on v11 before upgrading to v12.
 - [ ] If your ejected layout or server-side pages still import `htm/preact`, `preact`, or `preact-render-to-string`, keep those dependencies in your own `package.json`.
