@@ -41,9 +41,15 @@ Usage: domstack [options]
     --dest, -d            path to build destination directory (default: "public")
     --ignore, -i          comma separated gitignore style ignore string
     --drafts              Build draft pages with the `.draft.{md,js,ts,html}` page suffix.
+    --target, -t          comma separated esbuild targets, e.g. es2022,chrome120; see https://esbuild.github.io/api/#target
+    --noEsbuildMeta       skip writing the esbuild metafile to disk
+    --customDomstackManifestName
+                          custom domstack manifest filename (default: domstack-manifest.json)
+    --noDomstackManifest    disable writing the domstack manifest to disk
     --eject, -e           eject the DOMStack default layout, style and client into the src flag directory
     --watch, -w           build, watch and serve the site build
     --watch-only          watch and build the src folder without serving
+    --serve               build once and serve the destination directory without watching
     --copy                path to directories to copy into dist; can be used multiple times
     --help, -h            show help
     --version, -v         show version information
@@ -55,6 +61,8 @@ domstack (v12.0.0)
 
 - Running `domstack` will result in a `build` by default.
 - Running `domstack --watch` or `domstack -w` will build the site and start an auto-reloading development web-server that watches for changes (provided by [`@domstack/sync`][domstack-sync]).
+- Running `domstack --serve` will run a normal one-shot build and then serve the destination directory without watching. This is useful for PWA testing because it writes `domstack-manifest.json`.
+- Running `domstack --target=es2022,chrome120` or `domstack -t es2022,chrome120` forwards the comma-separated target list to esbuild. See [esbuild's target docs](https://esbuild.github.io/api/#target) for accepted values such as `es2020`, `es2022`, `chrome120`, `firefox121`, `safari17`, and `node22`.
 - Running `domstack --eject` or `domstack -e` will extract the default layout, global styles, and client-side JavaScript into your source directory and add the necessary dependencies to your package.json.
 
 `domstack` is primarily a unix `bin` written for the [Node.js](https://nodejs.org) runtime that is intended to be installed from `npm` as a `devDependency` inside a `package.json` committed to a `git` repository.
@@ -133,7 +141,9 @@ src % tree
 │        ├── global.vars.ts # site wide variables get defined in global.vars.ts
 │        ├── global.data.ts # optional file to derive and aggregate data from all pages before rendering
 │        ├── markdown-it.settings.ts # You can customize the markdown-it instance used to render markdown
-│        └── esbuild.settings.ts # You can even customize the build settings passed to esbuild
+│        ├── domstack-manifest.settings.ts # You can customize the domstack manifest
+│        ├── esbuild.settings.ts # You can even customize the build settings passed to esbuild
+│        └── service-worker.ts # a site service worker builds to /service-worker.js.
 ├── page.md # The top level page can also be a page.md (or README.md) file.
 ├── client.ts # the top level page can define a page scoped js client.
 ├── style.css # the top level page can define a page scoped css style.
@@ -147,6 +157,10 @@ It ships with sane defaults so that you can point `domstack` at a standard [mark
 ## Examples
 
 A collection of examples can be found in the [`./examples`](./examples) folder.
+
+Notable examples:
+
+- [`examples/pwa`](./examples/pwa) - A static PWA with a site service worker, domstack manifest filtering, update prompts, offline fallback, and cache recovery behavior.
 
 To run examples:
 
@@ -1069,6 +1083,223 @@ await pMap(allPosts, async (page) => {
 const html = renderCache.get(page.pageInfo.path) ?? ''
 ```
 
+## Domstack Manifest
+
+> [!WARNING]
+> The domstack manifest, `domstack-manifest.settings.*`, first-class `service-worker.*` entries, and related browser `process.env.DOMSTACK_*` defines are an unstable preview feature.
+> Their names, option shapes, manifest schema, generated output, and runtime semantics may change outside of a major version while the API is validated with real PWA use cases.
+> Avoid depending on this preview contract for long-lived integrations without pinning `@domstack/static` to an exact version.
+
+Every programmatic build returns a `domstackManifest` object in the build results. The CLI also writes
+`domstack-manifest.json` into the destination directory by default.
+
+The manifest is a normalized list of files that domstack emitted:
+
+```js
+/**
+ * @import { FromSchema } from 'json-schema-to-ts'
+ */
+import { DOMSTACK_MANIFEST_SCHEMA_ID, domstackManifestSchema } from '@domstack/static'
+
+/**
+ * @typedef {FromSchema<typeof domstackManifestSchema>} DomstackManifest
+ */
+```
+
+Equivalent shape:
+
+```ts
+type DomstackManifestShape = {
+  $schema: typeof DOMSTACK_MANIFEST_SCHEMA_ID
+  version: string
+  generatedAt: string
+  entries: DomstackManifestEntry[]
+}
+
+type DomstackManifestEntry = {
+  url: string
+  outputRelname: string
+  kind: 'page' | 'template' | 'script' | 'style' | 'chunk' |
+    'service-worker' | 'worker' | 'worker-manifest' | 'static' |
+    'copy' | 'sourcemap' | 'metadata'
+  revision: string | null
+  bytes: number | null
+  sourceRelname?: string
+  entryPoint?: string
+  pagePath?: string
+  pageUrl?: string
+  templatePath?: string
+  page?: {
+    path: string
+    url: string
+    vars?: {
+      precache?: unknown
+      offline?: unknown
+    }
+  }
+}
+```
+
+domstack exports `DOMSTACK_MANIFEST_SCHEMA_ID`, `DOMSTACK_MANIFEST_SCHEMA_PATH`,
+`getDomstackManifestSchemaId(version)`, `domstackManifestSchema`, `domstackManifestEntrySchema`,
+`domstackManifestEntryPageMetaSchema`, and `domstackManifestKindSchema` for tools that want the JSON Schema
+contract directly. The public `DomstackManifest`, `DomstackManifestEntry`, `DomstackManifestEntryPageMeta`,
+and `DomstackManifestKind` types are derived from those schemas.
+
+`version` is a sha256 hash of each sorted entry's cache-relevant fields: `url`, `revision`, `kind`,
+and page-level `precache` / `offline` vars. It intentionally does not depend on `generatedAt` or
+source metadata such as `sourceRelname`, so identical cache inputs keep the same version.
+
+The written manifest can be configured from the CLI:
+
+```console
+domstack --customDomstackManifestName custom-domstack-manifest.json
+domstack --noDomstackManifest
+```
+
+Or from the programmatic API:
+
+```js
+const site = new DomStack('src', 'public', {
+  domstackManifest: {
+    filename: 'custom-domstack-manifest.json',
+    exclude: ['blog/**', '**/*.map'],
+  },
+})
+
+const results = await site.build()
+```
+
+`domstackManifest: false` disables writing the JSON file, but `results.domstackManifest` is still returned.
+The manifest file itself is never included in its own `entries`.
+
+You can also add a `domstack-manifest.settings.js` file anywhere under `src`:
+
+```js
+export default {
+  exclude: ['admin/**'],
+  includeEntry (entry) {
+    return entry.kind !== 'sourcemap' && entry.kind !== 'metadata'
+  },
+}
+```
+
+`domstack-manifest.settings.*` supports `.js`, `.mjs`, `.cjs`, `.ts`, `.mts`, and `.cts` when Node's
+TypeScript support is available. It can default export an object or a sync/async function that
+returns an object:
+
+```js
+export default async function domstackManifestSettings () {
+  return {
+    exclude: process.env.INCLUDE_BLOG_OFFLINE === '1'
+      ? ['**/*.map']
+      : ['blog/**', '**/*.map'],
+  }
+}
+```
+
+`domstackManifest.exclude` from CLI/programmatic options and `domstack-manifest.settings.*` `exclude` values
+are combined. Exclude patterns are ignore-style patterns checked against both `entry.url` and
+`entry.outputRelname`; excludes run before `includeEntry(entry)`. The `includeEntry(entry)` hook
+receives the public manifest entry shape, not local filesystem paths.
+
+domstack records page-level `precache` and `offline` vars on page entries when present. It does not
+automatically apply those flags; service workers and deployment tools can use them when filtering.
+
+### Service workers
+
+Put one site service worker source file anywhere under `src` and domstack will build it to a stable
+root `/service-worker.js` output:
+
+```txt
+src/
+  globals/
+    service-worker.js
+```
+
+When Node's TypeScript support is available, the same convention also supports
+`service-worker.ts`, `service-worker.mts`, and `service-worker.cts`. JavaScript projects can use
+`service-worker.js`, `service-worker.mjs`, or `service-worker.cjs`.
+
+Only one site service worker source is allowed. If multiple `service-worker.*` sources are present,
+domstack fails with `DOM_STACK_ERROR_DUPLICATE_SERVICE_WORKER`. Service workers are bundled by
+esbuild, so imports work the same way they do for client bundles and page-scoped web workers. The
+entry filename is intentionally not content-hashed because browser service-worker update checks need
+a stable URL.
+
+Service workers do not need build-time access to the manifest. Domstack provides build facts to
+browser-side bundles through esbuild `define` values:
+
+| Define | Value |
+| --- | --- |
+| `process.env.DOMSTACK_MANIFEST_URL` | Public URL of the written domstack manifest, usually `/domstack-manifest.json` |
+| `process.env.DOMSTACK_MANIFEST_ENABLED` | `"true"` for one-shot builds that write the manifest, `"false"` when disabled or in watch mode |
+| `process.env.DOMSTACK_SERVICE_WORKER_URL` | Public URL of the site service worker, usually `/service-worker.js`, or `""` when no service worker is present |
+| `process.env.DOMSTACK_SERVICE_WORKER_SCOPE` | Registration scope for the site service worker, usually `/`, or `""` when no service worker is present |
+
+The built worker can fetch the domstack manifest during installation:
+
+```js
+const DOMSTACK_MANIFEST_URL = process.env.DOMSTACK_MANIFEST_URL
+const CACHE_PREFIX = 'domstack-precache-'
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(precache())
+})
+
+self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET') return
+  event.respondWith(cacheFirst(event.request))
+})
+
+async function precache () {
+  if (process.env.DOMSTACK_MANIFEST_ENABLED !== 'true') return
+
+  const response = await fetch(DOMSTACK_MANIFEST_URL, { cache: 'no-store' })
+  const manifest = await response.json()
+  const cache = await caches.open(CACHE_PREFIX + manifest.version)
+  const urls = manifest.entries
+    .filter(entry => entry.revision)
+    .filter(entry => entry.kind !== 'sourcemap')
+    .filter(entry => entry.kind !== 'metadata')
+    .map(entry => entry.url)
+
+  await cache.addAll(urls)
+}
+
+async function cacheFirst (request) {
+  const cached = await caches.match(request)
+  return cached || fetch(request)
+}
+```
+
+Register the built service worker from your site client code, usually `global.client.js`:
+
+```js
+const serviceWorkerUrl = process.env.DOMSTACK_SERVICE_WORKER_URL
+const serviceWorkerScope = process.env.DOMSTACK_SERVICE_WORKER_SCOPE
+
+if (serviceWorkerUrl && serviceWorkerScope && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.register(serviceWorkerUrl, { scope: serviceWorkerScope })
+}
+```
+
+domstack does not inject this into the default layout. Registration timing, update prompts,
+development opt-outs, and recovery behavior are application policy, so keep that logic in your
+global client or an imported client module.
+
+This keeps domstack's build pipeline to one page/template pass and one manifest reconciliation. Use
+`domstack-manifest.settings.*` `exclude` or `includeEntry(entry)` to keep entries such as source maps, admin
+routes, or blog pages out of the written manifest before the service worker sees it.
+
+Watch mode builds and rebundles site service-worker entries, but it does not write
+`domstack-manifest.json` or return `results.domstackManifest`. Use one-shot builds when testing
+service-worker and PWA cache behavior.
+
+Domstack does not clean the destination directory before a build. During this preview, run clean
+builds for service-worker lifecycle testing and deployments so removed or renamed preview outputs
+(such as `/service-worker.js` or a custom manifest filename) cannot remain as stale files.
+
 ## Global Assets
 
 There are a few important (and optional) global assets that live anywhere in the `src` directory. If duplicate named files that match the global asset file name pattern are found, a build error will occur until the duplicate file error is resolved.
@@ -1097,6 +1328,9 @@ export const browser = {
 ```
 
 The exported object is passed to esbuild's [`define`](https://esbuild.github.io/api/#define) options and is available to every js bundle.
+Domstack also reserves `process.env.DOMSTACK_MANIFEST_URL`,
+`process.env.DOMSTACK_MANIFEST_ENABLED`, `process.env.DOMSTACK_SERVICE_WORKER_URL`, and
+`process.env.DOMSTACK_SERVICE_WORKER_SCOPE` for generated build facts.
 
 > [!WARNING]
 > Setting `define` in [`esbuild.settings.ts`](#esbuild-settingsts) while also using the `browser` export will throw an error. Use one or the other.
@@ -1179,6 +1413,44 @@ Use `GlobalDataFunction<T>` or `AsyncGlobalDataFunction<T>` to type the function
 **Raw markdown source is not exposed as `page.vars.content` by default.** For markdown pages, `page.vars` contains front matter-derived values such as `title`, but does not automatically include the raw markdown body as `content`. If you need the raw markdown body, call `await page.readMarkdownContent()`. For rendered output, see [Accessing rendered page content](#accessing-rendered-page-content).
 
 **`renderInnerPage()` is available.** `global.data.js` runs after page initialization has been attempted, and receives `PageData` instances (some may be uninitialized if they failed to initialize), so you can call `renderInnerPage()` here with the same care described above for `page.vars` and other page-dependent access. For examples and performance guidance, see [Accessing rendered page content](#accessing-rendered-page-content).
+
+### `domstack-manifest.settings.ts`
+
+This is an optional file you can create anywhere.
+It should export a default object or a default sync/async function that returns an object.
+Use this to filter the domstack manifest before domstack writes `domstack-manifest.json`
+or returns `results.domstackManifest`.
+
+```js
+/**
+ * @import { DomstackManifestEntry } from '@domstack/static'
+ */
+
+export default {
+  exclude: [
+    'admin/**',
+    '**/*.map',
+  ],
+  includeEntry,
+}
+
+/**
+ * @param {DomstackManifestEntry} entry
+ */
+function includeEntry (entry) {
+  return entry.kind !== 'metadata'
+}
+```
+
+The supported settings are:
+
+- `exclude` - ignore-style patterns matched against `entry.url` and `entry.outputRelname`.
+- `includeEntry(entry)` - a sync or async function that receives a public `DomstackManifestEntry` and returns `true` to keep it.
+
+The `domstackManifest.exclude` option and `domstack-manifest.settings.*` `exclude` values are combined.
+Excludes run before `includeEntry(entry)`.
+Watch mode builds and rebundles service workers, but it does not write or return the domstack manifest,
+so `domstack-manifest.settings.*` is only applied during one-shot builds.
 
 ### `esbuild.settings.ts`
 
@@ -1643,7 +1915,7 @@ The following diagram illustrates the DomStack build process:
 │                 │ │                 │ │                 │
 │ • Bundle JS/CSS │ │ • Copy static   │ │ • Copy extra    │
 │ • Generate      │ │   files         │ │   directories   │
-│   metafile      │ │ (if enabled)    │ │   from opts     │
+│   records       │ │ • Record files  │ │ • Record files  │
 └────────┬────────┘ └────────┬────────┘ └────────┬────────┘
          │                   │                   │
          └───────────────────┼───────────────────┘
@@ -1656,6 +1928,13 @@ The following diagram illustrates the DomStack build process:
                     │ • Process MD     │
                     │ • Process JS     │
                     │ • Apply layouts  │
+                    │ • Record outputs │
+                    └────────┬─────────┘
+                             │
+                             ▼
+                    ┌──────────────────┐
+                    │ Reconcile        │
+                    │ Output Manifest  │
                     └────────┬─────────┘
                              │
                              ▼
@@ -1667,6 +1946,7 @@ The following diagram illustrates the DomStack build process:
                     │ • staticResults  │
                     │ • copyResults    │
                     │ • pageResults    │
+                    │ • domstackManifest │
                     │ • warnings       │
                     └──────────────────┘
 ```
@@ -1675,11 +1955,13 @@ The build process follows these key steps:
 
 1. **Page identification** - Scans the source directory to identify all pages, layouts, templates, and global assets
 2. **Destination preparation** - Ensures the destination directory is ready for the build output
-3. **Parallel asset processing** - Three operations run concurrently:
+3. **Parallel asset processing** - Three operations run concurrently and record their outputs:
    - JavaScript and CSS bundling via esbuild
    - Static file copying (when enabled)
    - Additional directory copying (from `--copy` options)
-4. **Page building** - Processes all pages, applying layouts and generating final HTML
+4. **Page building** - Processes pages and normal templates, applying layouts and recording outputs
+5. **Manifest reconciliation** - Normalizes recorded outputs, hashes file contents, filters entries, and computes a stable manifest version
+6. **Return results** - Writes the manifest when enabled and returns all build results
 
 This architecture allows for efficient parallel processing of independent tasks while maintaining the correct build order dependencies.
 
@@ -1758,6 +2040,10 @@ When you run `domstack --watch` (or `domstack -w`), domstack performs an initial
 
 **chokidar watch** — Page files, layouts, templates, and config files are watched by chokidar. When a file changes, domstack determines the minimal set of pages to rebuild using dependency tracking maps built at startup.
 
+Domstack manifests are build-only artifacts. Watch mode builds and rebundles site service-worker
+entries, but it does not write `domstack-manifest.json` or return `results.domstackManifest`.
+Use `domstack --serve` when testing PWA cache lifecycle behavior locally: it runs a normal manifest-enabled build and serves the result without watch-mode filenames.
+
 #### What triggers what
 
 | Change | Rebuild scope |
@@ -1771,7 +2057,8 @@ When you run `domstack --watch` (or `domstack -w`), domstack performs an initial
 | `markdown-it.settings.*` | All `.md` pages |
 | `global.data.*` | All pages and templates |
 | `global.vars.*` or `esbuild.settings.*` | Full rebuild (esbuild restart + all pages) |
-| `client.js`, `style.css`, `*.layout.css`, `*.layout.client.*`, `global.client.*`, `global.css`, `*.worker.*` | esbuild handles it — no page rebuild |
+| `domstack-manifest.settings.*` | No rebuild in watch mode; domstack manifests are only generated in one-shot builds |
+| `client.js`, `style.css`, `*.layout.css`, `*.layout.client.*`, `global.client.*`, `global.css`, `*.worker.*`, `service-worker.*` | esbuild handles it — no page rebuild |
 | Adding or removing an esbuild entry point (e.g. creating a new `client.js`) | esbuild restart + only the affected page(s) |
 | Adding or removing any other file | Full rebuild |
 
