@@ -65,7 +65,7 @@
   "devDependencies": {
     "@types/markdown-it": "^14.1.1",
     "@types/markdown-it-footnote": "^3.0.4",
-    "@types/node": "^25.3.0",
+    "@types/node": "^26.0.1",
     "@types/pretty": "^2.0.3",
     "@voxpelli/tsconfig": "^16.0.0",
     "cheerio": "^1.0.0-rc.10",
