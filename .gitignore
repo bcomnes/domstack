@@ -1,4 +1,8 @@
-.claude
+.claude/*
+!.claude/
+!.claude/hooks/
+!.claude/hooks/worktree-hook.sh
+!.claude/settings.json
 node_modules
 sandbox.js
 .nyc_output

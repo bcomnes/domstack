@@ -1,0 +1,7 @@
+version = 1
+name = "Domstack"
+
+[setup]
+script = '''
+sh .codex/setup-worktree.sh
+'''

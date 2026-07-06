@@ -1,0 +1,19 @@
+{
+  "env": {
+    "CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR": "1"
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/worktree-hook.sh",
+            "timeout": 600,
+            "statusMessage": "Bootstrapping worktree..."
+          }
+        ]
+      }
+    ]
+  }
+}
