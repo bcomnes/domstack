@@ -1,0 +1,8 @@
+.page-client-note {
+  background: color-mix(in srgb, var(--page-accent, currentColor) 8%, transparent);
+}
+
+main h1 {
+  border-block-end: 0.125rem solid color-mix(in srgb, var(--page-accent, currentColor) 35%, transparent);
+  padding-block-end: 0.25rem;
+}

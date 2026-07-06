@@ -1,6 +1,6 @@
-import { html } from 'htm/preact';
-import { render } from 'preact-render-to-string';
-import type { VNode } from 'preact';
+import { html } from 'htm/preact'
+import { render } from 'preact-render-to-string'
+import type { VNode } from 'preact'
 
 /**
  * Page variables that can be passed to the layout
@@ -27,12 +27,12 @@ export interface LayoutProps<T> {
 /**
  * Type definition for layout functions
  */
-export type LayoutFunction<T> = (props: LayoutProps<T>) => string;
+export type LayoutFunction<T> = (props: LayoutProps<T>) => string
 
 /**
  * Build all of the bundles using esbuild.
  */
-export default function defaultRootLayout({
+export default function defaultRootLayout ({
   vars: {
     title,
     siteName = 'Domstack',
@@ -70,5 +70,5 @@ export default function defaultRootLayout({
         </body>
       `)}
     </html>
-  `;
+  `
 }

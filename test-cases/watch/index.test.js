@@ -89,21 +89,27 @@ test.describe('watch', () => {
     const results = await domStack.watch({ serve: false })
     assert.ok(results, 'watch() returned initial build results')
     assert.ok(results.siteData, 'results include siteData')
+    assert.equal(results.domstackManifest, undefined, 'watch mode does not return a domstack manifest')
 
     const jsPageIndex = path.join(dest, 'js-page/index.html')
     const st = await stat(jsPageIndex)
     assert.ok(st.isFile(), 'js-page/index.html was built')
+    await assert.rejects(
+      () => stat(path.join(dest, 'domstack-manifest.json')),
+      'watch mode does not write a domstack manifest'
+    )
+    const serviceWorkerStat = await stat(path.join(dest, 'service-worker.js'))
+    assert.ok(serviceWorkerStat.isFile(), 'watch mode builds site service-worker entries')
+    const serviceWorkerContent = await readFile(path.join(dest, 'service-worker.js'), 'utf8')
+    assert.ok(!serviceWorkerContent.includes('process.env.DOMSTACK_MANIFEST_ENABLED'), 'watch service worker receives the domstack manifest enabled define')
+    assert.ok(serviceWorkerContent.includes('"false"'), 'watch service worker knows the domstack manifest is disabled')
 
-    // ── Chunks have hashed names in watch mode ───────────────────────
-    // html-page/client.js, js-page/client.js, and md-page/client.js all import
-    // client-helper.js, so esbuild splits it into a shared chunk. The chunk must
-    // have a hash in its name even in watch mode to avoid output path collisions.
-    const chunkFiles = await readdir(path.join(dest, 'chunks', 'js'))
-    const jsChunks = chunkFiles.filter(f => f.endsWith('.js'))
-    assert.ok(jsChunks.length > 0, 'at least one shared JS chunk was produced')
+    // ── Watch keeps browser splitting but keeps the service worker self-contained ──
+    const jsChunks = await readdir(path.join(dest, 'chunks', 'js'))
+    assert.ok(jsChunks.length > 0, 'watch mode preserves shared browser JS chunks')
     assert.ok(
-      jsChunks.every(f => /chunk-.+\.js$/.test(f)),
-      `all chunk filenames must include a hash (got: ${jsChunks.join(', ')})`
+      !/import\s.+from\s+['"].*chunks\//.test(serviceWorkerContent),
+      'watch service worker does not import shared chunks'
     )
 
     // ── Page file change → only that page rebuilds ───────────────────
@@ -175,6 +181,28 @@ test.describe('watch', () => {
       assert.ok(
         logs.some(l => l.includes('esbuild will handle rebundling')),
         'log confirms esbuild handles the change'
+      )
+      assert.ok(
+        !logs.some(l => l.includes('Pages built')),
+        'no page rebuild was triggered'
+      )
+    })
+
+    // ── service worker change → esbuild rebuilds, no page rebuild ───
+    await t.test('service worker change does not rebuild pages', async () => {
+      mockLog.mock.resetCalls()
+      loggerLogs.length = 0
+
+      const serviceWorkerFile = path.join(src, 'globals/service-worker.mts')
+      const original = await readFile(serviceWorkerFile, 'utf8')
+      await writeFile(serviceWorkerFile, original + '\n// touch')
+
+      await settle(domStack)
+
+      const logs = getLogLines(mockLog, loggerLogs)
+      assert.ok(
+        logs.some(l => l.includes('esbuild will handle rebundling')),
+        'domstack lets esbuild rebundle the service worker'
       )
       assert.ok(
         !logs.some(l => l.includes('Pages built')),

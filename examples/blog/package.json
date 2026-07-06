@@ -1,5 +1,5 @@
 {
-  "name": "blog",
+  "name": "@domstack/blog-example",
   "version": "0.0.0",
   "description": "A blog example for domstack demonstrating global.data.ts, nested layouts, and feeds.",
   "type": "module",
@@ -14,12 +14,15 @@
   "author": "Bret Comnes <bcomnes@gmail.com> (https://bret.io/)",
   "license": "MIT",
   "devDependencies": {
-    "@voxpelli/tsconfig": "^16.0.0",
-    "typescript": "~5.9.2"
+    "@voxpelli/tsconfig": "^16.2.1",
+    "typescript": "~6.0.3"
   },
   "dependencies": {
     "@domstack/static": "file:../../.",
     "fragtml": "^0.0.9",
-    "mine.css": "^10.0.0"
+    "mine.css": "^10.0.3"
+  },
+  "engines": {
+    "node": "^22.0.0 || >=24.0.0"
   }
 }

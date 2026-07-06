@@ -9,14 +9,21 @@
     "clean": "rm -rf public && mkdir -p public",
     "watch": "npm run clean && dom --watch"
   },
-  "keywords": ["domstack", "web-workers", "static-site-generator"],
+  "keywords": [
+    "domstack",
+    "web-workers",
+    "static-site-generator"
+  ],
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "mine.css": "^9.0.1",
+    "mine.css": "^10.0.3",
     "@domstack/static": "file:../../."
   },
   "devDependencies": {
-    "npm-run-all2": "^6.0.0"
+    "npm-run-all2": "^9.0.2"
+  },
+  "engines": {
+    "node": "^22.0.0 || >=24.0.0"
   }
 }

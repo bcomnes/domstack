@@ -1,0 +1,30 @@
+{
+  "name": "@domstack/static-mpa-offline-example",
+  "version": "0.0.0",
+  "description": "Static MPA offline service worker example for domstack",
+  "type": "module",
+  "imports": {
+    "#service-worker-settings": "./src/globals/service-worker/service-worker-settings.ts"
+  },
+  "scripts": {
+    "start": "npm run serve",
+    "build": "npm run clean && domstack",
+    "clean": "rm -rf public && mkdir -p public",
+    "serve": "npm run clean && domstack --serve",
+    "watch": "npm run clean && domstack --watch"
+  },
+  "keywords": [
+    "domstack",
+    "service-worker",
+    "offline",
+    "pwa"
+  ],
+  "author": "Bret Comnes <bcomnes@gmail.com> (https://bret.io/)",
+  "license": "MIT",
+  "dependencies": {
+    "@domstack/static": "file:../../."
+  },
+  "engines": {
+    "node": "^22.0.0 || >=24.0.0"
+  }
+}

@@ -45,8 +45,8 @@ const Button = ({ onClick, variant, children, disabled = false }: ButtonProps) =
 
 // User card component with TypeScript props
 const UserCard = ({ id, name, email, role = 'User' }: UserCardProps) => (
-  <div className="border rounded p-4 mb-2 shadow hover:shadow-md transition-shadow">
-    <h3 className="font-bold">{name}</h3>
+  <div className='border rounded p-4 mb-2 shadow hover:shadow-md transition-shadow'>
+    <h3 className='font-bold'>{name}</h3>
     <p>ID: {id}</p>
     <p>Email: {email}</p>
     <p>Role: {role}</p>
@@ -92,26 +92,26 @@ export const Page = () => {
   }, [count])
 
   return (
-    <div className="p-4 max-w-md mx-auto">
-      <h1 className="text-2xl font-bold mb-4">TypeScript JSX Example</h1>
+    <div className='p-4 max-w-md mx-auto'>
+      <h1 className='text-2xl font-bold mb-4'>TypeScript JSX Example</h1>
 
-      <div className="mb-6">
-        <p className="mb-2">Counter: {count}</p>
-        <Button onClick={incrementCounter} variant="primary">
+      <div className='mb-6'>
+        <p className='mb-2'>Counter: {count}</p>
+        <Button onClick={incrementCounter} variant='primary'>
           Increment
         </Button>
       </div>
 
-      <div className="mb-6">
-        <h2 className="text-xl font-bold mb-2">Users</h2>
+      <div className='mb-6'>
+        <h2 className='text-xl font-bold mb-2'>Users</h2>
         {users.map(user => (
           <UserCard key={user.id} {...user} />
         ))}
 
-        <div className="mt-4">
+        <div className='mt-4'>
           <Button
             onClick={addUser}
-            variant="secondary"
+            variant='secondary'
             disabled={isLoading}
           >
             {isLoading ? 'Adding...' : 'Add Random User'}
@@ -119,7 +119,7 @@ export const Page = () => {
         </div>
       </div>
 
-      <Button onClick={() => setUsers([])} variant="danger">
+      <Button onClick={() => setUsers([])} variant='danger'>
         Clear All Users
       </Button>
     </div>

@@ -1,5 +1,5 @@
 {
-  "name": "markdown-settings-example",
+  "name": "@domstack/markdown-settings-example",
   "version": "1.0.0",
   "description": "Example demonstrating markdown-it.settings.js usage",
   "type": "module",
@@ -14,5 +14,8 @@
     "markdown-it-container": "^4.0.0",
     "markdown-it-admonition": "1.0.4",
     "highlight.js": "^11.9.0"
+  },
+  "engines": {
+    "node": "^22.0.0 || >=24.0.0"
   }
 }

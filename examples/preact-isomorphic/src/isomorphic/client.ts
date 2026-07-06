@@ -7,11 +7,11 @@
  *
  * It uses the same component code for both environments.
  */
-import { html, Component } from 'htm/preact';
-import { render } from 'preact';
-import { useCallback } from 'preact/hooks';
-import { useSignal, useComputed } from '@preact/signals';
-import type { ComponentChildren, JSX } from 'preact';
+import { html, Component } from 'htm/preact'
+import { render } from 'preact'
+import { useCallback } from 'preact/hooks'
+import { useSignal, useComputed } from '@preact/signals'
+import type { JSX } from 'preact'
 
 /**
  * Header component props
@@ -30,7 +30,7 @@ const Header = ({ name, subtitle }: HeaderProps): JSX.Element => html`
     <h1>${name}</h1>
     ${subtitle && html`<p class="subtitle">${subtitle}</p>`}
   </header>
-`;
+`
 
 /**
  * Todo item props
@@ -58,7 +58,7 @@ const TodoItem = ({ text, completed, onToggle, onDelete }: TodoItemProps): JSX.E
     </label>
     <button class="delete-btn" onClick=${onDelete}>Delete</button>
   </li>
-`;
+`
 
 /**
  * Counter Component using Signals
@@ -66,16 +66,16 @@ const TodoItem = ({ text, completed, onToggle, onDelete }: TodoItemProps): JSX.E
  */
 const Counter = (): JSX.Element => {
   // Create a signal for the count value
-  const count = useSignal(0);
+  const count = useSignal(0)
 
   // Derived state that automatically updates when count changes
-  const doubled = useComputed(() => count.value * 2);
-  const isEven = useComputed(() => count.value % 2 === 0);
+  const doubled = useComputed(() => count.value * 2)
+  const isEven = useComputed(() => count.value % 2 === 0)
 
   // Event handlers
-  const increment = useCallback(() => { count.value++; }, []);
-  const decrement = useCallback(() => { count.value > 0 && count.value--; }, []);
-  const reset = useCallback(() => { count.value = 0; }, []);
+  const increment = useCallback(() => { count.value++ }, [])
+  const decrement = useCallback(() => { count.value > 0 && count.value-- }, [])
+  const reset = useCallback(() => { count.value = 0 }, [])
 
   return html`
     <div class="counter-widget">
@@ -90,8 +90,8 @@ const Counter = (): JSX.Element => {
         <button onClick=${increment}>+</button>
       </div>
     </div>
-  `;
-};
+  `
+}
 
 /**
  * Todo item structure
@@ -122,8 +122,8 @@ interface TodoAppState {
  * Manages a list of todos with add/toggle/delete functionality
  */
 class TodoApp extends Component<TodoAppProps, TodoAppState> {
-  constructor(props: TodoAppProps) {
-    super(props);
+  constructor (props: TodoAppProps) {
+    super(props)
     // Initialize with example todos
     this.state = {
       todos: [
@@ -132,18 +132,18 @@ class TodoApp extends Component<TodoAppProps, TodoAppState> {
         { id: 3, text: 'Deploy to production', completed: false }
       ],
       newTodo: ''
-    };
+    }
   }
 
   // Update the new todo input value
   updateNewTodo = (e: JSX.TargetedEvent<HTMLInputElement>): void => {
-    this.setState({ newTodo: e.currentTarget.value });
-  };
+    this.setState({ newTodo: e.currentTarget.value })
+  }
 
   // Add a new todo item
   addTodo = (e: JSX.TargetedEvent<HTMLFormElement>): void => {
-    e.preventDefault();
-    const { todos, newTodo } = this.state;
+    e.preventDefault()
+    const { todos, newTodo } = this.state
 
     if (newTodo.trim()) {
       this.setState({
@@ -156,32 +156,32 @@ class TodoApp extends Component<TodoAppProps, TodoAppState> {
           }
         ],
         newTodo: ''
-      });
+      })
     }
-  };
+  }
 
   // Toggle a todo's completion status
   toggleTodo = (id: number): void => {
-    const { todos } = this.state;
+    const { todos } = this.state
     this.setState({
       todos: todos.map(todo =>
         todo.id === id
           ? { ...todo, completed: !todo.completed }
           : todo
       )
-    });
-  };
+    })
+  }
 
   // Delete a todo item
   deleteTodo = (id: number): void => {
-    const { todos } = this.state;
+    const { todos } = this.state
     this.setState({
       todos: todos.filter(todo => todo.id !== id)
-    });
-  };
+    })
+  }
 
-  render({ title }: TodoAppProps, { todos, newTodo }: TodoAppState): JSX.Element {
-    const remaining = todos.filter(todo => !todo.completed).length;
+  render ({ title }: TodoAppProps, { todos, newTodo }: TodoAppState): JSX.Element {
+    const remaining = todos.filter(todo => !todo.completed).length
 
     return html`
       <div class="todo-app">
@@ -218,7 +218,7 @@ class TodoApp extends Component<TodoAppProps, TodoAppState> {
 
         <${Counter} />
       </div>
-    `;
+    `
   }
 }
 
@@ -242,7 +242,7 @@ export const page = (): JSX.Element => html`
       </p>
     </div>
   </div>
-`;
+`
 
 /**
  * Client-side only code
@@ -250,11 +250,11 @@ export const page = (): JSX.Element => html`
  */
 if (typeof window !== 'undefined') {
   // Find the container that was server-rendered
-  const renderTarget = document.querySelector('.app-main');
+  const renderTarget = document.querySelector('.app-main')
 
   // Hydrate the existing HTML with interactive components
   if (renderTarget) {
-    render(page(), renderTarget);
-    console.log('✅ Preact isomorphic app successfully hydrated');
+    render(page(), renderTarget)
+    console.log('✅ Preact isomorphic app successfully hydrated')
   }
 }

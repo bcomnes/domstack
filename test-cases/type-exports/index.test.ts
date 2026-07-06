@@ -1,12 +1,32 @@
 import { test } from 'node:test'
 import assert from 'node:assert'
-import { PageData } from '../../index.js'
+import { readFile } from 'node:fs/promises'
+import {
+  DOMSTACK_MANIFEST_SCHEMA_ID,
+  DOMSTACK_MANIFEST_SCHEMA_PATH,
+  PageData,
+  domstackManifestEntryPageMetaSchema,
+  domstackManifestEntrySchema,
+  domstackManifestKindSchema,
+  domstackManifestSchema,
+  getDomstackManifestSchemaId,
+} from '../../index.js'
 import type {
   AsyncGlobalDataFunction,
   AsyncLayoutFunction,
   AsyncPageFunction,
   BuildOptions,
   DomStackOpts,
+  DomstackManifest,
+  DomstackManifestEntry,
+  DomstackManifestEntryPageMeta,
+  DomstackManifestKind,
+  DomstackManifestOptions,
+  DomstackManifestPolicyTransform,
+  DomstackManifestPolicyTransformContext,
+  DomstackManifestRecord,
+  DomstackManifestTransform,
+  DomstackManifestTransformContext,
   GlobalDataFunction,
   GlobalDataFunctionParams,
   LayoutFunction,
@@ -15,6 +35,7 @@ import type {
   PageFunctionParams,
   PageInfo,
   Results,
+  ServiceWorkerInfo,
   SiteData,
   TemplateAsyncIterator,
   TemplateFunction,
@@ -46,6 +67,12 @@ const templateInfo: TemplateInfo = {
   templateFile: walkerFile,
   path: 'feeds',
   outputName: 'feed.xml',
+}
+
+const serviceWorkerInfo: ServiceWorkerInfo = {
+  ...walkerFile,
+  basename: 'service-worker.js',
+  relname: 'globals/service-worker.js',
 }
 
 const pageData = new PageData({
@@ -108,26 +135,148 @@ const domStackOpts: DomStackOpts = {
 const siteData: SiteData | null = null
 const results: Results | null = null
 const testBuildResult: TestBuildResult | null = null
+const domstackManifestKind: DomstackManifestKind = 'page'
+const domstackManifestEntryPageMeta: DomstackManifestEntryPageMeta = {
+  path: '',
+  url: '/',
+  vars: {
+    precache: true,
+  },
+}
+type ExamplePolicy = {
+  cache: 'precache' | 'runtime' | 'network-only'
+}
 
-void layoutParams
-void pageParams
-void templateParams
-void globalDataParams
-void layoutFunction
-void asyncLayoutFunction
-void pageFunction
-void asyncPageFunction
-void templateFunction
-void templateAsyncIterator
-void globalDataFunction
-void asyncGlobalDataFunction
-void templateOutputOverride
-void buildOptions
-void domStackOpts
-void siteData
-void results
-void testBuildResult
+type ExampleManifestVars = {
+  section: string
+}
+
+type ExampleSourceVars = ExampleManifestVars & {
+  cache: ExamplePolicy['cache']
+}
+
+const domstackManifestEntry: DomstackManifestEntry<ExampleManifestVars> = {
+  outputRelname: 'index.html',
+  kind: domstackManifestKind,
+  url: '/',
+  revision: 'revision',
+  bytes: 42,
+  contentType: 'text/html; charset=utf-8',
+  integrity: 'sha256-test',
+  manifestVars: { section: 'docs' },
+  urlRevisioned: false,
+  static: true,
+  role: 'navigation',
+  page: domstackManifestEntryPageMeta,
+}
+const domstackManifest: DomstackManifest<ExamplePolicy, ExampleManifestVars> = {
+  $schema: DOMSTACK_MANIFEST_SCHEMA_ID,
+  version: 'version',
+  generatedAt: new Date(0).toISOString(),
+  entries: [domstackManifestEntry],
+  policy: { cache: 'precache' },
+}
+const domstackManifestRecord: DomstackManifestRecord = {
+  outputRelname: 'index.html',
+  filepath: '/public/index.html',
+  kind: 'page',
+}
+const domstackManifestTransformContext: DomstackManifestTransformContext<ExampleManifestVars, ExampleSourceVars> = {
+  vars: { cache: 'precache', section: 'docs' },
+  entry: domstackManifestEntry,
+}
+const domstackManifestVarsTransform: DomstackManifestTransform<ExampleManifestVars, ExampleManifestVars, ExampleSourceVars> = ({ vars }) => ({ section: vars.section })
+const domstackManifestPolicyTransformContext: DomstackManifestPolicyTransformContext<ExamplePolicy, ExampleManifestVars> = {
+  entries: [domstackManifestEntry],
+}
+const domstackManifestPolicyTransform: DomstackManifestPolicyTransform<ExamplePolicy, ExampleManifestVars> = () => ({ cache: 'precache' })
+const domstackManifestOptions: DomstackManifestOptions<ExamplePolicy, ExampleManifestVars, ExampleSourceVars> = {
+  manifestVars: domstackManifestVarsTransform,
+  policy: domstackManifestPolicyTransform,
+}
+
+assert.equal([
+  layoutParams,
+  pageParams,
+  templateParams,
+  globalDataParams,
+  layoutFunction,
+  asyncLayoutFunction,
+  pageFunction,
+  asyncPageFunction,
+  templateFunction,
+  templateAsyncIterator,
+  globalDataFunction,
+  asyncGlobalDataFunction,
+  templateOutputOverride,
+  buildOptions,
+  domStackOpts,
+  serviceWorkerInfo,
+  siteData,
+  results,
+  testBuildResult,
+  domstackManifestKind,
+  domstackManifestEntryPageMeta,
+  domstackManifestEntry,
+  domstackManifest,
+  domstackManifestRecord,
+  domstackManifestTransformContext,
+  domstackManifestVarsTransform,
+  domstackManifestPolicyTransformContext,
+  domstackManifestPolicyTransform,
+  domstackManifestOptions,
+].length, 29)
 
 test('PageData is importable from the package entry point', () => {
   assert.strictEqual(typeof PageData, 'function', 'PageData is a class')
+})
+
+test('domstack manifest schemas are importable from the package entry point', async () => {
+  const [schemaJson, packageJson] = await Promise.all([
+    readFile(new URL('../../lib/domstack-manifest/schema.json', import.meta.url), 'utf8'),
+    readFile(new URL('../../package.json', import.meta.url), 'utf8'),
+  ])
+  const schemaFile = JSON.parse(schemaJson)
+  const packageInfo = JSON.parse(packageJson)
+
+  assert.deepStrictEqual(
+    schemaFile,
+    domstackManifestSchema,
+    'packaged schema.json matches exported schema'
+  )
+  assert.ok(
+    DOMSTACK_MANIFEST_SCHEMA_ID.includes(`@${packageInfo.version}/`),
+    'manifest schema ID includes the package version'
+  )
+  assert.strictEqual(
+    DOMSTACK_MANIFEST_SCHEMA_ID,
+    getDomstackManifestSchemaId(packageInfo.version),
+    'schema ID helper builds the exported schema ID from the package version'
+  )
+  assert.strictEqual(
+    DOMSTACK_MANIFEST_SCHEMA_PATH,
+    'lib/domstack-manifest/schema.json',
+    'schema path points at the packaged JSON schema'
+  )
+  assert.strictEqual(
+    domstackManifestSchema.$id,
+    DOMSTACK_MANIFEST_SCHEMA_ID,
+    'manifest schema uses exported schema ID'
+  )
+  assert.strictEqual(
+    domstackManifestSchema.properties.$schema.const,
+    DOMSTACK_MANIFEST_SCHEMA_ID,
+    'manifest instance schema field uses exported schema ID'
+  )
+  assert.ok(domstackManifestKindSchema.enum.includes('page'), 'kind schema includes pages')
+  assert.strictEqual(
+    domstackManifestEntrySchema.properties.page,
+    domstackManifestEntryPageMetaSchema,
+    'entry schema uses page metadata schema'
+  )
+  assert.strictEqual(
+    domstackManifestSchema.properties.entries.items,
+    domstackManifestEntrySchema,
+    'manifest schema uses entry schema'
+  )
 })
