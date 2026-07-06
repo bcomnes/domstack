@@ -170,6 +170,8 @@ $ npm --workspace @domstack/basic-example run build
 
 Each example is an npm workspace under `examples/*`, so a root `npm install` links the local `@domstack/static` package into example builds. Example packages keep `@domstack/static` declared as `file:../../.` so the local dependency target remains explicit.
 
+The [`examples/workbox-pwa`](./examples/workbox-pwa) workspace shows a Workbox-backed implementation that converts the unstable domstack manifest preview into a Workbox precache.
+
 ### Additional examples
 
 Here are some additional external examples of larger domstack projects.
@@ -1087,7 +1089,8 @@ const html = renderCache.get(page.pageInfo.path) ?? ''
 Every programmatic build returns a `domstackManifest` object in the build results. The CLI also writes
 `domstack-manifest.json` into the destination directory by default. Applications can use this manifest
 as the source of truth for service-worker precaching, deployment metadata, or other static output
-integrations.
+integrations. See [`examples/workbox-pwa`](./examples/workbox-pwa) for a Workbox-backed implementation
+that injects domstack manifest entries into Workbox's precache manifest.
 
 The manifest is a normalized list of files that domstack emitted:
 

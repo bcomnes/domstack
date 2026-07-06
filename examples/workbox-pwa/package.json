@@ -1,0 +1,32 @@
+{
+  "name": "@domstack/workbox-pwa-example",
+  "version": "0.0.0",
+  "description": "DOMStack domstack manifest + Workbox offline cache example",
+  "type": "module",
+  "scripts": {
+    "start": "npm run serve",
+    "build": "npm run clean && domstack && node scripts/inject-domstack-manifest.js",
+    "clean": "rm -rf public && mkdir -p public",
+    "serve": "npm run build && node scripts/serve.js",
+    "watch": "npm run clean && dom --watch"
+  },
+  "keywords": [
+    "domstack",
+    "pwa",
+    "service-worker",
+    "offline",
+    "workbox"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@domstack/static": "file:../../.",
+    "workbox-core": "^7.4.1",
+    "workbox-precaching": "^7.4.1",
+    "workbox-routing": "^7.4.1",
+    "workbox-strategies": "^7.4.1"
+  },
+  "engines": {
+    "node": "^22.0.0 || >=24.0.0"
+  }
+}

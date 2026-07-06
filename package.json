@@ -134,6 +134,7 @@
     "example:string-layouts": "npm --workspace @domstack/string-layouts-example run build",
     "example:default-layout": "npm --workspace @domstack/default-layout-example run build",
     "example:nested-dest": "npm --workspace @domstack/nested-dest-example run build",
+    "example:workbox-pwa": "npm --workspace @domstack/workbox-pwa-example run build",
     "example:uhtml-isomorphic": "npm --workspace @domstack/uhtml-isomorphic-example run build",
     "start": "npm run watch"
   },

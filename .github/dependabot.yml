@@ -20,7 +20,9 @@ updates:
           - "react-dom"
           - "@types/react"
           - "@types/react-dom"
-
+      workbox:
+        patterns:
+          - "workbox-*"
     schedule:
       interval: "daily"
 
