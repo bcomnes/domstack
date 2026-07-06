@@ -15,6 +15,30 @@
     "domstack": "./bin.js",
     "dom": "./bin.js"
   },
+  "files": [
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "bin.js",
+    "bin.d.ts",
+    "bin.d.ts.map",
+    "docs/**/*.md",
+    "global.css",
+    "index.js",
+    "index.d.ts",
+    "index.d.ts.map",
+    "lib/**/*.css",
+    "lib/**/*.d.ts",
+    "lib/**/*.d.ts.map",
+    "lib/**/*.js",
+    "lib/**/*.json",
+    "!lib/**/*.test.js",
+    "!lib/**/fixtures/**",
+    "page.vars.js",
+    "scripts/domstack-manifest-schema.js",
+    "style.css",
+    "types.d.ts",
+    "types.d.ts.map"
+  ],
   "author": "Bret Comnes <bcomnes@gmail.com> (https://bret.io)",
   "bugs": {
     "url": "https://github.com/bcomnes/domstack/issues"
@@ -36,6 +60,7 @@
     "highlight.js": "^11.9.0",
     "ignore": "^7.0.0",
     "js-yaml": "^5.1.0",
+    "json-schema-to-ts": "^3.1.1",
     "make-array": "^1.0.5",
     "markdown-it": "^14.1.0",
     "markdown-it-abbr": "^2.0.0",
@@ -102,13 +127,14 @@
     "build": "npm run clean && run-p build:*",
     "build:domstack": "./bin.js --src . --ignore examples,test-cases,coverage,*.tsconfig.json,fonts",
     "build:declaration": "tsc -p declaration.tsconfig.json",
+    "build:schema": "node scripts/domstack-manifest-schema.js",
     "watch": "npm run clean && run-p watch:*",
     "watch:domstack": "npm run build:domstack -- --watch",
-    "example:basic": "cd examples/basic && npm i && npm run build",
-    "example:string-layouts": "cd examples/string-layouts && npm i --production && npm run build",
-    "example:default-layout": "cd examples/default-layout && npm i --production && npm run build",
-    "example:nested-dest": "cd examples/nested-dest && npm i --production && npm run build",
-    "example:uhtml-isomorphic": "cd examples/uhtml-isomorphic && npm i --production && npm run build",
+    "example:basic": "npm --workspace @domstack/basic-example run build",
+    "example:string-layouts": "npm --workspace @domstack/string-layouts-example run build",
+    "example:default-layout": "npm --workspace @domstack/default-layout-example run build",
+    "example:nested-dest": "npm --workspace @domstack/nested-dest-example run build",
+    "example:uhtml-isomorphic": "npm --workspace @domstack/uhtml-isomorphic-example run build",
     "start": "npm run watch"
   },
   "funding": {
@@ -117,5 +143,8 @@
   },
   "allowScripts": {
     "esbuild@0.28.1": true
-  }
+  },
+  "workspaces": [
+    "examples/*"
+  ]
 }

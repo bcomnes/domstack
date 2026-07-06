@@ -14,9 +14,12 @@
     "highlight.js": "^11.9.0",
     "mine.css": "^9.0.1",
     "uhtml-isomorphic": "^2.1.0",
-    "@domstack/static": "../../."
+    "@domstack/static": "file:../../."
   },
   "devDependencies": {
     "npm-run-all2": "^6.0.0"
+  },
+  "engines": {
+    "node": "^22.0.0 || >=24.0.0"
   }
 }

@@ -1,5 +1,5 @@
 {
-  "name": "blog",
+  "name": "@domstack/blog-example",
   "version": "0.0.0",
   "description": "A blog example for domstack demonstrating global.data.ts, nested layouts, and feeds.",
   "type": "module",
@@ -21,5 +21,8 @@
     "@domstack/static": "file:../../.",
     "fragtml": "^0.0.9",
     "mine.css": "^10.0.0"
+  },
+  "engines": {
+    "node": "^22.0.0 || >=24.0.0"
   }
 }

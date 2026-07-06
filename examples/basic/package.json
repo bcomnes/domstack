@@ -1,5 +1,5 @@
 {
-  "name": "basic",
+  "name": "@domstack/basic-example",
   "version": "0.0.0",
   "description": "",
   "type": "module",
@@ -23,5 +23,8 @@
     "fragtml": "^0.0.9",
     "mine.css": "^9.0.1",
     "highlight.js": "^11.9.0"
+  },
+  "engines": {
+    "node": "^22.0.0 || >=24.0.0"
   }
 }

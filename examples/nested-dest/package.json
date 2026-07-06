@@ -1,5 +1,5 @@
 {
-  "name": "nested-dest",
+  "name": "@domstack/nested-dest-example",
   "version": "0.0.0",
   "description": "",
   "type": "module",
@@ -19,5 +19,8 @@
   },
   "devDependencies": {
     "npm-run-all2": "^6.0.0"
+  },
+  "engines": {
+    "node": "^22.0.0 || >=24.0.0"
   }
 }

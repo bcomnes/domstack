@@ -12,7 +12,8 @@ Then apply the v12 changes below.
 3. [Default Layout Uses fragtml](#3-default-layout-uses-fragtml)
 4. [Keep Layout Dependencies Explicit](#4-keep-layout-dependencies-explicit)
 5. [JSX Runtime Is Opt-In](#5-jsx-runtime-is-opt-in)
-6. [Migration Checklist](#6-migration-checklist)
+6. [CLI `--target` moved to `esbuild.settings.*`](#6-cli---target-moved-to-esbuildsettings)
+7. [Migration Checklist](#7-migration-checklist)
 
 ---
 
@@ -123,7 +124,28 @@ export default async function esbuildSettingsOverride (esbuildSettings) {
 
 ---
 
-## 6. Migration Checklist
+## 6. CLI `--target` moved to `esbuild.settings.*`
+
+The `domstack --target` / `domstack -t` CLI flag has been removed in v12. Configure esbuild targets in
+`esbuild.settings.*` instead.
+
+```js
+// src/esbuild.settings.js
+export default function esbuildSettings (opts) {
+  return {
+    ...opts,
+    target: ['es2022', 'chrome120', 'firefox121', 'safari17'],
+  }
+}
+```
+
+Domstack does not set a rolling “modern browser” target by default. If your project needs specific
+syntax lowering, set explicit esbuild targets in this settings file. See
+[esbuild's target docs](https://esbuild.github.io/api/#target) for accepted values.
+
+---
+
+## 7. Migration Checklist
 
 - [ ] If you import public types from `@domstack/static`, update those imports to `@domstack/static/types.js`.
 - [ ] If you rely on BrowserSync-specific dev-server behavior, test watch mode with `@domstack/sync`.
@@ -132,4 +154,5 @@ export default async function esbuildSettingsOverride (esbuildSettings) {
 - [ ] If your ejected layout or server-side pages still import `htm/preact`, `preact`, or `preact-render-to-string`, keep those dependencies in your own `package.json`.
 - [ ] If you want your ejected server-side layout to match the v12 default, migrate its templates to `fragtml` and install `fragtml`.
 - [ ] If you use `.jsx` or `.tsx` browser clients, add an `esbuild.settings` file that configures your JSX runtime.
+- [ ] If you use `domstack --target` or `domstack -t`, move that target list to `esbuild.settings.*`.
 - [ ] If you use Preact browser clients, keep `preact` in your project dependencies.
