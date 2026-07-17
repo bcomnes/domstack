@@ -21,7 +21,7 @@
   "dependencies": {
     "@domstack/static": "file:../../.",
     "fragtml": "^0.0.9",
-    "mine.css": "^9.0.1",
+    "mine.css": "^11.0.3",
     "highlight.js": "^11.9.0"
   }
 }

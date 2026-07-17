@@ -1,3 +1,4 @@
+@layer mine, domstack.global, domstack.layout, domstack.page;
 
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";

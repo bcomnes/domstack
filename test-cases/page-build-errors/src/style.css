@@ -1,3 +1,5 @@
-.some-class {
-  background: blue;
+@layer domstack.page {
+  .some-class {
+    background: blue;
+  }
 }

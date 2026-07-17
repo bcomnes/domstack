@@ -1,5 +1,7 @@
-@import "./root.layout.css";
+@import "./root.layout.css" layer(domstack.layout);
 
-.some-blog-class {
-  color: purple;
+@layer domstack.layout {
+  .some-blog-class {
+    color: purple;
+  }
 }

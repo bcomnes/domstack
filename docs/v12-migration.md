@@ -12,7 +12,8 @@ Then apply the v12 changes below.
 3. [Default Layout Uses fragtml](#3-default-layout-uses-fragtml)
 4. [Keep Layout Dependencies Explicit](#4-keep-layout-dependencies-explicit)
 5. [JSX Runtime Is Opt-In](#5-jsx-runtime-is-opt-in)
-6. [Migration Checklist](#6-migration-checklist)
+6. [mine.css v11 and CSS Cascade Layers](#6-minecss-v11-and-css-cascade-layers)
+7. [Migration Checklist](#7-migration-checklist)
 
 ---
 
@@ -123,7 +124,96 @@ export default async function esbuildSettingsOverride (esbuildSettings) {
 
 ---
 
-## 6. Migration Checklist
+## 6. mine.css v11 and CSS Cascade Layers
+
+DOMStack v12 upgrades its bundled default styles and ejected projects from mine.css v10 to v11.
+This is a downstream breaking change even when your project does not import mine.css directly, because the bundled default layout uses it.
+Review the complete [mine.css v11 migration guide](https://github.com/bcomnes/mine.css/blob/master/MIGRATION.md) before upgrading a customized or ejected site.
+
+mine.css v11 is CSS-only.
+The package root now resolves to the main stylesheet, and the JavaScript theme switcher is no longer published.
+Replace the old deep import with the package root:
+
+```css
+@import 'mine.css';
+```
+
+Remove imports of `mine.css` or `mine.css/dist/theme-switcher.js` from JavaScript, calls to `toggleTheme()`, stored theme state, theme controls, and `.light-mode` or `.dark-mode` rules.
+Add `<meta name="color-scheme" content="light dark">` to custom root layouts and use `prefers-color-scheme` for application-specific dark styles.
+If you use Highlight.js, load a light theme normally and a dark theme conditionally instead of applying one dark theme in both modes.
+
+The optional mine.css layout remains a separate import.
+DOMStack's default stylesheet imports it explicitly; ejected sites must continue to do the same.
+
+### DOMStack cascade layer order
+
+DOMStack v12's default stylesheet establishes this low-to-high-priority author-layer order:
+
+```css
+@layer mine, domstack.global, domstack.layout, domstack.page;
+```
+
+The order reflects DOMStack's existing stylesheet scopes:
+
+- `mine` contains mine.css framework defaults.
+- `domstack.global` contains site-wide rules and syntax themes.
+- `domstack.layout` contains optional mine.css layout rules and `*.layout.css` rules.
+- `domstack.page` contains page-local `style.css` rules.
+
+Declare the complete order before imports or other layer blocks in the global stylesheet.
+Import mine.css normally because its distributed stylesheet already defines the `mine` layer.
+Do not write `@import 'mine.css' layer(mine)`.
+Optional sidecars and syntax themes are not pre-layered, so assign them to the appropriate DOMStack layer:
+
+```css
+@layer mine, domstack.global, domstack.layout, domstack.page;
+
+@import 'mine.css';
+@import 'mine.css/dist/layout.css' layer(domstack.layout);
+@import 'highlight.js/styles/github.css' layer(domstack.global);
+@import url('highlight.js/styles/github-dark-dimmed.css') layer(domstack.global) (prefers-color-scheme: dark);
+
+@layer domstack.global {
+  :root {
+    --brand-color: rebeccapurple;
+  }
+}
+```
+
+Following this pattern in custom stylesheets is recommended.
+Scope layout and page rules in their matching files:
+
+```css
+/* article.layout.css */
+@layer domstack.layout {
+  .article-shell {
+    max-inline-size: 72rem;
+  }
+}
+```
+
+```css
+/* style.css */
+@layer domstack.page {
+  .article-introduction {
+    font-size: 1.125em;
+  }
+}
+```
+
+DOMStack loads the global stylesheet first, so its order declaration establishes precedence before layout and page layer blocks are encountered.
+Unlayered author rules outrank every layered normal rule, so existing unlayered overrides will still win but bypass the DOMStack scope contract.
+Move them into the matching layer when you want predictable global → layout → page precedence.
+CSS Modules may remain unlayered when component-local precedence is intentional, or be wrapped in the appropriate scope layer when they participate in this cascade.
+
+mine.css v11 also intentionally changes typography, forms, tables, media framing, motion, focus treatment, and the optional `.mine-layout` width.
+It preserves native table display; wrap wide tables in an accessible, named, keyboard-focusable overflow region rather than restoring `display: block` on the table.
+The distributed CSS uses native CSS nesting, and the package requires Node.js 22 or newer and npm 10 or newer for installation.
+Visually verify representative pages in light and dark browser modes, narrow and wide viewports, reduced-motion mode, and print preview where relevant.
+
+---
+
+## 7. Migration Checklist
 
 - [ ] If you import public types from `@domstack/static`, update those imports to `@domstack/static/types.js`.
 - [ ] If you rely on BrowserSync-specific dev-server behavior, test watch mode with `@domstack/sync`.
@@ -133,3 +223,11 @@ export default async function esbuildSettingsOverride (esbuildSettings) {
 - [ ] If you want your ejected server-side layout to match the v12 default, migrate its templates to `fragtml` and install `fragtml`.
 - [ ] If you use `.jsx` or `.tsx` browser clients, add an `esbuild.settings` file that configures your JSX runtime.
 - [ ] If you use Preact browser clients, keep `preact` in your project dependencies.
+- [ ] Read the mine.css v11 migration guide and account for its intentional visual and browser-support changes.
+- [ ] Replace `@import 'mine.css/dist/mine.css'` with `@import 'mine.css'` and keep optional sidecars explicit.
+- [ ] Remove `toggleTheme()`, theme-switcher imports, persisted theme state, theme controls, and light/dark mode classes.
+- [ ] Add `<meta name="color-scheme" content="light dark">` to custom root layouts and use `prefers-color-scheme` for dark styles.
+- [ ] Declare `@layer mine, domstack.global, domstack.layout, domstack.page;` and scope global, layout, and page rules in their matching layers.
+- [ ] Load light and dark syntax-highlighting themes with matching `prefers-color-scheme` behavior.
+- [ ] Confirm the deployment and install environment uses Node.js 22+ and npm 10+ and that target browsers support native CSS nesting.
+- [ ] Visually and interactively check both color schemes, keyboard focus, reduced motion, forms, wide tables, media, print, and responsive layouts.

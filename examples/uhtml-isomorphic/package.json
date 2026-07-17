@@ -12,7 +12,7 @@
   "license": "MIT",
   "dependencies": {
     "highlight.js": "^11.9.0",
-    "mine.css": "^9.0.1",
+    "mine.css": "^11.0.3",
     "uhtml-isomorphic": "^2.1.0",
     "@domstack/static": "../../."
   },

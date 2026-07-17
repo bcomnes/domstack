@@ -1,3 +1,5 @@
-.htnl-page-style {
-  background: blue;
+@layer domstack.page {
+  .htnl-page-style {
+    background: blue;
+  }
 }

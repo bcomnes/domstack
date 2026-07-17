@@ -1,3 +1,7 @@
-.global-class {
-  color: blue;
+@layer mine, domstack.global, domstack.layout, domstack.page;
+
+@layer domstack.global {
+  .global-class {
+    color: blue;
+  }
 }

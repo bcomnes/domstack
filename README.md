@@ -1846,6 +1846,8 @@ Key changes at a glance:
 
 - **Default layout**: The bundled and ejected `root.layout.js` now uses [`fragtml`][fragtml].
 - **Included dependencies**: `domstack --eject` adds `mine.css`, `fragtml`, and `highlight.js`; Preact, HTM, and `preact-render-to-string` are no longer included for the default template.
+- **mine.css v11**: The default styles now use mine.css v11's CSS-only API, browser-controlled color preference, native CSS nesting, and intentional visual changes. Ejected and customized sites must follow the mine.css v11 migration steps.
+- **CSS cascade layers**: DOMStack’s default stylesheet establishes the `mine`, `domstack.global`, `domstack.layout`, and `domstack.page` layer order. Following the same layer pattern in custom global, layout, and page stylesheets is recommended for explicit global → layout → page precedence.
 - **JSX runtime**: Client `.jsx` and `.tsx` bundles still work through esbuild, but DOMStack no longer configures Preact as the default runtime. Install React, Preact, or another runtime in your own project and configure it with `esbuild.settings`.
 - **Preact examples**: Examples that actually mount Preact in the browser still use Preact and configure it locally.
 

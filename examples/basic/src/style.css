@@ -1,5 +1,7 @@
-/* This style.css bundle only loads on the root page. */
+@layer domstack.page {
+  /* This style.css bundle only loads on the root page. */
 
-.some-class {
-  color: blue;
+  .some-class {
+    color: blue;
+  }
 }

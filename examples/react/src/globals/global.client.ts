@@ -53,20 +53,7 @@ window.domstackUtils = {
   }
 };
 
-// Add dark mode detection
-const prefersDarkMode: MediaQueryList = window.matchMedia('(prefers-color-scheme: dark)');
-if (prefersDarkMode.matches) {
-  document.body.classList.add('dark-mode-preferred');
-}
 
-// Listen for dark mode changes
-prefersDarkMode.addEventListener('change', (e: MediaQueryListEvent): void => {
-  if (e.matches) {
-    document.body.classList.add('dark-mode-preferred');
-  } else {
-    document.body.classList.remove('dark-mode-preferred');
-  }
-});
 
 // Example of measuring and logging performance
 const pageLoadTime: number = performance.now();

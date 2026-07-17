@@ -1,2 +1,1 @@
-@import './local-import.css';
-
+@import './local-import.css' layer(domstack.page);

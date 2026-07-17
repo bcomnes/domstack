@@ -1,3 +1,6 @@
-.some-root-layout-class {
-  color: green;
+@layer domstack.layout {
+  .cascade-layer-fixture { --domstack-cascade-layer: layout; }
+  .some-root-layout-class {
+    color: green;
+  }
 }

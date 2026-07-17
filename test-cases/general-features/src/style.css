@@ -1,3 +1,6 @@
-.root-page-style {
-  background:  blue;
+@layer domstack.page {
+  .cascade-layer-fixture { --domstack-cascade-layer: page; }
+  .root-page-style {
+    background:  blue;
+  }
 }

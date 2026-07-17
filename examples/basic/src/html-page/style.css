@@ -1,5 +1,7 @@
-/* html pages can also have their own style bundles */
+@layer domstack.page {
+  /* html pages can also have their own style bundles */
 
-.html-page-class {
-  background-color: red;
+  .html-page-class {
+    background-color: red;
+  }
 }

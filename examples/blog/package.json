@@ -20,6 +20,6 @@
   "dependencies": {
     "@domstack/static": "file:../../.",
     "fragtml": "^0.0.9",
-    "mine.css": "^10.0.0"
+    "mine.css": "^11.0.3"
   }
 }

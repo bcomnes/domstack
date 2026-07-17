@@ -1,45 +1,47 @@
-.worker-test {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 1rem;
-}
+@layer domstack.page {
+  .worker-test {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 1rem;
+  }
 
-.worker-component {
-  margin-top: 2rem;
-  padding: 1.5rem;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  background-color: #f9f9f9;
-}
+  .worker-component {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    background-color: #f9f9f9;
+  }
 
-.counter-display {
-  margin-bottom: 1rem;
-  font-size: 1.2rem;
-}
+  .counter-display {
+    margin-bottom: 1rem;
+    font-size: 1.2rem;
+  }
 
-#counter {
-  font-weight: bold;
-  color: #0066cc;
-}
+  #counter {
+    font-weight: bold;
+    color: #0066cc;
+  }
 
-.controls {
-  display: flex;
-  gap: 0.5rem;
-}
+  .controls {
+    display: flex;
+    gap: 0.5rem;
+  }
 
-button {
-  padding: 0.5rem 1rem;
-  background-color: #0066cc;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
+  button {
+    padding: 0.5rem 1rem;
+    background-color: #0066cc;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
 
-button:hover {
-  background-color: #0055aa;
-}
+  button:hover {
+    background-color: #0055aa;
+  }
 
-button:active {
-  background-color: #004488;
+  button:active {
+    background-color: #004488;
+  }
 }

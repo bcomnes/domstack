@@ -1,4 +1,6 @@
-/* This style file only loads in the md-page page */
-.page-scoped-selector {
-  background-color: blue;
+@layer domstack.page {
+  /* This style file only loads in the md-page page */
+  .page-scoped-selector {
+    background-color: blue;
+  }
 }

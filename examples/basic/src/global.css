@@ -1,10 +1,15 @@
-@import 'mine.css/dist/mine.css';
-@import 'mine.css/dist/layout.css';
-@import 'highlight.js/styles/github-dark-dimmed.css';
+@layer mine, domstack.global, domstack.layout, domstack.page;
 
-/* The global.css in the root directory of the site is loaded on every page. */
+@import 'mine.css';
+@import 'mine.css/dist/layout.css' layer(domstack.layout);
+@import 'highlight.js/styles/github.css' layer(domstack.global);
+@import url('highlight.js/styles/github-dark-dimmed.css') layer(domstack.global) (prefers-color-scheme: dark);
 
-/* You can import styles out of node_modules by referencing their bare-name */
-/* You can import styles from a relative path as well, though usually that is
-only used in page scpped style.css files */
-/* See https://github.com/postcss/postcss-import for details */
+@layer domstack.global {
+  /* The global.css in the root directory of the site is loaded on every page. */
+
+  /* You can import styles out of node_modules by referencing their bare-name */
+  /* You can import styles from a relative path as well, though usually that is
+  only used in page scpped style.css files */
+  /* See https://github.com/postcss/postcss-import for details */
+}
