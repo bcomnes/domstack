@@ -2,7 +2,6 @@ import { html } from 'htm/preact'
 import { render } from 'preact'
 import { useState, useCallback, useEffect } from 'preact/hooks'
 
-
 // ===== Type Definitions =====
 
 interface Task {
@@ -56,12 +55,12 @@ interface TaskListProps {
 
 // Generate a unique ID (simplified version)
 const generateId = (): string => {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
-};
+  return Date.now().toString(36) + Math.random().toString(36).substr(2, 5)
+}
 
 // Calculate task statistics
 const calculateTaskStats = (tasks: Task[]): TaskStats => {
-  const completed = tasks.filter(t => t.completed).length;
+  const completed = tasks.filter(t => t.completed).length
 
   return {
     total: tasks.length,
@@ -72,22 +71,22 @@ const calculateTaskStats = (tasks: Task[]): TaskStats => {
       medium: tasks.filter(t => t.priority === 'medium').length,
       high: tasks.filter(t => t.priority === 'high').length
     }
-  };
-};
+  }
+}
 
 // Filter tasks based on current filters
 const filterTasks = (tasks: Task[], filters: TaskFilterState): Task[] => {
   return tasks.filter(task => {
     // Filter by status
-    if (filters.status === 'active' && task.completed) return false;
-    if (filters.status === 'completed' && !task.completed) return false;
+    if (filters.status === 'active' && task.completed) return false
+    if (filters.status === 'completed' && !task.completed) return false
 
     // Filter by priority
-    if (filters.priority !== 'all' && task.priority !== filters.priority) return false;
+    if (filters.priority !== 'all' && task.priority !== filters.priority) return false
 
-    return true;
-  });
-};
+    return true
+  })
+}
 
 // ===== Components =====
 
@@ -95,12 +94,12 @@ const filterTasks = (tasks: Task[], filters: TaskFilterState): Task[] => {
 const TaskItem = ({ task, onToggle, onDelete }: TaskItemProps) => {
   const getPriorityClass = (priority: Task['priority']): string => {
     switch (priority) {
-      case 'high': return 'task-priority-high';
-      case 'medium': return 'task-priority-medium';
-      case 'low': return 'task-priority-low';
-      default: return '';
+      case 'high': return 'task-priority-high'
+      case 'medium': return 'task-priority-medium'
+      case 'low': return 'task-priority-low'
+      default: return ''
     }
-  };
+  }
 
   return html`
     <li class="task-item ${task.completed ? 'completed' : ''} ${getPriorityClass(task.priority)}">
@@ -115,8 +114,8 @@ const TaskItem = ({ task, onToggle, onDelete }: TaskItemProps) => {
       </div>
       <button class="delete-btn" onClick=${() => onDelete(task.id)}>Delete</button>
     </li>
-  `;
-};
+  `
+}
 
 // Task Filter Component
 const TaskFilter = ({ filters, onFilterChange, stats }: TaskFilterProps) => {
@@ -176,26 +175,26 @@ const TaskFilter = ({ filters, onFilterChange, stats }: TaskFilterProps) => {
         </div>
       </div>
     </div>
-  `;
-};
+  `
+}
 
 // Task Form Component
 const TaskForm = ({ onAddTask }: TaskFormProps) => {
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null)
 
   // Simple approach using form submit
   const handleSubmit = (e: Event): void => {
-    e.preventDefault();
+    e.preventDefault()
 
     // Get form inputs directly
-    const form = e.target as HTMLFormElement;
-    const titleInput = form.querySelector('input[name="title"]') as HTMLInputElement;
-    const prioritySelect = form.querySelector('select[name="priority"]') as HTMLSelectElement;
+    const form = e.target as HTMLFormElement
+    const titleInput = form.querySelector('input[name="title"]') as HTMLInputElement
+    const prioritySelect = form.querySelector('select[name="priority"]') as HTMLSelectElement
 
     // Validate
     if (!titleInput || !titleInput.value.trim()) {
-      setError('Task title cannot be empty');
-      return;
+      setError('Task title cannot be empty')
+      return
     }
 
     // Add task
@@ -203,13 +202,13 @@ const TaskForm = ({ onAddTask }: TaskFormProps) => {
       title: titleInput.value.trim(),
       completed: false,
       priority: prioritySelect.value as Task['priority']
-    });
+    })
 
     // Reset form
-    titleInput.value = '';
-    prioritySelect.value = 'medium';
-    setError(null);
-  };
+    titleInput.value = ''
+    prioritySelect.value = 'medium'
+    setError(null)
+  }
 
   return html`
     <form class="task-form" onSubmit=${handleSubmit}>
@@ -234,13 +233,13 @@ const TaskForm = ({ onAddTask }: TaskFormProps) => {
 
       ${error ? html`<p class="error-message">${error}</p>` : null}
     </form>
-  `;
-};
+  `
+}
 
 // Task List Component
 const TaskList = ({ tasks, onToggleTask, onDeleteTask }: TaskListProps) => {
   if (tasks.length === 0) {
-    return html`<p class="no-tasks">No tasks to display</p>`;
+    return html`<p class="no-tasks">No tasks to display</p>`
   }
 
   return html`
@@ -254,8 +253,8 @@ const TaskList = ({ tasks, onToggleTask, onDeleteTask }: TaskListProps) => {
         />
       `)}
     </ul>
-  `;
-};
+  `
+}
 
 // ===== Main Application =====
 
@@ -282,27 +281,27 @@ const initialTasks: Task[] = [
     priority: 'low',
     createdAt: new Date()
   }
-];
+]
 
 // Main TaskManager component
 const TaskManager = () => {
   // TypeScript typed state
-  const [tasks, setTasks] = useState<Task[]>(initialTasks);
+  const [tasks, setTasks] = useState<Task[]>(initialTasks)
   const [filters, setFilters] = useState<TaskFilterState>({
     status: 'all',
     priority: 'all'
-  });
+  })
 
   // Memoized task stats
-  const [stats, setStats] = useState<TaskStats>(calculateTaskStats(tasks));
+  const [stats, setStats] = useState<TaskStats>(calculateTaskStats(tasks))
 
   // Update stats when tasks change
   useEffect(() => {
-    setStats(calculateTaskStats(tasks));
-  }, [tasks]);
+    setStats(calculateTaskStats(tasks))
+  }, [tasks])
 
   // Filter tasks based on current filters
-  const filteredTasks = filterTasks(tasks, filters);
+  const filteredTasks = filterTasks(tasks, filters)
 
   // Event handlers with TypeScript types
   const handleAddTask = useCallback((newTask: Omit<Task, 'id' | 'createdAt'>): void => {
@@ -310,66 +309,66 @@ const TaskManager = () => {
       ...newTask,
       id: generateId(),
       createdAt: new Date()
-    };
+    }
 
-    setTasks(prevTasks => [...prevTasks, task]);
-  }, []);
+    setTasks(prevTasks => [...prevTasks, task])
+  }, [])
 
   const handleToggleTask = useCallback((id: string): void => {
     setTasks(prevTasks =>
       prevTasks.map(task =>
         task.id === id ? { ...task, completed: !task.completed } : task
       )
-    );
-  }, []);
+    )
+  }, [])
 
   const handleDeleteTask = useCallback((id: string): void => {
-    setTasks(prevTasks => prevTasks.filter(task => task.id !== id));
-  }, []);
+    setTasks(prevTasks => prevTasks.filter(task => task.id !== id))
+  }, [])
 
   const handleFilterChange = useCallback((newFilters: Partial<TaskFilterState>): void => {
-    setFilters(prevFilters => ({ ...prevFilters, ...newFilters }));
-  }, []);
+    setFilters(prevFilters => ({ ...prevFilters, ...newFilters }))
+  }, [])
 
   const handleClearCompleted = useCallback((): void => {
-    setTasks(prevTasks => prevTasks.filter(task => !task.completed));
-  }, []);
+    setTasks(prevTasks => prevTasks.filter(task => !task.completed))
+  }, [])
 
   // Data persistence - example of useEffect with TypeScript
   useEffect((): void => {
     // Only run in browser context
     if (typeof window !== 'undefined') {
-      const savedTasks = localStorage.getItem('isomorphic-tasks');
+      const savedTasks = localStorage.getItem('isomorphic-tasks')
       if (savedTasks) {
         try {
           // Parse and restore dates properly
           const parsedTasks = JSON.parse(savedTasks, (key, value) => {
-            return key === 'createdAt' ? new Date(value) : value;
-          });
-          setTasks(parsedTasks);
+            return key === 'createdAt' ? new Date(value) : value
+          })
+          setTasks(parsedTasks)
         } catch (err) {
-          console.error('Failed to parse saved tasks:', err);
+          console.error('Failed to parse saved tasks:', err)
         }
       }
     }
-  }, []);
+  }, [])
 
   useEffect((): (() => void) | void => {
     // Only run in browser context
     if (typeof window !== 'undefined') {
       const handleSave = (): void => {
-        localStorage.setItem('isomorphic-tasks', JSON.stringify(tasks));
-      };
+        localStorage.setItem('isomorphic-tasks', JSON.stringify(tasks))
+      }
 
       // Save on page unload
-      window.addEventListener('beforeunload', handleSave);
+      window.addEventListener('beforeunload', handleSave)
 
       // Clean up event listener
       return (): void => {
-        window.removeEventListener('beforeunload', handleSave);
-      };
+        window.removeEventListener('beforeunload', handleSave)
+      }
     }
-  }, [tasks]);
+  }, [tasks])
 
   return html`
     <div class="task-manager">
@@ -402,26 +401,26 @@ const TaskManager = () => {
         </button>
       </div>
     </div>
-  `;
-};
+  `
+}
 
 // Export for isomorphic rendering
-export const page = (): any => html`<${TaskManager} />`;
+export const page = (): any => html`<${TaskManager} />`
 
 // Client-side rendering
 if (typeof window !== 'undefined') {
   // Wait for DOM to be ready
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
-      const renderTarget = document.querySelector('.app-main');
+      const renderTarget = document.querySelector('.app-main')
       if (renderTarget) {
-        render(page(), renderTarget);
+        render(page(), renderTarget)
       }
-    });
+    })
   } else {
-    const renderTarget = document.querySelector('.app-main');
+    const renderTarget = document.querySelector('.app-main')
     if (renderTarget) {
-      render(page(), renderTarget);
+      render(page(), renderTarget)
     }
   }
 }

@@ -1,5 +1,5 @@
 {
-  "name": "@domstack/preact-example",
+  "name": "@domstack/tailwind-example",
   "version": "0.0.0",
   "type": "module",
   "scripts": {
@@ -15,11 +15,14 @@
   },
   "devDependencies": {
     "@domstack/static": "file:../../.",
-    "@preact/signals": "^2.0.0",
+    "@preact/signals": "^2.9.3",
     "esbuild-plugin-tailwindcss": "2.2.0",
     "htm": "^3.1.1",
-    "npm-run-all2": "^6.0.0",
-    "preact": "^10.24.0",
+    "npm-run-all2": "^9.0.2",
+    "preact": "^10.29.6",
     "preact-render-to-string": "^6.5.11"
+  },
+  "engines": {
+    "node": "^22.0.0 || >=24.0.0"
   }
 }

@@ -43,29 +43,35 @@ const postLayout: LayoutFunction<PostVars, string | HtmlResult, string> = (args)
           </address>
 
           ${/* Publish date */''}
-          ${publishDate ? html`
+          ${publishDate
+? html`
             <time class="dt-published post-date" itemprop="datePublished"
               datetime="${publishDate.toISOString()}">
               ${publishDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
             </time>
-          ` : null}
+          `
+: null}
 
           ${/* Updated date */''}
-          ${updatedDate ? html`
+          ${updatedDate
+? html`
             <time class="dt-updated post-updated" itemprop="dateModified"
               datetime="${updatedDate.toISOString()}">
               Updated ${updatedDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
             </time>
-          ` : null}
+          `
+: null}
 
           ${/* Tags */''}
-          ${vars.tags && vars.tags.length > 0 ? html`
+          ${vars.tags && vars.tags.length > 0
+? html`
             <ul class="post-tags">
               ${vars.tags.map(tag => html`
                 <li><span class="p-category post-tag">${tag}</span></li>
               `)}
             </ul>
-          ` : null}
+          `
+: null}
 
         </div>
       </header>

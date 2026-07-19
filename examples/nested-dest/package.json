@@ -1,5 +1,5 @@
 {
-  "name": "nested-dest",
+  "name": "@domstack/nested-dest-example",
   "version": "0.0.0",
   "description": "",
   "type": "module",
@@ -15,9 +15,12 @@
   "license": "MIT",
   "dependencies": {
     "@domstack/static": "file:../../.",
-    "mine.css": "^9.0.1"
+    "mine.css": "^10.0.3"
   },
   "devDependencies": {
-    "npm-run-all2": "^6.0.0"
+    "npm-run-all2": "^9.0.2"
+  },
+  "engines": {
+    "node": "^22.0.0 || >=24.0.0"
   }
 }

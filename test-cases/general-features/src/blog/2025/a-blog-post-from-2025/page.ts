@@ -1,4 +1,4 @@
-export default function ()  {
+export default function () {
   return `
   Hello world, from 2025. Also typescript
   <div class="tsx-app"></div>
@@ -7,6 +7,6 @@ export default function ()  {
 
 export const vars = {
   layout: 'ts',
-  publishDate: "2023-03-01T18:06:24.000Z",
-  title: "A Blogpost from 2025"
+  publishDate: '2023-03-01T18:06:24.000Z',
+  title: 'A Blogpost from 2025'
 } as const

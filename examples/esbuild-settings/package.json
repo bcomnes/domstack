@@ -1,5 +1,5 @@
 {
-  "name": "@domstack/preact-example",
+  "name": "@domstack/esbuild-settings-example",
   "version": "0.0.0",
   "type": "module",
   "scripts": {
@@ -15,6 +15,9 @@
   },
   "devDependencies": {
     "esbuild-plugin-polyfill-node": "^0.3.0",
-    "npm-run-all2": "^6.0.0"
+    "npm-run-all2": "^9.0.2"
+  },
+  "engines": {
+    "node": "^22.0.0 || >=24.0.0"
   }
 }

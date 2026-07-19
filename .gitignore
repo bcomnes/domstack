@@ -7,6 +7,8 @@ node_modules
 sandbox.js
 .nyc_output
 package-lock.json
+pnpm-lock.yaml
+pnpm-workspace.yaml
 public
 coverage
 lcov.info

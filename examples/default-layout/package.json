@@ -1,5 +1,5 @@
 {
-  "name": "default-layout",
+  "name": "@domstack/default-layout-example",
   "version": "0.0.0",
   "description": "",
   "main": "index.js",
@@ -14,5 +14,8 @@
   },
   "keywords": [],
   "author": "Bret Comnes <bcomnes@gmail.com> (https://bret.io/)",
-  "license": "MIT"
+  "license": "MIT",
+  "engines": {
+    "node": "^22.0.0 || >=24.0.0"
+  }
 }

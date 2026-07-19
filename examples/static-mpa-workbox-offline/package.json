@@ -1,0 +1,38 @@
+{
+  "name": "@domstack/static-mpa-workbox-offline-example",
+    "version": "0.0.0",
+    "description": "Static MPA offline Workbox service worker example for domstack",
+  "type": "module",
+  "imports": {
+    "#service-worker-settings": "./src/globals/service-worker/service-worker-settings.ts"
+  },
+  "scripts": {
+    "start": "npm run serve",
+    "build": "npm run clean && domstack",
+    "clean": "rm -rf public && mkdir -p public",
+    "serve": "npm run clean && domstack --serve",
+    "watch": "npm run clean && domstack --watch"
+  },
+  "keywords": [
+    "domstack",
+    "service-worker",
+    "offline",
+    "pwa"
+  ],
+  "author": "Bret Comnes <bcomnes@gmail.com> (https://bret.io/)",
+  "license": "MIT",
+  "dependencies": {
+    "@domstack/static": "file:../../.",
+    "workbox-cacheable-response": "^7.4.1",
+    "workbox-core": "^7.4.1",
+    "workbox-expiration": "^7.4.1",
+    "workbox-precaching": "^7.4.1",
+    "workbox-recipes": "^7.4.1",
+    "workbox-routing": "^7.4.1",
+    "workbox-strategies": "^7.4.1",
+    "workbox-window": "^7.4.1"
+  },
+  "engines": {
+    "node": "^22.0.0 || >=24.0.0"
+  }
+}

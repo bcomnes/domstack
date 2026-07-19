@@ -1,5 +1,5 @@
 {
-  "name": "string-layouts",
+  "name": "@domstack/string-layouts-example",
   "version": "0.0.0",
   "type": "module",
   "scripts": {
@@ -12,5 +12,8 @@
   "license": "MIT",
   "dependencies": {
     "@domstack/static": "file:../../."
+  },
+  "engines": {
+    "node": "^22.0.0 || >=24.0.0"
   }
 }
