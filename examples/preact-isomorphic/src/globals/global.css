@@ -1,6 +1,4 @@
-@layer mine, domstack.global, domstack.layout, domstack.page;
-
 @import 'mine.css';
-@import 'mine.css/dist/layout.css' layer(domstack.layout);
+@import 'mine.css/dist/layout.css' layer(domstack.global);
 @import 'highlight.js/styles/github.css' layer(domstack.global);
-@import url('highlight.js/styles/github-dark-dimmed.css') layer(domstack.global) (prefers-color-scheme: dark);
+@import 'highlight.js/styles/github-dark-dimmed.css' layer(domstack.global) (prefers-color-scheme: dark);

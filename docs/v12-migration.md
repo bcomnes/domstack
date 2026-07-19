@@ -124,92 +124,73 @@ export default async function esbuildSettingsOverride (esbuildSettings) {
 
 ---
 
-## 6. mine.css v11 and CSS Cascade Layers
+## 6. mine.css v11 and Optional CSS Layers
 
-DOMStack v12 upgrades its bundled default styles and ejected projects from mine.css v10 to v11.
-This is a downstream breaking change even when your project does not import mine.css directly, because the bundled default layout uses it.
-Review the complete [mine.css v11 migration guide](https://github.com/bcomnes/mine.css/blob/master/MIGRATION.md) before upgrading a customized or ejected site.
+DOMStack v12 updates its bundled default stylesheet from mine.css v10 to v11.
+Sites that use the bundled default layout and stylesheet receive the update without changing their source.
+The migration steps below apply only when a project imports mine.css directly, has ejected DOMStack's defaults, or has customized behavior removed by mine.css v11.
+Review the complete [mine.css v11 migration guide](https://github.com/bcomnes/mine.css/blob/master/MIGRATION.md) in those cases.
 
 mine.css v11 is CSS-only.
-The package root now resolves to the main stylesheet, and the JavaScript theme switcher is no longer published.
-Replace the old deep import with the package root:
+Its package root now resolves to the main stylesheet, and its JavaScript theme switcher is no longer published.
+Direct consumers should replace the old deep import with the package root:
 
 ```css
 @import 'mine.css';
 ```
 
-Remove imports of `mine.css` or `mine.css/dist/theme-switcher.js` from JavaScript, calls to `toggleTheme()`, stored theme state, theme controls, and `.light-mode` or `.dark-mode` rules.
-Add `<meta name="color-scheme" content="light dark">` to custom root layouts and use `prefers-color-scheme` for application-specific dark styles.
-If you use Highlight.js, load a light theme normally and a dark theme conditionally instead of applying one dark theme in both modes.
+Direct or ejected consumers should remove JavaScript imports of `mine.css` or `mine.css/dist/theme-switcher.js`, calls to `toggleTheme()`, stored theme state, theme controls, and `.light-mode` or `.dark-mode` rules.
+Custom root layouts that use mine.css should include `<meta name="color-scheme" content="light dark">` and use `prefers-color-scheme` for application-specific dark styles.
+If an ejected stylesheet uses Highlight.js, load a light theme normally and a dark theme conditionally instead of applying one dark theme in both modes.
 
 The optional mine.css layout remains a separate import.
-DOMStack's default stylesheet imports it explicitly; ejected sites must continue to do the same.
+DOMStack's default stylesheet imports it explicitly, and ejected sites that want the same layout should continue to do so.
 
-### DOMStack cascade layer order
+### Optional cascade-layer pattern
 
-DOMStack v12's default stylesheet establishes this low-to-high-priority author-layer order:
+The main mine.css stylesheet places its framework rules in the low-priority `mine` layer.
+DOMStack's default stylesheet imports mine.css normally and places its optional layout and Highlight.js sidecars in `domstack.default`:
 
 ```css
-@layer mine, domstack.global, domstack.layout, domstack.page;
+@import 'mine.css';
+@import 'mine.css/dist/layout.css' layer(domstack.default);
+@import 'highlight.js/styles/github.css' layer(domstack.default);
+@import 'highlight.js/styles/github-dark-dimmed.css' layer(domstack.default) (prefers-color-scheme: dark);
 ```
 
-The order reflects DOMStack's existing stylesheet scopes:
+Custom stylesheets do not have to use layers.
+Unlayered author rules override normal declarations in `mine` and `domstack.default`.
 
-- `mine` contains mine.css framework defaults.
-- `domstack.global` contains site-wide rules and syntax themes.
-- `domstack.layout` contains optional mine.css layout rules and `*.layout.css` rules.
-- `domstack.page` contains page-local `style.css` rules.
-
-Declare the complete order before imports or other layer blocks in the global stylesheet.
-Import mine.css normally because its distributed stylesheet already defines the `mine` layer.
-Do not write `@import 'mine.css' layer(mine)`.
-Optional sidecars and syntax themes are not pre-layered, so assign them to the appropriate DOMStack layer:
+Projects that want explicit layers can let each DOMStack stylesheet declare only its own scope:
 
 ```css
-@layer mine, domstack.global, domstack.layout, domstack.page;
-
-@import 'mine.css';
-@import 'mine.css/dist/layout.css' layer(domstack.layout);
-@import 'highlight.js/styles/github.css' layer(domstack.global);
-@import url('highlight.js/styles/github-dark-dimmed.css') layer(domstack.global) (prefers-color-scheme: dark);
-
+/* global.css */
 @layer domstack.global {
-  :root {
-    --brand-color: rebeccapurple;
-  }
+  /* Site-wide rules */
 }
 ```
-
-Following this pattern in custom stylesheets is recommended.
-Scope layout and page rules in their matching files:
 
 ```css
 /* article.layout.css */
 @layer domstack.layout {
-  .article-shell {
-    max-inline-size: 72rem;
-  }
+  /* Layout rules */
 }
 ```
 
 ```css
 /* style.css */
 @layer domstack.page {
-  .article-introduction {
-    font-size: 1.125em;
-  }
+  /* Page rules */
 }
 ```
 
-DOMStack loads the global stylesheet first, so its order declaration establishes precedence before layout and page layer blocks are encountered.
-Unlayered author rules outrank every layered normal rule, so existing unlayered overrides will still win but bypass the DOMStack scope contract.
-Move them into the matching layer when you want predictable global → layout → page precedence.
-CSS Modules may remain unlayered when component-local precedence is intentional, or be wrapped in the appropriate scope layer when they participate in this cascade.
+No stylesheet needs to enumerate the other scopes.
+DOMStack loads default, global, layout, and page styles in that order, so the layers are first encountered with the corresponding low-to-high precedence.
+This is a recommended organizational pattern, not a migration requirement.
 
-mine.css v11 also intentionally changes typography, forms, tables, media framing, motion, focus treatment, and the optional `.mine-layout` width.
-It preserves native table display; wrap wide tables in an accessible, named, keyboard-focusable overflow region rather than restoring `display: block` on the table.
-The distributed CSS uses native CSS nesting, and the package requires Node.js 22 or newer and npm 10 or newer for installation.
-Visually verify representative pages in light and dark browser modes, narrow and wide viewports, reduced-motion mode, and print preview where relevant.
+mine.css v11 intentionally changes typography, forms, tables, media framing, motion, focus treatment, and the optional `.mine-layout` width.
+Direct, ejected, or heavily customized consumers should review those surfaces against the upstream migration guide.
+The distributed CSS uses native CSS nesting, and mine.css requires Node.js 22 or newer and npm 10 or newer for installation.
 
 ---
 
@@ -223,11 +204,11 @@ Visually verify representative pages in light and dark browser modes, narrow and
 - [ ] If you want your ejected server-side layout to match the v12 default, migrate its templates to `fragtml` and install `fragtml`.
 - [ ] If you use `.jsx` or `.tsx` browser clients, add an `esbuild.settings` file that configures your JSX runtime.
 - [ ] If you use Preact browser clients, keep `preact` in your project dependencies.
-- [ ] Read the mine.css v11 migration guide and account for its intentional visual and browser-support changes.
-- [ ] Replace `@import 'mine.css/dist/mine.css'` with `@import 'mine.css'` and keep optional sidecars explicit.
-- [ ] Remove `toggleTheme()`, theme-switcher imports, persisted theme state, theme controls, and light/dark mode classes.
-- [ ] Add `<meta name="color-scheme" content="light dark">` to custom root layouts and use `prefers-color-scheme` for dark styles.
-- [ ] Declare `@layer mine, domstack.global, domstack.layout, domstack.page;` and scope global, layout, and page rules in their matching layers.
-- [ ] Load light and dark syntax-highlighting themes with matching `prefers-color-scheme` behavior.
-- [ ] Confirm the deployment and install environment uses Node.js 22+ and npm 10+ and that target browsers support native CSS nesting.
-- [ ] Visually and interactively check both color schemes, keyboard focus, reduced motion, forms, wide tables, media, print, and responsive layouts.
+- [ ] If you directly consume mine.css or ejected DOMStack's defaults, read the mine.css v11 migration guide.
+- [ ] In direct or ejected stylesheets, replace `@import 'mine.css/dist/mine.css'` with `@import 'mine.css'` and keep optional sidecars explicit.
+- [ ] In direct or ejected clients, remove `toggleTheme()`, theme-switcher imports, persisted theme state, theme controls, and light/dark mode classes.
+- [ ] Add `<meta name="color-scheme" content="light dark">` to custom root layouts that use mine.css and use `prefers-color-scheme` for dark styles.
+- [ ] If desired, organize custom global, layout, and page rules in their corresponding optional `domstack.*` layers.
+- [ ] In ejected stylesheets, load light and dark syntax-highlighting themes with matching `prefers-color-scheme` behavior.
+- [ ] If installing mine.css directly, confirm the environment uses Node.js 22+ and npm 10+ and target browsers support native CSS nesting.
+- [ ] Visually check mine.css surfaces that the project directly customizes.

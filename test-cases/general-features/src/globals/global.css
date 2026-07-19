@@ -1,7 +1,5 @@
-@layer mine, domstack.global, domstack.layout, domstack.page;
-
 @import 'mine.css';
-@import 'mine.css/dist/layout.css' layer(domstack.layout);
+@import 'mine.css/dist/layout.css' layer(domstack.global);
 
 @layer domstack.global {
   .test-asset-icon { background-image: url('./test-icon.gif'); }
