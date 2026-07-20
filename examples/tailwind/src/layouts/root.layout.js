@@ -35,6 +35,7 @@ export default function defaultRootLayout ({
           <meta charset="utf-8" />
           <title>${title ? `${title}` : ''}${title && siteName ? ' | ' : ''}${siteName}</title>
           <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+          <meta name="color-scheme" content="light dark" />
           ${scripts
             ? scripts.map(script => html`<script type='module' src="${script.startsWith('/') ? `${basePath ?? ''}${script}` : script}" />`)
             : null}

@@ -1,7 +1,9 @@
-.some-class {
-  background: blue;
+@layer domstack.page {
+  .some-class {
+    background: blue;
 
-  /* And some garbled CSS */
+    /* And some garbled CSS */
 
-  fdskahfjla; jfk jkl;dfjsla;fjdls943rjn
+    fdskahfjla; jfk jkl;dfjsla;fjdls943rjn
+  }
 }

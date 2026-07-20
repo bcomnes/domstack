@@ -1,74 +1,76 @@
-.js-page-example {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 1rem;
-  font-family: system-ui, -apple-system, sans-serif;
-}
+@layer domstack.page {
+  .js-page-example {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 1rem;
+    font-family: system-ui, -apple-system, sans-serif;
+  }
 
-.js-page-example h1 {
-  color: #333;
-  border-bottom: 2px solid #6200ee;
-  padding-bottom: 0.5rem;
-}
+  .js-page-example h1 {
+    color: #333;
+    border-bottom: 2px solid #6200ee;
+    padding-bottom: 0.5rem;
+  }
 
-.js-page-example section {
-  margin-bottom: 2rem;
-  padding: 1.5rem;
-  border-radius: 8px;
-  background-color: #f9f9f9;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
+  .js-page-example section {
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+    border-radius: 8px;
+    background-color: #f9f9f9;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
 
-.js-page-example h2 {
-  color: #6200ee;
-  margin-top: 0;
-  margin-bottom: 1rem;
-}
+  .js-page-example h2 {
+    color: #6200ee;
+    margin-top: 0;
+    margin-bottom: 1rem;
+  }
 
-.js-page-example .code-example {
-  background-color: #272822;
-  color: #f8f8f2;
-  padding: 1rem;
-  border-radius: 4px;
-  overflow-x: auto;
-}
+  .js-page-example .code-example {
+    background-color: #272822;
+    color: #f8f8f2;
+    padding: 1rem;
+    border-radius: 4px;
+    overflow-x: auto;
+  }
 
-.js-page-example .code-example pre {
-  margin: 0;
-}
+  .js-page-example .code-example pre {
+    margin: 0;
+  }
 
-.js-page-example code {
-  background-color: #eee;
-  padding: 0.2rem 0.4rem;
-  border-radius: 3px;
-  font-family: monospace;
-  font-size: 0.9em;
-}
+  .js-page-example code {
+    background-color: #eee;
+    padding: 0.2rem 0.4rem;
+    border-radius: 3px;
+    font-family: monospace;
+    font-size: 0.9em;
+  }
 
-.js-page-example .code-example code {
-  background-color: transparent;
-  padding: 0;
-}
+  .js-page-example .code-example code {
+    background-color: transparent;
+    padding: 0;
+  }
 
-.js-page-example .variable-display {
-  background-color: #fff;
-  border: 1px solid #ddd;
-  padding: 1rem;
-  border-radius: 4px;
-  margin-top: 1rem;
-}
+  .js-page-example .variable-display {
+    background-color: #fff;
+    border: 1px solid #ddd;
+    padding: 1rem;
+    border-radius: 4px;
+    margin-top: 1rem;
+  }
 
-.js-page-example .back-link {
-  display: inline-block;
-  margin-top: 1rem;
-  padding: 0.5rem 1rem;
-  background-color: #6200ee;
-  color: white;
-  text-decoration: none;
-  border-radius: 4px;
-  transition: background-color 0.2s;
-}
+  .js-page-example .back-link {
+    display: inline-block;
+    margin-top: 1rem;
+    padding: 0.5rem 1rem;
+    background-color: #6200ee;
+    color: white;
+    text-decoration: none;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+  }
 
-.js-page-example .back-link:hover {
-  background-color: #3700b3;
+  .js-page-example .back-link:hover {
+    background-color: #3700b3;
+  }
 }

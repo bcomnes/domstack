@@ -13,7 +13,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "mine.css": "^9.0.1",
+    "mine.css": "^11.0.6",
     "@domstack/static": "file:../../."
   },
   "devDependencies": {

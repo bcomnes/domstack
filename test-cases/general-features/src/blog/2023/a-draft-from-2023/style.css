@@ -1,3 +1,5 @@
-.a-blog-post-css {
-  color: blue;
+@layer domstack.page {
+  .a-blog-post-css {
+    color: blue;
+  }
 }

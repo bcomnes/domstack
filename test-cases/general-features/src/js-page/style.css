@@ -1,3 +1,5 @@
-.js-page-style {
-  background: purple;
+@layer domstack.page {
+  .js-page-style {
+    background: purple;
+  }
 }

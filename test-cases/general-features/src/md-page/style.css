@@ -1,45 +1,47 @@
-.md-page-style {
-  background: yellow;
-}
+@layer domstack.page {
+  .md-page-style {
+    background: yellow;
+  }
 
-/* Style for the custom test-box container */
-.test-box {
-  border: 2px solid #3498db;
-  border-radius: 5px;
-  padding: 15px;
-  margin: 20px 0;
-  background-color: #eaf7ff;
-  position: relative;
-}
+  /* Style for the custom test-box container */
+  .test-box {
+    border: 2px solid #3498db;
+    border-radius: 5px;
+    padding: 15px;
+    margin: 20px 0;
+    background-color: #eaf7ff;
+    position: relative;
+  }
 
-.test-box::before {
-  content: "Test Box";
-  position: absolute;
-  top: -12px;
-  left: 10px;
-  background-color: white;
-  padding: 0 10px;
-  color: #3498db;
-  font-weight: bold;
-}
+  .test-box::before {
+    content: "Test Box";
+    position: absolute;
+    top: -12px;
+    left: 10px;
+    background-color: white;
+    padding: 0 10px;
+    color: #3498db;
+    font-weight: bold;
+  }
 
-/* Style for the custom test-box container */
-.test-box {
-  border: 2px solid #3498db;
-  border-radius: 5px;
-  padding: 15px;
-  margin: 20px 0;
-  background-color: #eaf7ff;
-  position: relative;
-}
+  /* Style for the custom test-box container */
+  .test-box {
+    border: 2px solid #3498db;
+    border-radius: 5px;
+    padding: 15px;
+    margin: 20px 0;
+    background-color: #eaf7ff;
+    position: relative;
+  }
 
-.test-box::before {
-  content: "Test Box";
-  position: absolute;
-  top: -12px;
-  left: 10px;
-  background-color: white;
-  padding: 0 10px;
-  color: #3498db;
-  font-weight: bold;
+  .test-box::before {
+    content: "Test Box";
+    position: absolute;
+    top: -12px;
+    left: 10px;
+    background-color: white;
+    padding: 0 10px;
+    color: #3498db;
+    font-weight: bold;
+  }
 }

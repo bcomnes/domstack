@@ -22,6 +22,7 @@ jobs:
           node-version: ${{ matrix.node-version }}
           check-latest: true
       - run: npm i
+      - run: npx playwright install --with-deps chromium
       - name: Run tests
         run: |
           node_major=$(node -p "process.versions.node.split('.')[0]")

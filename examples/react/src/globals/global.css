@@ -1,120 +1,123 @@
-@import 'mine.css/dist/mine.css';
-@import 'mine.css/dist/layout.css';
-@import 'highlight.js/styles/github-dark-dimmed.css';
+@import 'mine.css';
+@import 'mine.css/dist/layout.css' layer(domstack.global);
+@import 'highlight.js/styles/github.css' layer(domstack.global);
+@import 'highlight.js/styles/github-dark-dimmed.css' layer(domstack.global) (prefers-color-scheme: dark);
 
-/* Custom React Example Styles */
-:root {
-  --primary-color: #61dafb;
-  --secondary-color: #282c34;
-  --text-color: #333;
-  --background-color: #f5f5f5;
-  --card-background: #fff;
-  --success-color: #4caf50;
-  --warning-color: #ff9800;
-  --error-color: #f44336;
-}
-
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
-    Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-  color: var(--text-color);
-  background-color: var(--background-color);
-  line-height: 1.6;
-}
-
-.app-container {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 2rem;
-}
-
-.react-demo {
-  background-color: var(--card-background);
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  padding: 1.5rem;
-  margin-bottom: 2rem;
-}
-
-.react-header {
-  display: flex;
-  align-items: center;
-  margin-bottom: 1.5rem;
-}
-
-.react-logo {
-  animation: spin 10s linear infinite;
-  height: 40px;
-  margin-right: 1rem;
-}
-
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
+@layer domstack.global {
+  /* Custom React Example Styles */
+  :root {
+    --primary-color: #61dafb;
+    --secondary-color: #282c34;
+    --text-color: #333;
+    --background-color: #f5f5f5;
+    --card-background: #fff;
+    --success-color: #4caf50;
+    --warning-color: #ff9800;
+    --error-color: #f44336;
   }
-  to {
-    transform: rotate(360deg);
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+      Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    color: var(--text-color);
+    background-color: var(--background-color);
+    line-height: 1.6;
   }
-}
 
-.button {
-  background-color: var(--primary-color);
-  color: var(--secondary-color);
-  border: none;
-  border-radius: 4px;
-  padding: 0.5rem 1rem;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: background-color 0.2s, transform 0.1s;
-}
+  .app-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 2rem;
+  }
 
-.button:hover {
-  background-color: #4ac0e0;
-  transform: translateY(-1px);
-}
+  .react-demo {
+    background-color: var(--card-background);
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+  }
 
-.button:active {
-  transform: translateY(1px);
-}
+  .react-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1.5rem;
+  }
 
-.button-group {
-  display: flex;
-  gap: 0.5rem;
-  margin: 1rem 0;
-}
+  .react-logo {
+    animation: spin 10s linear infinite;
+    height: 40px;
+    margin-right: 1rem;
+  }
 
-.card {
-  border-radius: 6px;
-  border: 1px solid #eee;
-  padding: 1rem;
-  margin-bottom: 1rem;
-  transition: box-shadow 0.2s;
-}
+  @keyframes spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
 
-.card:hover {
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-}
+  .button {
+    background-color: var(--primary-color);
+    color: var(--secondary-color);
+    border: none;
+    border-radius: 4px;
+    padding: 0.5rem 1rem;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+  }
 
-.info-panel {
-  background-color: rgba(97, 218, 251, 0.1);
-  border-left: 4px solid var(--primary-color);
-  padding: 1rem;
-  margin: 1rem 0;
-  border-radius: 0 4px 4px 0;
-}
+  .button:hover {
+    background-color: #4ac0e0;
+    transform: translateY(-1px);
+  }
 
-/* Form elements */
-input, select, textarea {
-  padding: 0.5rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 1rem;
-  width: 100%;
-  margin-bottom: 1rem;
-}
+  .button:active {
+    transform: translateY(1px);
+  }
 
-input:focus, select:focus, textarea:focus {
-  outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 2px rgba(97, 218, 251, 0.2);
+  .button-group {
+    display: flex;
+    gap: 0.5rem;
+    margin: 1rem 0;
+  }
+
+  .card {
+    border-radius: 6px;
+    border: 1px solid #eee;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    transition: box-shadow 0.2s;
+  }
+
+  .card:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .info-panel {
+    background-color: rgba(97, 218, 251, 0.1);
+    border-left: 4px solid var(--primary-color);
+    padding: 1rem;
+    margin: 1rem 0;
+    border-radius: 0 4px 4px 0;
+  }
+
+  /* Form elements */
+  input, select, textarea {
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 1rem;
+    width: 100%;
+    margin-bottom: 1rem;
+  }
+
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(97, 218, 251, 0.2);
+  }
 }

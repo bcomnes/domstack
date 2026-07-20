@@ -51,7 +51,7 @@
     "markdown-it-sup": "^2.0.0",
     "markdown-it-table-of-contents": "^1.1.0",
     "markdown-it-task-lists": "^2.1.1",
-    "mine.css": "^10.0.0",
+    "mine.css": "^11.0.6",
     "p-map": "^7.0.2",
     "package-directory": "^8.1.0",
     "package-json": "^10.0.0",
@@ -63,6 +63,7 @@
     "write-package": "^7.0.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@types/markdown-it": "^14.1.1",
     "@types/markdown-it-footnote": "^3.0.4",
     "@types/node": "^26.0.1",
@@ -92,6 +93,7 @@
     "test:installed-check": "installed-check --ignore-dev",
     "test:neostandard": "eslint . --ignore-pattern 'test-cases/build-errors/src/**/*.js' --ignore-pattern 'test-cases/page-build-errors/src/**/*.js'",
     "test:node-test": "node --test --experimental-test-coverage --test-reporter=dot --test-reporter=lcov --test-reporter-destination=stdout --test-reporter-destination=lcov.info",
+    "test:playwright": "playwright test",
     "test:tsc": "tsc",
     "build-examples": "run-p example:*",
     "clean": "run-p clean:*",

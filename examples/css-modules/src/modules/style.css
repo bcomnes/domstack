@@ -1,1 +1,1 @@
-@import './app.module.css';
+@import './app.module.css' layer(domstack.page);

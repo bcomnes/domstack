@@ -1,262 +1,266 @@
-@import 'highlight.js/styles/github-dark-dimmed.css';
-/**
- * Markdown-it Custom Styling
- *
- * This stylesheet provides custom styling for the enhanced markdown-it features
- * configured in markdown-it.settings.js.
- */
+@import 'highlight.js/styles/github.css' layer(domstack.global);
+@import 'highlight.js/styles/github-dark-dimmed.css' layer(domstack.global) (prefers-color-scheme: dark);
 
-/* =============================================
-   CUSTOM CONTAINERS
-   ============================================= */
+@layer domstack.global {
+  /**
+   * Markdown-it Custom Styling
+   *
+   * This stylesheet provides custom styling for the enhanced markdown-it features
+   * configured in markdown-it.settings.js.
+   */
 
-/* Custom warning container */
-.custom-warning {
-  border: 2px solid #ff9800;
-  border-radius: 8px;
-  margin: 1.5rem 0;
-  overflow: hidden;
-  background-color: #fff3e0;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  transition: transform 0.2s, box-shadow 0.2s;
-}
+  /* =============================================
+     CUSTOM CONTAINERS
+     ============================================= */
 
-.custom-warning:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-}
-
-.custom-warning .warning-title {
-  background-color: #ff9800;
-  color: white;
-  padding: 0.75rem 1rem;
-  font-weight: bold;
-  font-size: 1.1rem;
-}
-
-.custom-warning .warning-content {
-  padding: 1rem;
-  color: #e65100;
-}
-
-/* Custom info container */
-.custom-info {
-  border: 2px solid #2196f3;
-  border-radius: 8px;
-  margin: 1.5rem 0;
-  overflow: hidden;
-  background-color: #e3f2fd;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.custom-info:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-}
-
-.custom-info .info-title {
-  background-color: #2196f3;
-  color: white;
-  padding: 0.75rem 1rem;
-  font-weight: bold;
-  font-size: 1.1rem;
-}
-
-.custom-info .info-content {
-  padding: 1rem;
-  color: #0d47a1;
-}
-
-/* =============================================
-   COLLAPSIBLE DETAILS CONTAINER
-   ============================================= */
-
-/* Custom details container */
-details {
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  margin: 1.5rem 0;
-  padding: 0;
-  background-color: #f5f5f5;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-  transition: box-shadow 0.2s;
-}
-
-details:hover {
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-}
-
-details summary {
-  padding: 1rem;
-  cursor: pointer;
-  font-weight: bold;
-  background-color: #e0e0e0;
-  border-radius: 8px 8px 0 0;
-  user-select: none;
-  position: relative;
-  outline: none;
-}
-
-details summary::after {
-  content: "▼";
-  position: absolute;
-  right: 1rem;
-  top: 50%;
-  transform: translateY(-50%);
-  transition: transform 0.3s;
-  font-size: 0.8rem;
-  color: #666;
-}
-
-details[open] summary::after {
-  transform: translateY(-50%) rotate(180deg);
-}
-
-details[open] summary {
-  border-bottom: 1px solid #ddd;
-}
-
-details .details-content {
-  padding: 1rem;
-  background-color: white;
-  border-radius: 0 0 8px 8px;
-}
-
-/* =============================================
-   CODE BLOCK STYLING
-   ============================================= */
-
-/* Custom code blocks */
-.custom-code-block {
-  background-color: #1e1e1e;
-  border: 1px solid #333;
-  border-radius: 6px;
-  padding: 1rem;
-  margin: 1rem 0;
-  overflow-x: auto;
-  position: relative;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-}
-
-.custom-code-block::before {
-  content: attr(data-language);
-  position: absolute;
-  top: 0;
-  right: 0;
-  padding: 0.25rem 0.75rem;
-  background-color: #333;
-  border-radius: 0 6px 0 6px;
-  font-size: 0.8rem;
-  color: #fff;
-  opacity: 0.8;
-}
-
-.custom-code-block code {
-  background: none;
-  padding: 0;
-  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-  font-size: 0.9rem;
-  line-height: 1.5;
-  color: #f8f8f2;
-}
-
-/* Syntax highlighting classes */
-.custom-code-block .keyword { color: #ff79c6; }
-.custom-code-block .string { color: #f1fa8c; }
-.custom-code-block .comment { color: #6272a4; }
-.custom-code-block .function { color: #50fa7b; }
-.custom-code-block .number { color: #bd93f9; }
-.custom-code-block .operator { color: #ff79c6; }
-
-/* =============================================
-   GENERAL PAGE STYLING
-   ============================================= */
-
-/* Base page layout */
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  line-height: 1.6;
-  color: #333;
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 2rem;
-  background-color: #fafafa;
-}
-
-/* Typography */
-h1, h2, h3 {
-  color: #2c3e50;
-  margin-top: 2rem;
-  font-weight: 600;
-}
-
-h1 {
-  border-bottom: 2px solid #2c3e50;
-  padding-bottom: 0.5rem;
-  font-size: 2.2rem;
-}
-
-h2 {
-  font-size: 1.8rem;
-  border-bottom: 1px solid #eaecef;
-  padding-bottom: 0.3rem;
-}
-
-h3 {
-  font-size: 1.4rem;
-}
-
-p {
-  margin: 1rem 0;
-}
-
-/* Inline code */
-code {
-  background-color: #f0f0f0;
-  padding: 0.2rem 0.4rem;
-  border-radius: 3px;
-  font-size: 0.9em;
-  border: 1px solid #e0e0e0;
-  color: #e53935;
-}
-
-/* Links */
-a {
-  color: #2196f3;
-  text-decoration: none;
-  transition: color 0.2s;
-}
-
-a:hover {
-  color: #0d47a1;
-  text-decoration: underline;
-}
-
-/* Lists */
-ul, ol {
-  padding-left: 1.5rem;
-}
-
-li {
-  margin: 0.5rem 0;
-}
-
-/* Horizontal rule */
-hr {
-  border: 0;
-  border-top: 1px solid #eaecef;
-  margin: 2rem 0;
-}
-
-/* Print styles */
-@media print {
-  body {
-    padding: 0;
-    background: white;
+  /* Custom warning container */
+  .custom-warning {
+    border: 2px solid #ff9800;
+    border-radius: 8px;
+    margin: 1.5rem 0;
+    overflow: hidden;
+    background-color: #fff3e0;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s, box-shadow 0.2s;
   }
 
-  .custom-warning, .custom-info, details {
-    break-inside: avoid;
+  .custom-warning:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  }
+
+  .custom-warning .warning-title {
+    background-color: #ff9800;
+    color: white;
+    padding: 0.75rem 1rem;
+    font-weight: bold;
+    font-size: 1.1rem;
+  }
+
+  .custom-warning .warning-content {
+    padding: 1rem;
+    color: #e65100;
+  }
+
+  /* Custom info container */
+  .custom-info {
+    border: 2px solid #2196f3;
+    border-radius: 8px;
+    margin: 1.5rem 0;
+    overflow: hidden;
+    background-color: #e3f2fd;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+
+  .custom-info:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  }
+
+  .custom-info .info-title {
+    background-color: #2196f3;
+    color: white;
+    padding: 0.75rem 1rem;
+    font-weight: bold;
+    font-size: 1.1rem;
+  }
+
+  .custom-info .info-content {
+    padding: 1rem;
+    color: #0d47a1;
+  }
+
+  /* =============================================
+     COLLAPSIBLE DETAILS CONTAINER
+     ============================================= */
+
+  /* Custom details container */
+  details {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    margin: 1.5rem 0;
+    padding: 0;
+    background-color: #f5f5f5;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    transition: box-shadow 0.2s;
+  }
+
+  details:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  details summary {
+    padding: 1rem;
+    cursor: pointer;
+    font-weight: bold;
+    background-color: #e0e0e0;
+    border-radius: 8px 8px 0 0;
+    user-select: none;
+    position: relative;
+    outline: none;
+  }
+
+  details summary::after {
+    content: "▼";
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    transition: transform 0.3s;
+    font-size: 0.8rem;
+    color: #666;
+  }
+
+  details[open] summary::after {
+    transform: translateY(-50%) rotate(180deg);
+  }
+
+  details[open] summary {
+    border-bottom: 1px solid #ddd;
+  }
+
+  details .details-content {
+    padding: 1rem;
+    background-color: white;
+    border-radius: 0 0 8px 8px;
+  }
+
+  /* =============================================
+     CODE BLOCK STYLING
+     ============================================= */
+
+  /* Custom code blocks */
+  .custom-code-block {
+    background-color: #1e1e1e;
+    border: 1px solid #333;
+    border-radius: 6px;
+    padding: 1rem;
+    margin: 1rem 0;
+    overflow-x: auto;
+    position: relative;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  }
+
+  .custom-code-block::before {
+    content: attr(data-language);
+    position: absolute;
+    top: 0;
+    right: 0;
+    padding: 0.25rem 0.75rem;
+    background-color: #333;
+    border-radius: 0 6px 0 6px;
+    font-size: 0.8rem;
+    color: #fff;
+    opacity: 0.8;
+  }
+
+  .custom-code-block code {
+    background: none;
+    padding: 0;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: #f8f8f2;
+  }
+
+  /* Syntax highlighting classes */
+  .custom-code-block .keyword { color: #ff79c6; }
+  .custom-code-block .string { color: #f1fa8c; }
+  .custom-code-block .comment { color: #6272a4; }
+  .custom-code-block .function { color: #50fa7b; }
+  .custom-code-block .number { color: #bd93f9; }
+  .custom-code-block .operator { color: #ff79c6; }
+
+  /* =============================================
+     GENERAL PAGE STYLING
+     ============================================= */
+
+  /* Base page layout */
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    line-height: 1.6;
+    color: #333;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 2rem;
+    background-color: #fafafa;
+  }
+
+  /* Typography */
+  h1, h2, h3 {
+    color: #2c3e50;
+    margin-top: 2rem;
+    font-weight: 600;
+  }
+
+  h1 {
+    border-bottom: 2px solid #2c3e50;
+    padding-bottom: 0.5rem;
+    font-size: 2.2rem;
+  }
+
+  h2 {
+    font-size: 1.8rem;
+    border-bottom: 1px solid #eaecef;
+    padding-bottom: 0.3rem;
+  }
+
+  h3 {
+    font-size: 1.4rem;
+  }
+
+  p {
+    margin: 1rem 0;
+  }
+
+  /* Inline code */
+  code {
+    background-color: #f0f0f0;
+    padding: 0.2rem 0.4rem;
+    border-radius: 3px;
+    font-size: 0.9em;
+    border: 1px solid #e0e0e0;
+    color: #e53935;
+  }
+
+  /* Links */
+  a {
+    color: #2196f3;
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+
+  a:hover {
+    color: #0d47a1;
+    text-decoration: underline;
+  }
+
+  /* Lists */
+  ul, ol {
+    padding-left: 1.5rem;
+  }
+
+  li {
+    margin: 0.5rem 0;
+  }
+
+  /* Horizontal rule */
+  hr {
+    border: 0;
+    border-top: 1px solid #eaecef;
+    margin: 2rem 0;
+  }
+
+  /* Print styles */
+  @media print {
+    body {
+      padding: 0;
+      background: white;
+    }
+
+    .custom-warning, .custom-info, details {
+      break-inside: avoid;
+    }
   }
 }

@@ -1115,6 +1115,38 @@ This is a global stylesheet that every page will use.
 Any styles that need to be on every single page should live here.
 Importing css from `npm` modules work well here.
 
+#### Optional cascade layers
+
+The bundled default stylesheet imports mine.css's main rules in its low-priority `mine` layer and its optional layout and syntax styles in `domstack.default`.
+Normal unlayered styles in your project override those defaults, so custom stylesheets do not have to use cascade layers.
+
+For projects that prefer explicit layers, each stylesheet can declare only its own optional scope:
+
+```css
+/* global.css */
+@layer domstack.global {
+  /* Site-wide rules */
+}
+```
+
+```css
+/* article.layout.css */
+@layer domstack.layout {
+  /* Layout rules */
+}
+```
+
+```css
+/* style.css */
+@layer domstack.page {
+  /* Page rules */
+}
+```
+
+DOMStack loads default, global, layout, and page stylesheets in that order, which gives these layers the same low-to-high precedence when they are used.
+A global stylesheet does not need to enumerate the layout or page layers.
+This is a recommended organization pattern, not a requirement.
+
 ### `global.data.js`
 
 The `global.data.js` (or `.ts`, `.mjs`, etc.) file is an optional file that can live anywhere in your `src` tree — like all global assets, the first one found wins and duplicates warn. It runs **once per build**, after all pages are initialized and before rendering begins.
@@ -1846,6 +1878,8 @@ Key changes at a glance:
 
 - **Default layout**: The bundled and ejected `root.layout.js` now uses [`fragtml`][fragtml].
 - **Included dependencies**: `domstack --eject` adds `mine.css`, `fragtml`, and `highlight.js`; Preact, HTM, and `preact-render-to-string` are no longer included for the default template.
+- **mine.css v11**: The bundled defaults now use mine.css v11. Sites using those defaults need no source changes; direct, ejected, or customized mine.css consumers should follow the upstream migration guide.
+- **CSS cascade layers**: The default mine.css rules and sidecars use low-priority layers. Custom styles may remain unlayered or optionally use the documented `domstack.global`, `domstack.layout`, and `domstack.page` organization pattern.
 - **JSX runtime**: Client `.jsx` and `.tsx` bundles still work through esbuild, but DOMStack no longer configures Preact as the default runtime. Install React, Preact, or another runtime in your own project and configure it with `esbuild.settings`.
 - **Preact examples**: Examples that actually mount Preact in the browser still use Preact and configure it locally.
 

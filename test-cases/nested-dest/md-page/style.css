@@ -1,3 +1,5 @@
-.md-page-style {
-  background: yellow;
+@layer domstack.page {
+  .md-page-style {
+    background: yellow;
+  }
 }

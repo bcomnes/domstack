@@ -1,5 +1,8 @@
-@import 'mine.css/dist/mine.css';
-@import 'mine.css/dist/layout.css';
+@import 'mine.css';
+@import 'mine.css/dist/layout.css' layer(domstack.global);
 
-.test-asset-icon { background-image: url('./test-icon.gif'); }
-@font-face { font-family: 'TestFont'; src: url('./test-font.woff2'); }
+@layer domstack.global {
+  .test-asset-icon { background-image: url('./test-icon.gif'); }
+  @font-face { font-family: 'TestFont'; src: url('./test-font.woff2'); }
+  .cascade-layer-fixture { --domstack-cascade-layer: global; }
+}

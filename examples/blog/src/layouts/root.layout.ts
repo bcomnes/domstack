@@ -22,6 +22,7 @@ const rootLayout: LayoutFunction<RootVars, string | HtmlResult, string> = ({
     <meta charset="utf-8" />
     <title>${pageTitle}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
     ${styles?.map(s => html`<link rel="stylesheet" href="${s}" />`)}
     ${scripts?.map(s => html`<script type="module" src="${s}"></script>`)}
     <link rel="alternate" type="application/json" href="/feeds/feed.json" title="${siteName}" />
@@ -36,7 +37,7 @@ const rootLayout: LayoutFunction<RootVars, string | HtmlResult, string> = ({
             <li><a href="/blog/">Blog</a></li>
             <li><a href="/about/">About</a></li>
             <li><a href="/feeds/feed.json">Feed</a></li>
-            <li><button onclick="toggleTheme()" aria-label="Toggle theme">◑</button></li>
+
           </ul>
         </nav>
       </div>

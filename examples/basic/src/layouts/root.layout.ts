@@ -34,6 +34,7 @@ const RootLayout: LayoutFunction<PageVars, string | HtmlResult, string> = async 
         <meta charset="utf-8" />
         <title>${siteName}${title ? ` | ${title}` : ''}</title>
         <meta name="viewport" content="width=device-width, user-scalable=no" />
+        <meta name="color-scheme" content="light dark" />
         ${scripts
           ? scripts.map(script => html`<script type="module" src="${script.startsWith('/') ? `${basePath ?? ''}${script}` : script}"></script>`)
           : null}
