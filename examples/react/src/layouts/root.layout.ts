@@ -22,7 +22,7 @@ interface LayoutProps {
  * React components will be mounted client-side after the page loads.
  * Uses React DOM Server for server-side rendering.
  */
-export default function rootLayout({
+export default function rootLayout ({
   vars: {
     title,
     siteName = 'React TypeScript Example',

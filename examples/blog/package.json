@@ -1,5 +1,5 @@
 {
-  "name": "blog",
+  "name": "@domstack/blog-example",
   "version": "0.0.0",
   "description": "A blog example for domstack demonstrating global.data.ts, nested layouts, and feeds.",
   "type": "module",

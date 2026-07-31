@@ -1,5 +1,5 @@
 {
-  "name": "basic",
+  "name": "@domstack/basic-example",
   "version": "0.0.0",
   "description": "",
   "type": "module",
@@ -14,14 +14,14 @@
   "author": "Bret Comnes <bcomnes@gmail.com> (https://bret.io/)",
   "license": "MIT",
   "devDependencies": {
+    "@voxpelli/tsconfig": "^15.0.0",
     "npm-run-all2": "^6.0.0",
-    "typescript": "~5.8.2",
-    "@voxpelli/tsconfig": "^15.0.0"
+    "typescript": "~5.8.2"
   },
   "dependencies": {
     "@domstack/static": "file:../../.",
     "fragtml": "^0.0.9",
-    "mine.css": "^11.0.6",
-    "highlight.js": "^11.9.0"
+    "highlight.js": "^11.9.0",
+    "mine.css": "^11.0.6"
   }
 }

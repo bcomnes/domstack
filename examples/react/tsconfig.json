@@ -1,11 +1,6 @@
 {
-  "extends": "@voxpelli/tsconfig/node20.json",
+  "extends": "../tsconfig.json",
   "compilerOptions": {
-    "skipLibCheck": true,
-    "erasableSyntaxOnly": true,
-    "allowImportingTsExtensions": true,
-    "rewriteRelativeImportExtensions": true,
-    "verbatimModuleSyntax": true,
     "jsx": "react-jsx",
     "jsxImportSource": "react",
     "esModuleInterop": true,
@@ -15,14 +10,5 @@
     "resolveJsonModule": true,
     "strict": true
   },
-  "include": [
-    "src/**/*"
-  ],
-  "exclude": [
-    "**/*.js",
-    "node_modules",
-    "public",
-    "coverage",
-    ".github"
-  ]
+  "include": ["src/**/*"]
 }

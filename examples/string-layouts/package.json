@@ -1,5 +1,5 @@
 {
-  "name": "string-layouts",
+  "name": "@domstack/string-layouts-example",
   "version": "0.0.0",
   "type": "module",
   "scripts": {

@@ -1,10 +1,7 @@
-# Basic dependabot.yml file with
-# minimum configuration for two package managers
-
 version: 2
 updates:
-  # Enable version updates for npm
   - package-ecosystem: "npm"
+    directory: "/"
     groups:
       typescript:
         patterns:
@@ -13,150 +10,20 @@ updates:
           - "typescript"
       preact:
         patterns:
+          - "@preact/signals"
           - "preact"
           - "preact-render-to-string"
           - "htm"
-    directory: "/"
-    schedule:
-      interval: "daily"
-  - package-ecosystem: "npm"
-    directory: "/examples/basic"
-    groups:
-      typescript:
-        patterns:
-          - "@voxpelli/tsconfig"
-          - "@types/node"
-          - "typescript"
-    schedule:
-      interval: "daily"
-  - package-ecosystem: "npm"
-    directory: "/examples/css-modules/"
-    groups:
-      typescript:
-        patterns:
-          - "@voxpelli/tsconfig"
-          - "@types/node"
-          - "typescript"
-    schedule:
-      interval: "daily"
-  - package-ecosystem: "npm"
-    directory: "/examples/default-layout/"
-    groups:
-      typescript:
-        patterns:
-          - "@voxpelli/tsconfig"
-          - "@types/node"
-          - "typescript"
-    schedule:
-      interval: "daily"
-  - package-ecosystem: "npm"
-    directory: "/examples/esbuild-settings"
-    groups:
-      typescript:
-        patterns:
-          - "@voxpelli/tsconfig"
-          - "@types/node"
-          - "typescript"
-    schedule:
-      interval: "daily"
-  - package-ecosystem: "npm"
-    directory: "/examples/markdown-settings/"
-    groups:
-      typescript:
-        patterns:
-          - "@voxpelli/tsconfig"
-          - "@types/node"
-          - "typescript"
-    schedule:
-      interval: "daily"
-  - package-ecosystem: "npm"
-    directory: "/examples/nested-dest/"
-    groups:
-      typescript:
-        patterns:
-          - "@voxpelli/tsconfig"
-          - "@types/node"
-          - "typescript"
-    schedule:
-      interval: "daily"
-  - package-ecosystem: "npm"
-    directory: "/examples/preact-isomorphic/"
-    groups:
-      typescript:
-        patterns:
-          - "@voxpelli/tsconfig"
-          - "@types/node"
-          - "typescript"
-    schedule:
-      interval: "daily"
-  - package-ecosystem: "npm"
-    directory: "/examples/react/"
-    groups:
-      typescript:
-        patterns:
-          - "@voxpelli/tsconfig"
-          - "@types/node"
-          - "typescript"
       react:
         patterns:
           - "react"
           - "react-dom"
           - "@types/react"
           - "@types/react-dom"
+
     schedule:
       interval: "daily"
-  - package-ecosystem: "npm"
-    directory: "/examples/string-layouts/"
-    groups:
-      typescript:
-        patterns:
-          - "@voxpelli/tsconfig"
-          - "@types/node"
-          - "typescript"
-    schedule:
-      interval: "daily"
-  - package-ecosystem: "npm"
-    directory: "/examples/tailwind/"
-    groups:
-      typescript:
-        patterns:
-          - "@voxpelli/tsconfig"
-          - "@types/node"
-          - "typescript"
-    schedule:
-      interval: "daily"
-  - package-ecosystem: "npm"
-    directory: "/examples/type-stripping/"
-    groups:
-      typescript:
-        patterns:
-          - "@voxpelli/tsconfig"
-          - "@types/node"
-          - "typescript"
-    schedule:
-      interval: "daily"
-  - package-ecosystem: "npm"
-    directory: "/examples/uhtml-isomorphic/"
-    groups:
-      typescript:
-        patterns:
-          - "@voxpelli/tsconfig"
-          - "@types/node"
-          - "typescript"
-    schedule:
-      interval: "daily"
-  - package-ecosystem: "npm"
-    directory: "/examples/worker-examples/"
-    groups:
-      typescript:
-        patterns:
-          - "@voxpelli/tsconfig"
-          - "@types/node"
-          - "typescript"
-    schedule:
-      interval: "daily"
-  # Enable version updates for pnpm
-  # Enable updates to github actions
+
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
