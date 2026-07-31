@@ -1,0 +1,5 @@
+@import "./page-style.css";
+
+main {
+  --page-accent: dodgerblue;
+}
