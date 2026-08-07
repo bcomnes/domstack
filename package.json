@@ -69,7 +69,7 @@
     "@types/pretty": "^2.0.3",
     "@voxpelli/tsconfig": "^16.0.0",
     "cheerio": "^1.0.0-rc.10",
-    "installed-check": "^10.0.1",
+    "installed-check": "^11.0.0",
     "jsonfeed-to-atom": "^1.2.5",
     "neostandard": "^0.13.0",
     "npm-run-all2": "^9.0.0",
