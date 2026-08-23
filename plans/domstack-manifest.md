@@ -49,7 +49,7 @@ Programmatic builds return `results.domstackManifest` when a manifest consumer e
 
 Production service workers are built after the manifest is finalized.
 
-They are intentionally omitted from the manifest version hash.
+They are intentionally omitted from the manifest entries and version hash.
 
 This avoids a circular dependency where `/service-worker.js` would depend on `manifest.version` while also changing `manifest.version`.
 
@@ -62,9 +62,14 @@ When manifest-driven service-worker policy changes, the final `/service-worker.j
 
 Watch mode does not build a manifest.
 
-Watch mode builds a self-contained no-policy `/service-worker.js` that can unregister itself and clear owned caches.
+Watch mode still builds the site's `/service-worker.js`, but sets
+`process.env.DOMSTACK_MANIFEST_ENABLED` to `"false"` and leaves the manifest version empty.
 
-Watch mode also disables esbuild splitting so `/service-worker.js` remains parseable during production-to-watch cleanup, even for older classic-worker registrations.
+Domstack does not automatically add unregister or cache-cleanup behavior. A site service worker can
+use the disabled-manifest signal to implement that behavior, as the native offline example does.
+
+Watch mode disables esbuild splitting for the service-worker build so `/service-worker.js` remains
+parseable during production-to-watch cleanup, even for older classic-worker registrations.
 
 ## Manifest built hook API
 
@@ -116,10 +121,6 @@ type DomstackManifestEntry<ManifestVars = Record<string, unknown>> = {
   page?: {
     path: string
     url: string
-    vars?: {
-      precache?: unknown
-      offline?: unknown
-    }
   }
 }
 ```
@@ -147,8 +148,15 @@ It excludes `generatedAt` and excludes the final `/service-worker.js` output.
 The current cascade is:
 
 ```txt
-page vars -> layout vars -> global vars -> defaults
+domstack defaults
+-> global vars
+-> global data
+-> layout vars
+-> page vars
+-> page builder vars/frontmatter
 ```
+
+Later sources override earlier sources.
 
 Layouts can export `vars` with the same async/sync contract as page/global vars.
 
@@ -158,7 +166,10 @@ Root `policy` is a single freeform object for the whole manifest.
 
 Per-entry policy is represented through selected `manifestVars`, not a separate per-entry policy object.
 
-## Examples validating the preview
+## Stacked examples validating the preview
+
+Two examples added in the stacked follow-up changes validate the preview against native and Workbox
+service-worker implementations.
 
 `examples/static-mpa-offline` demonstrates a domstack-native service worker.
 
