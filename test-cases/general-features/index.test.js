@@ -289,6 +289,7 @@ test.describe('general-features', () => {
         copy: [path.join(__dirname, './copyfolder')],
         domstackManifest: {
           exclude: ['oldsite/**'],
+          includeEntry: entry => entry.kind !== 'copy',
         },
       })
       t.after(async () => {
@@ -304,6 +305,10 @@ test.describe('general-features', () => {
       assert.ok(
         !excludeEntries.some(entry => entry.url.startsWith('/oldsite/')),
         'exclude filters still remove matching output paths'
+      )
+      assert.ok(
+        !excludeEntries.some(entry => entry.kind === 'copy'),
+        'programmatic domstackManifest includeEntry is applied'
       )
     })
 
@@ -345,6 +350,7 @@ export default async function domstackManifestSettings () {
       const settingsSite = new DomStack(settingsSrc, settingsDest, {
         domstackManifest: {
           exclude: ['programmatic/**'],
+          includeEntry: () => false,
           write: true,
         },
       })
@@ -369,7 +375,7 @@ export default async function domstackManifestSettings () {
       )
       assert.ok(
         settingsEntries.some(entry => entry.url === '/kept/'),
-        'unfiltered page output remains in manifest'
+        'settings-file includeEntry takes precedence over the programmatic hook'
       )
       assert.ok(
         !settingsEntries.some(entry => entry.url === '/programmatic/'),
