@@ -840,15 +840,14 @@ function buildLogger (results, logger, dest) {
     // Full build: show site totals
     const layoutCount = Object.keys(results.siteData.layouts).length
     logger.info(`Pages: ${results.siteData.pages.length} Layouts: ${layoutCount} Templates: ${results.siteData.templates.length}`)
-    const outputs = results.pageBuildResults?.report?.outputs
+    const outputs = results.pageBuildResults?.outputs
     if (outputs) {
       const summary = summarizePageDomstackManifests(outputs)
       logger.info(`Pages built: ${summary.pages} Templates built: ${summary.templates}`)
     }
-  } else if ('report' in results && results.report) {
+  } else if ('outputs' in results) {
     // Filtered build: show what was actually built
-    const report = results.report
-    const outputs = report.outputs ?? []
+    const outputs = results.outputs
     if (dest) {
       for (const output of outputs) {
         if (output.kind === 'page' || output.kind === 'template') {
