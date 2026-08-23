@@ -1,5 +1,5 @@
 {
-  "name": "nested-dest",
+  "name": "@domstack/nested-dest-example",
   "version": "0.0.0",
   "description": "",
   "type": "module",

@@ -21,9 +21,9 @@
     "@types/react": "^19.1.10",
     "@types/react-dom": "^19.1.7",
     "@voxpelli/tsconfig": "^15.0.0",
+    "highlight.js": "^11.9.0",
     "npm-run-all2": "^6.0.0",
     "react-dom": "^19.1.1",
-    "typescript": "~5.8.2",
-    "highlight.js": "^11.9.0"
+    "typescript": "~5.8.2"
   }
 }

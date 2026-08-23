@@ -9,4 +9,4 @@ const sharedLib: SharedData = {
   shared: 'data',
 }
 
-export default sharedLib;
+export default sharedLib

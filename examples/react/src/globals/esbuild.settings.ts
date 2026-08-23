@@ -11,7 +11,7 @@ import type { BuildOptions } from 'esbuild'
  * @param esbuildSettings - The default ESBuild configuration
  * @returns The modified ESBuild configuration
  */
-export default async function esbuildSettingsOverride(esbuildSettings: BuildOptions): Promise<BuildOptions> {
+export default async function esbuildSettingsOverride (esbuildSettings: BuildOptions): Promise<BuildOptions> {
   // Use React's automatic JSX runtime.
   esbuildSettings.jsx = 'automatic'
   esbuildSettings.jsxImportSource = 'react'

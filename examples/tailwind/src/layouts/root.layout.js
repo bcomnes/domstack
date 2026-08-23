@@ -1,11 +1,9 @@
+/**
+ * @import { LayoutFunction } from '@domstack/static'
+ */
 // @ts-ignore
 import { html } from 'htm/preact'
 import { render } from 'preact-render-to-string'
-
-/**
- * @template {Record<string, any>} T
- * @typedef {import('../build-pages/resolve-layout.js').LayoutFunction<T>} LayoutFunction
- */
 
 /**
  * Global layout with Tailwind container styles

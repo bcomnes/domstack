@@ -4,10 +4,11 @@
  * @import { BuildStepWarnings, DomStackOpts as DomStackOpts } from './lib/builder.js'
  * @import { ArgscloptsParseArgsOptionsConfig } from 'argsclopts'
  * @import { Logger as PinoLogger } from 'pino'
+ * @import { BsInstance } from '@domstack/sync'
  */
 
 import { readFile } from 'node:fs/promises'
-import { resolve, join, relative } from 'node:path'
+import { basename, resolve, join, relative } from 'node:path'
 import { parseArgs } from 'node:util'
 import { printHelpText } from 'argsclopts'
 import readline from 'node:readline'
@@ -15,6 +16,7 @@ import process from 'process'
 // @ts-expect-error
 import tree from 'pretty-tree'
 import { inspect } from 'util'
+import { createServer } from '@domstack/sync'
 import { packageDirectory } from 'package-directory'
 import { readPackage } from 'read-pkg'
 import { addPackageDependencies } from 'write-package'
@@ -58,15 +60,15 @@ const options = {
     help: 'Build draft pages with the `.draft.{md,js,html}` page suffix.',
     default: false
   },
-  target: {
-    type: 'string',
-    short: 't',
-    help: 'comma separated target strings for esbuild',
-  },
   noEsbuildMeta: {
     type: 'boolean',
     help: 'skip writing the esbuild metafile to disk',
   },
+  domstackManifest: {
+    type: 'boolean',
+    help: 'write the domstack manifest to disk',
+  },
+
   eject: {
     type: 'boolean',
     short: 'e',
@@ -80,6 +82,14 @@ const options = {
   'watch-only': {
     type: 'boolean',
     help: 'watch and build the src folder without serving',
+  },
+  serve: {
+    type: 'boolean',
+    help: 'build once and serve the destination directory without watching',
+  },
+  port: {
+    type: 'string',
+    help: 'port for --serve (default: 3000)',
   },
   copy: {
     type: 'string',
@@ -205,8 +215,8 @@ domstack eject actions:
   const opts = {}
 
   if (argv['ignore']) opts.ignore = String(argv['ignore']).split(',')
-  if (argv['target']) opts.target = String(argv['target']).split(',')
   if (argv['noEsbuildMeta']) opts.metafile = false
+  if (argv['domstackManifest']) opts.domstackManifest = true
   if (argv['drafts']) opts.buildDrafts = true
   if (argv['copy']) {
     const copyPaths = Array.isArray(argv['copy']) ? argv['copy'] : [argv['copy']]
@@ -217,6 +227,16 @@ domstack eject actions:
   const logger = createDomStackLogger()
   opts.logger = logger
   const domStack = new DomStack(src, dest, opts)
+  /** @type {BsInstance | null} */
+  let buildServer = null
+
+  if (argv['serve'] && (argv['watch'] || argv['watch-only'])) {
+    throw new Error('--serve cannot be combined with --watch or --watch-only')
+  }
+  if (argv['port'] && !argv['serve']) {
+    throw new Error('--port can only be combined with --serve')
+  }
+  const servePort = argv['port'] ? parsePort(String(argv['port'])) : undefined
 
   process.once('SIGINT', quit)
   process.once('SIGTERM', quit)
@@ -225,6 +245,11 @@ domstack eject actions:
     if (domStack.watching) {
       await domStack.stopWatching()
       logger.info('Watching stopped')
+    }
+    if (buildServer) {
+      await buildServer.exit()
+      buildServer = null
+      logger.info('Server stopped')
     }
     logger.info('Quitting cleanly')
     process.exit(0)
@@ -236,6 +261,16 @@ domstack eject actions:
       logger.info(tree(generateTreeData(cwd, src, dest, results)))
       logWarnings(logger, results?.warnings)
       logger.info('\nBuild Success!\n\n')
+      if (argv['serve']) {
+        buildServer = await createServer({
+          server: dest,
+          files: basename(dest),
+          logger: logger.child({ component: 'sync', logPrefix: '[domstack-sync]' }),
+          ...(servePort ? { port: servePort } : {}),
+          snippet: false,
+        })
+        logger.info(`Serving ${relative(cwd, dest)} without watching. Press Ctrl-C to stop.`)
+      }
     } catch (err) {
       if (!(err instanceof Error || err instanceof AggregateError)) throw new Error('Non-error thrown', { cause: err })
       if (err instanceof DomStackAggregateError) {
@@ -257,6 +292,17 @@ domstack eject actions:
       },
     })
   }
+}
+
+/**
+ * @param {string} value
+ */
+function parsePort (value) {
+  const port = Number(value)
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error('--port must be an integer between 1 and 65535')
+  }
+  return port
 }
 
 /**

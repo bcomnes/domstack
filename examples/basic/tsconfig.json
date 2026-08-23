@@ -1,20 +1,4 @@
 {
-  "extends": "@voxpelli/tsconfig/node20.json",
-  "compilerOptions": {
-    "skipLibCheck": true,
-    "erasableSyntaxOnly": true,
-    "allowImportingTsExtensions": true,
-    "rewriteRelativeImportExtensions": true,
-    "verbatimModuleSyntax": true,
-    "lib": ["ES2024", "DOM"]
-  },
-  "include": [
-    "**/*",
-  ],
-  "exclude": [
-    "**/*.js",
-    "node_modules",
-    "coverage",
-    ".github"
-  ]
+  "extends": "../../tsconfig.json",
+  "include": ["src/**/*.ts"]
 }

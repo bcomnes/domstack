@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 240" role="img" aria-labelledby="title desc">
+  <title id="title">Progressive cache badge</title>
+  <desc id="desc">A blue badge used to demonstrate progressive-cache subresources.</desc>
+  <rect width="640" height="240" rx="32" fill="#0b65c2"/>
+  <circle cx="120" cy="120" r="56" fill="#fff" opacity="0.9"/>
+  <path d="M94 124l18 18 38-48" fill="none" stroke="#0b65c2" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="210" y="112" fill="#fff" font-family="system-ui, sans-serif" font-size="42" font-weight="700">Progressive cache</text>
+  <text x="210" y="162" fill="#d7ecff" font-family="system-ui, sans-serif" font-size="24">Fetched online, available offline later</text>
+</svg>

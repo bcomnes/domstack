@@ -1,9 +1,7 @@
-import { html, render } from 'uhtml-isomorphic'
-
 /**
- * @template {Record<string, any>} T
- * @typedef {import('../build-pages/resolve-layout.js').LayoutFunction<T>} LayoutFunction
+ * @import { LayoutFunction } from '@domstack/static'
  */
+import { html, render } from 'uhtml-isomorphic'
 
 /**
  * Build all of the bundles using esbuild.

@@ -12,8 +12,11 @@ export type {
 } from './lib/build-pages/index.js'
 export type {
   AsyncLayoutFunction,
+  AsyncLayoutVarsFunction,
   LayoutFunction,
   LayoutFunctionParams,
+  LayoutVars,
+  LayoutVarsFunction,
   PageData,
 } from './lib/build-pages/page-data.js'
 export type {
@@ -27,7 +30,22 @@ export type {
   TemplateFunctionParams,
   TemplateOutputOverride,
 } from './lib/build-pages/page-builders/template-builder.js'
-export type { PageInfo, TemplateInfo } from './lib/identify-pages.js'
+export type { PageInfo, ServiceWorkerInfo, TemplateInfo } from './lib/identify-pages.js'
+export type {
+  DomstackManifest,
+  DomstackManifestEntry,
+  DomstackManifestEntryPageMeta,
+  DomstackManifestBuiltHook,
+  DomstackManifestBuiltHookContext,
+  DomstackManifestHooks,
+  DomstackManifestKind,
+  DomstackManifestOptions,
+  DomstackManifestPolicyTransform,
+  DomstackManifestPolicyTransformContext,
+  DomstackManifestRecord,
+  DomstackManifestTransform,
+  DomstackManifestTransformContext,
+} from './lib/domstack-manifest/index.js'
 
 export type TestBuildResult = {
   dest: string
