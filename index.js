@@ -60,9 +60,9 @@ export {
   domstackManifestEntryPageMetaSchema,
   domstackManifestEntrySchema,
   domstackManifestKindSchema,
-  buildDomstackManifest,
   domstackManifestSchema,
   getDomstackManifestSchemaId,
+  reconcileDomstackManifest,
 } from './lib/domstack-manifest/index.js'
 
 const DEFAULT_IGNORES = /** @type {const} */ ([
