@@ -9,8 +9,8 @@
 
 /**
  * Customize the markdown-it instance
- * @param {markdownIt} md - The markdown-it instance
- * @returns {Promise<markdownIt>} - The modified markdown-it instance
+ * @param {InstanceType<typeof markdownIt>} md - The markdown-it instance
+ * @returns {Promise<InstanceType<typeof markdownIt>>} - The modified markdown-it instance
  */
 export default async function markdownItSettingsOverride (md) {
   // Add custom container for test-box
@@ -25,7 +25,7 @@ export default async function markdownItSettingsOverride (md) {
 function createTestBoxPlugin () {
   const TEST_BOX_MARKER = 'test-box'
 
-  return (/** @type {markdownIt} */md) => {
+  return (/** @type {InstanceType<typeof markdownIt>} */md) => {
     // @ts-ignore
     const container = (state, startLine, endLine, silent) => {
       let pos = state.bMarks[startLine] + state.tShift[startLine]
