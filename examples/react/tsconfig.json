@@ -1,14 +1,15 @@
 {
-  "extends": "../tsconfig.json",
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
     "jsx": "react-jsx",
     "jsxImportSource": "react",
     "esModuleInterop": true,
     "isolatedModules": true,
     "module": "ESNext",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "resolveJsonModule": true,
-    "strict": true
+    "strict": true,
+    "lib": ["ES2024", "DOM"]
   },
   "include": ["src/**/*"]
 }
