@@ -1171,8 +1171,8 @@ output remain quiet; materially conflicting reports produce a
 `DOM_STACK_WARNING_CONFLICTING_MANIFEST_OUTPUT` warning while artifact-kind priority selects the
 manifest entry to keep.
 The public `DomstackManifest`, `DomstackManifestEntry`, `DomstackManifestEntryPageMeta`,
-`DomstackManifestKind`, `DomstackManifestOptions`, `DomstackManifestTransformContext`,
-`DomstackManifestTransform`, `DomstackManifestPolicyTransformContext`, and
+`DomstackManifestKind`, `DomstackManifestOptions`, `DomstackManifestConfig`,
+`DomstackManifestTransformContext`, `DomstackManifestTransform`, `DomstackManifestPolicyTransformContext`, and
 `DomstackManifestPolicyTransform` types are derived from or aligned with those schemas.
 
 `version` is a sha256 hash of each sorted entry's cache-relevant fields: `url`, `revision`, `kind`,
@@ -1195,6 +1195,7 @@ const site = new DomStack('src', 'public', {
     write: true,
     exclude: ['blog/**', '**/*.map'],
     manifestVars: ['offline', 'precache'],
+    includeEntry: entry => entry.kind !== 'sourcemap',
     policy: {
       offlineFallbackUrl: '/offline/',
     },
@@ -1205,7 +1206,8 @@ const results = await site.build()
 ```
 
 Use `domstackManifest: true` when you only want to write the standard `domstack-manifest.json` file.
-Use the object form when you need programmatic `exclude`, `manifestVars`, `policy`, or `hooks` settings.
+Use the object form when you need programmatic `exclude`, `includeEntry`, `manifestVars`, `policy`, or
+`hooks` settings.
 Add `write: true` to the object form only when you also want Domstack to write `domstack-manifest.json`.
 Leaving `domstackManifest` unset skips the manifest pipeline unless a `domstack-manifest.settings.*` file exists.
 A settings file enables the pipeline, returns `results.domstackManifest`, and runs manifest hooks, but it does not write a public JSON file unless writing is explicitly enabled.
@@ -1248,7 +1250,8 @@ export default async function domstackManifestSettings () {
 `domstackManifest.exclude` from programmatic options and `domstack-manifest.settings.*` `exclude` values are combined.
 Exclude patterns are ignore-style patterns checked against both `entry.url` and `entry.outputRelname`.
 Excludes run before `includeEntry(entry)`.
-The `includeEntry(entry)` hook receives the public manifest entry shape, not local filesystem paths.
+When both configuration surfaces define `includeEntry(entry)`, the settings-file hook takes precedence
+over the programmatic hook. It receives the public manifest entry shape, not local filesystem paths.
 Custom public manifest-like files should be written from a `manifestBuilt` hook with `context.writeFile()`.
 
 Each entry also includes best-known service-worker/deployment metadata when domstack can derive it:
