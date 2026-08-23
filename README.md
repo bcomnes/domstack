@@ -166,8 +166,6 @@ $ npm i
 $ npm --workspace @domstack/basic-example run build
 ```
 
-Each example is an npm workspace under `examples/*`, so a root `npm install` links the local `@domstack/static` package into example builds. Example packages keep `@domstack/static` declared as `file:../../.` so the local dependency target remains explicit.
-
 ### Additional examples
 
 Here are some additional external examples of larger domstack projects.
