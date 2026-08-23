@@ -1166,6 +1166,10 @@ domstack exports `DOMSTACK_MANIFEST_SCHEMA_ID`, `DOMSTACK_MANIFEST_SCHEMA_PATH`,
 `getDomstackManifestSchemaId(version)`, `domstackManifestSchema`, `domstackManifestEntrySchema`,
 `domstackManifestEntryPageMetaSchema`, `domstackManifestKindSchema`, and `reconcileDomstackManifest`
 for tools that want to reconcile build records or use the JSON Schema contract directly.
+`reconcileDomstackManifest()` returns `{ manifest, warnings }`. Equivalent reports of the same
+output remain quiet; materially conflicting reports produce a
+`DOM_STACK_WARNING_CONFLICTING_MANIFEST_OUTPUT` warning while artifact-kind priority selects the
+manifest entry to keep.
 The public `DomstackManifest`, `DomstackManifestEntry`, `DomstackManifestEntryPageMeta`,
 `DomstackManifestKind`, `DomstackManifestOptions`, `DomstackManifestTransformContext`,
 `DomstackManifestTransform`, `DomstackManifestPolicyTransformContext`, and

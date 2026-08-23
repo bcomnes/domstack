@@ -139,22 +139,22 @@ test.describe('general-features', () => {
         page: basePage,
       }
 
-      const baseManifest = await reconcileDomstackManifest({ dest, entries: [baseEntry] })
-      const sourceOnlyManifest = await reconcileDomstackManifest({
+      const { manifest: baseManifest } = await reconcileDomstackManifest({ dest, entries: [baseEntry] })
+      const { manifest: sourceOnlyManifest } = await reconcileDomstackManifest({
         dest,
         entries: [{
           ...baseEntry,
           sourceRelname: 'pages/renamed-index.js',
         }],
       })
-      const kindChangedManifest = await reconcileDomstackManifest({
+      const { manifest: kindChangedManifest } = await reconcileDomstackManifest({
         dest,
         entries: [{
           ...baseEntry,
           kind: 'template',
         }],
       })
-      const offlineChangedManifest = await reconcileDomstackManifest({
+      const { manifest: offlineChangedManifest } = await reconcileDomstackManifest({
         dest,
         entries: [{
           ...baseEntry,
@@ -163,7 +163,7 @@ test.describe('general-features', () => {
           },
         }],
       })
-      const manifestVarsManifest = await reconcileDomstackManifest({
+      const { manifest: manifestVarsManifest } = await reconcileDomstackManifest({
         dest,
         entries: [{
           ...baseEntry,
@@ -172,7 +172,7 @@ test.describe('general-features', () => {
           },
         }],
       })
-      const policyManifest = await reconcileDomstackManifest({
+      const { manifest: policyManifest } = await reconcileDomstackManifest({
         dest,
         entries: [{
           ...baseEntry,
@@ -190,7 +190,7 @@ test.describe('general-features', () => {
           },
         },
       })
-      const objectPrecacheManifest = await reconcileDomstackManifest({
+      const { manifest: objectPrecacheManifest } = await reconcileDomstackManifest({
         dest,
         entries: [{
           ...baseEntry,
@@ -199,7 +199,7 @@ test.describe('general-features', () => {
           },
         }],
       })
-      const reorderedObjectPrecacheManifest = await reconcileDomstackManifest({
+      const { manifest: reorderedObjectPrecacheManifest } = await reconcileDomstackManifest({
         dest,
         entries: [{
           ...baseEntry,
@@ -249,6 +249,39 @@ test.describe('general-features', () => {
         objectPrecacheManifest.version,
         'object-valued manifest policy uses stable key ordering'
       )
+    })
+
+    await t.test('domstackManifest warns when output producers conflict', async () => {
+      /** @type {DomstackManifestEntry} */
+      const copyEntry = {
+        outputRelname: 'index.html',
+        kind: 'copy',
+        url: '/',
+        revision: 'same-file-revision',
+        bytes: 42,
+        sourceRelname: 'static/index.html',
+      }
+      const pageEntry = {
+        ...copyEntry,
+        kind: /** @type {const} */ ('page'),
+        sourceRelname: 'pages/index.js',
+      }
+
+      const { manifest, warnings } = await reconcileDomstackManifest({
+        dest,
+        entries: [copyEntry, pageEntry],
+      })
+      const { warnings: equivalentWarnings } = await reconcileDomstackManifest({
+        dest,
+        entries: [copyEntry, { ...copyEntry }],
+      })
+
+      assert.strictEqual(manifest.entries[0]?.kind, 'page', 'kind priority still selects the winning record')
+      assert.deepStrictEqual(warnings, [{
+        code: 'DOM_STACK_WARNING_CONFLICTING_MANIFEST_OUTPUT',
+        message: 'Conflicting manifest records target "index.html" (kind, sourceRelname differ); keeping page record from "pages/index.js".',
+      }])
+      assert.deepStrictEqual(equivalentWarnings, [], 'equivalent duplicate observations remain quiet')
     })
 
     await t.test('domstackManifest exclude handles root page URL', async () => {
