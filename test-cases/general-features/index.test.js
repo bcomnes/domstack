@@ -486,22 +486,28 @@ export default async function domstackManifestSettings () {
 console.log(
   process.env.DOMSTACK_MANIFEST_URL,
   process.env.DOMSTACK_SERVICE_WORKER_URL,
-  process.env.CUSTOM_DEFINE
+  process.env.CUSTOM_DEFINE,
+  process.env.ESBUILD_SETTINGS_CALL
 )
 `)
       await writeFile(path.join(defineSrc, 'service-worker.js'), `
 console.log(
   process.env.DOMSTACK_MANIFEST_URL,
   process.env.DOMSTACK_SERVICE_WORKER_SCOPE,
-  process.env.CUSTOM_DEFINE
+  process.env.CUSTOM_DEFINE,
+  process.env.ESBUILD_SETTINGS_CALL
 )
 `)
       await writeFile(path.join(defineSrc, 'esbuild.settings.js'), `
+let invocationCount = 0
+
 export default function esbuildSettings (opts) {
+  invocationCount += 1
   return {
     ...opts,
     define: {
       'process.env.CUSTOM_DEFINE': JSON.stringify('from-settings'),
+      'process.env.ESBUILD_SETTINGS_CALL': JSON.stringify(\`call-\${invocationCount}\`),
     },
   }
 }
@@ -526,6 +532,9 @@ export default function esbuildSettings (opts) {
       assert.ok(defineServiceWorkerContent.includes('/domstack-manifest.json'), 'service worker keeps domstack manifest URL define')
       assert.match(defineServiceWorkerContent, /["']\/["']/, 'service worker keeps service worker scope define')
       assert.ok(defineServiceWorkerContent.includes('from-settings'), 'service worker keeps user esbuild define')
+      assert.ok(globalClientContent.includes('call-1'), 'browser build uses the first resolved settings result')
+      assert.ok(defineServiceWorkerContent.includes('call-1'), 'service worker reuses the resolved browser settings')
+      assert.ok(!defineServiceWorkerContent.includes('call-2'), 'service worker does not invoke esbuild settings again')
       assert.ok(!defineServiceWorkerContent.includes('process.env.DOMSTACK_'), 'service worker has no unreplaced DOMSTACK defines')
     })
 
