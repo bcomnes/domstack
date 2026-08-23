@@ -25,6 +25,14 @@ test.describe('general-features', () => {
 
     assert.ok(results, 'DomStack built site and returned build results')
     assert.ok(results.domstackManifest, 'build returned a domstack manifest')
+    assert.ok(results.esbuildResults.outputs.length > 0, 'esbuild exposes manifest outputs at the build-step level')
+    assert.ok(results.esbuildResults.report.buildResults, 'esbuild retains its detailed build report')
+    assert.ok(results.esbuildResults.report.buildOpts, 'esbuild reports its resolved build options')
+    assert.ok(results.esbuildResults.report.outputMap, 'esbuild reports its output map')
+    assert.ok(results.pageBuildResults?.outputs.length, 'page build exposes manifest outputs at the build-step level')
+    assert.ok(results.pageBuildResults?.report.pages.length, 'page build retains rendered page reports')
+    assert.ok(results.pageBuildResults?.report.templates.length, 'page build retains rendered template reports')
+    assert.ok(Object.keys(results.copyResults?.report ?? {}).length, 'copy build retains the underlying copy reports')
     assert.strictEqual(
       results.domstackManifest.$schema,
       DOMSTACK_MANIFEST_SCHEMA_ID,
