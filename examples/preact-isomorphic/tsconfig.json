@@ -1,8 +1,9 @@
 {
-  "extends": "../tsconfig.json",
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
     "jsx": "react-jsx",
     "jsxImportSource": "preact"
   },
-  "include": ["**/*"]
+  "include": ["**/*"],
+  "exclude": ["**/*.js", "**/*.jsx"]
 }
