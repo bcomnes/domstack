@@ -20,6 +20,6 @@
     "preact-render-to-string": "^6.5.11"
   },
   "devDependencies": {
-    "npm-run-all2": "^6.0.0"
+    "npm-run-all2": "^9.0.3"
   }
 }
