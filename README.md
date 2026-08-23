@@ -1152,10 +1152,6 @@ type DomstackManifestEntry<ManifestVars = Record<string, unknown>> = {
   page?: {
     path: string
     url: string
-    vars?: {
-      precache?: unknown
-      offline?: unknown
-    }
   }
 }
 ```
