@@ -17,6 +17,6 @@
     "uhtml-isomorphic": "^2.1.0"
   },
   "devDependencies": {
-    "npm-run-all2": "^6.0.0"
+    "npm-run-all2": "^9.0.3"
   }
 }
