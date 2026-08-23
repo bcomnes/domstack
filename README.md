@@ -1164,8 +1164,9 @@ type DomstackManifestEntry<ManifestVars = Record<string, unknown>> = {
 
 domstack exports `DOMSTACK_MANIFEST_SCHEMA_ID`, `DOMSTACK_MANIFEST_SCHEMA_PATH`,
 `getDomstackManifestSchemaId(version)`, `domstackManifestSchema`, `domstackManifestEntrySchema`,
-`domstackManifestEntryPageMetaSchema`, and `domstackManifestKindSchema` for tools that want the JSON Schema
-contract directly. The public `DomstackManifest`, `DomstackManifestEntry`, `DomstackManifestEntryPageMeta`,
+`domstackManifestEntryPageMetaSchema`, `domstackManifestKindSchema`, and `reconcileDomstackManifest`
+for tools that want to reconcile build records or use the JSON Schema contract directly.
+The public `DomstackManifest`, `DomstackManifestEntry`, `DomstackManifestEntryPageMeta`,
 `DomstackManifestKind`, `DomstackManifestOptions`, `DomstackManifestTransformContext`,
 `DomstackManifestTransform`, `DomstackManifestPolicyTransformContext`, and
 `DomstackManifestPolicyTransform` types are derived from or aligned with those schemas.
