@@ -4,7 +4,7 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert'
-import { DOMSTACK_MANIFEST_SCHEMA_ID, DomStack, buildDomstackManifest, testBuild } from '../../index.js'
+import { DOMSTACK_MANIFEST_SCHEMA_ID, DomStack, reconcileDomstackManifest, testBuild } from '../../index.js'
 import * as path from 'path'
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'fs/promises'
 import { tmpdir } from 'os'
@@ -139,22 +139,22 @@ test.describe('general-features', () => {
         page: basePage,
       }
 
-      const baseManifest = await buildDomstackManifest({ dest, entries: [baseEntry] })
-      const sourceOnlyManifest = await buildDomstackManifest({
+      const baseManifest = await reconcileDomstackManifest({ dest, entries: [baseEntry] })
+      const sourceOnlyManifest = await reconcileDomstackManifest({
         dest,
         entries: [{
           ...baseEntry,
           sourceRelname: 'pages/renamed-index.js',
         }],
       })
-      const kindChangedManifest = await buildDomstackManifest({
+      const kindChangedManifest = await reconcileDomstackManifest({
         dest,
         entries: [{
           ...baseEntry,
           kind: 'template',
         }],
       })
-      const offlineChangedManifest = await buildDomstackManifest({
+      const offlineChangedManifest = await reconcileDomstackManifest({
         dest,
         entries: [{
           ...baseEntry,
@@ -163,7 +163,7 @@ test.describe('general-features', () => {
           },
         }],
       })
-      const manifestVarsManifest = await buildDomstackManifest({
+      const manifestVarsManifest = await reconcileDomstackManifest({
         dest,
         entries: [{
           ...baseEntry,
@@ -172,7 +172,7 @@ test.describe('general-features', () => {
           },
         }],
       })
-      const policyManifest = await buildDomstackManifest({
+      const policyManifest = await reconcileDomstackManifest({
         dest,
         entries: [{
           ...baseEntry,
@@ -190,7 +190,7 @@ test.describe('general-features', () => {
           },
         },
       })
-      const objectPrecacheManifest = await buildDomstackManifest({
+      const objectPrecacheManifest = await reconcileDomstackManifest({
         dest,
         entries: [{
           ...baseEntry,
@@ -199,7 +199,7 @@ test.describe('general-features', () => {
           },
         }],
       })
-      const reorderedObjectPrecacheManifest = await buildDomstackManifest({
+      const reorderedObjectPrecacheManifest = await reconcileDomstackManifest({
         dest,
         entries: [{
           ...baseEntry,

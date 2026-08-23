@@ -26,7 +26,7 @@ builder()
     buildCopy()     -> output records
   )
   buildPages()      -> output records for pages/templates
-  buildDomstackManifest(records) when a manifest consumer exists
+  reconcileDomstackManifest({ dest, records }) when a manifest consumer exists
   run manifestBuilt hooks
   build /service-worker.js with finalized manifest version and hook-defined constants
   optionally write domstack-manifest.json
