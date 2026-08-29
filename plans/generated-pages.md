@@ -31,20 +31,19 @@ Implemented resolution:
 - Manifest allowlists and functions continue to use the returned page-vars snapshot in the main thread.
 - Regression tests cover the README pattern with `PageData[]` in generated vars, generated render errors, allowlisted manifest vars, and function manifest transforms using post-render values.
 
-#### 2. High: removed or renamed generated outputs remain on disk
+#### 2. Resolved: watch mode removes obsolete regular and generated page outputs
 
-When a pages file changes, `index.js:464-467` rebuilds the current pages and dependency maps, but it does not compare the new output set with the previous one. `ensureDest()` only creates directories, and `pageWriter()` only writes outputs that exist in the current build.
+One-shot builds assume an empty destination. Watch mode previously rebuilt the pages that currently existed but did not remove files written by pages that had disappeared. This affected regular pages too, although generated pages made it easier to encounter because changing one `*.pages.*` file can rename or remove many outputs.
 
-Focused reproductions confirmed that:
+Implemented resolution:
 
-- Renaming `old/index.html` to `new/index.html` leaves both files.
-- Removing a returned definition leaves its old route.
-- Changing an existing definition to `draft: true` leaves the previously published file.
-- Removing the entire `*.pages.*` file leaves its generated outputs.
-
-This is particularly risky for redirects because an intentionally removed redirect can continue being served. It exposes a broader existing output-lifecycle limitation, but dynamic page factories make the problem much easier to encounter.
-
-Before landing, track output records from the previous successful generated build and safely remove outputs that are no longer claimed. Add rename, removal, pages-file deletion, and draft-transition tests.
+- The `DomStack` watch instance keeps a set of page output paths from the latest successful full page build.
+- After the next successful full page build, it removes previous page files that are no longer claimed by any current page or template output.
+- Regular and generated pages use the same cleanup because both emit normal `kind: 'page'` output records.
+- Failed and filtered builds do not remove files or replace the saved set because their output lists are incomplete.
+- The saved set is replaced after each successful cleanup, so memory use stays proportional to the current number of pages rather than growing across rebuilds.
+- Cleanup resolves each recorded path inside the destination and refuses to remove the destination itself.
+- Regression coverage includes a regular page removal plus generated output rename, definition removal, transition to `draft: true`, and deletion of the entire `*.pages.*` file.
 
 #### 3. Medium: conflict detection does not cover templates or other output producers
 
@@ -131,7 +130,7 @@ PR #253 says it closes issue #237. The generalized page-factory mechanism satisf
 
 - [x] Make generated-page success and error results safe to send from the worker.
 - [x] Validate the README index example with a worker-boundary regression test.
-- [ ] Reconcile and remove obsolete generated outputs.
+- [x] Reconcile and remove obsolete regular and generated page outputs in watch mode.
 - [ ] Rebuild generated pages when layout assets are added or removed.
 - [ ] Preserve output-conflict codes, metadata, and pages-file context.
 - [ ] Decide and document the scope of output conflict detection.
@@ -149,7 +148,7 @@ PR #253 says it closes issue #237. The generalized page-factory mechanism satisf
 - Focused ESLint over all changed JavaScript and TypeScript files — passed.
 - `git diff --check` — passed.
 - Root `npm run test:neostandard` in the review checkout was polluted by malformed fixtures under ignored `.delta/worktrees`, not by PR changes.
-- The original worker-copy reproduction now passes. Focused reproductions still confirm stale generated outputs, the layout-asset watch gap, and the generated/template output race.
+- The original worker-copy reproduction now passes. Obsolete regular and generated page outputs are now removed in watch mode. Focused reproductions still confirm the layout-asset watch gap and the generated/template output race.
 
 ---
 

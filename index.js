@@ -24,6 +24,7 @@ import { inspect } from 'util'
 import { createServer } from '@domstack/sync'
 import { find } from '@11ty/dependency-tree-typescript'
 
+import { assertInsideDest } from './lib/helpers/path.js'
 import { getCopyGlob } from './lib/build-static/index.js'
 import { getCopyDirs } from './lib/build-copy/index.js'
 import { builder } from './lib/builder.js'
@@ -103,6 +104,8 @@ export class DomStack {
   #pagesFileDepMap = new Map()
   /** @type {Set<string>} absolute filepaths of esbuild entry points */
   #esbuildEntryPoints = new Set()
+  /** @type {Set<string>} destination-relative outputs from the last successful full page build */
+  #pageOutputRelnames = new Set()
 
   // Serialized lock so concurrent chokidar events don't pile up
   /** @type {Promise<void>} */
@@ -201,6 +204,7 @@ export class DomStack {
         siteData,
         pageBuildResults,
       }
+      this.#pageOutputRelnames = getPageOutputRelnames(pageBuildResults.outputs)
       buildLogger(report, this.#logger)
       this.#logger.info('Initial JS, CSS and Page Build Complete')
     } catch (err) {
@@ -443,6 +447,7 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
         })
       }
       const isFiltered = pageFilterPaths !== null || templateFilterPaths !== null
+      if (!isFiltered) await this.#removeObsoletePageOutputs(pageBuildResults.outputs)
       buildLogger(
         isFiltered ? pageBuildResults : { warnings: pageBuildResults.warnings, siteData, pageBuildResults },
         this.#logger,
@@ -452,6 +457,28 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
     } catch (err) {
       errorLogger(err, this.#logger)
     }
+  }
+
+  /**
+   * Remove page files that were emitted by the previous successful full build
+   * but are no longer claimed by the current page or template build.
+   *
+   * @param {DomstackManifestRecord[]} outputs
+   */
+  async #removeObsoletePageOutputs (outputs) {
+    const currentOutputRelnames = new Set(outputs.map(output => output.outputRelname))
+    const currentPageOutputRelnames = getPageOutputRelnames(outputs)
+    const dest = resolve(this.#dest)
+
+    await Promise.all(Array.from(this.#pageOutputRelnames, async outputRelname => {
+      if (currentOutputRelnames.has(outputRelname)) return
+      const filepath = resolve(dest, outputRelname)
+      assertInsideDest(dest, filepath)
+      if (filepath === dest) throw new Error('Refusing to remove the build destination')
+      await rm(filepath, { force: true })
+    }))
+
+    this.#pageOutputRelnames = currentPageOutputRelnames
   }
 
   /**
@@ -796,6 +823,16 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
   async settled () {
     await this.#buildLock
   }
+}
+
+/**
+ * @param {DomstackManifestRecord[]} outputs
+ * @returns {Set<string>}
+ */
+function getPageOutputRelnames (outputs) {
+  return new Set(outputs
+    .filter(output => output.kind === 'page')
+    .map(output => output.outputRelname))
 }
 
 /**

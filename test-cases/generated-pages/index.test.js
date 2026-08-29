@@ -346,6 +346,60 @@ test.describe('generated pages', () => {
     })
   })
 
+  test('removes obsolete regular and generated page outputs in watch mode', { timeout: 20_000 }, async () => {
+    await withTempFixture({
+      'root.layout.js': minimalRootLayout,
+      'global.vars.js': minimalGlobalVars,
+      'regular/page.html': '<p>Regular page</p>',
+      'changing.pages.js': `export default [
+  { outputName: 'old/index.html', children: 'Old generated page' },
+  { outputName: 'removed/index.html', children: 'Removed generated page' },
+  { outputName: 'drafted/index.html', children: 'Published generated page' },
+]
+`,
+    }, async ({ src, dest }) => {
+      const domstack = new DomStack(src, dest)
+      try {
+        await domstack.watch({ serve: false })
+        const oldOutputPath = join(dest, 'old/index.html')
+        const newOutputPath = join(dest, 'new/index.html')
+        const removedOutputPath = join(dest, 'removed/index.html')
+        const draftedOutputPath = join(dest, 'drafted/index.html')
+        const regularOutputPath = join(dest, 'regular/index.html')
+
+        assert.match(await readFile(oldOutputPath, 'utf8'), /Old generated page/)
+        assert.match(await readFile(removedOutputPath, 'utf8'), /Removed generated page/)
+        assert.match(await readFile(draftedOutputPath, 'utf8'), /Published generated page/)
+        assert.match(await readFile(regularOutputPath, 'utf8'), /Regular page/)
+
+        await writeFile(join(src, 'changing.pages.js'), `export default [
+  { outputName: 'new/index.html', children: 'Renamed generated page' },
+  { outputName: 'drafted/index.html', children: 'Draft generated page', draft: true },
+]
+`)
+        await new Promise(resolve => setTimeout(resolve, 800))
+        await domstack.settled()
+
+        assert.match(await readFile(newOutputPath, 'utf8'), /Renamed generated page/)
+        await assert.rejects(() => readFile(oldOutputPath, 'utf8'), { code: 'ENOENT' })
+        await assert.rejects(() => readFile(removedOutputPath, 'utf8'), { code: 'ENOENT' })
+        await assert.rejects(() => readFile(draftedOutputPath, 'utf8'), { code: 'ENOENT' })
+
+        await rm(join(src, 'regular/page.html'))
+        await new Promise(resolve => setTimeout(resolve, 800))
+        await domstack.settled()
+        await assert.rejects(() => readFile(regularOutputPath, 'utf8'), { code: 'ENOENT' })
+
+        await rm(join(src, 'changing.pages.js'))
+        await new Promise(resolve => setTimeout(resolve, 800))
+        await domstack.settled()
+        await assert.rejects(() => readFile(newOutputPath, 'utf8'), { code: 'ENOENT' })
+      } finally {
+        if (domstack.watching) await domstack.stopWatching()
+      }
+    })
+  })
+
   test('refreshes pages-file dependency trees in watch mode', { timeout: 15_000 }, async () => {
     await withTempFixture({
       'root.layout.js': minimalRootLayout,
