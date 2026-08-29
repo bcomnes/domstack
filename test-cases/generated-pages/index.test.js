@@ -60,6 +60,14 @@ export default function rootLayout ({ vars, children }) {
 const minimalGlobalVars = `export default { layout: 'root', title: 'Test' }
 `
 
+const assetAwareRootLayout = `export default function rootLayout ({ styles = [], scripts = [], children }) {
+  return '<!doctype html><html><head>' +
+    styles.map(href => '<link rel="stylesheet" href="' + href + '">').join('') +
+    scripts.map(src => '<script type="module" src="' + src + '"></script>').join('') +
+    '</head><body>' + children + '</body></html>'
+}
+`
+
 /**
  * @param {unknown} error
  * @returns {string}
@@ -340,6 +348,65 @@ test.describe('generated pages', () => {
         await domstack.settled()
 
         assert.match(await readFile(outputPath, 'utf8'), /Updated title/)
+      } finally {
+        if (domstack.watching) await domstack.stopWatching()
+      }
+    })
+  })
+
+  test('rebuilds generated pages when layout assets are added or removed in watch mode', { timeout: 25_000 }, async () => {
+    await withTempFixture({
+      'root.layout.js': assetAwareRootLayout,
+      'global.vars.js': minimalGlobalVars,
+      'page.js': "export default () => 'Regular page'\n",
+      'layout-assets.pages.js': `export default {
+  outputName: 'generated/index.html',
+  children: 'Generated page',
+}
+`,
+    }, async ({ src, dest }) => {
+      const domstack = new DomStack(src, dest)
+      const regularOutputPath = join(dest, 'index.html')
+      const generatedOutputPath = join(dest, 'generated/index.html')
+
+      const waitForRebuild = async () => {
+        await new Promise(resolve => setTimeout(resolve, 800))
+        await domstack.settled()
+      }
+
+      /**
+       * @param {string} assetName
+       * @param {boolean} expected
+       */
+      const assertAssetReference = async (assetName, expected) => {
+        const [regularHtml, generatedHtml] = await Promise.all([
+          readFile(regularOutputPath, 'utf8'),
+          readFile(generatedOutputPath, 'utf8'),
+        ])
+        assert.equal(regularHtml.includes(assetName), expected, `regular page ${expected ? 'includes' : 'omits'} ${assetName}`)
+        assert.equal(generatedHtml.includes(assetName), expected, `generated page ${expected ? 'includes' : 'omits'} ${assetName}`)
+      }
+
+      try {
+        await domstack.watch({ serve: false })
+        await assertAssetReference('root.layout.css', false)
+        await assertAssetReference('root.layout.client.js', false)
+
+        await writeFile(join(src, 'root.layout.css'), 'body { color: red }\n')
+        await waitForRebuild()
+        await assertAssetReference('root.layout.css', true)
+
+        await rm(join(src, 'root.layout.css'))
+        await waitForRebuild()
+        await assertAssetReference('root.layout.css', false)
+
+        await writeFile(join(src, 'root.layout.client.js'), 'globalThis.layoutClientLoaded = true\n')
+        await waitForRebuild()
+        await assertAssetReference('root.layout.client.js', true)
+
+        await rm(join(src, 'root.layout.client.js'))
+        await waitForRebuild()
+        await assertAssetReference('root.layout.client.js', false)
       } finally {
         if (domstack.watching) await domstack.stopWatching()
       }

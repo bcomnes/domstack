@@ -45,26 +45,27 @@ Implemented resolution:
 - Cleanup resolves each recorded path inside the destination and refuses to remove the destination itself.
 - Regression coverage includes a regular page removal plus generated output rename, definition removal, transition to `draft: true`, and deletion of the entire `*.pages.*` file.
 
-#### 3. Medium: conflict detection does not cover templates or other output producers
+#### 3. Resolved: conflict detection is intentionally limited to page output paths
 
-The conflict map at `lib/build-pages/index.js:293-343` contains only concrete and generated pages. Pages and templates are then written concurrently at `lib/build-pages/index.js:549-584`.
+The generated-pages design requires generated pages not to replace regular pages or other generated pages. The implementation meets that scope by checking concrete and generated page output paths before rendering.
 
-A generated page and template targeting the same path can both succeed, with the final content depending on which asynchronous write wins. Manifest reconciliation may warn afterward when enabled, but the destination file has already been overwritten.
+Templates can still target the same path as a regular or generated page. This is an existing whole-build limitation rather than behavior introduced by generated pages: regular pages and templates could already overwrite one another. Template output paths may also be chosen only after a template runs, while esbuild, static, and copied outputs are written by separate build steps. Manifest reconciliation cannot prevent these conflicts because it runs after files have been written.
 
-The original plan calls page-to-page checks the minimum v1 scope, while the PR summary more broadly says that it detects output conflicts. Either:
+Resolved for this PR by:
 
-- Centralize output claims across pages and templates before writing, with a longer-term path to include esbuild, static, and copied outputs; or
-- Narrow the public wording to "page-output conflicts" and track generalized output conflict handling separately.
+- Narrowing the PR summary to say it detects conflicts between generated pages and regular or other generated pages.
+- Keeping the generated-page checks aligned with the original minimum v1 scope in the “Conflict detection” section below.
+- Tracking shared conflict detection across templates and other build steps separately in [issue #288](https://github.com/bcomnes/domstack/issues/288).
 
-At minimum, duplicate emitted output records should fail the build rather than silently accept last-writer-wins behavior.
+A duplicate-record check after the build would be too late to prevent an overwrite, so this PR does not add a partial post-write check.
 
-#### 4. Medium: adding or removing a layout asset leaves generated HTML stale in watch mode
+#### 4. Resolved: layout asset additions rebuild generated HTML in watch mode
 
-For layout CSS or client add/unlink events, `index.js:386-399` builds a filter from `#layoutPageMap`. That map contains only concrete `siteData.pages`, so the filter at `lib/build-pages/index.js:537-540` omits generated pages.
+For layout CSS or client add events, the watch handler built a filter from `#layoutPageMap`. That map contains only concrete `siteData.pages`, so generated pages were omitted when a concrete and generated page shared the affected layout. The new asset was built, but generated HTML did not gain its `<link>` or `<script>` reference.
 
-When concrete and generated pages share a layout, adding `root.layout.css` updates the concrete HTML while the generated HTML remains unchanged. Removing the asset has the inverse stale-reference problem.
+Removal already reached the fallback full rebuild because the removed asset was absent from newly identified site data. The add/unlink branch now handles both directions explicitly: whenever any `*.pages.*` files exist, layout asset additions and removals use the same conservative full generated-page rebuild as layout source changes. Sites without pages files keep the targeted regular-page rebuild.
 
-Layout source changes already trigger a full generated-page rebuild. Layout asset add/unlink should use the same conservative behavior whenever `siteData.pagesFiles` is non-empty, with tests for adding and removing both layout CSS and layout clients.
+Regression coverage adds and removes both layout CSS and layout clients while a regular and generated page share the layout, and checks that both HTML outputs add and remove the asset references.
 
 #### 5. Medium: generated-page errors lose their type and source context
 
@@ -131,9 +132,9 @@ PR #253 says it closes issue #237. The generalized page-factory mechanism satisf
 - [x] Make generated-page success and error results safe to send from the worker.
 - [x] Validate the README index example with a worker-boundary regression test.
 - [x] Reconcile and remove obsolete regular and generated page outputs in watch mode.
-- [ ] Rebuild generated pages when layout assets are added or removed.
+- [x] Rebuild generated pages when layout assets are added or removed.
 - [ ] Preserve output-conflict codes, metadata, and pages-file context.
-- [ ] Decide and document the scope of output conflict detection.
+- [x] Define conflict detection as generated-to-regular and generated-to-generated page checks; track whole-build conflicts in issue #288.
 - [ ] Decide whether returned `siteData.pages` is concrete-only or expanded.
 - [ ] Finalize generated-pages type names and generics.
 - [ ] Complete the README API and type documentation.
@@ -148,7 +149,7 @@ PR #253 says it closes issue #237. The generalized page-factory mechanism satisf
 - Focused ESLint over all changed JavaScript and TypeScript files — passed.
 - `git diff --check` — passed.
 - Root `npm run test:neostandard` in the review checkout was polluted by malformed fixtures under ignored `.delta/worktrees`, not by PR changes.
-- The original worker-copy reproduction now passes. Obsolete regular and generated page outputs are now removed in watch mode. Focused reproductions still confirm the layout-asset watch gap and the generated/template output race.
+- The original worker-copy reproduction now passes. Obsolete regular and generated page outputs are removed in watch mode, and layout asset additions/removals now refresh generated HTML. General conflicts between templates and other build steps are tracked separately in issue #288.
 
 ---
 

@@ -388,6 +388,11 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
         logRebuildTree(changedBasename, this.#logger, new Set(siteData.pages))
         await this.#runPageBuild(siteData)
       } else if (layoutClientSuffixs.some(s => changedBasename.endsWith(s)) || changedBasename.endsWith(layoutStyleSuffix)) {
+        if ((siteData.pagesFiles?.length ?? 0) > 0) {
+          this.#logger.info(`"${changedBasename}" ${event}, rebuilding all pages...`)
+          return this.#runGeneratedPageBuild(siteData)
+        }
+
         // Layout asset: rebuild pages using that layout
         const layoutName = Object.values(siteData.layouts).find(l =>
           l.layoutClient?.filepath === changedPath || l.layoutStyle?.filepath === changedPath
