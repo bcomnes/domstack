@@ -122,6 +122,65 @@ test.describe('generated pages', () => {
     assert.equal(summary.generatedPagesInTemplate, 6, 'template pages include generated pages')
   })
 
+  test('returns copyable generated vars and keeps PageData values inside the worker', async () => {
+    await withTempFixture({
+      'root.layout.js': minimalRootLayout,
+      'global.vars.js': minimalGlobalVars,
+      'README.md': '# Concrete page\n',
+      'indexes.pages.js': `export default function indexesPages ({ pages }) {
+  return {
+    outputName: 'generated-index/index.html',
+    vars: {
+      title: 'Generated index',
+      posts: pages,
+    },
+    children: ({ vars }) => \`<p id="post-count">\${vars.posts.length}</p>\`,
+  }
+}
+`,
+    }, async ({ src, dest }) => {
+      const domstack = new DomStack(src, dest)
+      const results = await domstack.build()
+      const output = await readFile(join(dest, 'generated-index/index.html'), 'utf8')
+      const outputRecord = results.pageBuildResults?.outputs.find(output => output.outputRelname === 'generated-index/index.html')
+
+      assert.match(output, /<p id="post-count">1<\/p>/, 'generated page renders with concrete PageData values in vars')
+      assert.ok(outputRecord, 'generated page emits an output record')
+      assert.equal(outputRecord.pageVars?.['title'], 'Generated index', 'copyable page vars are returned')
+      assert.equal(Object.hasOwn(outputRecord.pageVars ?? {}, 'posts'), false, 'PageData values stay inside the worker')
+    })
+  })
+
+  test('returns generated render errors without sending render state', async () => {
+    await withTempFixture({
+      'root.layout.js': minimalRootLayout,
+      'global.vars.js': minimalGlobalVars,
+      'broken.pages.js': `export default {
+  outputName: 'broken/index.html',
+  children () {
+    throw new Error('generated boom', { cause: () => {} })
+  },
+}
+`,
+    }, async ({ src, dest }) => {
+      const domstack = new DomStack(src, dest)
+      await assert.rejects(
+        () => domstack.build(),
+        error => {
+          const aggregate = /** @type {Error & { errors?: Array<Error & { page?: { path?: string, generated?: { pagesFile?: { pagesFile?: { relname?: string } } } } }> }} */ (error)
+          const generatedError = aggregate.errors?.find(error => error.page?.generated)
+
+          assert.ok(generatedError, 'build includes the generated page error')
+          assert.match(generatedError.message, /page: "broken"/)
+          assert.equal(generatedError.page?.generated?.pagesFile?.pagesFile?.relname, 'broken.pages.js')
+          assert.notEqual(generatedError.name, 'DataCloneError')
+          assert.equal(/** @type {{ message?: string } | undefined} */ (generatedError.cause)?.message, 'generated boom')
+          return true
+        }
+      )
+    })
+  })
+
   test('includes generated pages in the domstack manifest as page entries', async () => {
     await withTempFixture({
       'root.layout.js': minimalRootLayout,
@@ -145,8 +204,10 @@ test.describe('generated pages', () => {
       })
       const results = await domstack.build()
       const entry = results.domstackManifest?.entries.find(entry => entry.outputRelname === 'archive/index.html')
+      const outputRecord = results.pageBuildResults?.outputs.find(output => output.outputRelname === 'archive/index.html')
 
       assert.ok(entry, 'generated page is present in the domstack manifest')
+      assert.equal(outputRecord?.pageVars?.['archiveYear'], 2024, 'copyable page vars are returned from the worker')
       assert.equal(entry.kind, 'page')
       assert.equal(entry.url, '/archive/')
       assert.equal(entry.sourceRelname, 'archive.pages.js#0')
@@ -161,6 +222,40 @@ test.describe('generated pages', () => {
         archiveYear: 2024,
       }, 'selected generated page vars are exposed in the manifest')
       assert.match(entry.revision ?? '', /^[a-f0-9]{64}$/, 'generated page content is revisioned')
+    })
+  })
+
+  test('supports function manifest transforms with generated vars', async () => {
+    await withTempFixture({
+      'root.layout.js': minimalRootLayout,
+      'global.vars.js': minimalGlobalVars,
+      'archive.pages.js': `export default {
+  outputName: 'archive/index.html',
+  vars: {
+    title: 'Archive',
+    archive: { year: 2024 },
+  },
+  children ({ vars }) {
+    vars.archive.year = 2025
+    return '<p>Generated archive</p>'
+  },
+}
+`,
+    }, async ({ src, dest }) => {
+      const domstack = new DomStack(src, dest, {
+        domstackManifest: {
+          manifestVars: ({ vars }) => {
+            const archive = /** @type {{ year: number } | undefined} */ (vars['archive'])
+            return archive ? { archiveLabel: String(archive.year) } : {}
+          },
+        },
+      })
+      const results = await domstack.build()
+      const entry = results.domstackManifest?.entries.find(entry => entry.outputRelname === 'archive/index.html')
+      const outputRecord = results.pageBuildResults?.outputs.find(output => output.outputRelname === 'archive/index.html')
+
+      assert.deepEqual(entry?.manifestVars, { archiveLabel: '2025' })
+      assert.deepEqual(outputRecord?.pageVars?.['archive'], { year: 2025 }, 'function transforms receive complete post-render page vars')
     })
   })
 

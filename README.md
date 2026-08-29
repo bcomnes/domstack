@@ -1389,6 +1389,8 @@ export default {
 }
 ```
 
+The `vars` passed to a `manifestVars` function are a snapshot of page vars that can be copied from the page worker. Top-level values used only while rendering, such as functions or `PageData` objects, are left out of this snapshot.
+
 Only values selected by `manifestVars` are copied into public manifest entries. Root `policy` is emitted once on the manifest. This avoids leaking arbitrary page vars while still letting service workers, Workbox hooks, and deployment tools consume a stable manifest-level policy shape.
 
 ### Manifest built hooks

@@ -1,10 +1,159 @@
 # Generated Pages Files
 
-## Status: Proposed refinement
+## Status: Implementation review — changes requested
 
 Plan for adding first-class generated page support in response to the redirect-page discussion in PR #253.
 
+## PR #253 implementation review
+
+Reviewed commit `78d012e` on 2026-08-29.
+
+### Verdict
+
+Do not land PR #253 yet. The core design is sound and the clean-build happy path works, but the current implementation has worker-boundary and generated-output lifecycle problems that should be fixed first. Watch behavior, error reporting, and public documentation also need another pass.
+
+### Findings
+
+#### 1. Resolved: the documented blog-index example could not be sent back from the worker
+
+`README.md:1107-1117` places concrete `PageData` objects into `vars.posts`. Those objects contain functions such as resolved layout renderers.
+
+Every page's complete vars were added to its output record at `lib/build-pages/page-builders/page-writer.js:109-120`. The worker then tried to send that record back to the main thread at `lib/build-pages/worker.js:9-10`. Functions cannot be sent this way, so the documented example could write its HTML and then reject with a `DataCloneError`.
+
+Generated-page render errors have the same root problem. `lib/build-pages/index.js:560-563` sends the complete generated `PageInfo` as error context, including the function-valued `generated.children` stored at `lib/build-pages/index.js:274-278`. A useful render exception can therefore be replaced by an unclear worker-copy failure.
+
+Implemented resolution:
+
+- Generated pages remain regular `PageInfo` objects handled by the existing JS page builder.
+- Rendering functions and complete vars remain available inside the page worker.
+- Output records return a snapshot of page vars by copying each top-level value independently. Values that cannot be copied, such as `PageData[]`, are left out of the snapshot.
+- Generated page error information omits `generated.vars` and `generated.children` before it is returned from the worker.
+- Manifest allowlists and functions continue to use the returned page-vars snapshot in the main thread.
+- Regression tests cover the README pattern with `PageData[]` in generated vars, generated render errors, allowlisted manifest vars, and function manifest transforms using post-render values.
+
+#### 2. High: removed or renamed generated outputs remain on disk
+
+When a pages file changes, `index.js:464-467` rebuilds the current pages and dependency maps, but it does not compare the new output set with the previous one. `ensureDest()` only creates directories, and `pageWriter()` only writes outputs that exist in the current build.
+
+Focused reproductions confirmed that:
+
+- Renaming `old/index.html` to `new/index.html` leaves both files.
+- Removing a returned definition leaves its old route.
+- Changing an existing definition to `draft: true` leaves the previously published file.
+- Removing the entire `*.pages.*` file leaves its generated outputs.
+
+This is particularly risky for redirects because an intentionally removed redirect can continue being served. It exposes a broader existing output-lifecycle limitation, but dynamic page factories make the problem much easier to encounter.
+
+Before landing, track output records from the previous successful generated build and safely remove outputs that are no longer claimed. Add rename, removal, pages-file deletion, and draft-transition tests.
+
+#### 3. Medium: conflict detection does not cover templates or other output producers
+
+The conflict map at `lib/build-pages/index.js:293-343` contains only concrete and generated pages. Pages and templates are then written concurrently at `lib/build-pages/index.js:549-584`.
+
+A generated page and template targeting the same path can both succeed, with the final content depending on which asynchronous write wins. Manifest reconciliation may warn afterward when enabled, but the destination file has already been overwritten.
+
+The original plan calls page-to-page checks the minimum v1 scope, while the PR summary more broadly says that it detects output conflicts. Either:
+
+- Centralize output claims across pages and templates before writing, with a longer-term path to include esbuild, static, and copied outputs; or
+- Narrow the public wording to "page-output conflicts" and track generalized output conflict handling separately.
+
+At minimum, duplicate emitted output records should fail the build rather than silently accept last-writer-wins behavior.
+
+#### 4. Medium: adding or removing a layout asset leaves generated HTML stale in watch mode
+
+For layout CSS or client add/unlink events, `index.js:386-399` builds a filter from `#layoutPageMap`. That map contains only concrete `siteData.pages`, so the filter at `lib/build-pages/index.js:537-540` omits generated pages.
+
+When concrete and generated pages share a layout, adding `root.layout.css` updates the concrete HTML while the generated HTML remains unchanged. Removing the asset has the inverse stale-reference problem.
+
+Layout source changes already trigger a full generated-page rebuild. Layout asset add/unlink should use the same conservative behavior whenever `siteData.pagesFiles` is non-empty, with tests for adding and removing both layout CSS and layout clients.
+
+#### 5. Medium: generated-page errors lose their type and source context
+
+`DomStackOutputConflictError` defines a useful code and structured conflict metadata at `lib/helpers/domstack-error.js:71-90`, but `lib/build-pages/index.js:505-508` immediately wraps it in a generic `Error`.
+
+Caller-visible errors consequently lose:
+
+- `DOM_STACK_ERROR_OUTPUT_CONFLICT`
+- The `conflict` object
+- The pages file that produced an invalid definition or path
+
+`WorkerErrorData.pagesFile` is declared at `lib/build-pages/index.js:128-134` but is never populated.
+
+Catch resolution errors per pages file and transfer a small serializable context object. Tests should assert error codes, source filenames, and both conflict producers rather than only matching message text.
+
+#### 6. Design gap: generated pages are not added to public `siteData.pages`
+
+Generated pages exist only in the worker-local array at `lib/build-pages/index.js:513-514`. The returned `results.siteData.pages` remains the concrete discovery list from `lib/identify-pages.js:612-628`.
+
+This differs from the expanded-site model later in this plan and means:
+
+- Programmatic `results.siteData.pages` is concrete-only.
+- Watch maps remain concrete-only and require broad generated-page special cases.
+- The initial `Pages:` build total excludes generated pages, although `Pages built:` includes them.
+- No generated `PageInfo` graph is available to programmatic callers after the build.
+
+Either implement an explicit `expandedSiteData`/`concretePages` model or deliberately define and document `siteData.pages` as discovery-only. Add a test that locks in the chosen public behavior.
+
+#### 7. Documentation and public types need another pass
+
+In addition to fixing the broken primary example:
+
+- Promote Generated Pages from a Templates subsection to its own top-level feature section.
+- Document static object and array exports, async functions, async iterables, and all supported module suffixes.
+- Document the `vars`, `pagesFile`, and `siteData` factory parameters.
+- Document generated `draft: true` behavior and its relationship to `--drafts`/`buildDrafts`.
+- Add `PagesFunction`, `AsyncPagesFunction`, `PagesFunctionParams`, `GeneratedPageDefinition`, and `PagesFileInfo` to the README type catalog.
+- Import public types from `@domstack/static/types.js`, not the package root.
+- Correct the `GeneratedPageDefinition.outputName` JSDoc to say it defaults to `<pages-file-name>/index.html`.
+- Revisit `AsyncPagesFunction`: its required `Promise` return cannot annotate the supported `async function*` form in `test-cases/generated-pages/src/async.pages.js`. A `PagesAsyncIterator` type aligned with `TemplateAsyncIterator` would be clearer.
+- Consider making `PagesFunctionParams` generic so incoming global vars can be typed separately from generated page vars before the public API is frozen.
+
+The redirect security warning and meta-refresh SEO guidance are accurate.
+
+### Objective assessment
+
+The implementation achieves the core design in a clean one-shot build:
+
+- Discovers the intended `*.pages.*` module families.
+- Gives every factory a stable view of initialized concrete pages.
+- Supports object, array, promise, and async-iterable results.
+- Runs generated pages through normal vars, layout, global asset, and manifest processing.
+- Exposes generated pages to global data, templates, page functions, and layouts.
+- Validates definitions and output paths.
+- Detects generated-to-concrete and generated-to-generated page conflicts.
+- Rebuilds generated pages for normal pages-file and imported-dependency changes.
+
+The objective is still only partially complete in watch mode and in the public data model. The documented programmatic index now builds successfully: its `PageData[]` remains available while rendering and is left out of the page-vars snapshot returned from the worker.
+
+PR #253 says it closes issue #237. The generalized page-factory mechanism satisfies the later PR discussion, but the original issue also asks for native redirect declarations and target-existence validation. This implementation does not validate redirect destinations or natively emit hosting-provider redirect configuration. Either explicitly accept this generalized API as the resolution of #237 or leave the issue open for those remaining capabilities.
+
+### Landing checklist
+
+- [x] Make generated-page success and error results safe to send from the worker.
+- [x] Validate the README index example with a worker-boundary regression test.
+- [ ] Reconcile and remove obsolete generated outputs.
+- [ ] Rebuild generated pages when layout assets are added or removed.
+- [ ] Preserve output-conflict codes, metadata, and pages-file context.
+- [ ] Decide and document the scope of output conflict detection.
+- [ ] Decide whether returned `siteData.pages` is concrete-only or expanded.
+- [ ] Finalize generated-pages type names and generics.
+- [ ] Complete the README API and type documentation.
+- [ ] Decide whether this generalized feature fully closes issue #237.
+
+### Validation performed during review
+
+- `npm run test:node-test -- test-cases/generated-pages/index.test.js` — passed.
+- `npm run test:node-test` — passed.
+- `npm run test:tsc` — passed.
+- `npm run build:declaration` after cleaning generated declarations — passed.
+- Focused ESLint over all changed JavaScript and TypeScript files — passed.
+- `git diff --check` — passed.
+- Root `npm run test:neostandard` in the review checkout was polluted by malformed fixtures under ignored `.delta/worktrees`, not by PR changes.
+- The original worker-copy reproduction now passes. Focused reproductions still confirm stale generated outputs, the layout-asset watch gap, and the generated/template output race.
+
 ---
+
+## Original design plan
 
 ## Problem
 
@@ -223,9 +372,12 @@ if (pageInfo.generated) {
 }
 ```
 
-`PageData.init()` can then continue to resolve layout and assets through the
-existing JS page builder contract. Generated origin is metadata, not a separate
-page type.
+Generated pages then follow the same `PageData` initialization and rendering
+path as concrete JavaScript pages. Generated vars and functions stay inside the
+page worker while rendering. When the worker returns its build report, it copies
+each top-level page var independently and leaves out values that cannot be
+copied. Generated page error information similarly leaves out `vars` and
+`children`.
 
 ## Conflict detection
 
