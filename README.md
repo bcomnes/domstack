@@ -1246,23 +1246,39 @@ Collect the metadata in `global.data.js`. The current page's URL becomes the red
 
 ```js
 // src/global.data.js
-export default function globalData ({ pages }) {
+function collectRedirects (pages) {
   const redirects = []
+  const redirectOwners = new Map()
 
   for (const page of pages) {
     const redirectFrom = page.vars.redirectFrom
-    if (!Array.isArray(redirectFrom)) continue
+    if (redirectFrom === undefined) continue
+
+    const source = page.pageInfo.pageFile.relname
+    if (!Array.isArray(redirectFrom)) throw new TypeError(`redirectFrom on "${source}" must be an array`)
 
     for (const from of redirectFrom) {
-      if (typeof from === 'string') redirects.push({ from, to: page.pageInfo.url })
+      if (typeof from !== 'string') throw new TypeError(`redirectFrom entries on "${source}" must be strings`)
+      if (from.trim() !== from || !from.startsWith('/') || from.startsWith('//')) throw new Error(`Invalid redirectFrom "${from}" on "${source}": expected a same-origin URL path`)
+      if (from.includes('?') || from.includes('#') || from.includes('\\') || from.split('/').some(part => part === '.' || part === '..')) throw new Error(`Invalid redirectFrom "${from}" on "${source}": unsupported URL path`)
+
+      const existingSource = redirectOwners.get(from)
+      if (existingSource) throw new Error(`redirectFrom "${from}" is declared by both "${existingSource}" and "${source}"`)
+
+      redirectOwners.set(from, source)
+      redirects.push({ from, to: page.pageInfo.url })
     }
   }
 
-  return { redirects }
+  return redirects
+}
+
+export default function globalData ({ pages }) {
+  return { redirects: collectRedirects(pages) }
 }
 ```
 
-The pages factory consumes that collection and renders each old location through a reusable redirect layout:
+Validation happens while the destination page is still known, so malformed or duplicate metadata reports the page that declared it. The pages factory then consumes the validated collection and renders each old location through a reusable redirect layout:
 
 ```js
 // src/redirects.pages.js

@@ -168,7 +168,7 @@ Regression tests cover both cases. Generated drafts also have positive coverage 
 
 ### Validation performed during review
 
-- `node --test test-cases/generated-pages/index.test.js` — passed (final focused suite: 18 tests).
+- `node --test test-cases/generated-pages/index.test.js` — passed (final focused suite: 19 tests).
 - `npm run test:node-test` — passed.
 - `npm run test:tsc` — passed.
 - `npm run test:installed-check` — passed.
@@ -467,12 +467,21 @@ redirectFrom:
 ```
 
 ```js
-// global.data.js derives `{ from, to }` from destination-page metadata.
+// global.data.js validates destination-page metadata and derives `{ from, to }`.
 export default function ({ pages }) {
   const redirects = []
+  const redirectOwners = new Map()
   for (const page of pages) {
-    if (!Array.isArray(page.vars.redirectFrom)) continue
-    for (const from of page.vars.redirectFrom) {
+    const redirectFrom = page.vars.redirectFrom
+    if (redirectFrom === undefined) continue
+
+    const source = page.pageInfo.pageFile.relname
+    if (!Array.isArray(redirectFrom)) throw new TypeError(`redirectFrom on "${source}" must be an array`)
+    for (const from of redirectFrom) {
+      if (typeof from !== 'string' || !from.startsWith('/') || from.startsWith('//')) throw new Error(`Invalid redirectFrom on "${source}"`)
+      const existingSource = redirectOwners.get(from)
+      if (existingSource) throw new Error(`redirectFrom "${from}" is declared by both "${existingSource}" and "${source}"`)
+      redirectOwners.set(from, source)
       redirects.push({ from, to: page.pageInfo.url })
     }
   }
@@ -517,7 +526,7 @@ export default function redirectLayout ({ vars }) {
 }
 ```
 
-Docs should still mention validating redirect targets, but that security note belongs in the redirect-layout example rather than in the generated-pages core API.
+Redirect metadata validation happens in `global.data.*` while the destination source page is known. It rejects malformed metadata, unsafe paths, and duplicate old URLs with source-specific errors. The generated-output validator remains a second path-safety check.
 
 ### Blog indexes
 

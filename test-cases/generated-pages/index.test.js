@@ -4,6 +4,7 @@ import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promis
 import { dirname, join } from 'node:path'
 import * as cheerio from 'cheerio'
 import { DomStack, testBuild } from '../../index.js'
+import { collectRedirects } from './src/global.data.js'
 
 const __dirname = import.meta.dirname
 const fixturePrefix = '.tmp-'
@@ -88,6 +89,49 @@ function firstGeneratedPagesError (error) {
 }
 
 test.describe('generated pages', () => {
+  test('validates page-owned redirect metadata with destination context', () => {
+    /**
+     * @param {string} relname
+     * @param {string} url
+     * @param {unknown} redirectFrom
+     */
+    const page = (relname, url, redirectFrom) => /** @type {any} */ ({
+      vars: { redirectFrom },
+      pageInfo: { url, pageFile: { relname } },
+    })
+
+    assert.deepEqual(collectRedirects([
+      page('current/README.md', '/current/', ['/old/', '/older/']),
+    ]), [
+      { from: '/old/', to: '/current/' },
+      { from: '/older/', to: '/current/' },
+    ])
+
+    assert.throws(
+      () => collectRedirects([page('string/README.md', '/string/', '/old/')]),
+      /redirectFrom on "string\/README\.md" must be an array/
+    )
+    assert.throws(
+      () => collectRedirects([page('number/README.md', '/number/', [42])]),
+      /redirectFrom entries on "number\/README\.md" must be strings/
+    )
+
+    for (const redirectFrom of ['https://example.com/old/', '//example.com/old/', '/old/?draft=true', '/../escape/']) {
+      assert.throws(
+        () => collectRedirects([page('invalid/README.md', '/invalid/', [redirectFrom])]),
+        error => error instanceof Error && error.message.includes(redirectFrom) && error.message.includes('invalid/README.md')
+      )
+    }
+
+    assert.throws(
+      () => collectRedirects([
+        page('first/README.md', '/first/', ['/shared-old/']),
+        page('second/README.md', '/second/', ['/shared-old/']),
+      ]),
+      /redirectFrom "\/shared-old\/" is declared by both "first\/README\.md" and "second\/README\.md"/
+    )
+  })
+
   test('builds generated pages from global data and exposes the final page set to templates', async (t) => {
     const src = join(__dirname, './src')
     const build = await testBuild(src)
