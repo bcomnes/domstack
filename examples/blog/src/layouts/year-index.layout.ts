@@ -10,8 +10,8 @@ export type YearIndexVars = RootVars & Pick<PostVars, 'publishDate' | 'descripti
 
 /**
  * Auto-index layout: lists all direct child pages of the current page's
- * folder, sorted newest-first by publishDate. Use on year/section index
- * pages — just set `layout: year-index` in frontmatter, no page.ts needed.
+ * folder, sorted newest-first by publishDate. `blog-indexes.pages.ts`
+ * generates each yearly page with this layout, so no per-year source page is needed.
  */
 const yearIndexLayout: LayoutFunction<YearIndexVars, string | HtmlResult, string> = (args) => {
   const { children, page, pages, ...rest } = args

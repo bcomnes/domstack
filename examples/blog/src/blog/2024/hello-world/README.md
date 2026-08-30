@@ -29,6 +29,11 @@ const blogPosts = pages
 The returned object is stamped onto every page's `vars`, so any page or layout can read
 `vars.blogPosts` directly — no postVars, no custom wiring.
 
+The yearly `/blog/2024/` and `/blog/2025/` archives are generated separately by
+`src/blog-indexes.pages.ts`. It creates one normal page per publication year, and the
+`year-index` layout finds that folder's posts and renders them newest-first. There are no
+hand-maintained year index files.
+
 ## This layout
 
 This post uses the `post` layout (`src/layouts/post.layout.ts`), which wraps the root layout

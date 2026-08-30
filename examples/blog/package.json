@@ -1,7 +1,7 @@
 {
   "name": "@domstack/blog-example",
   "version": "0.0.0",
-  "description": "A blog example for domstack demonstrating global.data.ts, nested layouts, and feeds.",
+  "description": "A blog example for domstack demonstrating generated archives, global.data.ts, nested layouts, and feeds.",
   "type": "module",
   "scripts": {
     "start": "npm run watch",

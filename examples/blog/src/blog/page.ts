@@ -1,3 +1,4 @@
+import { basename, dirname } from 'node:path'
 import { html, render } from 'fragtml'
 import type { PageFunction } from '@domstack/static/types.js'
 import type { GlobalData } from '../global.data.js'
@@ -10,8 +11,11 @@ type Vars = SiteVars & GlobalData
  * Post data comes entirely from global.data.ts via vars.blogPosts.
  * No postVars, no manual wiring needed here.
  */
-const blogIndex: PageFunction<Vars> = ({ vars }) => {
+const blogIndex: PageFunction<Vars> = ({ vars, page, pages }) => {
   const { blogPosts } = vars
+  const archivePages = pages
+    .filter(candidate => dirname(candidate.pageInfo.path) === page.path && candidate.vars['layout'] === 'year-index')
+    .sort((a, b) => b.pageInfo.path.localeCompare(a.pageInfo.path))
 
   if (blogPosts.length === 0) {
     return '<p>No posts yet.</p>'
@@ -38,6 +42,12 @@ const blogIndex: PageFunction<Vars> = ({ vars }) => {
             </li>
           `
         })}
+      </ul>
+      <h2>Archive</h2>
+      <ul class="archive-list">
+        ${archivePages.map(archive => html`
+          <li><a href="${archive.pageInfo.url}">${basename(archive.pageInfo.path)}</a></li>
+        `)}
       </ul>
     </div>
   `)
