@@ -1,16 +1,13 @@
-/** @import { PagesFunction } from '#types' */
+import type { PagesFunction } from '@domstack/static/types.js'
+import type { GlobalData } from './global.data.js'
 
-/**
- * @typedef {object} Redirect
- * @property {string} from
- * @property {string} to
- */
+type RedirectPageVars = {
+  layout: 'redirect'
+  title: string
+  redirectTo: string
+}
 
-/**
- * @param {string} from
- * @returns {string}
- */
-function redirectOutputName (from) {
+function redirectOutputName (from: string): string {
   if (!from.startsWith('/') || from.startsWith('//')) throw new Error(`redirectFrom must be a same-origin URL path: ${from}`)
   if (from.includes('?') || from.includes('#')) throw new Error(`redirectFrom must not include a query or fragment: ${from}`)
 
@@ -19,16 +16,15 @@ function redirectOutputName (from) {
   return relativePath.endsWith('/') ? `${relativePath}index.html` : relativePath
 }
 
-/** @type {PagesFunction<Record<string, any>, any, { redirects: Redirect[] }>} */
-export default function redirectsPages ({ vars }) {
+const redirectPages: PagesFunction<RedirectPageVars, string, GlobalData> = ({ vars }) => {
   const pages = []
 
   for (const { from, to } of vars.redirects) {
     pages.push({
       outputName: redirectOutputName(from),
       vars: {
-        layout: 'redirect',
-        title: 'Redirecting...',
+        layout: 'redirect' as const,
+        title: 'Redirecting…',
         redirectTo: to,
       },
       children: '',
@@ -37,3 +33,5 @@ export default function redirectsPages ({ vars }) {
 
   return pages
 }
+
+export default redirectPages

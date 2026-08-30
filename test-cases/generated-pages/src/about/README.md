@@ -1,5 +1,7 @@
 ---
 title: About
+redirectFrom:
+  - /company/
 ---
 
 # About

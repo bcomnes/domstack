@@ -1,5 +1,7 @@
 ---
 title: Current Guide
+redirectFrom:
+  - /docs/old-guide/
 ---
 
 # Current Guide

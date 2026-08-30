@@ -11,8 +11,15 @@
  */
 
 /**
+ * @typedef {object} Redirect
+ * @property {string} from
+ * @property {string} to
+ */
+
+/**
  * @typedef {object} BlogData
  * @property {BlogPost[]} blogPosts
+ * @property {Redirect[]} redirects
  * @property {number} sourcePageCount
  */
 
@@ -20,8 +27,17 @@
 export default function globalData ({ pages }) {
   /** @type {BlogPost[]} */
   const blogPosts = []
+  /** @type {Redirect[]} */
+  const redirects = []
 
   for (const page of pages) {
+    const redirectFrom = page.vars.redirectFrom
+    if (Array.isArray(redirectFrom)) {
+      for (const from of redirectFrom) {
+        if (typeof from === 'string') redirects.push({ from, to: page.pageInfo.url })
+      }
+    }
+
     const publishDateValue = page.vars.publishDate
     if (!page.pageInfo.path.startsWith('blog/') || (typeof publishDateValue !== 'string' && !(publishDateValue instanceof Date))) continue
 
@@ -40,6 +56,7 @@ export default function globalData ({ pages }) {
 
   return {
     blogPosts,
+    redirects,
     sourcePageCount: pages.length,
   }
 }

@@ -9,6 +9,13 @@ export interface BlogPost {
   tags: string[]
 }
 
+export interface PageRedirect {
+  /** Old same-origin URL path that should redirect. */
+  from: string
+  /** Current URL of the page that declared the old path. */
+  to: string
+}
+
 export interface GlobalData {
   /** All blog posts, sorted newest-first. Available to every page and template. */
   blogPosts: BlogPost[]
@@ -18,6 +25,8 @@ export interface GlobalData {
   recentPostsHtml: string
   /** tag → posts index, available for tag archive pages. */
   tagIndex: Record<string, BlogPost[]>
+  /** Redirects collected from each destination page's redirectFrom metadata. */
+  redirects: PageRedirect[]
 }
 
 const buildGlobalData: AsyncGlobalDataFunction<GlobalData> = async ({ pages }) => {
@@ -31,6 +40,16 @@ const buildGlobalData: AsyncGlobalDataFunction<GlobalData> = async ({ pages }) =
       tags: Array.isArray(p.vars?.tags) ? (p.vars.tags as string[]) : [],
     }))
     .sort((a, b) => new Date(b.publishDate).getTime() - new Date(a.publishDate).getTime())
+
+  const redirects: PageRedirect[] = []
+  for (const page of pages) {
+    const redirectFrom = page.vars.redirectFrom
+    if (!Array.isArray(redirectFrom)) continue
+
+    for (const from of redirectFrom) {
+      if (typeof from === 'string') redirects.push({ from, to: page.pageInfo.url })
+    }
+  }
 
   const recentPosts = blogPosts.slice(0, 5)
 
@@ -66,7 +85,7 @@ const buildGlobalData: AsyncGlobalDataFunction<GlobalData> = async ({ pages }) =
     }
   }
 
-  return { blogPosts, recentPosts, recentPostsHtml, tagIndex }
+  return { blogPosts, recentPosts, recentPostsHtml, tagIndex, redirects }
 }
 
 export default buildGlobalData

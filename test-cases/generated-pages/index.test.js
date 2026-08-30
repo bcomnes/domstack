@@ -103,6 +103,7 @@ test.describe('generated pages', () => {
 
     const redirectCases = [
       { from: 'old-url', to: '/new-url/', destination: 'new-url/index.html', heading: 'New URL' },
+      { from: 'legacy-url', to: '/new-url/', destination: 'new-url/index.html', heading: 'New URL' },
       { from: 'docs/old-guide', to: '/guides/current/', destination: 'guides/current/index.html', heading: 'Current Guide' },
       { from: 'company', to: '/about/', destination: 'about/index.html', heading: 'About' },
     ]
@@ -157,7 +158,7 @@ test.describe('generated pages', () => {
     const summary = JSON.parse(await readOutput('summary.json'))
     assert.equal(summary.sourcePageCount, 7, 'template vars include global.data source page count')
     assert.equal(summary.blogPostCount, 3, 'template vars include the collection used by pages files')
-    assert.equal(summary.generatedPagesInTemplate, 7, 'template pages include generated pages')
+    assert.equal(summary.generatedPagesInTemplate, 8, 'template pages include generated pages')
   })
 
   test('supports static object, static array, and async function exports', async () => {

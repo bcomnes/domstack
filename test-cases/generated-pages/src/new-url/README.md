@@ -1,5 +1,8 @@
 ---
 title: New URL
+redirectFrom:
+  - /old-url/
+  - /legacy-url/
 ---
 
 # New URL

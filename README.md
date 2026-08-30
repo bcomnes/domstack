@@ -1229,26 +1229,67 @@ Generated pages use global and layout assets. They do not have page-local `style
 
 ### Redirect Pages
 
-Sites migrating from another platform often need redirect pages for old URLs that no longer exist. A `*.pages.*` file can centrally generate those pages while keeping the redirect HTML in a reusable layout.
+Sites migrating from another platform often need redirect pages for old URLs that no longer exist. Keep that history on the current page with `redirectFrom` metadata instead of maintaining a separate old/new mapping:
+
+```md
+---
+title: Current Post
+redirectFrom:
+  - /2020/old-slug/
+  - /blog/original-title/
+---
+
+# Current Post
+```
+
+Collect the metadata in `global.data.js`. The current page's URL becomes the redirect target automatically:
+
+```js
+// src/global.data.js
+export default function globalData ({ pages }) {
+  const redirects = []
+
+  for (const page of pages) {
+    const redirectFrom = page.vars.redirectFrom
+    if (!Array.isArray(redirectFrom)) continue
+
+    for (const from of redirectFrom) {
+      if (typeof from === 'string') redirects.push({ from, to: page.pageInfo.url })
+    }
+  }
+
+  return { redirects }
+}
+```
+
+The pages factory consumes that collection and renders each old location through a reusable redirect layout:
 
 ```js
 // src/redirects.pages.js
-// Generates one index.html per redirect entry using the redirect layout.
+function redirectOutputName (from) {
+  if (!from.startsWith('/') || from.startsWith('//')) throw new Error(`redirectFrom must be a same-origin URL path: ${from}`)
+  if (from.includes('?') || from.includes('#')) throw new Error(`redirectFrom must not include a query or fragment: ${from}`)
 
-const redirects = [
-  { from: '2020/old-slug', to: '/2020/new-slug/' },
-  { from: '2021/another-old', to: '/2021/another-new/' },
-]
+  const relativePath = from.slice(1)
+  if (relativePath.length === 0) return 'index.html'
+  return relativePath.endsWith('/') ? `${relativePath}index.html` : relativePath
+}
 
-export default function redirectsPages () {
-  return redirects.map(({ from, to }) => ({
-    outputName: `${from}/index.html`,
-    vars: {
-      layout: 'redirect',
-      title: 'Redirecting...',
-      redirectTo: to,
-    },
-  }))
+export default function redirectsPages ({ vars }) {
+  const pages = []
+
+  for (const { from, to } of vars.redirects) {
+    pages.push({
+      outputName: redirectOutputName(from),
+      vars: {
+        layout: 'redirect',
+        title: 'Redirecting...',
+        redirectTo: to,
+      },
+    })
+  }
+
+  return pages
 }
 ```
 
@@ -1273,7 +1314,7 @@ export default function redirectLayout ({ vars }) {
 }
 ```
 
-The `outputName` field controls the output path. Using `${from}/index.html` creates a directory-style URL at the old path. `fragtml` escapes interpolated values by default, including attribute values and link text. Escaping does not block dangerous URL schemes like `javascript:` — keep redirect targets to known-safe URL patterns (relative paths or verified external URLs). Be careful with `from` values used in `outputName`: generated page output names must be relative and cannot contain `..` segments.
+`redirectFrom` contains old same-origin public URL paths. `redirectOutputName()` converts directory URLs such as `/2020/old-slug/` to `2020/old-slug/index.html`; DomStack's generated-output validation still rejects escaping paths such as `..`. The redirect target comes from the current page's normalized `pageInfo.url`, so moving the page again only requires retaining its previous URLs in that page's metadata. `fragtml` escapes interpolated values by default, including attribute values and link text.
 
 **SEO note:** Meta-refresh is a client-side redirect. Search engines may not treat it as a permanent 301 redirect. For static hosting platforms that support server-side redirects, you can instead generate a `_redirects` file (Netlify, Cloudflare Pages) or `vercel.json` (Vercel) using the object template type:
 
@@ -1281,19 +1322,15 @@ The `outputName` field controls the output path. Using `${from}/index.html` crea
 // src/redirects-netlify.txt.template.js
 // Generates a _redirects file for Netlify / Cloudflare Pages.
 
-const redirects = [
-  { from: '/2020/old-slug/', to: '/2020/new-slug/' },
-]
-
-export default function () {
+export default function ({ vars }) {
   return {
     outputName: '_redirects',
-    content: redirects.map(({ from, to }) => `${from}  ${to}  301`).join('\n'),
+    content: vars.redirects.map(({ from, to }) => `${from}  ${to}  301`).join('\n'),
   }
 }
 ```
 
-Both approaches can coexist. Copying a directory that contains a hand-crafted `_redirects` file via `--copy` is also an option when you prefer to manage redirects outside the build.
+Both approaches can coexist and consume the same `global.data.js` redirect collection. Copying a directory that contains a hand-crafted `_redirects` file via `--copy` is also an option when you prefer to manage redirects outside the build.
 
 ## Domstack Manifest
 

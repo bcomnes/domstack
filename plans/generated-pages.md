@@ -458,21 +458,42 @@ Add JSDoc typedefs first, then declaration generation will expose them through t
 
 ### Redirects
 
-```js
-// src/redirects.pages.js
-const redirects = [
-  { from: '2020/old-slug', to: '/2020/new-slug/' },
-]
+```md
+---
+title: Current Post
+redirectFrom:
+  - /2020/old-slug/
+---
+```
 
-export default function () {
-  return redirects.map(({ from, to }) => ({
-    outputName: `${from}/index.html`,
-    vars: {
-      layout: 'redirect',
-      title: 'Redirecting...',
-      redirectTo: to,
-    },
-  }))
+```js
+// global.data.js derives `{ from, to }` from destination-page metadata.
+export default function ({ pages }) {
+  const redirects = []
+  for (const page of pages) {
+    if (!Array.isArray(page.vars.redirectFrom)) continue
+    for (const from of page.vars.redirectFrom) {
+      redirects.push({ from, to: page.pageInfo.url })
+    }
+  }
+  return { redirects }
+}
+
+// redirects.pages.js turns the derived collection into normal pages.
+export default function ({ vars }) {
+  const pages = []
+  for (const { from, to } of vars.redirects) {
+    const relativePath = from.slice(1)
+    pages.push({
+      outputName: relativePath.endsWith('/') ? `${relativePath}index.html` : relativePath,
+      vars: {
+        layout: 'redirect',
+        title: 'Redirecting...',
+        redirectTo: to,
+      },
+    })
+  }
+  return pages
 }
 ```
 
@@ -526,7 +547,7 @@ export default function ({ vars }) {
 Add a focused generated-pages fixture, likely `test-cases/generated-pages/`:
 
 1. Discovers `*.pages.js` and exposes it on `siteData.pagesFiles`.
-2. Generates redirect pages that render through a `redirect.layout.js`.
+2. Collects destination-page `redirectFrom` metadata in `global.data.js` and generates redirect pages through a `redirect.layout.js`.
 3. `global.data.js` receives source-backed pages, and its returned collection data is available to pages factories and template vars.
 4. Generated blog/year indexes can use collection data derived from concrete pages.
 5. Multiple `*.pages.*` files each receive only concrete pages, not generated pages from other pages files.

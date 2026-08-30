@@ -3,6 +3,8 @@ layout: post
 title: "Hello, World"
 publishDate: "2024-03-15T12:00:00.000Z"
 description: "The first post on this blog. An introduction to what this is all about."
+redirectFrom:
+  - /blog/hello-world/
 tags:
   - meta
   - intro
@@ -33,6 +35,10 @@ The yearly `/blog/2024/` and `/blog/2025/` archives are generated separately by
 `src/blog-indexes.pages.ts`. It reads `vars.blogPosts` from `global.data.ts`, creates one
 normal page per publication year, and lets the `year-index` layout render that folder's
 posts newest-first. There are no hand-maintained year index files.
+
+This page also owns its old `/blog/hello-world/` location through the `redirectFrom`
+frontmatter above. `global.data.ts` collects that metadata, and `redirects.pages.ts`
+generates the redirect to this page's current URL.
 
 ## This layout
 
