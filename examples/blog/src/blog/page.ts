@@ -13,9 +13,15 @@ type Vars = SiteVars & GlobalData
  */
 const blogIndex: PageFunction<Vars> = ({ vars, page, pages }) => {
   const { blogPosts } = vars
-  const archivePages = pages
-    .filter(candidate => dirname(candidate.pageInfo.path) === page.path && candidate.vars['layout'] === 'year-index')
-    .sort((a, b) => b.pageInfo.path.localeCompare(a.pageInfo.path))
+  const archivePages = []
+
+  for (const candidate of pages) {
+    if (dirname(candidate.pageInfo.path) === page.path && candidate.vars['layout'] === 'year-index') {
+      archivePages.push(candidate)
+    }
+  }
+
+  archivePages.sort((a, b) => b.pageInfo.path.localeCompare(a.pageInfo.path))
 
   if (blogPosts.length === 0) {
     return '<p>No posts yet.</p>'
