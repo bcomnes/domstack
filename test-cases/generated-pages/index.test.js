@@ -88,7 +88,7 @@ function firstGeneratedPagesError (error) {
 }
 
 test.describe('generated pages', () => {
-  test('builds generated pages through layouts and exposes them to global data and templates', async (t) => {
+  test('builds generated pages from global data and exposes the final page set to templates', async (t) => {
     const src = join(__dirname, './src')
     const build = await testBuild(src)
     const { results, readOutput } = build
@@ -111,7 +111,9 @@ test.describe('generated pages', () => {
       const redirectHtml = await readOutput(`${from}/index.html`)
       assert.match(redirectHtml, new RegExp(`<meta http-equiv="refresh" content="0;url=${to}">`), `${from} renders through the redirect layout`)
       assert.match(redirectHtml, new RegExp(`<a href="${to}">${to}</a>`), `${from} links to its canonical destination`)
-      assert.match(await readOutput(destination), new RegExp(`<h1[^>]*>${heading}</h1>`), `${to} is backed by a concrete page`)
+      const destinationHtml = await readOutput(destination)
+      assert.match(destinationHtml, new RegExp(`<h1[^>]*>${heading}</h1>`), `${to} is backed by a concrete page`)
+      assert.match(destinationHtml, /<meta name="source-page-count" content="7">/, `${to} receives global data at final render time`)
     }
 
     const blog2024IndexDoc = cheerio.load(await readOutput('blog/2024/index.html'))
@@ -137,7 +139,7 @@ test.describe('generated pages', () => {
     const introspectionHtml = await readOutput('generated-introspection/index.html')
     const introspectionDoc = cheerio.load(introspectionHtml)
     assert.equal(introspectionDoc('#saw-generated').text(), 'false', 'pages files receive concrete pages only')
-    assert.equal(introspectionDoc('meta[name="generated-page-count"]').attr('content'), '7', 'global.data sees generated pages after pages files run')
+    assert.equal(introspectionDoc('meta[name="source-page-count"]').attr('content'), '7', 'global.data sees source-backed pages before pages files run')
 
     const stylesheetHrefs = Array.from(introspectionDoc('link[rel="stylesheet"]')).map(link => introspectionDoc(link).attr('href') ?? '')
     assert.ok(stylesheetHrefs.some(href => href.startsWith('/global-') && href.endsWith('.css')), 'generated page includes global stylesheet')
@@ -153,7 +155,8 @@ test.describe('generated pages', () => {
     assert.match(asyncHtml, /async generated page/, 'async iterable pages files are supported')
 
     const summary = JSON.parse(await readOutput('summary.json'))
-    assert.equal(summary.generatedPageCount, 7, 'template vars include global.data generated page count')
+    assert.equal(summary.sourcePageCount, 7, 'template vars include global.data source page count')
+    assert.equal(summary.blogPostCount, 3, 'template vars include the collection used by pages files')
     assert.equal(summary.generatedPagesInTemplate, 7, 'template pages include generated pages')
   })
 

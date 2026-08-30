@@ -10,7 +10,7 @@ Originally reviewed at commit `78d012e` on 2026-08-29. Follow-up fixes were comp
 
 ### Verdict
 
-Ready to land. The worker boundary, generated-output lifecycle, watch behavior, error reporting, public data model, types, and documentation findings have been resolved. Generated pages remain close to regular pages while using a stable source-backed input set for page factories.
+Ready to land. The worker boundary, generated-output lifecycle, watch behavior, error reporting, public data model, types, and documentation findings have been resolved. Generated pages remain close to regular pages while using a stable source-backed input set plus shared derived data from `global.data.*`.
 
 ### Findings
 
@@ -85,7 +85,7 @@ Implemented resolution:
 
 Generated pages are downstream of regular page discovery and initialization. Every `*.pages.*` factory receives the same source-backed `PageData[]`; factories do not receive pages produced by earlier pages files. This avoids making generated output depend on pages-file processing order or creating circular page-generation dependencies.
 
-The public `siteData` object remains the result of `identifyPages()`. Its `pages` array therefore contains only source-backed pages discovered from the source tree. Generated pages are created later inside the page worker, then combined with regular pages for `global.data.*`, templates, page functions, layouts, and rendering. They are not added back to the public discovery object.
+The public `siteData` object remains the result of `identifyPages()`. Its `pages` array therefore contains only source-backed pages discovered from the source tree. `global.data.*` runs from the initialized source-backed pages, and its result is available to every `*.pages.*` factory. Generated pages are then created inside the page worker and combined with regular pages for templates, page functions, layouts, and rendering. They are not added back to the public discovery object.
 
 This keeps one clear `SiteData` meaning rather than introducing separate concrete and expanded variants. It also avoids transferring complete generated `PageInfo` objects from the worker when their definitions can contain functions or other values that cannot be copied between threads.
 
@@ -103,7 +103,7 @@ The Generated Pages documentation is now a top-level README section rather than 
 
 - All supported `.pages.js`, `.pages.mjs`, `.pages.cjs`, `.pages.ts`, `.pages.mts`, and `.pages.cts` filenames, including the Node.js TypeScript-loading requirement.
 - Static object and array exports, normal and async factory functions, and async iterables.
-- The `pages`, `vars`, `pagesFile`, and `siteData` factory parameters and when generated pages join the downstream `PageData[]`.
+- The `pages`, `vars`, `pagesFile`, and `siteData` factory parameters, including that `vars` contains `global.data.*` output, and when generated pages join the downstream `PageData[]`.
 - Every generated definition field, output path rules, asset behavior, and `draft: true` with `--drafts` or `buildDrafts: true`.
 - `PagesFunction`, `PagesFunctionParams`, `GeneratedPageDefinition`, and `PagesFileInfo` in the public type catalog.
 - Public type imports from `@domstack/static/types.js` rather than the runtime package entry.
@@ -112,7 +112,7 @@ The public types were simplified before release:
 
 - `PagesFunction` now explicitly covers normal functions, async functions, and async generators. Its existing return union already describes direct definitions, promises, and async iterables.
 - The overlapping `AsyncPagesFunction` was removed instead of adding another `PagesAsyncIterator` type. One factory type accurately describes every supported function form with fewer nearly identical names.
-- `PagesFunctionParams` is generic, and `PagesFunction` has a separate third generic for the default/global vars received by the factory. Generated-page vars and factory input vars can therefore be typed independently.
+- `PagesFunctionParams` is generic, and `PagesFunction` has a separate third generic for the default/global/global-data vars received by the factory. Generated-page vars and factory input vars can therefore be typed independently.
 - `GeneratedPageDefinition.outputName` documents its `<pages-file-name>/index.html` default.
 - Type-checked fixtures cover an async generator and separately typed generated/factory vars.
 - Runtime coverage confirms static object, static array, and async function exports.
@@ -127,12 +127,13 @@ The implementation achieves the core design in a clean one-shot build:
 - Gives every factory a stable view of initialized concrete pages.
 - Supports object, array, promise, and async-iterable results.
 - Runs generated pages through normal vars, layout, global asset, and manifest processing.
-- Exposes generated pages to global data, templates, page functions, and layouts.
+- Makes source-derived global data available to generated-page factories and all pages at final render time.
+- Exposes generated pages to templates, page functions, and layouts.
 - Validates definitions and output paths.
 - Detects generated-to-concrete and generated-to-generated page conflicts.
 - Rebuilds generated pages for normal pages-file and imported-dependency changes.
 
-The generated-page build, watch behavior, and public site-data model are now intentional and covered by regression tests. The documented programmatic index builds successfully: its `PageData[]` remains available while rendering and is left out of the page-vars snapshot returned from the worker.
+The generated-page build, watch behavior, and public site-data model are now intentional and covered by regression tests. The documented programmatic index builds successfully from collection data returned by `global.data.*`. Runtime-only `PageData[]` values remain available while rendering and are left out of the page-vars snapshot returned from the worker.
 
 #### 8. Resolved: generated pages close issue #237
 
@@ -158,6 +159,7 @@ Regression tests cover both cases. Generated drafts also have positive coverage 
 - [x] Preserve output-conflict codes, metadata, and pages-file context.
 - [x] Define conflict detection as generated-to-regular and generated-to-generated page checks; track whole-build conflicts in issue #288.
 - [x] Define returned `siteData.pages` as source-backed discovery data.
+- [x] Run `global.data.*` before generated-page factories and expose its result through factory `vars`.
 - [x] Finalize generated-pages type names and generics.
 - [x] Complete the README API and type documentation.
 - [x] Accept the generalized generated-pages feature as closing issue #237.
@@ -166,7 +168,7 @@ Regression tests cover both cases. Generated drafts also have positive coverage 
 
 ### Validation performed during review
 
-- `npm run test:node-test -- test-cases/generated-pages/index.test.js` — passed (final focused suite: 19 tests).
+- `node --test test-cases/generated-pages/index.test.js` — passed (final focused suite: 18 tests).
 - `npm run test:node-test` — passed.
 - `npm run test:tsc` — passed.
 - `npm run test:installed-check` — passed.
@@ -185,7 +187,7 @@ Regression tests cover both cases. Generated drafts also have positive coverage 
 Templates can already write arbitrary files, including redirect HTML files, `_redirects`, feeds, and other generated assets. They do not, however, create real DomStack pages:
 
 - Template outputs bypass page vars, layouts, default/global assets, and page render helpers.
-- Template outputs are not represented in `pages`, so `global.data.*`, feeds, indexes, and other introspective code cannot see them.
+- Template outputs are not represented in `pages`, so templates, feeds, indexes, and other final-render introspective code cannot see them.
 - Redirect pages are conceptually pages: they should use a redirect layout, inherit vars, and appear at page URLs.
 - Some generated-page use cases need central control: redirect lists, yearly/monthly blog indexes, tag indexes, pagination, archive pages, etc.
 
@@ -197,7 +199,7 @@ Add a generated-pages file type, discovered as `*.pages.*`, but do **not** treat
 
 Instead:
 
-> `*.pages.*` files are page factories. Their returned definitions expand into normal `PageInfo` entries and are appended to the page set before `global.data.*`, templates, and final page rendering run.
+> `*.pages.*` files are page factories. They receive collection data derived by `global.data.*`, and their returned definitions expand into normal `PageInfo` entries before templates and final page rendering run.
 
 This preserves the useful authoring model from templates — one file can return one output, many outputs, or an async stream of outputs — while keeping generated results inside the normal page pipeline.
 
@@ -280,9 +282,9 @@ type PagesFunctionParams = {
 }
 ```
 
-`pages` contains only concrete/source-backed pages discovered directly from the source tree, initialized with default/global/page/builder vars, but before `global.data.*` runs. It does not include generated pages from any `*.pages.*` file, including pages produced by earlier files in the same build.
+`pages` contains only concrete/source-backed pages discovered directly from the source tree, initialized with default/global/page/builder vars and the values returned by `global.data.*`. It does not include generated pages from any `*.pages.*` file, including pages produced by earlier files in the same build.
 
-This gives every pages file the same stable introspection set.
+`vars` contains default vars, `global.vars.*`, and the collection data returned by `global.data.*`. This gives every pages file the same stable introspection set and derived-data input.
 
 ## Build pipeline
 
@@ -321,26 +323,22 @@ buildPagesDirect()
   concretePageInfos = siteData.pages
   concretePageData = initialize concrete PageData[]
 
-  run pagesFiles with concretePageData + global vars + siteData
+  resolve global.data.* with concretePageData
+  stamp globalDataVars onto concretePageData
+
+  run pagesFiles with concretePageData + global/globalData vars + siteData
   validate generated page definitions
   convert definitions into generated PageInfo objects
   detect output conflicts against concrete pages and earlier generated pages
 
-  expandedSiteData = {
-    ...siteData,
-    concretePages: concretePageInfos,
-    pages: [...concretePageInfos, ...generatedPageInfos],
-  }
-
   generatedPageData = initialize generated PageData[]
+  stamp globalDataVars onto generatedPageData
   allPages = [...concretePageData, ...generatedPageData]
 
-  resolve global.data.* with allPages
-  stamp globalDataVars onto allPages
-  render pages/templates using expandedSiteData + allPages
+  render pages/templates using siteData + allPages
 ```
 
-The important framing is that generated outputs become ordinary pages as soon as they have been expanded into `GeneratedPageInfo` objects. From that point forward, rendering, global data, templates, reports, and watch maps should operate on the expanded page list.
+The important framing is that `global.data.*` derives shared collection data from concrete pages, then generated outputs become ordinary pages built from that source data. Final page rendering and templates operate on the combined page list, while public `siteData` and watch maps remain source-backed.
 
 ## Data model changes
 
@@ -504,20 +502,22 @@ Docs should still mention validating redirect targets, but that security note be
 
 ```js
 // src/blog-indexes.pages.js
-export default function ({ pages }) {
-  const years = new Map()
+export default function ({ vars }) {
+  const years = new Set()
+  const indexes = []
 
-  for (const page of pages) {
-    const date = page.vars.publishDate
-    if (!date || !page.pageInfo.path.startsWith('blog/')) continue
-    const year = new Date(date).getFullYear().toString()
-    years.set(year, [...(years.get(year) ?? []), page])
+  for (const post of vars.blogPosts) {
+    const year = new Date(post.publishDate).getUTCFullYear().toString()
+    if (years.has(year)) continue
+
+    years.add(year)
+    indexes.push({
+      outputName: `blog/${year}/index.html`,
+      vars: { layout: 'blog-index', title: `${year} posts` },
+    })
   }
 
-  return [...years].map(([year, posts]) => ({
-    outputName: `blog/${year}/index.html`,
-    vars: { layout: 'blog-index', title: `${year} posts`, posts },
-  }))
+  return indexes
 }
 ```
 
@@ -527,8 +527,8 @@ Add a focused generated-pages fixture, likely `test-cases/generated-pages/`:
 
 1. Discovers `*.pages.js` and exposes it on `siteData.pagesFiles`.
 2. Generates redirect pages that render through a `redirect.layout.js`.
-3. Generated pages appear in `global.data.js` and in template `pages` introspection.
-4. Generated blog/year indexes can inspect concrete pages.
+3. `global.data.js` receives source-backed pages, and its returned collection data is available to pages factories and template vars.
+4. Generated blog/year indexes can use collection data derived from concrete pages.
 5. Multiple `*.pages.*` files each receive only concrete pages, not generated pages from other pages files.
 6. Duplicate generated/concrete output paths throw an aggregate build error.
 7. Invalid generated output paths (`/absolute`, `../escape`, `nested/../../escape`) throw a clear error.
@@ -566,8 +566,8 @@ Then run full `npm test` before merging.
 
 1. Discovery and types: `pagesSuffixs`, `PagesFileInfo`, `siteData.pagesFiles`, exported JSDoc typedefs.
 2. Runtime: `resolvePagesFiles()`, generated page validation, and generated `PageInfo` support in the JS page builder.
-3. Expansion: create `expandedSiteData` where `pages` contains concrete + generated pages.
-4. Pipeline: run `global.data.*`, templates, and page rendering against expanded pages.
+3. Data flow: run `global.data.*` from concrete pages and pass its result to generated-page factories.
+4. Expansion: combine concrete and generated pages for templates and final page rendering.
 5. Errors: duplicate generated/concrete page output conflicts and invalid generated output path errors with useful file context.
 6. Tests and docs: generated-pages fixture, README section, redirect and blog-index examples.
-7. Watch follow-up: rebuild maps from expanded page data so generated pages participate in layout-targeted rebuilds.
+7. Watch follow-up: use conservative full page rebuilds when generated outputs may change; keep targeted source-page maps for sites without pages files.

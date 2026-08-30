@@ -1,82 +1,74 @@
 /**
- * @import { PageData, PageFunction, PagesFunction } from '#types'
+ * @import { PageFunction, PagesFunction } from '#types'
  * @import { HtmlResult } from 'fragtml/types.js'
  */
 
 import { html } from 'fragtml'
 
 /**
- * @typedef {object} BlogPostVars
+ * @typedef {object} BlogPost
+ * @property {string} path
+ * @property {string} url
  * @property {string} title
- * @property {string | Date} publishDate
+ * @property {string} publishDate
  */
 
 /**
  * @typedef {object} IndexVars
  * @property {string} layout
  * @property {string} title
- * @property {PageData<BlogPostVars>[]} posts
+ * @property {BlogPost[]} posts
  */
 
 /**
- * @typedef {object} SiteVars
+ * @typedef {object} CollectionVars
  * @property {string} siteName
+ * @property {BlogPost[]} blogPosts
  */
-
-/**
- * @param {string | Date} value
- * @returns {Date}
- */
-function parsePublishDate (value) {
-  return new Date(value.valueOf())
-}
 
 /** @type {PageFunction<IndexVars, HtmlResult>} */
 const renderIndexPage = ({ vars }) => html`
   <h1>${vars.title}</h1>
   <ul class="blog-index-list">
     ${vars.posts.map(post => {
-      const isoDate = parsePublishDate(post.vars.publishDate).toISOString()
+      const publishDate = new Date(post.publishDate)
 
       return html`
         <li class="blog-entry">
-          <a class="blog-entry-link" href="${post.pageInfo.url}">${post.vars.title}</a>
-          <time class="blog-entry-date" datetime="${isoDate}">${isoDate.slice(0, 10)}</time>
+          <a class="blog-entry-link" href="${post.url}">${post.title}</a>
+          <time class="blog-entry-date" datetime="${post.publishDate}">${publishDate.toISOString().slice(0, 10)}</time>
         </li>
       `
     })}
   </ul>
 `
 
-/** @type {PagesFunction<IndexVars, HtmlResult, SiteVars>} */
-export default function indexesPages ({ pages, vars }) {
-  const posts = /** @type {PageData<BlogPostVars>[]} */ (pages.filter(page => (
-    page.pageInfo.path.startsWith('blog/') &&
-    typeof page.vars.title === 'string' &&
-    (typeof page.vars.publishDate === 'string' || page.vars.publishDate instanceof Date)
-  )))
-  /** @type {Map<string, PageData<BlogPostVars>[]>} */
+/** @type {PagesFunction<IndexVars, HtmlResult, CollectionVars>} */
+export default function indexesPages ({ vars }) {
+  /** @type {Map<string, BlogPost[]>} */
   const postsByYear = new Map()
 
-  for (const post of posts) {
-    const publishDate = parsePublishDate(post.vars.publishDate)
-    if (Number.isNaN(publishDate.valueOf())) continue
-
-    const year = String(publishDate.getUTCFullYear())
+  for (const post of vars.blogPosts) {
+    const year = String(new Date(post.publishDate).getUTCFullYear())
     const yearPosts = postsByYear.get(year) ?? []
     yearPosts.push(post)
     postsByYear.set(year, yearPosts)
   }
 
-  return Array.from(postsByYear.entries())
-    .sort(([a], [b]) => b.localeCompare(a))
-    .map(([year, yearPosts]) => ({
+  const indexes = []
+  for (const [year, posts] of postsByYear) {
+    posts.sort((a, b) => b.publishDate.localeCompare(a.publishDate))
+    indexes.push({
       outputName: `blog/${year}/index.html`,
       vars: {
         layout: 'root',
         title: `${vars.siteName}: ${year} posts`,
-        posts: yearPosts.sort((a, b) => parsePublishDate(b.vars.publishDate).valueOf() - parsePublishDate(a.vars.publishDate).valueOf()),
+        posts,
       },
       children: renderIndexPage,
-    }))
+    })
+  }
+
+  indexes.sort((a, b) => b.outputName.localeCompare(a.outputName))
+  return indexes
 }

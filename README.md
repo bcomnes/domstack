@@ -136,7 +136,7 @@ src % tree
 │        ├── global.client.ts # you can define a global client that loads on every page.
 │        ├── global.css # you can define a global css file that loads on every page.
 │        ├── global.vars.ts # site wide variables get defined in global.vars.ts
-│        ├── global.data.ts # optional file to derive and aggregate data from all pages before rendering
+│        ├── global.data.ts # optional file to derive and aggregate data from source-backed pages
 │        ├── markdown-it.settings.ts # You can customize the markdown-it instance used to render markdown
 │        ├── domstack-manifest.settings.ts # You can customize the domstack manifest
 │        ├── esbuild.settings.ts # You can even customize the build settings passed to esbuild
@@ -1076,9 +1076,9 @@ Any `PageData` instance exposes two methods for accessing rendered output:
 - `await page.renderInnerPage({ pages })` returns the page's inner render output as produced by its builder, without a layout wrapper applied. This is often an HTML string (for example, markdown rendered to HTML), but the type depends on the page builder.
 - `await page.renderFullPage({ pages })` returns the complete page output with its layout applied.
 
-Both methods are async and require the full `pages` array. They are available inside templates, in `global.data.js`, inside page functions, and inside layouts.
+Both methods are async and require the `pages` array available at that build stage. Templates, page functions, and layouts receive the final source-backed plus generated collection; `global.data.js` receives the source-backed collection before generated pages are created.
 
-These methods also require that the `PageData` instance was successfully initialized first. When iterating the full `pages` array -- especially in `global.data.js` -- some entries may represent pages that failed initialization before the build aborts, and calling `renderInnerPage()` or `renderFullPage()` on those pages will throw.
+These methods also require that the `PageData` instance was successfully initialized first. When iterating a `pages` array, some entries may represent pages that failed initialization before the build aborts, and calling `renderInnerPage()` or `renderFullPage()` on those pages will throw.
 
 For templates that render many pages, pre-render in parallel and cache results to avoid doing the same work twice when producing several output files from one template:
 
@@ -1111,7 +1111,7 @@ A generated-pages module can default export:
 |---|---|
 | One `GeneratedPageDefinition` object | The module always creates one page |
 | An array of definitions | The module always creates a fixed set of pages and needs no build context |
-| A normal or `async` function | Definitions depend on source pages, global vars, or other discovery data |
+| A normal or `async` function | Definitions depend on source pages, global or derived data, or other discovery data |
 | An async iterable, usually returned by `async function*` | Pages are discovered incrementally or the total is not known in advance |
 
 Static objects and arrays do not receive factory parameters:
@@ -1136,33 +1136,38 @@ export default [
 
 For one static page, export a single object with the same shape instead of an array.
 
-Use `PagesFunction` for normal functions, `async` functions, and async generators. Its type parameters are the generated page vars, the generated children type, and the default/global vars received by the factory:
+Use `PagesFunction` for normal functions, `async` functions, and async generators. Its type parameters are the generated page vars, the generated children type, and the default/global/derived vars received by the factory:
 
 ```ts
 // src/blog-indexes.pages.ts
 import { html } from 'fragtml'
 import type { HtmlResult } from 'fragtml/types.js'
-import type { PageData, PagesFunction } from '@domstack/static/types.js'
+import type { PagesFunction } from '@domstack/static/types.js'
 
-type SiteVars = {
+type BlogPost = {
+  title: string
+  url: string
+  publishDate: string
+}
+
+type CollectionVars = {
   siteName: string
+  blogPosts: BlogPost[] // returned by global.data.ts
 }
 
 type BlogIndexVars = {
   layout: string
   title: string
-  posts: PageData<Record<string, any>>[]
+  posts: BlogPost[]
 }
 
-const blogIndexes: PagesFunction<BlogIndexVars, HtmlResult, SiteVars> = ({ pages, vars }) => {
-  const posts = pages.filter(page => page.vars.publishDate && page.pageInfo.path.startsWith('blog/'))
-
+const blogIndexes: PagesFunction<BlogIndexVars, HtmlResult, CollectionVars> = ({ vars }) => {
   return {
     outputName: 'blog/index.html',
     vars: {
       layout: 'blog-index',
       title: `${vars.siteName} blog`,
-      posts,
+      posts: vars.blogPosts,
     },
     children: ({ vars }) => html`<h1>${vars.title}</h1><p>${vars.posts.length} posts</p>`,
   }
@@ -1176,10 +1181,14 @@ The same type describes an async generator without requiring a separate function
 ```ts
 import type { PagesFunction } from '@domstack/static/types.js'
 
-const archivePages: PagesFunction = async function * ({ pages }) {
-  const years = new Set(pages.flatMap(page => {
-    return page.vars.publishDate ? [new Date(page.vars.publishDate).getFullYear()] : []
-  }))
+type ArchiveVars = { layout: string, year: number }
+type CollectionVars = { blogPosts: Array<{ publishDate: string }> }
+
+const archivePages: PagesFunction<ArchiveVars, string, CollectionVars> = async function * ({ vars }) {
+  const years = new Set<number>()
+  for (const post of vars.blogPosts) {
+    years.add(new Date(post.publishDate).getUTCFullYear())
+  }
 
   for (const year of years) {
     yield {
@@ -1199,11 +1208,11 @@ Functions receive one object with:
 | Parameter | Contents |
 |---|---|
 | `pages` | Initialized source-backed `PageData[]`. Generated pages from this or other pages files are not included. |
-| `vars` | Default and global vars, before values returned by `global.data.*` are added. |
+| `vars` | Default and global vars plus the values returned by `global.data.*`. |
 | `pagesFile` | Information about the current file. `name` is the filename without its `.pages.*` suffix, `path` is its source-relative directory, and `pagesFile` contains the underlying file information. |
 | `siteData` | Discovery data returned by `identifyPages()`. Its `siteData.pages` array is also source-backed only. |
 
-Every pages file receives the same source-backed page list, so generated output does not depend on pages-file processing order. After all definitions are collected, generated pages join the full `pages` array passed to `global.data.*`, templates, page functions, and layouts.
+Every pages file receives the same source-backed page list and the same derived global data, so generated output does not depend on pages-file processing order. After all definitions are collected, generated pages join the full `pages` array passed to templates, page functions, and layouts.
 
 The public `results.siteData` returned by a build remains discovery data. Generated pages are created later inside the page worker and are not added to `results.siteData.pages`.
 
@@ -1735,9 +1744,9 @@ This is a recommended organization pattern, not a requirement.
 
 ### `global.data.js`
 
-The `global.data.js` (or `.ts`, `.mjs`, etc.) file is an optional file that can live anywhere in your `src` tree — like all global assets, the first one found wins and duplicates warn. It runs **once per build**, after all pages are initialized and before rendering begins.
+The `global.data.js` (or `.ts`, `.mjs`, etc.) file is an optional file that can live anywhere in your `src` tree — like all global assets, the first one found wins and duplicates warn. It runs **once per build**, after source-backed pages are initialized and before generated-page factories run.
 
-It receives a fully resolved `PageData[]` array and returns an object that is stamped onto every page's vars — making the derived data available to every page, layout, and template.
+It receives the fully resolved source-backed `PageData[]` array and returns an object that is passed to generated-page factories and stamped onto every source-backed and generated page's vars. The derived data is therefore available to every page, layout, and template at final render time.
 
 ```typescript
 import type { AsyncGlobalDataFunction } from '@domstack/static/types.js'
@@ -1781,7 +1790,7 @@ The returned object is stamped onto every page's vars before rendering, so any p
 
 **Key properties of `global.data.js`:**
 
-- Receives fully resolved `PageData[]` — every page has `.vars` (merged global + page + builder vars), `.pageInfo` (path, type, etc.), `.styles`, `.scripts`, and more.
+- Receives fully resolved source-backed `PageData[]` — every page has `.vars` (merged global + page + builder vars), `.pageInfo` (path, type, etc.), `.styles`, `.scripts`, and more. Generated pages do not exist yet.
 - Runs inside the worker process (same as all other dynamic imports) to avoid ESM caching issues.
 - Skipped entirely if no `global.data.*` file exists — zero overhead.
 - Changes to `global.data.*` trigger a full page rebuild (same as `global.vars.*`), since the output is stamped onto every page's vars.
@@ -1796,7 +1805,7 @@ Use `GlobalDataFunction<T>` or `AsyncGlobalDataFunction<T>` to type the function
 
 **Raw markdown source is not exposed as `page.vars.content` by default.** For markdown pages, `page.vars` contains front matter-derived values such as `title`, but does not automatically include the raw markdown body as `content`. If you need the raw markdown body, call `await page.readMarkdownContent()`. For rendered output, see [Accessing rendered page content](#accessing-rendered-page-content).
 
-**`renderInnerPage()` is available.** `global.data.js` runs after page initialization has been attempted, and receives `PageData` instances (some may be uninitialized if they failed to initialize), so you can call `renderInnerPage()` here with the same care described above for `page.vars` and other page-dependent access. For examples and performance guidance, see [Accessing rendered page content](#accessing-rendered-page-content).
+**`renderInnerPage()` is available.** `global.data.js` runs after source-backed page initialization has been attempted, and receives source-backed `PageData` instances (some may be uninitialized if they failed to initialize), so you can call `renderInnerPage()` here with the same care described above for `page.vars` and other page-dependent access. For examples and performance guidance, see [Accessing rendered page content](#accessing-rendered-page-content).
 
 ### `domstack-manifest.settings.ts`
 
@@ -1998,13 +2007,13 @@ Pages and Layouts receive an object with the following parameters:
 
 Template files receive a similar set of variables:
 
-- `vars`: An object with the variables of `global.vars.ts`
+- `vars`: An object with the variables from `global.vars.ts` and `global.data.js`
 - `pages`: An array of [`PageData`](https://github.com/bcomnes/domstack/blob/master/lib/build-pages/page-data.js) instances for every page in the site build. Use this array to introspect pages to generate feeds and index pages.
 - `template`: An object of the template file data being rendered.
 
 ### Derived global data (Advanced)
 
-For data that aggregates across multiple pages — like blog indexes, sitemaps, or RSS feed content — use [`global.data.js`](#globaldatajs). That file runs once per build, receives the raw page list, and merges its return value into `globalVars` so every page, layout, and template can read it via `vars`.
+For data that aggregates across multiple pages — like blog indexes, sitemaps, or RSS feed content — use [`global.data.js`](#globaldatajs). That file runs once per build, receives the source-backed page list, and makes its return value available to generated-page factories and every page, layout, and template via `vars`.
 
 See the [`global.data.js`](#globaldatajs) section under [Global Assets](#global-assets) for a full example.
 
@@ -2402,15 +2411,20 @@ The `buildPages()` step processes pages in parallel with a concurrency limit:
          └──────────────────────┼──────────────────────┘
                                 │
                                 ▼
-                    ┌───────────────────────┐
-                    │  global.data.js runs  │
-                    │  (receives PageData[])│
-                    │  stamps vars on pages │
-                    └───────────┬───────────┘
-                                │
-                                ▼
+                  ┌─────────────────────────────┐
+                  │     global.data.js runs     │
+                  │ (receives source PageData[])│
+                  └──────────────┬──────────────┘
+                                 │
+                                 ▼
+                  ┌─────────────────────────────┐
+                  │ *.pages.* generates pages  │
+                  │   using the derived data   │
+                  └──────────────┬──────────────┘
+                                 │
+                                 ▼
                 ┌───────────────────────────────┐
-                │  Parallel Render + Write      │
+                │  Stamp data, render + write   │
                 │ (Concurrency: min(CPUs, 24))  │
                 └───────────────────────────────┘
 ```
@@ -2418,7 +2432,7 @@ The `buildPages()` step processes pages in parallel with a concurrency limit:
 Variable Resolution Layers, from lowest to highest precedence:
 - **Domstack defaults** - Internal defaults such as the default `layout: 'root'`.
 - **Global vars** - Site-wide variables from `global.vars.js` (resolved once).
-- **Global data** - Derived variables from `global.data.js`, stamped onto every page after all pages initialize.
+- **Global data** - Derived variables from `global.data.js`, resolved from source-backed pages before generated-page factories run and available to every page at final render time.
 - **Layout vars** - Optional `export const vars` from the selected layout module.
 - **Page-specific vars** vary by type:
   - **MD pages**: `page.vars.js` plus builder vars from frontmatter.

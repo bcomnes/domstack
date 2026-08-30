@@ -30,9 +30,9 @@ The returned object is stamped onto every page's `vars`, so any page or layout c
 `vars.blogPosts` directly — no postVars, no custom wiring.
 
 The yearly `/blog/2024/` and `/blog/2025/` archives are generated separately by
-`src/blog-indexes.pages.ts`. It creates one normal page per publication year, and the
-`year-index` layout finds that folder's posts and renders them newest-first. There are no
-hand-maintained year index files.
+`src/blog-indexes.pages.ts`. It reads `vars.blogPosts` from `global.data.ts`, creates one
+normal page per publication year, and lets the `year-index` layout render that folder's
+posts newest-first. There are no hand-maintained year index files.
 
 ## This layout
 
