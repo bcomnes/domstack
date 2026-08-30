@@ -207,17 +207,21 @@ test.describe('generated pages', () => {
     })
   })
 
-  test('returns copyable generated vars and keeps PageData values inside the worker', async () => {
+  test('returns copyable generated vars and keeps global-data PageData values inside the worker', async () => {
     await withTempFixture({
       'root.layout.js': minimalRootLayout,
       'global.vars.js': minimalGlobalVars,
+      'global.data.js': `export default function globalData ({ pages }) {
+  return { posts: pages }
+}
+`,
       'README.md': '# Concrete page\n',
-      'indexes.pages.js': `export default function indexesPages ({ pages }) {
+      'indexes.pages.js': `export default function indexesPages ({ vars }) {
   return {
     outputName: 'generated-index/index.html',
     vars: {
       title: 'Generated index',
-      posts: pages,
+      posts: vars.posts,
     },
     children: ({ vars }) => \`<p id="post-count">\${vars.posts.length}</p>\`,
   }
@@ -229,7 +233,7 @@ test.describe('generated pages', () => {
       const output = await readFile(join(dest, 'generated-index/index.html'), 'utf8')
       const outputRecord = results.pageBuildResults?.outputs.find(output => output.outputRelname === 'generated-index/index.html')
 
-      assert.match(output, /<p id="post-count">1<\/p>/, 'generated page renders with concrete PageData values in vars')
+      assert.match(output, /<p id="post-count">1<\/p>/, 'generated page renders with the PageData collection from global.data')
       assert.ok(outputRecord, 'generated page emits an output record')
       assert.equal(outputRecord.pageVars?.['title'], 'Generated index', 'copyable page vars are returned')
       assert.equal(Object.hasOwn(outputRecord.pageVars ?? {}, 'posts'), false, 'PageData values stay inside the worker')
