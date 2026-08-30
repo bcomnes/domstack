@@ -141,6 +141,35 @@ test.describe('generated pages', () => {
     assert.equal(summary.generatedPagesInTemplate, 6, 'template pages include generated pages')
   })
 
+  test('supports static object, static array, and async function exports', async () => {
+    await withTempFixture({
+      'root.layout.js': minimalRootLayout,
+      'global.vars.js': minimalGlobalVars,
+      'single.pages.js': `export default {
+  outputName: 'single/index.html',
+  children: '<p>single static page</p>',
+}
+`,
+      'multiple.pages.js': `export default [
+  { outputName: 'multiple/one.html', children: '<p>first static page</p>' },
+  { outputName: 'multiple/two.html', children: '<p>second static page</p>' },
+]
+`,
+      'async.pages.js': `export default async function () {
+  return { outputName: 'async/index.html', children: '<p>async function page</p>' }
+}
+`,
+    }, async ({ src, dest }) => {
+      const domstack = new DomStack(src, dest)
+      await domstack.build()
+
+      assert.match(await readFile(join(dest, 'single/index.html'), 'utf8'), /single static page/)
+      assert.match(await readFile(join(dest, 'multiple/one.html'), 'utf8'), /first static page/)
+      assert.match(await readFile(join(dest, 'multiple/two.html'), 'utf8'), /second static page/)
+      assert.match(await readFile(join(dest, 'async/index.html'), 'utf8'), /async function page/)
+    })
+  })
+
   test('returns copyable generated vars and keeps PageData values inside the worker', async () => {
     await withTempFixture({
       'root.layout.js': minimalRootLayout,

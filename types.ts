@@ -7,7 +7,6 @@ export type { BuildOptions } from 'esbuild'
 export type { DomStackOpts, Results, SiteData } from './lib/builder.js'
 export type {
   AsyncGlobalDataFunction,
-  AsyncPagesFunction,
   GeneratedPageDefinition,
   GlobalDataFunction,
   GlobalDataFunctionParams,

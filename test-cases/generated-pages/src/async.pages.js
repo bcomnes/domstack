@@ -1,3 +1,6 @@
+/** @import { PagesFunction } from '#types' */
+
+/** @type {PagesFunction} */
 export default async function * asyncPages () {
   yield {
     outputName: 'async-generated/index.html',

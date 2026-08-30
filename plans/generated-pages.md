@@ -97,21 +97,27 @@ Implemented resolution:
 - Added regression coverage confirming returned `results.siteData.pages` contains only the five source-backed fixture pages while generated pages are still built and exposed to downstream render steps.
 - Kept watch maps source-backed. Generated-page sites intentionally use full page rebuilds for changes that can alter arbitrary generated outputs.
 
-#### 7. Documentation and public types need another pass
+#### 7. Resolved: generated-pages documentation and public types are complete
 
-In addition to fixing the broken primary example:
+The Generated Pages documentation is now a top-level README section rather than part of Templates. It documents:
 
-- Promote Generated Pages from a Templates subsection to its own top-level feature section.
-- Document static object and array exports, async functions, async iterables, and all supported module suffixes.
-- Document the `vars`, `pagesFile`, and `siteData` factory parameters.
-- Document generated `draft: true` behavior and its relationship to `--drafts`/`buildDrafts`.
-- Add `PagesFunction`, `AsyncPagesFunction`, `PagesFunctionParams`, `GeneratedPageDefinition`, and `PagesFileInfo` to the README type catalog.
-- Import public types from `@domstack/static/types.js`, not the package root.
-- Correct the `GeneratedPageDefinition.outputName` JSDoc to say it defaults to `<pages-file-name>/index.html`.
-- Revisit `AsyncPagesFunction`: its required `Promise` return cannot annotate the supported `async function*` form in `test-cases/generated-pages/src/async.pages.js`. A `PagesAsyncIterator` type aligned with `TemplateAsyncIterator` would be clearer.
-- Consider making `PagesFunctionParams` generic so incoming global vars can be typed separately from generated page vars before the public API is frozen.
+- All supported `.pages.js`, `.pages.mjs`, `.pages.cjs`, `.pages.ts`, `.pages.mts`, and `.pages.cts` filenames, including the Node.js TypeScript-loading requirement.
+- Static object and array exports, normal and async factory functions, and async iterables.
+- The `pages`, `vars`, `pagesFile`, and `siteData` factory parameters and when generated pages join the downstream `PageData[]`.
+- Every generated definition field, output path rules, asset behavior, and `draft: true` with `--drafts` or `buildDrafts: true`.
+- `PagesFunction`, `PagesFunctionParams`, `GeneratedPageDefinition`, and `PagesFileInfo` in the public type catalog.
+- Public type imports from `@domstack/static/types.js` rather than the runtime package entry.
 
-The redirect security warning and meta-refresh SEO guidance are accurate.
+The public types were simplified before release:
+
+- `PagesFunction` now explicitly covers normal functions, async functions, and async generators. Its existing return union already describes direct definitions, promises, and async iterables.
+- The overlapping `AsyncPagesFunction` was removed instead of adding another `PagesAsyncIterator` type. One factory type accurately describes every supported function form with fewer nearly identical names.
+- `PagesFunctionParams` is generic, and `PagesFunction` has a separate third generic for the default/global vars received by the factory. Generated-page vars and factory input vars can therefore be typed independently.
+- `GeneratedPageDefinition.outputName` documents its `<pages-file-name>/index.html` default.
+- Type-checked fixtures cover an async generator and separately typed generated/factory vars.
+- Runtime coverage confirms static object, static array, and async function exports.
+
+The redirect security warning and meta-refresh SEO guidance remain accurate.
 
 ### Objective assessment
 
@@ -139,8 +145,8 @@ PR #253 says it closes issue #237. The generalized page-factory mechanism satisf
 - [x] Preserve output-conflict codes, metadata, and pages-file context.
 - [x] Define conflict detection as generated-to-regular and generated-to-generated page checks; track whole-build conflicts in issue #288.
 - [x] Define returned `siteData.pages` as source-backed discovery data.
-- [ ] Finalize generated-pages type names and generics.
-- [ ] Complete the README API and type documentation.
+- [x] Finalize generated-pages type names and generics.
+- [x] Complete the README API and type documentation.
 - [ ] Decide whether this generalized feature fully closes issue #237.
 
 ### Validation performed during review
@@ -425,10 +431,9 @@ This avoids the current broad special case of “if any pages files exist, layou
 
 ## Public types
 
-Export from `index.js`:
+Export from the dedicated `types.js` type entry:
 
-- `PagesFunction`
-- `AsyncPagesFunction`
+- `PagesFunction` for normal, async, and async-generator factories
 - `PagesFunctionParams`
 - `GeneratedPageDefinition`
 - `PagesFileInfo`
