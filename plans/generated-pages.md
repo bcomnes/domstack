@@ -81,18 +81,21 @@ Implemented resolution:
 - Conflict details now identify concrete page source files and generated definitions by `<pages-file>#<index>`, while `conflict.outputPath` separately identifies the duplicated output.
 - Regression tests cover a pages function throwing with a non-copyable cause, invalid definitions and paths, generated-to-concrete conflicts, and generated-to-generated conflicts.
 
-#### 6. Design gap: generated pages are not added to public `siteData.pages`
+#### 6. Resolved: public `siteData.pages` is intentionally discovery-only
 
-Generated pages exist only in the worker-local array at `lib/build-pages/index.js:513-514`. The returned `results.siteData.pages` remains the concrete discovery list from `lib/identify-pages.js:612-628`.
+Generated pages are downstream of regular page discovery and initialization. Every `*.pages.*` factory receives the same source-backed `PageData[]`; factories do not receive pages produced by earlier pages files. This avoids making generated output depend on pages-file processing order or creating circular page-generation dependencies.
 
-This differs from the expanded-site model later in this plan and means:
+The public `siteData` object remains the result of `identifyPages()`. Its `pages` array therefore contains only source-backed pages discovered from the source tree. Generated pages are created later inside the page worker, then combined with regular pages for `global.data.*`, templates, page functions, layouts, and rendering. They are not added back to the public discovery object.
 
-- Programmatic `results.siteData.pages` is concrete-only.
-- Watch maps remain concrete-only and require broad generated-page special cases.
-- The initial `Pages:` build total excludes generated pages, although `Pages built:` includes them.
-- No generated `PageInfo` graph is available to programmatic callers after the build.
+This keeps one clear `SiteData` meaning rather than introducing separate concrete and expanded variants. It also avoids transferring complete generated `PageInfo` objects from the worker when their definitions can contain functions or other values that cannot be copied between threads.
 
-Either implement an explicit `expandedSiteData`/`concretePages` model or deliberately define and document `siteData.pages` as discovery-only. Add a test that locks in the chosen public behavior.
+Implemented resolution:
+
+- Documented the discovery-only meaning on the public `SiteData` type and in the Generated Pages README section.
+- Clarified that the `siteData` factory parameter and returned `results.siteData` follow the same rule.
+- Renamed the initial build summary count from `Pages:` to `Source pages:`; `Pages built:` continues to include regular and generated pages.
+- Added regression coverage confirming returned `results.siteData.pages` contains only the five source-backed fixture pages while generated pages are still built and exposed to downstream render steps.
+- Kept watch maps source-backed. Generated-page sites intentionally use full page rebuilds for changes that can alter arbitrary generated outputs.
 
 #### 7. Documentation and public types need another pass
 
@@ -123,7 +126,7 @@ The implementation achieves the core design in a clean one-shot build:
 - Detects generated-to-concrete and generated-to-generated page conflicts.
 - Rebuilds generated pages for normal pages-file and imported-dependency changes.
 
-The objective is still only partially complete in watch mode and in the public data model. The documented programmatic index now builds successfully: its `PageData[]` remains available while rendering and is left out of the page-vars snapshot returned from the worker.
+The generated-page build, watch behavior, and public site-data model are now intentional and covered by regression tests. The documented programmatic index builds successfully: its `PageData[]` remains available while rendering and is left out of the page-vars snapshot returned from the worker.
 
 PR #253 says it closes issue #237. The generalized page-factory mechanism satisfies the later PR discussion, but the original issue also asks for native redirect declarations and target-existence validation. This implementation does not validate redirect destinations or natively emit hosting-provider redirect configuration. Either explicitly accept this generalized API as the resolution of #237 or leave the issue open for those remaining capabilities.
 
@@ -135,7 +138,7 @@ PR #253 says it closes issue #237. The generalized page-factory mechanism satisf
 - [x] Rebuild generated pages when layout assets are added or removed.
 - [x] Preserve output-conflict codes, metadata, and pages-file context.
 - [x] Define conflict detection as generated-to-regular and generated-to-generated page checks; track whole-build conflicts in issue #288.
-- [ ] Decide whether returned `siteData.pages` is concrete-only or expanded.
+- [x] Define returned `siteData.pages` as source-backed discovery data.
 - [ ] Finalize generated-pages type names and generics.
 - [ ] Complete the README API and type documentation.
 - [ ] Decide whether this generalized feature fully closes issue #237.

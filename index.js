@@ -943,7 +943,7 @@ function buildLogger (results, logger, dest) {
   if ('siteData' in results && results.siteData) {
     // Full build: show site totals
     const layoutCount = Object.keys(results.siteData.layouts).length
-    logger.info(`Pages: ${results.siteData.pages.length} Layouts: ${layoutCount} Templates: ${results.siteData.templates.length}`)
+    logger.info(`Source pages: ${results.siteData.pages.length} Layouts: ${layoutCount} Templates: ${results.siteData.templates.length}`)
     const outputs = results.pageBuildResults?.outputs
     if (outputs) {
       const summary = summarizePageDomstackManifests(outputs)

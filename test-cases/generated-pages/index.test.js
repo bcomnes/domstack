@@ -98,6 +98,8 @@ test.describe('generated pages', () => {
     })
 
     assert.equal(results.siteData.pagesFiles.length, 4, 'four pages files are discovered')
+    assert.equal(results.siteData.pages.length, 5, 'siteData.pages contains the five source-backed pages')
+    assert.equal(results.siteData.pages.some(page => Boolean(page.generated)), false, 'siteData.pages remains discovery-only')
 
     const redirectCases = [
       { from: 'old-url', to: '/new-url/', destination: 'new-url/index.html', heading: 'New URL' },
