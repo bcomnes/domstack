@@ -98,7 +98,7 @@ test.describe('generated pages', () => {
     })
 
     assert.equal(results.siteData.pagesFiles.length, 4, 'four pages files are discovered')
-    assert.equal(results.siteData.pages.length, 5, 'siteData.pages contains the five source-backed pages')
+    assert.equal(results.siteData.pages.length, 7, 'siteData.pages contains the seven source-backed pages')
     assert.equal(results.siteData.pages.some(page => Boolean(page.generated)), false, 'siteData.pages remains discovery-only')
 
     const redirectCases = [
@@ -114,14 +114,30 @@ test.describe('generated pages', () => {
       assert.match(await readOutput(destination), new RegExp(`<h1[^>]*>${heading}</h1>`), `${to} is backed by a concrete page`)
     }
 
-    const blogIndexHtml = await readOutput('blog/2024/index.html')
-    const blogIndexDoc = cheerio.load(blogIndexHtml)
-    assert.equal(blogIndexDoc('#post-count').text(), '1', 'generated blog index can inspect concrete blog pages')
+    const blog2024IndexDoc = cheerio.load(await readOutput('blog/2024/index.html'))
+    const blog2024Links = blog2024IndexDoc('.blog-entry-link').toArray().map(link => ({
+      href: blog2024IndexDoc(link).attr('href'),
+      title: blog2024IndexDoc(link).text().trim(),
+    }))
+    const blog2024Dates = blog2024IndexDoc('.blog-entry-date').toArray().map(time => blog2024IndexDoc(time).text().trim())
+    assert.deepEqual(blog2024Links, [
+      { href: '/blog/2024/post-two/', title: 'Post Two' },
+      { href: '/blog/2024/post-one/', title: 'Post One' },
+    ], 'generated yearly indexes link concrete posts newest-first')
+    assert.deepEqual(blog2024Dates, ['2024-06-15', '2024-01-02'], 'generated yearly indexes render publication dates')
+
+    const blog2023IndexDoc = cheerio.load(await readOutput('blog/2023/index.html'))
+    assert.deepEqual(blog2023IndexDoc('.blog-entry-link').toArray().map(link => ({
+      href: blog2023IndexDoc(link).attr('href'),
+      title: blog2023IndexDoc(link).text().trim(),
+    })), [
+      { href: '/blog/2023/older-post/', title: 'Older Post' },
+    ], 'a generated index is created for each year with posts')
 
     const introspectionHtml = await readOutput('generated-introspection/index.html')
     const introspectionDoc = cheerio.load(introspectionHtml)
     assert.equal(introspectionDoc('#saw-generated').text(), 'false', 'pages files receive concrete pages only')
-    assert.equal(introspectionDoc('meta[name="generated-page-count"]').attr('content'), '6', 'global.data sees generated pages after pages files run')
+    assert.equal(introspectionDoc('meta[name="generated-page-count"]').attr('content'), '7', 'global.data sees generated pages after pages files run')
 
     const stylesheetHrefs = Array.from(introspectionDoc('link[rel="stylesheet"]')).map(link => introspectionDoc(link).attr('href') ?? '')
     assert.ok(stylesheetHrefs.some(href => href.startsWith('/global-') && href.endsWith('.css')), 'generated page includes global stylesheet')
@@ -137,8 +153,8 @@ test.describe('generated pages', () => {
     assert.match(asyncHtml, /async generated page/, 'async iterable pages files are supported')
 
     const summary = JSON.parse(await readOutput('summary.json'))
-    assert.equal(summary.generatedPageCount, 6, 'template vars include global.data generated page count')
-    assert.equal(summary.generatedPagesInTemplate, 6, 'template pages include generated pages')
+    assert.equal(summary.generatedPageCount, 7, 'template vars include global.data generated page count')
+    assert.equal(summary.generatedPagesInTemplate, 7, 'template pages include generated pages')
   })
 
   test('supports static object, static array, and async function exports', async () => {
