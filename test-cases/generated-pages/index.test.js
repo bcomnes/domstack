@@ -170,6 +170,24 @@ test.describe('generated pages', () => {
     })
   })
 
+  test('builds generated drafts when buildDrafts is enabled', async () => {
+    await withTempFixture({
+      'root.layout.js': minimalRootLayout,
+      'global.vars.js': minimalGlobalVars,
+      'draft.pages.js': `export default {
+  outputName: 'draft/index.html',
+  draft: true,
+  children: '<p>generated draft</p>',
+}
+`,
+    }, async ({ src, dest }) => {
+      const domstack = new DomStack(src, dest, { buildDrafts: true })
+      await domstack.build()
+
+      assert.match(await readFile(join(dest, 'draft/index.html'), 'utf8'), /generated draft/)
+    })
+  })
+
   test('returns copyable generated vars and keeps PageData values inside the worker', async () => {
     await withTempFixture({
       'root.layout.js': minimalRootLayout,
@@ -437,6 +455,28 @@ test.describe('generated pages', () => {
     })
   })
 
+  test('rejects generated output names that do not name a file', async () => {
+    for (const outputName of ['.', './', 'nested/']) {
+      await withTempFixture({
+        'root.layout.js': minimalRootLayout,
+        'global.vars.js': minimalGlobalVars,
+        'invalid.pages.js': `export default { outputName: ${JSON.stringify(outputName)}, children: 'invalid' }\n`,
+      }, async ({ src, dest }) => {
+        const domstack = new DomStack(src, dest)
+        await assert.rejects(
+          () => domstack.build(),
+          error => {
+            const generatedError = firstGeneratedPagesError(error)
+
+            assert.match(generatedError.message, /must not be empty|must name a file/)
+            assert.match(generatedError.message, /pages file: "invalid\.pages\.js"/)
+            return true
+          }
+        )
+      })
+    }
+  })
+
   test('rebuilds generated pages when a concrete page changes in watch mode', { timeout: 15_000 }, async () => {
     await withTempFixture({
       'root.layout.js': minimalRootLayout,
@@ -460,6 +500,46 @@ test.describe('generated pages', () => {
         await domstack.settled()
 
         assert.match(await readFile(outputPath, 'utf8'), /Updated title/)
+      } finally {
+        if (domstack.watching) await domstack.stopWatching()
+      }
+    })
+  })
+
+  test('rebuilds generated pages when Markdown settings change in watch mode', { timeout: 15_000 }, async () => {
+    const markdownSettings = (/** @type {string} */ version) => `export default function (md) {
+  md.renderer.rules.paragraph_open = () => '<p data-version="${version}">'
+  return md
+}
+`
+
+    await withTempFixture({
+      'root.layout.js': minimalRootLayout,
+      'global.vars.js': minimalGlobalVars,
+      'post.md': 'Rendered post\n',
+      'markdown-it.settings.js': markdownSettings('first'),
+      'markdown-summary.pages.js': `export default async function ({ pages }) {
+  const post = pages.find(page => page.pageInfo.pageFile.relname === 'post.md')
+  if (!post) throw new Error('Missing Markdown post')
+  const children = await post.renderInnerPage({ pages })
+  return { outputName: 'summary/index.html', children }
+}
+`,
+    }, async ({ src, dest }) => {
+      const domstack = new DomStack(src, dest)
+      const outputPath = join(dest, 'summary/index.html')
+
+      try {
+        await domstack.watch({ serve: false })
+        assert.match(await readFile(outputPath, 'utf8'), /data-version="first"/)
+
+        await writeFile(join(src, 'markdown-it.settings.js'), markdownSettings('second'))
+        await new Promise(resolve => setTimeout(resolve, 800))
+        await domstack.settled()
+
+        const updatedOutput = await readFile(outputPath, 'utf8')
+        assert.match(updatedOutput, /data-version="second"/)
+        assert.doesNotMatch(updatedOutput, /data-version="first"/)
       } finally {
         if (domstack.watching) await domstack.stopWatching()
       }

@@ -679,8 +679,14 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
       return this.#fullRebuild()
     }
 
-    // 5. markdown-it.settings.* → rebuild all md pages only
+    // 5. markdown-it.settings.* → rebuild all md pages only, unless generated
+    // pages may consume their rendered output.
     if (markdownItSettingsNames.some(n => changedBasename === n)) {
+      if ((siteData.pagesFiles?.length ?? 0) > 0) {
+        this.#logger.info(`"${changedBasename}" changed, rebuilding all pages...`)
+        return this.#runGeneratedPageBuild(siteData)
+      }
+
       const mdPages = new Set(siteData.pages.filter(p => p.type === 'md'))
       logRebuildTree(changedBasename, this.#logger, mdPages)
       return this.#runPageBuild(siteData, Array.from(mdPages).map(p => p.pageFile.filepath), [])

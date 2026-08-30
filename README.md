@@ -1211,7 +1211,7 @@ The public `results.siteData` returned by a build remains discovery data. Genera
 
 | Field | Behavior |
 |---|---|
-| `outputName` | Output path relative to the pages file's directory. It must not be absolute or contain `..` segments. Defaults to `<pages-file-name>/index.html`. |
+| `outputName` | Output path relative to the pages file's directory. It must name a file, must not be absolute or contain `..` segments, and cannot end in a path separator. Defaults to `<pages-file-name>/index.html`. |
 | `vars` | Page-level vars merged with the normal default, global, layout, and builder vars. |
 | `children` | Static child content or an inline `PageFunction` rendered before the layout. |
 | `draft` | When `true`, the page is omitted unless the CLI uses `--drafts` or a programmatic build uses `buildDrafts: true`. |

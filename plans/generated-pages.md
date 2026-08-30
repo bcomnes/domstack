@@ -1,16 +1,16 @@
 # Generated Pages Files
 
-## Status: Implementation review — changes requested
+## Status: Implementation review — ready to land
 
 Plan for adding first-class generated page support in response to the redirect-page discussion in PR #253.
 
 ## PR #253 implementation review
 
-Reviewed commit `78d012e` on 2026-08-29.
+Originally reviewed at commit `78d012e` on 2026-08-29. Follow-up fixes were completed during the review.
 
 ### Verdict
 
-Do not land PR #253 yet. The core design is sound and the clean-build happy path works, but the current implementation has worker-boundary and generated-output lifecycle problems that should be fixed first. Watch behavior, error reporting, and public documentation also need another pass.
+Ready to land. The worker boundary, generated-output lifecycle, watch behavior, error reporting, public data model, types, and documentation findings have been resolved. Generated pages remain close to regular pages while using a stable source-backed input set for page factories.
 
 ### Findings
 
@@ -134,7 +134,20 @@ The implementation achieves the core design in a clean one-shot build:
 
 The generated-page build, watch behavior, and public site-data model are now intentional and covered by regression tests. The documented programmatic index builds successfully: its `PageData[]` remains available while rendering and is left out of the page-vars snapshot returned from the worker.
 
-PR #253 says it closes issue #237. The generalized page-factory mechanism satisfies the later PR discussion, but the original issue also asks for native redirect declarations and target-existence validation. This implementation does not validate redirect destinations or natively emit hosting-provider redirect configuration. Either explicitly accept this generalized API as the resolution of #237 or leave the issue open for those remaining capabilities.
+#### 8. Resolved: generated pages close issue #237
+
+For now, the generalized generated-pages API is accepted as the resolution of issue #237. It provides the central redirect-page generation requested by the later discussion while keeping redirect output inside the normal page and layout pipeline.
+
+The feature does not add redirect-specific destination validation or native hosting-provider redirect files. Those can be proposed separately if real-world use shows they are needed; they are not required for PR #253 to close #237.
+
+#### 9. Resolved during the final pass: remaining path and watch edge cases
+
+The final complete-diff review found two smaller gaps:
+
+- `outputName: '.'`, `outputName: './'`, and paths ending in a separator passed the initial non-empty check without actually naming an output file. Generated output validation now rejects values that normalize to the current directory or end with a separator.
+- Changing `markdown-it.settings.*` rebuilt only source Markdown pages. A generated page that rendered one of those pages could therefore remain stale. Sites with any pages files now use the conservative full generated-page rebuild for Markdown settings changes, while sites without pages files retain the targeted Markdown-only rebuild.
+
+Regression tests cover both cases. Generated drafts also have positive coverage with `buildDrafts: true`, complementing the existing default-omission coverage.
 
 ### Landing checklist
 
@@ -147,18 +160,21 @@ PR #253 says it closes issue #237. The generalized page-factory mechanism satisf
 - [x] Define returned `siteData.pages` as source-backed discovery data.
 - [x] Finalize generated-pages type names and generics.
 - [x] Complete the README API and type documentation.
-- [ ] Decide whether this generalized feature fully closes issue #237.
+- [x] Accept the generalized generated-pages feature as closing issue #237.
+- [x] Reject generated output paths that do not name a file.
+- [x] Refresh generated pages when Markdown settings change.
 
 ### Validation performed during review
 
-- `npm run test:node-test -- test-cases/generated-pages/index.test.js` — passed.
+- `npm run test:node-test -- test-cases/generated-pages/index.test.js` — passed (final focused suite: 19 tests).
 - `npm run test:node-test` — passed.
 - `npm run test:tsc` — passed.
+- `npm run test:installed-check` — passed.
 - `npm run build:declaration` after cleaning generated declarations — passed.
 - Focused ESLint over all changed JavaScript and TypeScript files — passed.
 - `git diff --check` — passed.
-- Root `npm run test:neostandard` in the review checkout was polluted by malformed fixtures under ignored `.delta/worktrees`, not by PR changes.
-- The original worker-copy reproduction now passes. Obsolete regular and generated page outputs are removed in watch mode, and layout asset additions/removals now refresh generated HTML. General conflicts between templates and other build steps are tracked separately in issue #288.
+- Root `npm run test:neostandard` in the review checkout was polluted by malformed fixtures under local `.delta/worktrees`; the equivalent full-repository ESLint command passed with `.delta/**` excluded.
+- The original worker-copy reproduction now passes. Obsolete regular and generated page outputs are removed in watch mode, and layout asset additions/removals plus Markdown settings changes now refresh generated HTML. General conflicts between templates and other build steps are tracked separately in issue #288.
 
 ---
 
