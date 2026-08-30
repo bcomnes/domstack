@@ -67,19 +67,19 @@ Removal already reached the fallback full rebuild because the removed asset was 
 
 Regression coverage adds and removes both layout CSS and layout clients while a regular and generated page share the layout, and checks that both HTML outputs add and remove the asset references.
 
-#### 5. Medium: generated-page errors lose their type and source context
+#### 5. Resolved: generated-page setup errors keep their type and source context
 
-`DomStackOutputConflictError` defines a useful code and structured conflict metadata at `lib/helpers/domstack-error.js:71-90`, but `lib/build-pages/index.js:505-508` immediately wraps it in a generic `Error`.
+Errors raised while importing or running a `*.pages.*` file, validating its definitions, or checking its output paths were caught only after the complete generated-pages resolution step. The responsible pages file was no longer known, and wrapping the error for worker transfer removed the output-conflict code and details.
 
-Caller-visible errors consequently lose:
+Implemented resolution:
 
-- `DOM_STACK_ERROR_OUTPUT_CONFLICT`
-- The `conflict` object
-- The pages file that produced an invalid definition or path
-
-`WorkerErrorData.pagesFile` is declared at `lib/build-pages/index.js:128-134` but is never populated.
-
-Catch resolution errors per pages file and transfer a small serializable context object. Tests should assert error codes, source filenames, and both conflict producers rather than only matching message text.
+- Generated-page resolution remembers the pages file currently being processed and attaches it to failures before they leave the resolver.
+- The worker continues to return a safe plain `Error`, so non-copyable values in a user error's `cause` cannot replace the useful failure with a worker-copy error.
+- The existing `errorData` object now carries `pagesFile` plus the output-conflict code and details when applicable.
+- The main thread's existing error restoration adds the pages-file name to the message and exposes `pagesFile`, `code`, and `conflict` on the caller-visible error.
+- Built-in error names such as `TypeError` are retained.
+- Conflict details now identify concrete page source files and generated definitions by `<pages-file>#<index>`, while `conflict.outputPath` separately identifies the duplicated output.
+- Regression tests cover a pages function throwing with a non-copyable cause, invalid definitions and paths, generated-to-concrete conflicts, and generated-to-generated conflicts.
 
 #### 6. Design gap: generated pages are not added to public `siteData.pages`
 
@@ -133,7 +133,7 @@ PR #253 says it closes issue #237. The generalized page-factory mechanism satisf
 - [x] Validate the README index example with a worker-boundary regression test.
 - [x] Reconcile and remove obsolete regular and generated page outputs in watch mode.
 - [x] Rebuild generated pages when layout assets are added or removed.
-- [ ] Preserve output-conflict codes, metadata, and pages-file context.
+- [x] Preserve output-conflict codes, metadata, and pages-file context.
 - [x] Define conflict detection as generated-to-regular and generated-to-generated page checks; track whole-build conflicts in issue #288.
 - [ ] Decide whether returned `siteData.pages` is concrete-only or expanded.
 - [ ] Finalize generated-pages type names and generics.

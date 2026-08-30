@@ -70,12 +70,21 @@ const assetAwareRootLayout = `export default function rootLayout ({ styles = [],
 
 /**
  * @param {unknown} error
- * @returns {string}
+ * @returns {Error & {
+ *   code?: string,
+ *   conflict?: {
+ *     outputPath: string,
+ *     a: { type: string, path: string },
+ *     b: { type: string, path: string }
+ *   },
+ *   pagesFile?: { pagesFile: { relname: string } }
+ * }}
  */
-function aggregateErrorMessage (error) {
-  if (!(error instanceof Error)) return String(error)
-  const aggregate = /** @type {Error & { errors?: Error[] }} */ (error)
-  return String(aggregate.errors?.[0]?.message ?? aggregate.message)
+function firstGeneratedPagesError (error) {
+  if (!(error instanceof AggregateError)) throw new TypeError('Expected an AggregateError')
+  const generatedError = error.errors[0]
+  if (!(generatedError instanceof Error)) throw new TypeError('Expected a generated-pages Error')
+  return generatedError
 }
 
 test.describe('generated pages', () => {
@@ -189,6 +198,32 @@ test.describe('generated pages', () => {
     })
   })
 
+  test('returns pages-file context when a generated-pages function throws', async () => {
+    await withTempFixture({
+      'root.layout.js': minimalRootLayout,
+      'global.vars.js': minimalGlobalVars,
+      'broken.pages.js': `export default function () {
+  throw new Error('pages factory boom', { cause: () => {} })
+}
+`,
+    }, async ({ src, dest }) => {
+      const domstack = new DomStack(src, dest)
+      await assert.rejects(
+        () => domstack.build(),
+        error => {
+          const generatedError = firstGeneratedPagesError(error)
+
+          assert.match(generatedError.message, /pages factory boom/)
+          assert.match(generatedError.message, /pages file: "broken\.pages\.js"/)
+          assert.equal(generatedError.pagesFile?.pagesFile.relname, 'broken.pages.js')
+          assert.notEqual(generatedError.name, 'DataCloneError')
+          assert.equal(/** @type {{ message?: string } | undefined} */ (generatedError.cause)?.message, 'pages factory boom')
+          return true
+        }
+      )
+    })
+  })
+
   test('includes generated pages in the domstack manifest as page entries', async () => {
     await withTempFixture({
       'root.layout.js': minimalRootLayout,
@@ -281,7 +316,44 @@ test.describe('generated pages', () => {
       await assert.rejects(
         () => domstack.build(),
         error => {
-          assert.match(aggregateErrorMessage(error), /Output path conflict/)
+          const generatedError = firstGeneratedPagesError(error)
+
+          assert.match(generatedError.message, /Output path conflict/)
+          assert.match(generatedError.message, /pages file: "conflict\.pages\.js"/)
+          assert.equal(generatedError.code, 'DOM_STACK_ERROR_OUTPUT_CONFLICT')
+          assert.deepEqual(generatedError.conflict, {
+            outputPath: 'index.html',
+            a: { type: 'page', path: 'README.md' },
+            b: { type: 'page', path: 'conflict.pages.js#0' },
+          })
+          assert.equal(generatedError.pagesFile?.pagesFile.relname, 'conflict.pages.js')
+          return true
+        }
+      )
+    })
+  })
+
+  test('throws a conflict error with both generated page sources', async () => {
+    await withTempFixture({
+      'root.layout.js': minimalRootLayout,
+      'global.vars.js': minimalGlobalVars,
+      'first.pages.js': "export default { outputName: 'shared/index.html' }\n",
+      'second.pages.js': "export default { outputName: 'shared/index.html' }\n",
+    }, async ({ src, dest }) => {
+      const domstack = new DomStack(src, dest)
+      await assert.rejects(
+        () => domstack.build(),
+        error => {
+          const generatedError = firstGeneratedPagesError(error)
+          const conflictingSources = [
+            generatedError.conflict?.a.path,
+            generatedError.conflict?.b.path,
+          ].sort()
+
+          assert.equal(generatedError.code, 'DOM_STACK_ERROR_OUTPUT_CONFLICT')
+          assert.equal(generatedError.conflict?.outputPath, 'shared/index.html')
+          assert.deepEqual(conflictingSources, ['first.pages.js#0', 'second.pages.js#0'])
+          assert.equal(`${generatedError.pagesFile?.pagesFile.relname}#0`, generatedError.conflict?.b.path)
           return true
         }
       )
@@ -298,7 +370,12 @@ test.describe('generated pages', () => {
       await assert.rejects(
         () => domstack.build(),
         error => {
-          assert.match(aggregateErrorMessage(error), /Generated page definition must be an object/)
+          const generatedError = firstGeneratedPagesError(error)
+
+          assert.match(generatedError.message, /Generated page definition must be an object/)
+          assert.match(generatedError.message, /pages file: "invalid\.pages\.js"/)
+          assert.equal(generatedError.name, 'TypeError')
+          assert.equal(generatedError.pagesFile?.pagesFile.relname, 'invalid.pages.js')
           return true
         }
       )
@@ -318,7 +395,11 @@ test.describe('generated pages', () => {
       await assert.rejects(
         () => domstack.build(),
         error => {
-          assert.match(aggregateErrorMessage(error), /must not contain "\.\." segments/)
+          const generatedError = firstGeneratedPagesError(error)
+
+          assert.match(generatedError.message, /must not contain "\.\." segments/)
+          assert.match(generatedError.message, /pages file: "invalid\.pages\.js"/)
+          assert.equal(generatedError.pagesFile?.pagesFile.relname, 'invalid.pages.js')
           return true
         }
       )
