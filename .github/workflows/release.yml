@@ -10,12 +10,34 @@ on:
           - patch
           - minor
           - major
+          - prepatch
+          - preminor
+          - premajor
+          - prerelease
+          - from-git
           - custom
         default: 'patch'
         required: true
       new-version:
         description: 'Custom version (only used when version-type is "custom")'
         required: false
+      preid:
+        description: 'Prerelease identifier (used with premajor, preminor, prepatch, or prerelease)'
+        type: choice
+        options:
+          - ''
+          - alpha
+          - beta
+          - rc
+        required: false
+      dist-tag:
+        description: 'npm distribution tag'
+        type: choice
+        options:
+          - latest
+          - beta
+        default: 'latest'
+        required: true
 
 env:
   FORCE_COLOR: 3
@@ -44,12 +66,15 @@ jobs:
         node-version-file: package.json
         check-latest: true
     - run: npm i
+    - run: npx playwright install --with-deps chromium
     - run: npm test
     - run: git reset --hard && git clean -fd
     - name: Version and publish to npm
       id: npm-bump
-      uses: bcomnes/npm-bump@v3
+      uses: bcomnes/npm-bump@v3.0.4
       with:
         version-type: ${{ github.event.inputs['version-type'] }}
         new-version: ${{ github.event.inputs['new-version'] }}
+        preid: ${{ github.event.inputs['preid'] }}
+        dist-tag: ${{ github.event.inputs['dist-tag'] }}
         github-token: ${{ secrets.GITHUB_TOKEN }}
