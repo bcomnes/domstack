@@ -243,7 +243,6 @@ export default (async function redirectsPages ({ pages }) {
         title: 'Redirecting...',
         redirectTo: '/2020/new-slug/',
       },
-      children: '',
     },
   ]
 }) satisfies PagesFunction

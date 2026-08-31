@@ -32,7 +32,6 @@ const blogIndexes: PagesFunction<YearIndexPageVars, string, GlobalData> = ({ var
         layout: 'year-index' as const,
         title: String(year),
       },
-      children: '',
     })
   }
 
