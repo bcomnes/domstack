@@ -5,9 +5,9 @@
 [![Types in JS](https://img.shields.io/badge/types_in_js-yes-brightgreen)](https://github.com/voxpelli/types-in-js)
 [![Neocities][neocities-img]](https://domstack.net)
 
-`domstack`: Cut the [gordian knot](https://en.wikipedia.org/wiki/Gordian_Knot) of modern web development and build websites with a stack of HTML, CSS, and Javascript (Typescript and JSX included). 
+`domstack`: Cut the [🪢 gordian knot](https://en.wikipedia.org/wiki/Gordian_Knot) of modern web development and build websites with a stack of HTML, CSS, and Javascript (Typescript and JSX included). 
 
-[DOMStack](#) provides a few project conventions around [esbuild][esbuild] ande [Node.js](https://nodejs.org/en) that lets you quickly, cleanly and easily build websites and web apps using all of your favorite technolgies without any framework specific impurities, unlocking the web platform as a freeform canvas, by simply placing some standard file types into a directory structure that represents the website.
+[DOMStack](#) provides a few project conventions around [esbuild][esbuild] ande [Node.js](https://nodejs.org/en) that lets you quickly, cleanly and easily build websites and web apps using all of your favorite technolgies without any framework specific impurities, unlocking the web platform as a freeform canvas, by simply placing some standard file types into a directory structure that represents the website. It's deceptively simple, highly efficient and very flexible and powerful.
 
 ```console
 npm install @domstack/static
@@ -16,6 +16,9 @@ npm install @domstack/static
 - 🌎 [domstack docs website](https://domstack.net)
 - 💬 [Discord Chat](https://discord.gg/AVTsPRGeR9)
 - 📢 [v12 Migration Guide](docs/v12-migration.md)
+- 📚 [fragtml docs][fragtml-docs]
+- 📢 [v11 - top-bun is now domstack](docs/v11-migration.md)
+- 📢 [v7 Announcement](https://bret.io/blog/2023/reintroducing-top-bun/)
 
 ## Table of Contents
 
@@ -117,7 +120,8 @@ Pages can also have colocated assets:
 - `page.vars.ts` for page variables
 - `*.worker.ts` for web workers
 
-Wherever you see `.ts` being used, you can also use `.js`. Type checking is supported in both file types. Likewise, `.tsx` can be replaced with `.jsx`.
+> [!NOTE]
+> Wherever you see `.ts` being used, you can also use `.js`. Type checking is supported in both file types. See [Supported file types](#supported-file-types) for all available extensions.
 
 Layouts wrap page content in complete HTML documents. The `root` layout is the default, while pages can select another layout through the `layout` variable. Global styles, browser code, and variables apply across the site regardless of where their files live in `src`.
 
@@ -127,9 +131,26 @@ Templates and other advanced features can generate additional output as needed. 
 
 ## Examples
 
-A collection of examples can be found in the [`./examples`](./examples) folder.
+A collection of examples can be found in the [`./examples`](https://github.com/bcomnes/domstack/tree/master/examples) folder:
 
-To run examples:
+- [`basic`](./examples/basic/) — A broad tour of Markdown, HTML, and TypeScript pages, nested pages and layouts, variables, styles, client bundles, and static assets.
+- [`blog`](./examples/blog/) — A blog with derived global data, generated archive pages, redirects, nested layouts, and feed templates.
+- [`css-modules`](./examples/css-modules/) — Using CSS Modules from page code alongside global and page styles.
+- [`default-layout`](./examples/default-layout/) — Building a Markdown site with DOMStack's built-in default layout and no custom layout.
+- [`esbuild-settings`](./examples/esbuild-settings/) — Customizing the browser build through `esbuild.settings`.
+- [`markdown-settings`](./examples/markdown-settings/) — Customizing Markdown rendering with `markdown-it.settings` and Markdown-it plugins.
+- [`nested-dest`](./examples/nested-dest/) — Using the project root as `src` while writing the built site to a nested `public` directory.
+- [`preact-isomorphic`](./examples/preact-isomorphic/) — Rendering with Preact on the server and mounting page-scoped Preact and JSX in the browser.
+- [`react`](./examples/react/) — Configuring React and TypeScript for a page-scoped TSX client.
+- [`static-mpa-offline`](./examples/static-mpa-offline/) — A static multi-page app with DOMStack manifests, an offline fallback, precaching, and custom service-worker caching policies.
+- [`static-mpa-workbox-offline`](./examples/static-mpa-workbox-offline/) — The offline static MPA pattern implemented with Workbox routing, strategies, and precaching.
+- [`string-layouts`](./examples/string-layouts/) — Writing layouts that return plain HTML strings instead of using the default renderer.
+- [`tailwind`](./examples/tailwind/) — Integrating Tailwind CSS through an esbuild plugin.
+- [`type-stripping`](./examples/type-stripping/) — Using Node.js type stripping for TypeScript pages and layouts, plus a page-scoped TSX client.
+- [`uhtml-isomorphic`](./examples/uhtml-isomorphic/) — Rendering with `uhtml-isomorphic` on the server and mounting or hydrating UI in the browser.
+- [`worker-example`](./examples/worker-example/) — Bundling and communicating with page-scoped JavaScript and TypeScript Web Workers.
+
+To run an example:
 
 ```bash
 $ git clone git@github.com:bcomnes/domstack.git
@@ -140,7 +161,7 @@ $ npm i
 $ npm --workspace @domstack/basic-example run build
 ```
 
-### Additional examples
+### External examples
 
 Here are some additional external examples of larger domstack projects.
 If you have a project that uses domstack and could act as a nice example, please PR it to the list!
@@ -149,17 +170,38 @@ If you have a project that uses domstack and could act as a nice example, please
 - [Isomorphic Static/Client App](https://github.com/hifiwi-fi/breadcrum.net/tree/master/packages/web/client) - Pages build from client templates and hydrate on load.
 - [Zero-Conf Markdown Docs](https://github.com/bcomnes/deploy-to-neocities/blob/70b264bcb37fca5b21e45d6cba9265f97f6bfa6f/package.json#L38) - A npm package with markdown docs, transformed into a website without any any configuration
 
+(Did you make a cool DOMStack website that is open source? PR it to the list!)
+
+## Ejecting the defaults
+
+The `--eject` (or `-e`) flag extracts DOMStack's default layout, global CSS, and client-side JavaScript into your source directory. This allows you to fully customize these files while maintaining the same functionality.
+
+When you run `domstack --eject`, it will:
+
+1. Create a default root layout file at `layouts/root.layout.js` (or `.mjs` depending on your package.json type)
+2. Create a default global CSS file at `globals/global.css`
+3. Create a default client-side JavaScript file at `globals/global.client.js`
+4. Add the necessary dependencies to your package.json:
+   - mine.css
+   - fragtml
+   - highlight.js
+
+It is recomended to eject early in your project so that you can customize the root layout as you see fit, and de-couple yourself from potential unwanted changes in the default layout as new versions of DOMStack are released.
+
 ## Pages
 
-Pages are a named directories inside of `src`, with **one of** the following page files inside of it.
+Pages are named directories inside `src` with **one of** the following page files:
 
 - `md` pages are [CommonMark](https://commonmark.org) markdown pages, with an optional [YAML](https://yaml.org) front-matter block.
-- `html` pages are an inner [html](https://developer.mozilla.org/en-US/docs/Web/HTML) fragment that get inserted into the page layout.
-- `ts`/`js` pages are a [ts](https://developer.mozilla.org/en-US/docs/Glossary/TypeScript)/[js](https://developer.mozilla.org/en-US/docs/Web/JavaScript) file that exports a default function that resolves into an inner-html fragment that is inserted into the page layout.
+- `html` pages are an inner [HTML](https://developer.mozilla.org/en-US/docs/Web/HTML) fragment that get inserted into the page layout.
+- `ts` pages are [TypeScript](https://developer.mozilla.org/en-US/docs/Glossary/TypeScript) files that export a default function that resolves into an inner HTML fragment inserted into the page layout.
 
-Variables are available in all pages. `md` and `html` pages support variable access via [handlebars][hb] template blocks. `ts`/`js` pages receive variables as part of the argument passed to them. See the [Variables](#variables) section for more info.
+> [!NOTE]
+> A **source-backed page** is discovered directly from a page file in `src`, rather than created by a `*.pages.ts` module. Source-backed pages exist before `global.data.ts` and [Generated Pages](#generated-pages) run.
 
-Pages can define a special variable called `layout` determines which layout the page is rendered into.
+Variables are available in all pages. `md` and `html` pages support variable access via [handlebars][hb] template blocks. `ts` pages receive variables as part of the argument passed to them. See the [Variables](#variables) section for more info.
+
+Pages can define a special variable called [`layout`](#layouts) that determines which layout the page is rendered into.
 
 Because pages are just directories, they nest and structure naturally as a filesystem router. Directories in the `src` folder that lack one of these special page files can exist along side page directories and can be used to store co-located code or static assets without conflict.
 
@@ -177,15 +219,15 @@ src/page-name/loose-md.md
 
 - `md` pages have three types: a `page.md`, a `README.md`, or a loose `whatever-name-you-want.md` file.
 - `page.md` and `README.md` files transform to an `index.html` at the same path. When both exist in the same directory, `page.md` takes precedence over `README.md`. `whatever-name-you-want.md` loose markdown files transform into `whatever-name-you-want.html` files at the same path in the `dest` directory.
-- `md` pages can have YAML frontmatter, with variables that are accessible to the page layout and handlebars template blocks when building.
-- You can include html in markdown files, so long as you adhere to the allowable markdown syntax around html tags.
+- `md` pages can have [YAML](https://yaml.org/) [frontmatter](https://docs.github.com/en/contributing/writing-for-github-docs/using-yaml-frontmatter), with variables that are accessible to the page layout and handlebars template blocks when building.
+- You can include HTML in markdown files, so long as you adhere to the allowable markdown syntax around html tags.
 - `md` pages support [handlebars][hb] template placeholders.
 - You can disable `md` page [handlebars][hb] processing by setting the `handlebars` variable to `false`.
-- `md` pages support many [github flavored markdown features](https://github.com/bcomnes/siteup/blob/6481bd01e59e5d8a4bfcb33008f44a1405bf622b/lib/build-pages/page-builders/md/get-md.js#L25-L36).
+- `md` pages support many [github flavored markdown features](https://github.com/bcomnes/domstack/blob/master/lib/build-pages/page-builders/md/get-md.js#L25-L36).
 
 An example of a `md` page:
 
-```md
+```markdown
 ---
 title: A title for a markdown page
 favoriteColor: 'Blue'
@@ -208,7 +250,7 @@ src/page-name/page.html
 
 - `html` pages are named `page.html` inside an associated page folder.
 - `html` pages are the simplest page type in `domstack`. They let you build with raw html for when you don't want that page to have access to markdown features. Some pages are better off with just raw `html`, and the rules with building `html` in a real `html` file are much more flexible than inside of a `md` file.
-- `html` page variables can only be set in a `page.vars.js` file inside the page directory.
+- `html` page variables can only be set in a `page.vars.ts` file inside the page directory.
 - `html` pages support [handlebars][hb] template placeholders.
 - You can disable `html` page [handlebars][hb] processing by setting the `handlebars` variable to `false`.
 
@@ -220,28 +262,29 @@ An example `html` page:
   <li>React</li>
   <li>Vue</li>
   <li>Svelte</li>
-  <!-- favoriteFramework defined in page.vars.js -->
+  <!-- favoriteFramework defined in page.vars.ts -->
   <li>{{ vars.favoriteFramework }}</li>
 </ul>
 ```
 
-### `ts`/`js` pages
+### `ts` pages
 
-A `ts`/`js` page looks like this:
+A `ts` page looks like this:
 
 ```bash
 src/page-name/page.ts
-# or
-src/page-name/page.js
 ```
 
-- `js`/`ts` pages consist of a named directory with a `page.js` or `page.ts` inside of it, that exports a default function that returns the contents of the inner page.
-- a `js`/`ts` page needs to `export default` a function (async or sync) that accepts a variables argument and returns a string of the inner html of the page, or any other type that your layout can accept.
+> [!NOTE]
+> Wherever you see `.ts` being used, you can also use `.js`. Type checking is supported in both file types. See [Supported file types](#supported-file-types) for all available extensions.
+
+- `ts` pages consist of a named directory with a `page.ts` file that exports a default function returning the contents of the inner page.
+- A `ts` page needs to `export default` a function (async or sync) that accepts a variables argument and returns a string of the inner HTML of the page, or any other type that your layout can accept.
 - You can specify the return type using `PageFunction<T, U>` where `T` is the variables type and `U` is the return type (defaults to `any`).
-- A `js`/`ts` page can export a `vars` object or function (async or sync) that takes highest variable precedence when rendering the page. `export vars` is similar to a `md` page's front matter.
-- A `js`/`ts` page receives the standard `domstack` [Variables](#variables) set.
-- There is no built in handlebars support in `js`/`ts` pages, however you are free to use any template library that you can import.
-- `js`/`ts` pages are run in a Node.js context only.
+- A `ts` page can export a [`vars` variable provider](#variable-providers) that takes highest variable precedence when rendering the page. `export vars` is similar to a `md` page's front matter.
+- A `ts` page receives the standard `domstack` [Variables](#variables) set.
+- There is no built-in Handlebars support in `ts` pages; however, you are free to use any template library that you can import.
+- `ts` pages run in a Node.js context only.
 
 An example TypeScript page:
 
@@ -252,7 +295,7 @@ export const vars = {
   favoriteCookie: 'Chocolate Chip with Sea Salt'
 }
 
-const page: PageFunction<typeof vars}> = async ({
+const page: PageFunction<typeof vars> = async ({
   vars
 }) => {
   return /* html */`<div>
@@ -289,7 +332,13 @@ const blogIndex: PageFunction<BlogVars, HtmlResult> = async ({
   return html`<div>
     <p>I love ${favoriteCake}!!</p>
     <ul>
-      ${yearPages.map(yearPage => html`<li><a href="${yearPage.pageInfo.url}">${basename(yearPage.pageInfo.path)}</a></li>`)}
+      ${yearPages.map(yearPage => html`
+        <li>
+          <a href="${yearPage.pageInfo.url}">
+            ${basename(yearPage.pageInfo.path)}
+          </a>
+        </li>
+      `)}
     </ul>
   </div>`
 }
@@ -321,42 +370,49 @@ An example of a page `style.css` file:
 }
 ```
 
-### Page JS Bundles
+### Page client bundles
 
-You can create a `client.ts` or `client.js` file in any page folder.
-Page bundles are client side JS bundles that are loaded on that one page only.
+You can create a `client.ts` file in any page folder.
+Page bundles are client-side JavaScript bundles that are loaded on that one page only.
 You can import common code and modules from relative paths, or `npm` modules out of `node_modules`.
-The `client.js` page bundles are bundle-split with every other client-side js/ts entry-point, so importing common chunks of code are loaded in a maximally efficient way.
-Page bundles are run in a browser context only, however they can share carefully crafted code that also runs in a Node.js or layout context.
-`ts`/`js` page bundles are bundled using [`esbuild`][esbuild].
+Page client bundles are bundle-split with every other client-side entry point, so shared code is loaded efficiently.
+Page bundles run in a browser context only; however, they can share carefully crafted code that also runs in a Node.js or layout context.
+Page bundles are built using [`esbuild`][esbuild].
 
-An example of a page `client.js` file:
+An example of a page `client.ts` file:
 
 ```typescript
 /* /some-page/client.ts */
 import { funnyLibrary } from 'funny-library'
-import { someHelper } from '../helpers/foo.js'
+import { someHelper } from '../helpers/foo.ts'
 
 await someHelper()
 await funnyLibrary()
 ```
 
-#### .tsx/.jsx
+#### `.tsx`
 
-Client bundles support `.jsx` and `.tsx` through esbuild.
+Client bundles support [`.tsx`](https://www.typescriptlang.org/docs/handbook/jsx.html) through [esbuild's JSX transform](https://esbuild.github.io/content-types/#jsx).
+
+> [!NOTE]
+> Wherever you see `.tsx` being used for a client bundle, you can also use [`.jsx`](https://facebook.github.io/jsx/). Type checking is supported in both file types. See [Supported file types](#supported-file-types) for all available extensions.
+
+> [!IMPORTANT]
+> `.tsx` and `.jsx` are supported only in client bundles. JSX syntax is unavailable in page files, layouts, templates, settings, and anything else that runs in the Node.js context.
+
 DOMStack does not include a JSX runtime by default.
 Install the runtime you want and configure it with `esbuild.settings`.
 [Preact][preact] is the recommended JSX runtime for DomStack because it is small, browser-focused, and works well with page-scoped client bundles.
 See the [preact-isomorphic](./examples/preact-isomorphic/) and [react](./examples/react/) examples for complete projects.
 
-To use Preact in browser JSX/TSX bundles, add it to your project and opt into Preact's automatic JSX runtime:
+To use Preact in browser TSX bundles, add it to your project and opt into Preact's automatic JSX runtime:
 
 ```console
 npm install preact
 ```
 
-```js
-// src/esbuild.settings.js
+```typescript
+// src/esbuild.settings.ts
 export default async function esbuildSettingsOverride (esbuildSettings) {
   esbuildSettings.jsx = 'automatic'
   esbuildSettings.jsxImportSource = 'preact'
@@ -378,14 +434,14 @@ See [Simple TanStack Query in Preact](https://bret.io/blog/2026/simple-tanstack-
 ```
 
 React also works if your project needs React-specific APIs or ecosystem packages.
-To use React in browser JSX/TSX bundles, add React to your project and opt into React's automatic JSX runtime:
+To use React in browser TSX bundles, add React to your project and opt into React's automatic JSX runtime:
 
 ```console
 npm install react react-dom
 ```
 
-```js
-// src/esbuild.settings.js
+```typescript
+// src/esbuild.settings.ts
 export default async function esbuildSettingsOverride (esbuildSettings) {
   esbuildSettings.jsx = 'automatic'
   esbuildSettings.jsxImportSource = 'react'
@@ -396,7 +452,7 @@ export default async function esbuildSettingsOverride (esbuildSettings) {
 
 ### Page variable files
 
-Each page can also have a `page.vars.ts` or `page.vars.js` file that exports a `default` sync/async function or object that contains page specific variables.
+Each page can also have an adjacent `page.vars.ts` file that default-exports a [variable provider](#variable-providers) containing page-specific variables.
 
 ```typescript
 // export an object
@@ -415,11 +471,23 @@ export default async () => {
 }
 ```
 
-Page variable files have higher precedent than `global.vars.ts` variables, but lower precedent than frontmatter or `vars` ts/js page exports.
+Page variable files have higher precedence than `global.vars.ts` variables, but lower precedence than frontmatter or `vars` exports from `ts` pages. See [Variables](#variables) for the full variable cascade.
 
 ### Draft pages
 
-If you add a `.draft.{md,html,ts,js}` to any of the page types, the page is considered a draft page.
+A complete draft page can use the same colocated files as a published page:
+
+```text
+src/
+└── blog/
+    └── unpublished-post/
+        ├── page.draft.md      # Draft page content
+        ├── page.vars.ts       # Page-specific variables
+        ├── client.ts          # Page-specific browser code
+        └── style.css          # Page-specific styles
+```
+
+If you add a `.draft.{md,html,ts}` suffix to any page type, the page is considered a draft page.
 Draft pages are not built by default.
 If you pass the `--drafts` flag when building or watching, the draft pages will be built.
 When draft pages are omitted, they are completely ignored.
@@ -427,74 +495,31 @@ When draft pages are omitted, they are completely ignored.
 Draft pages can be detected in layouts using the `page.draft === true` or `pages[n].draft === true` variable.
 It is a good idea to display something indicating the page is a draft in your templates so you don't get confused when working with the `--drafts` flag.
 
-Any static assets near draft pages will still be copied because static assets are processed in parallel from page generation (to keep things fast).
-If you have an idea on how to relate static assets to a draft page for omission, please open a discussion issue.
+> [!NOTE]
+> Static assets colocated with draft pages are still copied when drafts are excluded because static assets are processed independently from pages.
 
 Draft pages let you work on pages before they are ready and easily omit them from a build when deploying pages that are ready.
-
-## Web Workers
-
-You can easily write [web workers](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Using_web_workers) for a page by adding a file called `${name}.worker.ts` or `${name}.worker.js` where `name` becomes the name of the worker filename in the `workers.json` file.
-DOMStack will build these similarly to page `client.ts` bundles, and will even bundle split their contents with the rest of your site.
-
-```
-page-directory/
-  ├── page.js
-  ├── client.js
-  ├── counter.worker.js  # Worker with counter functionality
-  └── data.worker.js     # Worker for data processing
-```
-
-To use a woker, load in a `./workers.json` file that is generated along with the worker bundle to get the final name of the worker entrypoint and then create a worker with that filename.
-
-```typescript
-// First, fetch the workers.json to get worker paths in your client.ts
-async function initializeWorkers() {
-  const response = await fetch('./workers.json');
-  const workersData = await response.json();
-
-  // Initialize workers with the correct hashed filenames
-  const counterWorker = new Worker(
-    new URL(`./${workersData.counter}`, import.meta.url),
-    { type: 'module' }
-  );
-
-  // Use the worker
-  counterWorker.postMessage({ action: 'increment' });
-
-  counterWorker.onmessage = (e) => {
-    console.log(e.data);
-  };
-
-  return counterWorker;
-}
-
-const worker = await initializeWorkers();
-```
-
-See the [Web Workers Example](https://github.com/domstack/domstack/tree/master/examples/worker-example) for a complete implementation.
 
 ## Layouts
 
 Layouts are "outer page templates" that pages get rendered into.
 You can define as many as you want, and they can live anywhere in the `src` directory.
 
-Layouts are named `${layout-name}.layout.js` where `${layout-name}` becomes the name of the layout.
-Layouts should have a unique name, and layouts with duplicate name will result in a build error.
+Layouts are named `${layout-name}.layout.ts` where `${layout-name}` becomes the name of the layout.
+Layouts should have a unique name, and layouts with duplicate names result in a build error.
 
-Layouts can be typed using `LayoutFunction<T, U, V>` where:
-- `T` is the variables type
-- `U` is the type of content received from pages (defaults to `any`)
-- `V` is the layout's return type (defaults to `string` for HTML output)
+> [!NOTE]
+> Wherever you see `.layout.ts` being used, you can also use `.layout.js`. Type checking is supported in both file types. See [Supported file types](#supported-file-types) for all available extensions.
 
 Example layout file names:
 
 ```bash
-src/layouts/root.layout.js # this layout is references as 'root'
-src/other-layouts/article.layout.js # this layout is references as 'article'
+src/layouts/root.layout.ts # this layout is referenced as 'root'
+src/other-layouts/article.layout.ts # this layout is referenced as 'article'
 ```
 
-At a minimum, your site requires a `root` layout (a file named `root.layout.js`), though `domstack` ships a default `root` layout so defining one in your `src` directory is optional, though recommended.
+At a minimum, your site requires a `root` layout (a file named `root.layout.ts`), though `domstack` ships a default `root` layout so defining one in your `src` directory is optional, though recommended.
+Owning your own root layout will make DOMStack updates easier, and give you more control over your site.
 
 All pages have a `layout` variable that defaults to `root`. If you set the `layout` variable to a different name, pages will build with a layout matching the name you set to that variable.
 
@@ -509,9 +534,9 @@ title: 'My Article Title'
 Thanks for reading my article
 ```
 
-A page referencing a layout name that doesn't have a matching layout file will result in a build error.
+A page referencing a layout name that doesn't have a matching layout file will result in a build error. To reuse a common frame across multiple layouts, see [Compose nested layouts](#compose-nested-layouts).
 
-Layouts may also export optional default variables for pages using that layout. Like page/global vars, layout vars may be an object, a sync function, or an async function:
+Layouts may also export an optional [`vars` variable provider](#variable-providers) containing defaults for pages that use the layout:
 
 ```ts
 export const vars = {
@@ -528,16 +553,16 @@ page/frontmatter vars > page.vars.* > layout vars > global.data/global.vars > do
 
 This makes layout vars useful for section-wide defaults while still letting individual pages override them.
 
-### The default `root.layout.js`
+### The default `root.layout.ts`
 
-A layout is a `ts`/`js` file that `export default`'s an async or sync function that implements an outer-wrapper html template that will house the inner content from the page (`children`) being rendered. Think of the frame around a picture. That's a layout. 🖼️
+A layout is a `ts` file that default-exports an async or sync function implementing an outer HTML template that houses the page's inner content (`children`). Think of the frame around a picture. That's a layout. 🖼️
 
-It is always passed a single object argument with the following entries:
+It is always passed a single object argument with the following entries. See [Page data and introspection](#page-data-and-introspection) for details about the `page` and `pages` entries:
 
 - `vars`: The resolved page variable cascade, including domstack defaults, global vars/data, layout vars, page vars, and page builder vars/frontmatter. Pages can customize layouts by overriding global or layout defaults.
 - `scripts`: array of paths that should be included onto the page in a script tag src with type `module`.
 - `styles`: array of paths that should be included onto the page in a `link rel="stylesheet"` tag with the `href` pointing to the paths in the array.
-- `children`: A string of the inner content of the page, or whatever type your js page functions returns. `md` and `html` page types always return strings.
+- `children`: A string containing the page's inner content, or whatever type your `ts` page function returns. `md` and `html` page types always return strings.
 - `pages`: An array of page data that you can use to generate index pages with, or any other page-introspection based content that you desire.
 - `page`: An object with metadata and other facts about the current page being rendered into the template. This will also be found somewhere in the `pages` array.
 
@@ -581,6 +606,7 @@ const defaultRootLayout: LayoutFunction<RootLayoutVars, string | HtmlResult, str
         <meta charset="utf-8" />
         <title>${title ? `${title}` : ''}${title && siteName ? ' | ' : ''}${siteName}</title>
         <meta name="viewport" content="width=device-width, user-scalable=no" />
+        <meta name="color-scheme" content="light dark" />
         ${scripts
           ? scripts.map(script => html`<script type="module" src="${script.startsWith('/') ? `${basePath ?? ''}${script}` : script}"></script>`)
           : null}
@@ -598,120 +624,7 @@ const defaultRootLayout: LayoutFunction<RootLayoutVars, string | HtmlResult, str
 export default defaultRootLayout
 ```
 
-If your `src` folder doesn't have a `root.layout.js` file somewhere in it, `domstack` will use the default [`default.root.layout.js`](./lib/defaults/default.root.layout.js) file it ships. The default `root` layout includes a special boolean variable called `defaultStyle` that lets you disable a default page style (provided by [mine.css](http://github.com/bcomnes/mine.css)) that it ships with.
-
-### Nested layouts
-
-Since layouts are just functions™️, they nest naturally. If you define the majority of your html page meta detritus in a `root.layout.js`, you can define additional layouts that act as child wrappers, without having to re-define everything in `root.layout.ts`.
-
-For example, you could define a `blog.layout.ts` that re-uses the `root.layout.ts`:
-
-```typescript
-import defaultRootLayout from './root.layout.js'
-import { html, raw, render } from 'fragtml'
-import type { HtmlResult } from 'fragtml/types.js'
-import type { LayoutFunction } from '@domstack/static/types.js'
-
-// Import the type from root layout
-import type { RootLayoutVars } from './root.layout'
-
-// Extend the RootLayoutVars with blog-specific properties
-interface BlogLayoutVars extends RootLayoutVars {
-  authorImgUrl?: string;
-  authorImgAlt?: string;
-  authorName?: string;
-  authorUrl?: string;
-  publishDate?: string;
-  updatedDate?: string;
-}
-
-const blogLayout: LayoutFunction<BlogLayoutVars, string | HtmlResult, string> = (layoutVars) => {
-  const { children: innerChildren, ...rest } = layoutVars
-  const vars = layoutVars.vars
-
-  const children = render(html`
-    <article class="article-layout h-entry" itemscope itemtype="http://schema.org/NewsArticle">
-      <header class="article-header">
-        <h1 class="p-name article-title" itemprop="headline">${vars.title}</h1>
-        <div class="metadata">
-          <address class="author-info" itemprop="author" itemscope itemtype="http://schema.org/Person">
-            ${vars.authorImgUrl
-              ? html`<img height="40" width="40" src="${vars.authorImgUrl}" alt="${vars.authorImgAlt}" class="u-photo" itemprop="image" />`
-              : null
-            }
-            ${vars.authorName && vars.authorUrl
-              ? html`
-                  <a href="${vars.authorUrl}" class="p-author h-card" itemprop="url">
-                    <span itemprop="name">${vars.authorName}</span>
-                  </a>`
-              : null
-            }
-          </address>
-          ${vars.publishDate
-            ? html`
-              <time class="dt-published" itemprop="datePublished" datetime="${vars.publishDate}">
-                <a href="#" class="u-url">
-                  ${(new Date(vars.publishDate)).toLocaleString()}
-                </a>
-              </time>`
-            : null
-          }
-          ${vars.updatedDate
-            ? html`<time class="dt-updated" itemprop="dateModified" datetime="${vars.updatedDate}">Updated ${(new Date(vars.updatedDate)).toLocaleString()}</time>`
-            : null
-          }
-        </div>
-      </header>
-
-      <section class="e-content" itemprop="articleBody">
-        ${typeof innerChildren === 'string'
-          ? html`<div>${raw(innerChildren)}</div>`
-          : innerChildren
-        }
-      </section>
-    </article>
-  `)
-
-  const rootArgs = { ...rest, children }
-  return defaultRootLayout(rootArgs)
-}
-
-export default blogLayout
-```
-
-Now the `blog.layout.js` becomes a nested layout of `root.layout.js`. No magic, just functions.
-
-Alternatively, you could compose your layouts from re-usable template functions and strings.
-If you find your layouts nesting more than one or two levels, perhaps composition would be a better strategy.
-
-#### Layout composition pitfalls
-
-**Scripts and styles must be forwarded explicitly.** If you call a base layout without passing `scripts` and `styles`, those arrays are lost and the rendered page will have no CSS or JS bundles. No error is reported -- the page simply renders unstyled and without client-side JS:
-
-```js
-// wrong: scripts and styles are dropped
-return defaultRootLayout({ children, vars })
-
-// correct: forward them along
-return defaultRootLayout({ children, vars, scripts, styles })
-```
-
-**Vars can be modified before forwarding.** The rest-spread pattern shown above forwards vars unchanged, but you can extend the object before passing it to the base layout. This is useful for setting layout-specific flags that the root layout reads:
-
-```js
-const extendedVars = { ...vars, showSidebar: true, pageType: 'article' }
-return defaultRootLayout({ children, vars: extendedVars, scripts, styles })
-```
-
-**Forward `page`, `pages`, and `workers` when the base layout uses them.** If your root layout accesses `page.path` for canonical URLs, iterates `pages` for navigation, or uses `workers`, those params must also be forwarded:
-
-```js
-export default function articleLayout ({ children, vars, scripts, styles, page, pages, workers }) {
-  return defaultRootLayout({ children, vars, scripts, styles, page, pages, workers })
-}
-```
-
-Layout-specific styles and client bundles have a similar explicit-composition requirement: parent layout assets are not included automatically in nested layouts. See [Nested layout TS/JS bundles and styles](#nested-layout-tsjs-bundles-and-styles) for the required `@import` and `import` pattern.
+If your `src` folder doesn't have a `root.layout.ts` file somewhere in it, `domstack` will use the default [`default.root.layout.js`](./lib/defaults/default.root.layout.js) file it ships. The default `root` layout includes a special boolean variable called `defaultStyle` that lets you disable a default page style (provided by [mine.css](http://github.com/bcomnes/mine.css)) that it ships with.
 
 ### Layout styles
 
@@ -732,11 +645,16 @@ While the layout file can live anywhere in `src`, the layout style must live nex
 ```
 Layout styles are loaded on all pages that use that layout.
 Layout styles are bundled with [`esbuild`][esbuild] and can bundle relative and `npm` css using css `@import` statements.
+DOMStack loads stylesheets in this order: global, layout, then page. Under the normal [CSS cascade](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_cascade/Cascade), later styles take precedence when origin, importance, cascade layer, and specificity are otherwise equal. This lets page styles override layout styles, and layout styles override global styles.
 
-### Layout TS/JS Bundles
 
-You can create a `${layout-name}.layout.client.ts` or `${layout-name}.layout.client.js` next to any layout file.
+### Layout client bundles
+
+You can create a `${layout-name}.layout.client.ts` next to any layout file.
 While the layout file can live anywhere in `src`, the layout client bundles must live next to the associated layout file.
+
+> [!NOTE]
+> Use `${layout-name}.layout.client.tsx` when a layout client bundle contains JSX. You can also use `.jsx`. See [Supported file types](#supported-file-types) for all available extensions and [`.tsx` client bundles](#tsx) for JSX configuration.
 
 ```typescript
 /* /layouts/article.layout.client.ts */
@@ -746,57 +664,118 @@ console.log('I run on every page rendered with the \'article\' layout')
 /* This layout client is included in every page rendered with the 'article' layout */
 ```
 
-Layout ts/js bundles are loaded on all pages that use that layout.
-Layout ts/js bundles are bundled with [`esbuild`][esbuild] and can bundle relative and `npm` modules using ESM `import` statements.
+Layout client bundles are loaded on all pages that use that layout.
+Layout client bundles are built with [`esbuild`][esbuild] and can bundle relative and `npm` modules using ESM `import` statements.
 
-### Nested layout TS/JS bundles and styles
+### Layout types
 
-If you create a nested layout that imports another layout file, **and** that imported layout has a layout style and/or layout js bundle, there is no magic that will include those layout styles and clients into the importing layout. To include those layout styles and clients into an additional layout, just import them into the additional layout client and style files. For example, if `article.layout.ts` wraps `root.layout.ts`, you must do the following:
+Layouts can be typed using `LayoutFunction<T, U, V>` where:
 
-```css
-/* article.layout.css  */
-@import "./root.layout.css";
-```
-
-This will include the layout style from the `root` layout in the `article` layout style.
+- `T` is the variables type
+- `U` is the type of content received from pages (defaults to `any`)
+- `V` is the layout's return type (defaults to `string` for HTML output)
 
 ```typescript
-/* article.layout.client.ts  */
-import './root.layout.client.ts'
+import type { LayoutFunction } from '@domstack/static/types.js'
+import type { HtmlResult } from 'fragtml/types.js'
+import { html, raw, render } from 'fragtml'
+
+type ArticleLayoutVars = {
+  title: string
+  showSidebar: boolean
+}
+
+const articleLayout: LayoutFunction<ArticleLayoutVars, string | HtmlResult, string> = ({
+  vars,
+  children,
+}) => {
+  return render(html`
+    <article>
+      <h1>${vars.title}</h1>
+      ${typeof children === 'string' ? raw(children) : children}
+      ${vars.showSidebar ? html`<aside>Related articles</aside>` : null}
+    </article>
+  `)
+}
+
+export default articleLayout
 ```
 
-Adding these imports will include the `root.layout.ts` layout assets into the `blog.layout.ts` asset files.
+## Variables
+
+### Variable providers
+
+DOMStack accepts variable providers anywhere variables can be supplied. A variable provider is an object or a sync/async function that returns an object.
+
+Object provider:
+
+```typescript
+// src/global.vars.ts
+export default {
+  siteName: 'My site'
+}
+```
+
+Synchronous function provider:
+
+```typescript
+// src/global.vars.ts
+export default function vars () {
+  return {
+    siteName: 'My site'
+  }
+}
+```
+
+Asynchronous function provider:
+
+```typescript
+// src/global.vars.ts
+export default async function vars () {
+  return {
+    siteName: 'My site'
+  }
+}
+```
+
+Pages and layouts receive an object with the following parameters:
+
+- `vars`: An object with the variables of `global.vars.ts`, [`global.data.ts`](#global-data), `page.vars.ts`, and any frontmatter or `vars` exports from the page merged together.
+- `pages`: The available [`PageData` collection](#page-data-and-introspection).
+- `page`: The current page's [`PageInfo` metadata](#page-metadata).
+
+Template files receive a similar set of variables:
+
+- `vars`: An object with the variables from `global.vars.ts` and [`global.data.ts`](#global-data).
+- `pages`: The available [`PageData` collection](#page-data-and-introspection).
+- `template`: Information about the current template file.
 
 ## Static assets
 
-All static assets in the `src` directory are copied 1:1 to the `public` directory. Any file in the `src` directory that doesn't end in `.ts`, `.js`, `.css`, `.html`, or `.md` is copied to the `dest` directory.
-
-### `--eject` flag
-
-The `--eject` (or `-e`) flag extracts DOMStack's default layout, global CSS, and client-side JavaScript into your source directory. This allows you to fully customize these files while maintaining the same functionality.
-
-When you run `domstack --eject`, it will:
-
-1. Create a default root layout file at `layouts/root.layout.js` (or `.mjs` depending on your package.json type)
-2. Create a default global CSS file at `globals/global.css`
-3. Create a default client-side JavaScript file at `globals/global.client.js`
-4. Add the necessary dependencies to your package.json:
-   - mine.css
-   - fragtml
-   - highlight.js
-
-It is recomended to eject early in your project so that you can customize the root layout as you see fit, and de-couple yourself from potential unwanted changes in the default layout as new versions of DOMStack are released.
+All static assets in the `src` directory are copied 1:1 to the destination directory using [cpx2](https://github.com/bcomnes/cpx2). Files ending in `.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs`, `.css`, `.html`, or `.md` are reserved for DOMStack processing and are not copied as static assets.
 
 ### `--copy` directories
 
-You can specify directories to copy into your `dest` directory using the `--copy` flag. Everything in those directories will be copied as-is into the destination, including js, css, html and markdown, preserving the internal directory structure. Conflicting files are not detected or reported and will cause undefined behavior.
+You can specify directories to copy into your `dest` directory using the `--copy` flag. Everything in those directories will be copied as-is into the destination, including js, css, html and markdown, preserving the internal directory structure.
+
+> [!NOTE]
+> `--copy` intentionally accepts directories, not individual files. Place a file in a directory whose structure encodes its desired destination path. To copy multiple directories, repeat the flag: `domstack --copy oldsite --copy archived-docs`.
+
+> [!WARNING]
+> DOMStack does not detect conflicts between copied directories and other build output. If multiple inputs produce the same destination path, the result is undefined.
 
 Copy folders must live **outside** of the `dest` directory. Copy directories can be in the src directory allowing for nested builds. In this case they are added to the ignore glob and ignored by the rest of `domstack`.
 
-When using the programmatic `DomStack` constructor, `copy` entries may be relative or absolute paths. Relative `copy` paths are resolved to absolute paths from the current working directory, matching the CLI `--copy` behavior, before they are stored on `domstack.opts.copy` and passed to the copy build step.
+> [!NOTE]
+> When using the programmatic `DomStack` constructor, `copy` entries may be relative or absolute paths. Relative paths are resolved from the current working directory, matching the CLI `--copy` behavior, before being stored in `domstack.opts.copy` and passed to the copy build step.
+>
+> ```typescript
+> const site = new DomStack('src', 'public', {
+>   copy: ['./legacy-site', '/srv/shared-docs'],
+> })
+> ```
 
-This is useful when you have legacy or archived site content that you want to include in your site, but don't want `domstack` to process or modify it.
-In general, static content should live in your primary `src` directory, however for merging in old static assets over your domstack build is sometimes easier to reason about when it's kept in a separate folder and isn't processed in any way.
+The intention of this feature is to include legacy or archived site content without asking DOMStack to process or modify it. In general, static content should live in your primary `src` directory, but keeping older content in a separate, unprocessed directory can make it easier to merge into the final build.
 
 For example:
 
@@ -821,16 +800,602 @@ public/
     └── globals.css
 ```
 
+## Global Assets
+
+There are a few important and optional global files that can live anywhere in the `src` directory. Global browser assets preserve their source-relative directory when built into `dest`. For example, `src/assets/global.css` produces an output such as `dest/assets/global-[hash].css`. Build-time files such as `global.vars.ts`, `esbuild.settings.ts`, and `markdown-it.settings.ts` are consumed by DOMStack and are not emitted.
+
+Only one file may match each global filename pattern. When DOMStack discovers a duplicate, it keeps the first file it found, skips the duplicate, and reports a warning. Define each global file once rather than relying on discovery order.
+
+> [!NOTE]
+> Wherever this section uses `.ts`, you can also use `.js`. Type checking is supported in both file types. See [Supported file types](#supported-file-types) for all available extensions.
+
+### `global.vars.ts`
+
+The `global.vars.ts` file should default-export a [variable provider](#variable-providers).
+The variables in this file are available to all pages, unless the page sets a variable with the same key, taking a higher precedence.
+
+```typescript
+export default {
+  siteName: 'The name of my website',
+  authorName: 'Mr. Wallace'
+}
+```
+
+#### `browser` variable
+
+`global.vars.ts` can uniquely export a [`browser` variable provider](#variable-providers). These variables are made available in all client bundles.
+
+```typescript
+export const browser = {
+  'process.env.TRANSPORT': 'http',
+  'process.env.HOST': 'localhost'
+}
+```
+
+The exported object is passed to esbuild's [`define`](https://esbuild.github.io/api/#define) options and is available to every js bundle.
+Domstack also reserves `process.env.DOMSTACK_MANIFEST_URL`,
+`process.env.DOMSTACK_MANIFEST_VERSION`, `process.env.DOMSTACK_MANIFEST_ENABLED`,
+`process.env.DOMSTACK_SERVICE_WORKER_URL`, and `process.env.DOMSTACK_SERVICE_WORKER_SCOPE` for generated build facts.
+
+> [!WARNING]
+> Setting `define` in [`esbuild.settings.ts`](#esbuild-settingsts) while also using the `browser` export will throw an error. Use one or the other.
+
+### `global.client.ts`
+
+This is a script bundle that is included on every page. It provides an easy way to inject analytics, or other small scripts that every page should have. Try to minimize what you put in here.
+
+> [!NOTE]
+> Use `global.client.tsx` when the global client bundle contains JSX. You can also use `global.client.jsx`. See [Supported file types](#supported-file-types) for all available extensions and [`.tsx` client bundles](#tsx) for JSX configuration.
+
+```typescript
+console.log('I run on every page in the site!')
+```
+
+### `global.css`
+
+This is a global stylesheet that every page will use.
+Any styles that need to be on every single page should live here.
+Importing css from `npm` modules work well here.
+
+#### Optional cascade layers
+
+The bundled default stylesheet imports mine.css's main rules in its low-priority `mine` layer and its optional layout and syntax styles in `domstack.default`.
+Normal unlayered styles in your project override those defaults, so custom stylesheets do not have to use cascade layers.
+
+For projects that prefer explicit layers, each stylesheet can declare only its own optional scope:
+
+```css
+/* global.css */
+@layer domstack.global {
+  /* Site-wide rules */
+}
+```
+
+```css
+/* article.layout.css */
+@layer domstack.layout {
+  /* Layout rules */
+}
+```
+
+```css
+/* style.css */
+@layer domstack.page {
+  /* Page rules */
+}
+```
+
+DOMStack loads default, global, layout, and page stylesheets in that order, which gives these layers the same low-to-high precedence when they are used.
+A global stylesheet does not need to enumerate the layout or page layers.
+This is a recommended organization pattern, not a requirement.
+
+### `esbuild.settings.ts`
+
+This is an optional file you can create anywhere.
+It should export a default sync or async function that accepts a single argument (the esbuild settings object generated by domstack) and returns a modified build object.
+Use this to customize the esbuild settings directly.
+
+Important esbuild settings you may want to set here are:
+
+- [target](https://esbuild.github.io/api/#target) - Set the `target` to make `esbuild` run a few small transforms on your CSS and JS code.
+- [jsx](https://esbuild.github.io/api/#jsx) - Configure how esbuild transforms JSX and TSX.
+- [jsxImportSource](https://esbuild.github.io/api/#jsx-import-source) - Set this when using an automatic JSX runtime such as React or Preact.
+- [define](https://esbuild.github.io/api/#define) - Define compile-time constants for JS bundles. Setting `define` here conflicts with the [`browser` export](#browser-variable) in `global.vars.ts` and throws an error if both are set.
+
+> [!WARNING]
+> An invalid esbuild override can break DOMStack's browser build. Preserve DOMStack's required build options unless you intentionally replace their behavior.
+
+Here is an example of using this file to polyfill Node.js built-ins in the browser bundle:
+
+```typescript
+import { polyfillNode } from 'esbuild-plugin-polyfill-node'
+// BuildOptions re-exported from esbuild
+import type { BuildOptions } from '@domstack/static/types.js'
+
+const esbuildSettingsOverride = async (esbuildSettings: BuildOptions): Promise<BuildOptions> => {
+  esbuildSettings.plugins = [polyfillNode()]
+  return esbuildSettings
+}
+
+export default esbuildSettingsOverride
+```
+
+#### Default build behavior
+
+DOMStack passes its complete default `BuildOptions` into this function. The default browser build:
+
+- Bundles ESM with code splitting enabled
+- Emits source maps and an esbuild metafile
+- Preserves source-relative directories through `outbase: src`
+- Uses `[dir]/[name]-[hash]` for production entry files and stable `[dir]/[name]` filenames in watch mode
+- Writes shared chunks to `chunks/[ext]/[name]-[hash]`
+- Does not configure a JSX runtime
+
+Default asset loaders are:
+
+| Loader | Extensions | Behavior |
+|---|---|---|
+| `dataurl` | `.png`, `.jpg`, `.jpeg`, `.gif`, `.svg`, `.webp`, `.avif` | Embeds the imported asset in its bundle |
+| `file` | `.ico`, `.woff`, `.woff2`, `.ttf`, `.eot`, `.otf` | Emits a separate file and returns its URL |
+
+> [!NOTE]
+> Images imported by a client bundle are embedded regardless of their size by default. Use the `file` loader when large images should remain separate files.
+
+The function's return value becomes the effective esbuild configuration. Preserve DOMStack's build wiring, including `entryPoints`, `outdir`, and `outbase`, unless you intentionally replace that behavior. Spread nested options such as `loader` when adding entries because replacing the object discards its existing defaults. DOMStack preserves its reserved `define` values after the override runs.
+
+These options also form the basis of the [service-worker](#service-workers) build. DOMStack replaces the service-worker entry point and filename and disables code splitting, while options such as plugins, loaders, `target`, and JSX configuration carry over.
+
+You can return a shallow copy that modifies the defaults when you only need a small change. For example, this keeps DOMStack's default asset loaders and adds a custom loader for `.wasm` files:
+
+```typescript
+import type { BuildOptions } from '@domstack/static/types.js'
+
+const esbuildSettingsOverride = async (esbuildSettings: BuildOptions): Promise<BuildOptions> => {
+  return {
+    ...esbuildSettings,
+    loader: {
+      ...esbuildSettings.loader,
+      '.wasm': 'file',
+    },
+  }
+}
+
+export default esbuildSettingsOverride
+```
+
+If you want full control, reset DOMStack's convenience defaults back to esbuild's defaults while preserving the required DOMStack build wiring (`entryPoints`, `outdir`, `outbase`, etc.).
+From there, define only the settings you want:
+
+```typescript
+import type { BuildOptions } from '@domstack/static/types.js'
+
+const esbuildSettingsOverride = async (esbuildSettings: BuildOptions): Promise<BuildOptions> => {
+  return {
+    ...esbuildSettings,
+    jsx: undefined,
+    jsxImportSource: undefined,
+    loader: {
+      '.png': 'file',
+      '.svg': 'text',
+    },
+  }
+}
+
+export default esbuildSettingsOverride
+```
+
+
+### `markdown-it.settings.ts`
+
+This is an optional file you can create anywhere.
+It should export a default sync or async function that accepts a single argument (the markdown-it instance configured by domstack) and returns a modified markdown-it instance.
+Use this to add custom markdown-it plugins or modify the parser configuration.
+Here are some examples:
+
+```typescript
+import markdownItContainer from 'markdown-it-container'
+import markdownItPlantuml from 'markdown-it-plantuml'
+import type { MarkdownIt } from 'markdown-it'
+
+const markdownItSettingsOverride = async (md: MarkdownIt) => {
+  // Add custom plugins
+  md.use(markdownItContainer, 'spoiler', {
+    validate: (params: string) => {
+      return params.trim().match(/^spoiler\s+(.*)$/) !== null
+    },
+    render: (tokens: any[], idx: number) => {
+      const m = tokens[idx].info.trim().match(/^spoiler\s+(.*)$/)
+      if (tokens[idx].nesting === 1) {
+        return '<details><summary>' + md.utils.escapeHtml(m[1]) + '</summary>\n'
+      } else {
+        return '</details>\n'
+      }
+    }
+  })
+
+  md.use(markdownItPlantuml)
+
+  return md
+}
+
+export default markdownItSettingsOverride
+```
+
+```typescript
+import markdownIt, { MarkdownIt } from 'markdown-it'
+import myCustomPlugin from './my-custom-plugin'
+
+const markdownItSettingsOverride = async (md: MarkdownIt) => {
+  // Create a new instance with different settings
+  const newMd = markdownIt({
+    html: false,        // Disable HTML tags in source
+    breaks: true,       // Convert \n to <br>
+    linkify: false,     // Disable auto-linking
+  })
+
+  // Add only the plugins you want
+  newMd.use(myCustomPlugin)
+
+  return newMd
+}
+
+export default markdownItSettingsOverride
+```
+
+By default, DOMStack ships with the following markdown-it plugins enabled:
+
+- [markdown-it](https://github.com/markdown-it/markdown-it)
+- [markdown-it-footnote](https://github.com/markdown-it/markdown-it-footnote)
+- [markdown-it-highlightjs](https://github.com/valeriangalliat/markdown-it-highlightjs)
+- [markdown-it-emoji](https://github.com/markdown-it/markdown-it-emoji)
+- [markdown-it-sub](https://github.com/markdown-it/markdown-it-sub)
+- [markdown-it-sup](https://github.com/markdown-it/markdown-it-sup)
+- [markdown-it-deflist](https://github.com/markdown-it/markdown-it-deflist)
+- [markdown-it-ins](https://github.com/markdown-it/markdown-it-ins)
+- [markdown-it-mark](https://github.com/markdown-it/markdown-it-mark)
+- [markdown-it-abbr](https://github.com/markdown-it/markdown-it-abbr)
+- [markdown-it-task-lists](https://github.com/revin/markdown-it-task-lists)
+- [markdown-it-github-alerts](https://www.npmjs.com/package/markdown-it-github-alerts)
+- [markdown-it-anchor](https://github.com/valeriangalliat/markdown-it-anchor)
+- [markdown-it-attrs](https://github.com/arve0/markdown-it-attrs)
+- [markdown-it-table-of-contents](https://github.com/cmaas/markdown-it-table-of-contents)
+
+## Global data
+
+The `global.data.ts` file is an optional file that can live anywhere in your `src` tree. The first one found wins and duplicates warn. It runs **once per build**, after [source-backed pages](#pages) are initialized and before generated-page factories run.
+
+> [!NOTE]
+> `global.data.js` works too. See [Supported file types](#supported-file-types) for all available extensions.
+
+For data that aggregates across multiple pages — like blog indexes, sitemaps, or RSS feed content — use `global.data.ts`. It receives the fully resolved source-backed `PageData[]` array and returns an object that is passed to generated-page factories and stamped onto every source-backed and generated page's vars. The derived data is therefore available to every page, layout, and template at final render time.
+
+```typescript
+// src/global.data.ts
+import type { AsyncGlobalDataFunction } from '@domstack/static/types.js'
+import { html, render } from 'fragtml'
+
+type GlobalData = {
+  blogPostsHtml: string
+}
+
+const buildGlobalData: AsyncGlobalDataFunction<GlobalData> = async ({ pages }) => {
+  const blogPosts = pages
+    .filter(p => p.vars?.layout === 'blog' && p.vars?.publishDate)
+    .sort((a, b) => new Date(b.vars.publishDate) - new Date(a.vars.publishDate))
+    .slice(0, 5)
+
+  const blogPostsHtml = render(html`
+    <ul class="blog-index-list">
+      ${blogPosts.map(p => html`
+        <li class="blog-entry h-entry">
+          <a class="blog-entry-link u-url u-uid p-name" href="${p.pageInfo.url}">
+            ${p.vars?.title}
+          </a>
+        </li>
+      `)}
+    </ul>
+  `)
+
+  return { blogPostsHtml }
+}
+
+export default buildGlobalData
+```
+
+The returned object is stamped onto every page's vars before rendering, so any page or layout can read the derived data via `vars`:
+
+```md
+<!-- src/page.md -->
+## [Blog](./blog/)
+
+{{{ vars.blogPostsHtml }}}
+```
+
+**Key properties of `global.data.ts`:**
+
+- **Centralizes page collation and processing.** Collect, filter, group, and sort pages once, then share the result with generated pages, normal pages, layouts, and templates instead of repeating the same work in each downstream consumer.
+- Receives fully resolved source-backed `PageData[]` — every page has `.vars` (merged global + page + builder vars), `.pageInfo` (path, type, etc.), `.styles`, `.scripts`, and more. Generated pages do not exist yet.
+- Runs inside the worker process (same as all other dynamic imports) to avoid ESM caching issues.
+- Skipped entirely if no `global.data.*` file exists — zero overhead.
+- Changes to `global.data.*` trigger a full page rebuild (same as `global.vars.*`), since the output is stamped onto every page's vars.
+
+### Global data types
+
+Use `GlobalDataFunction<T>` for a synchronous function or `AsyncGlobalDataFunction<T>` for an async function. In both types, `T` describes the derived variables object returned by `global.data.ts`:
+
+```typescript
+// src/global.data.ts
+import type { GlobalDataFunction } from '@domstack/static/types.js'
+
+type DerivedData = {
+  pageCount: number
+  pageUrls: string[]
+}
+
+const globalData: GlobalDataFunction<DerivedData> = ({ pages }) => {
+  return {
+    pageCount: pages.length,
+    pageUrls: pages.map(page => page.pageInfo.url),
+  }
+}
+
+export default globalData
+```
+
+Use `AsyncGlobalDataFunction<DerivedData>` instead when the implementation needs to await rendering, network requests, or other asynchronous work.
+
+### Global data caveats
+
+> [!CAUTION]
+> `page.vars` is a cached, shallow-frozen object containing the resolved variable cascade. Treat it as read-only. Create a new object when you need to add or replace values.
+
+```typescript
+// src/global.data.ts
+// Do not mutate the resolved page variables.
+page.vars.slug = createSlug(page.vars.title)
+
+// Create a new object instead.
+const derivedVars = {
+  ...page.vars,
+  slug: createSlug(page.vars.title),
+}
+```
+
+> [!WARNING]
+> Accessing `page.vars` throws when that page failed to initialize, such as when a page-variable module contains a syntax error, missing dependency, or runtime error. Fix the underlying page initialization failure rather than treating missing variables as valid data.
+
+> [!NOTE]
+> Raw Markdown is not exposed as `page.vars.content`. Markdown variables include frontmatter-derived values such as `title`. Call `readMarkdownContent()` when you need the source body.
+
+```typescript
+// src/global.data.ts
+const markdownSources = await Promise.all(
+  pages
+    .filter(page => page.pageInfo.type === 'md')
+    .map(async page => ({
+      path: page.pageInfo.path,
+      markdown: await page.readMarkdownContent(),
+    }))
+)
+```
+
+> [!TIP]
+> `global.data.ts` can call `renderInnerPage()` because it runs after source-backed page initialization has been attempted. The same initialization caveat applies, and rendering requires the current `pages` collection.
+
+```typescript
+// src/global.data.ts
+const renderedPages = await Promise.all(
+  pages.map(async page => ({
+    path: page.pageInfo.path,
+    html: await page.renderInnerPage({ pages }),
+  }))
+)
+```
+
+See [Rendering page content](#rendering-page-content) for rendering semantics and performance guidance.
+
+## Generated Pages
+
+Generated-pages files create one or more DOMStack pages from a central `*.pages.*` module.
+Unlike templates, generated pages use the normal page and layout pipeline: each definition supplies page variables and children, which DOMStack renders through the selected layout.
+Use generated pages for data-driven output such as blog index pages or HTML redirects derived from frontmatter.
+
+Generated-pages files use the `*.pages.ts` suffix.
+
+> [!NOTE]
+> Wherever you see `*.pages.ts` being used, you can also use `*.pages.js`. Type checking is supported in both file types. See [Supported file types](#supported-file-types) for all available extensions.
+
+### Generated-pages exports
+
+Like [variable providers](#variable-providers), generated-page factories may be synchronous or asynchronous. Unlike variable providers, they return page definitions and may produce multiple results.
+
+A generated-pages module can default-export:
+
+| Export | Use when |
+|---|---|
+| One `GeneratedPageDefinition` object | The module always creates one page |
+| An array of definitions | The module always creates a fixed set of pages and needs no build context |
+| A normal or `async` function | Definitions depend on source pages, global or derived data, or other discovery data |
+| An async iterable, usually returned by `async function*` | Pages are discovered incrementally or the total is not known in advance |
+
+Static objects and arrays do not receive factory parameters.
+
+#### One page definition
+
+Export one object when the module always creates a single page:
+
+```ts
+// src/about.pages.ts
+export default {
+  outputName: 'about/index.html',
+  vars: { layout: 'root', title: 'About' },
+  children: '<p>About this site</p>',
+}
+```
+
+#### Page definition array
+
+Export an array when the module always creates a fixed set of pages:
+
+```ts
+// src/legal.pages.ts
+export default [
+  {
+    outputName: 'terms/index.html',
+    vars: { layout: 'legal', title: 'Terms' },
+    children: 'Terms of service',
+  },
+  {
+    outputName: 'privacy/index.html',
+    vars: { layout: 'legal', title: 'Privacy' },
+    children: 'Privacy policy',
+  },
+]
+```
+
+#### Synchronous factory
+
+Export a function when definitions depend on source pages or shared variables:
+
+```ts
+// src/tag-indexes.pages.ts
+export default function tagIndexes ({ vars }) {
+  return Object.entries(vars.tagIndex).map(([tag, posts]) => ({
+    outputName: `tags/${tag}/index.html`,
+    vars: { layout: 'tag-index', title: `Posts tagged ${tag}`, posts },
+  }))
+}
+```
+
+For a complete two-stage factory example, see [Generate yearly blog index pages](#generate-yearly-blog-index-pages).
+
+#### Asynchronous factory
+
+Export an async function when creating definitions requires asynchronous work:
+
+```ts
+// src/team.pages.ts
+import { readFile } from 'node:fs/promises'
+
+export default async function teamPages () {
+  const members = JSON.parse(
+      await readFile(new URL('./data/team.json', import.meta.url), 'utf8')
+    )
+
+  return members.map(member => ({
+    outputName: `team/${member.slug}/index.html`,
+    vars: { layout: 'profile', title: member.name, member },
+  }))
+}
+```
+
+#### Async iterable
+
+Export an async generator when pages should be yielded incrementally:
+
+```ts
+// src/archive.pages.ts
+export default async function * archivePages ({ vars }) {
+  for (const year of vars.blogYears) {
+    yield {
+      outputName: `blog/${year}/index.html`,
+      vars: { layout: 'archive', year },
+    }
+  }
+}
+```
+
+### Generated-pages factory parameters
+
+Functions receive one object with:
+
+> [!IMPORTANT]
+> Generated-page factories receive only [source-backed pages](#pages). They do not receive pages generated by the same or other `*.pages.ts` files.
+
+| Parameter | Contents |
+|---|---|
+| `pages` | Initialized source-backed `PageData[]`. Generated pages from this or other pages files are not included. |
+| `vars` | Default and global vars plus the values returned by `global.data.*`. |
+| `pagesFile` | Information about the current file. `name` is the filename without its `.pages.*` suffix, `path` is its source-relative directory, and `pagesFile` contains the underlying file information. |
+| `siteData` | Discovery data returned by `identifyPages()`. Its `siteData.pages` array is also source-backed only. |
+
+Every `*.pages.ts` factory receives the same snapshot of source-backed pages and global data. A `*.pages.ts` file cannot access pages created by another `*.pages.ts` file, regardless of file processing order. After every factory finishes, DOMStack adds all generated pages to the final `pages` collection used while rendering page functions, layouts, and templates.
+
+### Generated page definitions
+
+| Field | Behavior |
+|---|---|
+| `outputName` | Output path relative to the pages file's directory. It must name a file, must not be absolute or contain `..` segments, and cannot end in a path separator. Defaults to `<pages-file-name>/index.html`. |
+| `vars` | Page-level vars merged with the normal default, global, layout, and builder vars. |
+| `children` | Optional static child content or inline `PageFunction` rendered before the layout. |
+| `draft` | When `true`, the page is omitted unless the CLI uses `--drafts` or a programmatic build uses `buildDrafts: true`. |
+
+Generated pages use [global assets](#global-assets) and [layout assets](#layout-styles). They do not have page-local `style.css`, `client.js`, or worker entries because they do not have their own source-page directory.
+
+### Generated-pages types
+
+Use `GeneratedPageDefinition<T, U>` to type an individual definition. `T` is the generated page's variables type, and `U` is its children type, which defaults to `string`:
+
+```ts
+// src/terms.pages.ts
+import type { GeneratedPageDefinition } from '@domstack/static/types.js'
+
+type LegalPageVars = {
+  layout: string
+  title: string
+}
+
+const terms: GeneratedPageDefinition<LegalPageVars> = {
+  outputName: 'terms/index.html',
+  vars: { layout: 'legal', title: 'Terms' },
+  children: 'Terms of service',
+}
+
+export default terms
+```
+
+Use `PagesFunction<T, U, V>` for normal functions, async functions, and async generators:
+
+- `T` is the variables type added to each generated page.
+- `U` is the generated children type (defaults to `string`).
+- `V` is the default, global, and derived variables type received by the factory.
+
+```ts
+// src/archive.pages.ts
+import type { PagesFunction } from '@domstack/static/types.js'
+
+type ArchiveVars = { layout: string, year: number }
+type CollectionVars = { blogYears: number[] }
+
+const archivePages: PagesFunction<ArchiveVars, string, CollectionVars> = async function * ({ vars }) {
+  for (const year of vars.blogYears) {
+    yield {
+      outputName: `blog/${year}/index.html`,
+      vars: { layout: 'archive', year },
+    }
+  }
+}
+
+export default archivePages
+```
+
+For metadata-driven redirects, see the cookbook recipe [Generate redirect pages from page metadata](#generate-redirect-pages-from-page-metadata).
+
 ## Templates
 
-Template files let you write any kind of file type to the `dest` folder while customizing the contents of that file with access to the site [Variables](#variables) object, or inject any other kind of data fetched at build time. Template files can be located anywhere and look like:
+Template files let you write any kind of file type to the `dest` folder while customizing the contents of that file with access to the site [Variables](#variables) object, or inject any other kind of data fetched at build time. Template files can be located anywhere in the `src` directory. For a complete feed-generation recipe, see [Generate RSS and JSON feeds](#generate-rss-and-json-feeds).
+
+Template files look like:
 
 ```bash
 name-of-template.txt.template.ts
 ${name-portion}.template.ts
 ```
 
-Template files are a `ts`/`js` file that default exports one of the following sync/async functions:
+Template files are `.ts` files that default-export one of the following sync/async functions:
+
+> [!NOTE]
+> Wherever you see `.template.ts` being used, you can also use `.template.js`. Type checking is supported in both file types. See [Supported file types](#supported-file-types) for all available extensions.
 
 ### Simple string template
 
@@ -954,24 +1519,852 @@ This is just a file with access to global vars: ${testVar}`,
 export default templateIterator
 ```
 
+Templates receive the current page collection through `pages`. See [Page data and introspection](#page-data-and-introspection) for page metadata and rendering methods.
+
 ### Choosing a template return type
 
 Use the simplest return type that fits your needs:
 
-| Return type | Multiple outputs | Custom output path | Use when |
-|---|---|---|---|
-| String | No | No (derived from template filename) | Single file, output path derived from template filename |
-| Object | No | Yes | Single file with a custom output path |
-| Array | Yes | Yes | Fixed set of output files known at build time |
-| AsyncIterator | Yes | Yes | Dynamic or unknown number of outputs at build time |
+| Return type | Multiple outputs | Custom output path | Buffers the output set | Use when |
+|---|---|---|---|---|
+| String | No | No (derived from template filename) | — | Single file, output path derived from template filename |
+| Object | No | Yes | — | Single file with a custom output path |
+| Array | Yes | Yes | Yes | Fixed set of output files known at build time |
+| AsyncIterator | Yes | Yes | No | Dynamic or unknown number of outputs, or when outputs should be yielded incrementally without buffering the full set |
 
 Start with a string return and only switch to a more complex type when you need what it provides. All template forms can do async work (string, object, and array all support `async` functions). Choose AsyncIterator specifically when the number of output files is not known until the template runs, or when you want to stream outputs one at a time rather than building the full list in memory first.
 
-### RSS Feed Template Example
 
-Templates receive the standard variables available to pages, so its possible to perform page introspection and generate RSS feeds of website content.
+## Page data and introspection
 
-The following example shows how to generate an [RSS](https://www.rssboard.org) and [JSON feed](https://www.jsonfeed.org) of the last 10 date sorted pages with the `blog` layout using the AsyncIterator template type.
+Page functions and layouts, including those rendering generated pages, receive metadata for the current page through `page`. Page functions, layouts, and templates receive the final collection of source-backed and generated `PageData` instances through `pages`. Entries in `pages` expose their resolved variables, source metadata, and methods for rendering page content.
+
+```typescript
+// src/example/page.ts
+export default function examplePage ({ page, pages }) {
+  console.log(page.url)
+  console.log(pages[0]?.pageInfo.url)
+  return ''
+}
+```
+
+Earlier build stages, including `global.data.ts` and generated-page factories, receive only [source-backed pages](#pages). See [Generated-pages factory parameters](#generated-pages-factory-parameters) for the snapshot available to `*.pages.ts` files.
+
+### Page metadata
+
+The current `page` is a `PageInfo` object with the following properties:
+
+- `type`: The page type (`md`, `html`, or `js`).
+- `path`: The source-relative directory path for the page.
+- `url`: The canonical URL path, such as `/blog/my-post/` for index pages or `/blog/loose-page.html` for loose pages.
+- `outputName`: The final output filename.
+- `outputRelname`: The destination-relative output path.
+- `pageFile`: Source-file path details.
+- `pageStyle`: File information when the page has a page style.
+- `clientBundle`: File information when the page has a client bundle.
+- `pageVars`: File information when the page has an adjacent page-variable file.
+- `generated`: Metadata about the `*.pages.ts` file that created a generated page, or `undefined` for a source-backed page.
+
+Each `PageData` entry exposes this object as `page.pageInfo`. Combine `page.pageInfo.url` with a `siteUrl` from `global.vars.ts` to build an absolute URL: `` `${vars.siteUrl}${page.pageInfo.url}` ``. The [RSS and JSON feed recipe](#generate-rss-and-json-feeds) uses this pattern for feed item URLs.
+
+### Rendering page content
+
+Each `PageData` instance exposes two methods for accessing rendered output. This is useful when another generated file needs to embed a page's content, such as the [`feeds.template.ts`](https://github.com/bcomnes/domstack/blob/master/examples/blog/src/feeds.template.ts) implementation in the [RSS and JSON feed recipe](#generate-rss-and-json-feeds).
+
+- `await page.renderInnerPage({ pages })` returns the page's inner render output as produced by its builder, without a layout wrapper applied. This is often an HTML string, such as Markdown rendered to HTML, but the type depends on the page builder.
+- `await page.renderFullPage({ pages })` returns the complete page output with its layout applied.
+
+Both methods are async and require the `pages` array available at that build stage. Rendering errors propagate and fail the build.
+
+### Rendering many pages
+
+Use [`global.data.ts`](#global-data) to pre-render content shared by multiple downstream pages or templates. This centralizes the work and makes the result available through the resolved variable cascade:
+
+```typescript
+// src/global.data.ts
+import type { AsyncGlobalDataFunction } from '@domstack/static/types.js'
+
+const globalData: AsyncGlobalDataFunction = async ({ pages }) => {
+  const entries = await Promise.all(
+    pages.map(async page => [
+      page.pageInfo.path,
+      await page.renderInnerPage({ pages })
+    ] as const)
+  )
+
+  return { renderedPagesByPath: Object.fromEntries(entries) }
+}
+
+export default globalData
+```
+
+Rendering performed inside `global.data.ts` cannot use the derived values that the same file is still computing. After `global.data.ts` returns, DOMStack adds those values to the page variable cascade before the normal rendering pass.
+
+
+## TypeScript Support
+
+`domstack` supports **TypeScript** via native type-stripping in Node.js.
+It helps you write better Javascript and with type stripping, has very little overhead.
+It's recommended that you use it!
+
+- **Requires Node.js ≥23** *(built-in)* or **Node.js 22** with the `NODE_OPTIONS="--experimental-strip-types" domstack` env variable.
+- Seamlessly mix `.ts`, `.mts`, `.cts` files alongside `.js`, `.mjs`, `.cjs`.
+- No explicit compilation step needed—Node.js handles type stripping at runtime.
+- Fully compatible with existing `domstack` file naming conventions.
+- Anywhere DOMStack loads JS files, it can now load TS files.
+
+### Supported File Types
+
+Anywhere you can use a `.js`, `.mjs`, or `.cjs` file in DOMStack, you can use the corresponding `.ts`, `.mts`, or `.cts` extension.
+
+> [!TIP]
+> Prefer the regular `.ts` and `.js` extensions with [`"type": "module"`](https://nodejs.org/api/packages.html#type) in `package.json`. Use the module-format escape-hatch extensions only when an individual file must override the package's module format.
+
+When running in a Node.js context, [type-stripping](https://nodejs.org/api/typescript.html#type-stripping) is used.
+When running in a web client context, [esbuild](https://esbuild.github.io/content-types/#typescript) type stripping is used.
+Type stripping provides 0 type checking, so be sure to set up `tsc` and `tsconfig.json` so you can catch type errors while editing or in CI.
+
+### Recommended `tsconfig.json`
+
+Install [@voxpelli/tsconfig](https://ghub.io/@voxpelli/tsconfig), which enables type checking in `.js` and `.ts` files and configures TypeScript for `--noEmit`. Extend its Node.js 22 baseline with DOMStack's type-stripping and client-TSX settings:
+
+```jsonc
+// tsconfig.json
+{
+  "extends": "@voxpelli/tsconfig/node22.json",
+  "compilerOptions": {
+    "skipLibCheck": true,
+    "jsx": "preserve",
+    "erasableSyntaxOnly": true,
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
+    "verbatimModuleSyntax": true
+  },
+  "include": ["src/**/*"],
+  "exclude": [
+    "node_modules",
+    "public",
+    "coverage"
+  ]
+}
+```
+
+### Using TypeScript with domstack Types
+
+You can use `domstack`'s built-in types to strongly type your layout, page, and template functions. Runtime values are imported from `@domstack/static`; types are imported from the dedicated `@domstack/static/types.js` entry. The following types are available:
+
+```ts
+// src/types.ts
+import type {
+  // Type a synchronous or asynchronous layout default export
+  LayoutFunction,
+  // Require a layout default export to return a promise
+  AsyncLayoutFunction,
+  // Type a synchronous or asynchronous global.data.ts default export
+  GlobalDataFunction,
+  // Require a global.data.ts default export to return a promise
+  AsyncGlobalDataFunction,
+  // Type a synchronous or asynchronous TypeScript page function
+  PageFunction,
+  // Require a TypeScript page function to return a promise
+  AsyncPageFunction,
+  // Type a template that returns one or more buffered outputs
+  TemplateFunction,
+  // Type an async-generator template that yields outputs incrementally
+  TemplateAsyncIterator,
+  // Type a generated-pages factory in a *.pages.ts file
+  PagesFunction,
+
+  // Describe one initialized entry in the pages collection
+  PageData,
+  // Describe metadata for the current page
+  PageInfo,
+  // Describe the current *.template.ts file
+  TemplateInfo,
+  // Describe the current *.pages.ts file
+  PagesFileInfo,
+  // Describe one page returned by a generated-pages module
+  GeneratedPageDefinition,
+
+  // Type a helper that receives a layout function's arguments
+  LayoutFunctionParams,
+  // Type a helper that receives global.data.ts arguments
+  GlobalDataFunctionParams,
+  // Type a helper that receives a page function's arguments
+  PageFunctionParams,
+  // Type a helper that receives a template function's arguments
+  TemplateFunctionParams,
+  // Type a helper that receives a generated-pages factory's arguments
+  PagesFunctionParams,
+} from '@domstack/static/types.js'
+```
+
+> [!NOTE]
+> Use `PageFunction`, `LayoutFunction`, and `GlobalDataFunction` for ordinary synchronous or asynchronous implementations. Their `Async*` variants are available when a type must specifically require a promise return value. `PagesFunction` supports normal functions, `async` functions, and async generators.
+
+The function types are generic and accept variable shapes that you can develop and share between files.
+
+The data and parameter types (`PageData`, `PageInfo`, `TemplateInfo`, `PagesFileInfo`, `GeneratedPageDefinition`, and `*FunctionParams`) are useful when you want to annotate variables or helper functions that receive these objects without using the function types directly:
+
+```ts
+// src/page-utils.ts
+import type { GlobalDataFunctionParams, PageData, PageInfo } from '@domstack/static/types.js'
+
+function getPublishedPages({ pages }: GlobalDataFunctionParams): PageData[] {
+  return pages.filter((p: PageData) => {
+    const info: PageInfo = p.pageInfo
+    return !info.draft
+  })
+}
+```
+
+#### Advanced type parameters
+
+`PageFunction`, `LayoutFunction`, and `PagesFunction` support additional type parameters for precise input and return type control:
+
+**PageFunction<T, U>**
+- `T` - The type of variables passed to the page (required)
+- `U` - The return type of the page function (optional, defaults to `any`)
+
+**LayoutFunction<T, U, V>**
+- `T` - The type of variables passed to the layout (required)
+- `U` - The type of content received from pages as `children` (optional, defaults to `any`)
+- `V` - The return type of the layout function (optional, defaults to `string`)
+
+**PagesFunction<T, U, V>**
+- `T` - The vars added to generated pages (optional, defaults to `Record<string, any>`)
+- `U` - The static children or inline page-function return type (optional, defaults to `string`)
+- `V` - The default and global vars received by the pages factory (optional, defaults to `Record<string, any>`)
+
+This allows pages to return custom types (like VDOM or JSON), ensures layouts produce HTML strings, and keeps generated-page vars separate from the vars used to create them:
+
+```ts
+// src/rendering-types.ts
+// Define custom types
+type VDOMNode = {
+  type: string
+  props: Record<string, any>
+  children: Array<VDOMNode | string>
+}
+
+// Page returns VDOM
+const page: PageFunction<{title: string}, VDOMNode> = ({ vars }) => ({
+  type: 'h1',
+  props: {},
+  children: [vars.title]
+})
+
+// Layout accepts VDOM, returns HTML string
+const layout: LayoutFunction<{site: string}, VDOMNode, string> = ({ children }) => {
+  const html = renderVDOM(children) // Convert VDOM to HTML
+  return `<html><body>${html}</body></html>`
+}
+```
+
+## Advanced
+
+These features customize DOMStack’s rendering pipeline or coordinate generated assets with browser runtimes.
+
+### Custom layout renderers
+
+DOMStack's bundled default layout uses [`fragtml`][fragtml] because the default template only needs safe string manipulation.
+You can eject or replace that layout with any Node-compatible renderer that returns an HTML string.
+The previous incumbent for this job was `htm/preact` with [`preact-render-to-string`](https://github.com/preactjs/preact-render-to-string).
+That is still a good fit when your Node-side pages or layouts produce Preact VNodes, or when you want the same component model on the server and in browser bundles.
+If you also want Preact or React in browser JSX/TSX bundles, configure that separately as described in [`.tsx`](#tsx).
+
+```console
+npm install htm preact preact-render-to-string
+```
+
+```js
+/**
+ * @import { LayoutFunction } from '@domstack/static/types.js'
+ * @import { VNode } from 'preact'
+ */
+import { html } from 'htm/preact'
+import { render } from 'preact-render-to-string'
+
+/** @type {LayoutFunction<Record<string, any>, string | VNode, string>} */
+export default function rootLayout ({ children, vars, scripts, styles }) {
+  return `<!DOCTYPE html>
+${render(html`<html lang=${vars.lang ?? 'en'}>
+  <head>
+    <title>${vars.title}</title>
+    ${styles?.map(style => html`<link rel="stylesheet" href=${style} />`)}
+    ${scripts?.map(script => html`<script type="module" src=${script}></script>`)}
+  </head>
+  <body>
+    ${typeof children === 'string'
+      ? html`<main dangerouslySetInnerHTML=${{ __html: children }} />`
+      : html`<main>${children}</main>`}
+  </body>
+</html>`)}`
+}
+```
+
+[`preact-render-to-string`](https://github.com/preactjs/preact-render-to-string) works, but it builds a virtual DOM tree just to serialize layout HTML.
+For layouts that mostly combine strings and already-rendered page content, [`async-htm-to-string`](https://github.com/voxpelli/async-htm-to-string) keeps the familiar HTM tagged-template style while rendering directly to strings.
+That can be a better-performing and more direct tool for server-only layout templates.
+You can still use Preact for browser-side components and use `async-htm-to-string` for Node-side layout rendering.
+
+```console
+npm install async-htm-to-string
+```
+
+```js
+/**
+ * @import { LayoutFunction } from '@domstack/static/types.js'
+ */
+import { html, rawHtml } from 'async-htm-to-string'
+
+/** @type {LayoutFunction<Record<string, any>, string, Promise<string>>} */
+export default async function rootLayout ({ children, vars, scripts, styles }) {
+  return await html`<!DOCTYPE html>
+<html lang="${vars.lang ?? 'en'}">
+  <head>
+    <title>${vars.title}</title>
+    ${styles?.map(style => html`<link rel="stylesheet" href="${style}" />`)}
+    ${scripts?.map(script => html`<script type="module" src="${script}"></script>`)}
+  </head>
+  <body>
+    <main>${rawHtml(children)}</main>
+  </body>
+</html>`
+}
+```
+
+Key differences from `htm/preact` and DOMStack's `fragtml` default:
+
+- **Attribute names are standard HTML.**
+Use `class` and `for` rather than React aliases like `className` and `htmlFor`, which `async-htm-to-string` will output literally with no warning.
+For attributes like `tabindex`, `tabIndex` is only a casing preference in HTML, but using standard lowercase keeps templates consistent.
+- **Always `await` the `html` tag.**
+The tag returns an object that resolves to a string asynchronously.
+If you return it without `await` from a non-async function, or assign it where a string is expected, you will get `[object Object]` in the output with no error thrown.
+Use `async function` and `await` the result.
+
+> [!CAUTION]
+> `rawHtml()` bypasses HTML escaping and is equivalent to setting `innerHTML` directly. Only use it with trusted HTML that you generated or sanitized yourself, such as the output of `await page.renderInnerPage({ pages })` or a trusted Markdown renderer. `children` passed to a layout can be any type returned by a page function and may contain unsanitized content; always verify its source before passing it to `rawHtml()`.
+
+### Web workers
+
+You can easily write [web workers](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Using_web_workers) for a page by adding a file called `${name}.worker.ts` or `${name}.worker.js` where `name` becomes the name of the worker filename in the `workers.json` file.
+DOMStack will build these similarly to page `client.ts` bundles, and will even bundle split their contents with the rest of your site.
+
+```
+page-directory/
+  ├── page.js
+  ├── client.js
+  ├── counter.worker.js  # Worker with counter functionality
+  └── data.worker.js     # Worker for data processing
+```
+
+To use a woker, load in a `./workers.json` file that is generated along with the worker bundle to get the final name of the worker entrypoint and then create a worker with that filename.
+
+```typescript
+// First, fetch the workers.json to get worker paths in your client.ts
+async function initializeWorkers() {
+  const response = await fetch('./workers.json');
+  const workersData = await response.json();
+
+  // Initialize workers with the correct hashed filenames
+  const counterWorker = new Worker(
+    new URL(`./${workersData.counter}`, import.meta.url),
+    { type: 'module' }
+  );
+
+  // Use the worker
+  counterWorker.postMessage({ action: 'increment' });
+
+  counterWorker.onmessage = (e) => {
+    console.log(e.data);
+  };
+
+  return counterWorker;
+}
+
+const worker = await initializeWorkers();
+```
+
+See the [Web Workers Example](https://github.com/domstack/domstack/tree/master/examples/worker-example) for a complete implementation.
+
+### Service workers
+
+DOMStack has full native support for [service workers](https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API).
+Put one site service worker source file anywhere under `src` and domstack will build it to a stable
+root `/service-worker.js` output:
+
+```txt
+src/
+└── globals/
+    └── service-worker.ts
+```
+
+DOMStack produces:
+
+```txt
+public/
+└── service-worker.js
+```
+
+> [!NOTE]
+> Wherever `service-worker.ts` is used, you can also use `service-worker.js`. Type checking is supported in both file types. See [Supported file types](#supported-file-types) for all available extensions.
+
+Only one site service worker source is allowed. If multiple `service-worker.*` sources are present,
+domstack fails with `DOM_STACK_ERROR_DUPLICATE_SERVICE_WORKER`. Service workers are bundled using the project’s [`esbuild.settings.ts`](#esbuild-settingsts) configuration, so imports work the same way they do for client bundles and page-scoped web workers. The
+entry filename is intentionally not content-hashed because browser service-worker update checks need
+a stable URL.
+
+DOMStack provides the service-worker URL and scope to browser bundles through esbuild `define` values:
+
+| Define | Value |
+| --- | --- |
+| `process.env.DOMSTACK_SERVICE_WORKER_URL` | Public URL of the site service worker, usually `/service-worker.js`, or `""` when no service worker is present |
+| `process.env.DOMSTACK_SERVICE_WORKER_SCOPE` | Registration scope for the site service worker, usually `/`, or `""` when no service worker is present |
+
+Register the built service worker from your site client code, usually `global.client.ts`:
+
+```typescript
+// src/globals/global.client.ts
+const serviceWorkerUrl = process.env.DOMSTACK_SERVICE_WORKER_URL
+const serviceWorkerScope = process.env.DOMSTACK_SERVICE_WORKER_SCOPE
+
+if (serviceWorkerUrl && serviceWorkerScope && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.register(serviceWorkerUrl, {
+    scope: serviceWorkerScope,
+    type: 'module',
+    updateViaCache: 'none'
+  })
+}
+```
+
+DOMStack does not inject this into the default layout. Registration timing, update prompts, development opt-outs, and recovery behavior are application policy, so keep that logic in your global client or an imported client module.
+
+#### Registration and Web App Manifests
+
+Browsers allow service-worker registration only in a [secure context](https://developer.mozilla.org/en-US/docs/Web/Security/Secure_Contexts), normally HTTPS in production or localhost during development. The service-worker script must be served from the same origin as the page. DOMStack emits it at the origin root so its default scope can cover the entire site. Register it with `type: 'module'` because DOMStack builds the worker as ESM.
+
+A [Web App Manifest](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Manifest) is not required to register or run a service worker. Add one when the site also needs installable-app metadata such as its name, icons, start URL, display mode, and theme colors. DOMStack does not generate this browser manifest. Author it as a [static asset](#static-assets) and reference it from the document head:
+
+```html
+<!-- HTML generated by src/layouts/root.layout.ts -->
+<link rel="manifest" href="/site.webmanifest">
+```
+
+See these complete examples:
+
+- [`static-mpa-offline`](./examples/static-mpa-offline/) uses DOMStack's manifest hooks with a custom service worker and registration lifecycle.
+- [`static-mpa-workbox-offline`](./examples/static-mpa-workbox-offline/) implements the same offline MPA pattern with Workbox.
+
+> [!CAUTION]
+> DOMStack does not clean `dest` before building. Clean the destination before deployment, especially after removing or renaming a service worker, so an old `/service-worker.js` cannot remain publicly available.
+
+### DOMStack manifest
+
+The DOMStack manifest is build metadata for service workers, deployment tools, and other build-time integrations. It is not a [Web App Manifest](#registration-and-web-app-manifests). (A Web App Manifest such as `site.webmanifest` can be generated independently with a [template](#templates).)
+
+A generated manifest resembles:
+
+```jsonc
+// public/domstack-manifest.json
+{
+  "$schema": "https://unpkg.com/@domstack/static@<version>/lib/domstack-manifest/schema.json",
+  "version": "a1b2c3...",
+  "generatedAt": "2026-08-31T12:00:00.000Z",
+  "entries": [
+    {
+      "outputRelname": "index.html",
+      "kind": "page",
+      "url": "/",
+      "revision": "d4e5f6...",
+      "bytes": 1240,
+      "contentType": "text/html; charset=utf-8",
+      "static": true,
+      "role": "navigation"
+    }
+  ],
+  "policy": {
+    "offlineFallbackUrl": "/offline/"
+  }
+}
+```
+
+When enabled, DOMStack collects its emitted pages, templates, bundles, workers, copied files, and static assets into a normalized list of public outputs. You can filter that list, expose selected page variables, attach application policy, and consume the finalized result from a hook or programmatic build. The finalized manifest can be injected statically into your service worker or emitted as a standalone `domstack-manifest.json` file.
+
+> [!WARNING]
+> The DOMStack manifest pipeline is an unstable preview feature. This includes its schema, settings, hooks, policy and entry variables, and `process.env.DOMSTACK_MANIFEST_*` defines. Pin `@domstack/static` to an exact version when building against this preview API.
+
+The manifest lifecycle is:
+
+1. DOMStack collects and reconciles emitted outputs.
+2. Excludes and entry filters run, then selected page variables are attached.
+3. DOMStack finalizes the manifest entries, root policy, and deterministic version.
+4. `manifestBuilt` hooks receive the finalized manifest.
+5. DOMStack bundles the site service worker with any constants defined by the hooks.
+6. DOMStack optionally writes `domstack-manifest.json` and returns the manifest from programmatic builds.
+
+The site service worker is omitted from manifest entries. This allows the finalized manifest version to be embedded in `/service-worker.js` without creating a circular content hash.
+
+#### Enable the manifest
+
+The manifest pipeline is disabled by default. Enable it with one of these configuration surfaces:
+
+| Configuration | Pipeline enabled | Writes `domstack-manifest.json` |
+|---|---:|---:|
+| One `domstack-manifest.settings.ts` file anywhere in `src` | Yes | No |
+| `domstackManifest: true` | Yes | Yes |
+| `domstackManifest: { ... }` | Yes | Only with `write: true` |
+| CLI `--domstackManifest` | Yes | Yes |
+
+A settings file enables manifest reconciliation, hooks, and `results.domstackManifest` without requiring a public JSON file. This is sufficient when a service worker receives its cache policy through an injected build constant.
+
+> [!NOTE]
+> Wherever `domstack-manifest.settings.ts` is used, you can also use `domstack-manifest.settings.js`. Type checking is supported in both file types. See [Supported file types](#supported-file-types) for all available extensions.
+
+
+#### Configure entries and policy
+
+Create one `domstack-manifest.settings.ts` file anywhere under `src`. It can default-export an options object or a synchronous or asynchronous function that returns one.
+
+```typescript
+// src/globals/domstack-manifest.settings.ts
+import type { DomstackManifestOptions } from '@domstack/static/types.js'
+
+type PageVars = {
+  offline?: boolean
+  precache?: boolean
+}
+
+type ManifestVars = Pick<PageVars, 'offline' | 'precache'>
+
+type ManifestPolicy = {
+  offlineFallbackUrl: string
+}
+
+const settings = {
+  exclude: ['admin/**', '**/*.map'],
+  includeEntry: entry => entry.kind !== 'metadata',
+  manifestVars: ['offline', 'precache'],
+  policy: {
+    offlineFallbackUrl: '/offline/'
+  }
+} satisfies DomstackManifestOptions<
+  ManifestPolicy,
+  ManifestVars,
+  PageVars
+>
+
+export default settings
+```
+
+The main settings are:
+
+| Setting | Purpose |
+|---|---|
+| `exclude` | Ignore-style patterns matched against both `entry.url` and `entry.outputRelname` |
+| `includeEntry(entry)` | A final synchronous or asynchronous predicate that returns `true` to retain an entry |
+| `manifestVars` | An allowlist or per-entry transform that exposes selected resolved page variables |
+| `policy` | A manifest-wide object or transform for application-defined policy |
+| `hooks.manifestBuilt` | Hooks that consume the finalized manifest before the service worker is bundled |
+
+Only variables explicitly selected by `manifestVars` are copied into entries. Arbitrary page variables are not exposed automatically. `exclude` runs before `includeEntry(entry)`.
+
+The resulting manifest contains:
+
+- `version`: A deterministic digest that changes when retained cache-relevant entries or root policy change
+- `generatedAt`: The build timestamp, which does not affect `version`
+- `entries`: Included public outputs sorted by URL
+- `policy`: Optional application-defined manifest-wide policy
+
+Useful entry fields include `url`, `revision`, `kind`, `bytes`, `contentType`, `integrity`, `urlRevisioned`, `static`, `role`, and explicitly selected `manifestVars`. Import `DomstackManifest` and `DomstackManifestEntry` from `@domstack/static/types.js` when consuming these objects directly.
+
+#### Manifest built hooks
+
+`hooks.manifestBuilt` runs after entries, policy, and version are finalized but before `/service-worker.js` is bundled. Each hook receives:
+
+- `manifest`: The finalized manifest
+- `dest`: The absolute destination directory
+- `defineServiceWorkerConstant(name, value)`: Injects a JSON-serializable value into only the final service-worker bundle
+- `writeFile(outputRelname, contents)`: Writes an additional file under `dest`
+
+Files written by a hook are not added back to the already-finalized manifest. Prefer an injected constant when only the service worker needs the generated data.
+
+#### Service worker integration
+
+A manifest hook can turn the normalized entries into a small application-specific cache policy:
+
+```typescript
+// src/globals/domstack-manifest.settings.ts
+import type {
+  DomstackManifestBuiltHookContext,
+  DomstackManifestOptions
+} from '@domstack/static/types.js'
+
+export type CachePolicy = {
+  version: string
+  precacheEntries: Array<{
+    url: string
+    revision: string | null
+    integrity?: string
+  }>
+}
+
+function injectCachePolicy (
+  context: DomstackManifestBuiltHookContext
+): void {
+  const policy: CachePolicy = {
+    version: context.manifest.version,
+    precacheEntries: context.manifest.entries
+      .filter(entry => entry.static === true)
+      .filter(entry => entry.revision)
+      .map(entry => ({
+        url: entry.url,
+        revision: entry.urlRevisioned ? null : entry.revision,
+        ...(entry.integrity ? { integrity: entry.integrity } : {})
+      }))
+  }
+
+  context.defineServiceWorkerConstant('__APP_CACHE_POLICY__', policy)
+}
+
+const settings = {
+  hooks: {
+    manifestBuilt: [injectCachePolicy]
+  }
+} satisfies DomstackManifestOptions
+
+export default settings
+```
+
+The service worker can then consume the injected value without fetching a public manifest at runtime:
+
+```typescript
+// src/globals/service-worker.ts
+import type { CachePolicy } from './domstack-manifest.settings.ts'
+
+declare const __APP_CACHE_POLICY__: CachePolicy
+
+const cachePolicy = __APP_CACHE_POLICY__
+```
+
+Manifest-enabled builds also define:
+
+| Define | Value |
+|---|---|
+| `process.env.DOMSTACK_MANIFEST_ENABLED` | `"true"` for a manifest-enabled one-shot build and `"false"` otherwise |
+| `process.env.DOMSTACK_MANIFEST_VERSION` | The finalized version inside `/service-worker.js`; `""` in other bundles |
+| `process.env.DOMSTACK_MANIFEST_URL` | The conventional `/domstack-manifest.json` URL |
+
+`DOMSTACK_MANIFEST_URL` does not guarantee that the JSON file was written. Fetch it only when `--domstackManifest`, `domstackManifest: true`, or `{ write: true }` enabled public output.
+
+> [!IMPORTANT]
+> Watch mode still bundles the service worker, but it does not finalize, return, or write the DOMStack manifest. Manifest hooks do not inject production cache policy in watch mode. Use a one-shot build or `domstack --serve` to test manifest-driven service-worker behavior.
+
+`domstack --serve` runs a normal one-shot build and serves `dest` without watch-mode filenames or live-reload injection:
+
+```console
+domstack --serve
+domstack --serve --port 3001
+```
+
+See the complete examples for production-oriented cache lifecycle behavior:
+
+- [`static-mpa-offline`](./examples/static-mpa-offline/) injects DOMStack manifest entries into a custom service worker.
+- [`static-mpa-workbox-offline`](./examples/static-mpa-workbox-offline/) converts the finalized entries into Workbox precaching and routing policy.
+
+#### Programmatic configuration
+
+Configure the manifest through the `DomStack` constructor when coordinating it with another build tool or script:
+
+```typescript
+// scripts/build.ts
+import { DomStack } from '@domstack/static'
+
+const site = new DomStack('src', 'public', {
+  domstackManifest: {
+    write: true,
+    exclude: ['admin/**', '**/*.map']
+  }
+})
+
+const results = await site.build()
+console.log(results.domstackManifest?.version)
+```
+
+### Programmatic test builds
+
+Use the top-level `testBuild` helper to build into a temporary directory from tests without managing setup and cleanup yourself.
+
+```js
+import { test } from 'node:test'
+import assert from 'node:assert'
+import { testBuild } from '@domstack/static'
+
+test('site output', async () => {
+  const build = await testBuild('./src')
+
+  try {
+    const html = await build.readOutput('index.html')
+    assert.match(html, /Hello/)
+  } finally {
+    await build.cleanup()
+  }
+})
+```
+
+`testBuild(src, opts)` creates a temporary destination directory, runs `new DomStack(src, dest, opts).build()`, and returns `{ dest, results, readOutput, cleanup }`. Options are passed through to `DomStack`, including `copy` paths.
+
+See these repository tests for complete usage:
+
+- [`test-build-helper/index.test.js`](https://github.com/bcomnes/domstack/blob/master/test-cases/test-build-helper/index.test.js) tests temporary output, `readOutput()`, copied directories, and cleanup.
+- [`default-layout/index.test.js`](https://github.com/bcomnes/domstack/blob/master/test-cases/default-layout/index.test.js) uses `testBuild()` for a focused output assertion.
+- [`generated-pages/index.test.js`](https://github.com/bcomnes/domstack/blob/master/test-cases/generated-pages/index.test.js) uses it with generated pages, global data, and templates.
+
+## Cookbook
+
+Applied examples that combine multiple DOMStack features.
+
+### Compose nested layouts
+
+Since layouts are just functions™️, they nest naturally. If you define the majority of your HTML page metadata in a `root.layout.ts`, you can define additional layouts that act as child wrappers without having to redefine everything in `root.layout.ts`.
+
+For example, you could define a `blog.layout.ts` that re-uses the `root.layout.ts`:
+
+```typescript
+import defaultRootLayout from './root.layout.ts'
+import { html, raw, render } from 'fragtml'
+import type { HtmlResult } from 'fragtml/types.js'
+import type { LayoutFunction } from '@domstack/static/types.js'
+
+// Import the type from root layout
+import type { RootLayoutVars } from './root.layout'
+
+// Extend the RootLayoutVars with blog-specific properties
+interface BlogLayoutVars extends RootLayoutVars {
+  authorImgUrl?: string;
+  authorImgAlt?: string;
+  authorName?: string;
+  authorUrl?: string;
+  publishDate?: string;
+  updatedDate?: string;
+}
+
+const blogLayout: LayoutFunction<BlogLayoutVars, string | HtmlResult, string> = (layoutVars) => {
+  const { children: innerChildren, ...rest } = layoutVars
+  const vars = layoutVars.vars
+
+  const children = render(html`
+    <article class="article-layout h-entry" itemscope itemtype="http://schema.org/NewsArticle">
+      <header class="article-header">
+        <h1 class="p-name article-title" itemprop="headline">${vars.title}</h1>
+        <div class="metadata">
+          <address class="author-info" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            ${vars.authorImgUrl
+              ? html`<img height="40" width="40" src="${vars.authorImgUrl}" alt="${vars.authorImgAlt}" class="u-photo" itemprop="image" />`
+              : null
+            }
+            ${vars.authorName && vars.authorUrl
+              ? html`
+                  <a href="${vars.authorUrl}" class="p-author h-card" itemprop="url">
+                    <span itemprop="name">${vars.authorName}</span>
+                  </a>`
+              : null
+            }
+          </address>
+          ${vars.publishDate
+            ? html`
+              <time class="dt-published" itemprop="datePublished" datetime="${vars.publishDate}">
+                <a href="#" class="u-url">
+                  ${(new Date(vars.publishDate)).toLocaleString()}
+                </a>
+              </time>`
+            : null
+          }
+          ${vars.updatedDate
+            ? html`<time class="dt-updated" itemprop="dateModified" datetime="${vars.updatedDate}">Updated ${(new Date(vars.updatedDate)).toLocaleString()}</time>`
+            : null
+          }
+        </div>
+      </header>
+
+      <section class="e-content" itemprop="articleBody">
+        ${typeof innerChildren === 'string'
+          ? html`<div>${raw(innerChildren)}</div>`
+          : innerChildren
+        }
+      </section>
+    </article>
+  `)
+
+  const rootArgs = { ...rest, children }
+  return defaultRootLayout(rootArgs)
+}
+
+export default blogLayout
+```
+
+Now `blog.layout.ts` becomes a nested layout of `root.layout.ts`. No magic, just functions.
+
+Alternatively, you could compose your layouts from re-usable template functions and strings.
+If you find your layouts nesting more than one or two levels, perhaps composition would be a better strategy.
+
+#### Layout composition pitfalls
+
+> [!WARNING]
+> Nested layouts must explicitly forward `scripts` and `styles`. If these values are omitted, the page renders without its CSS or client-side JavaScript, and no error is reported.
+
+```typescript
+// wrong: scripts and styles are dropped
+return defaultRootLayout({ children, vars })
+
+// correct: forward them along
+return defaultRootLayout({ children, vars, scripts, styles })
+```
+
+**Vars can be modified before forwarding.** The rest-spread pattern shown above forwards vars unchanged, but you can extend the object before passing it to the base layout. This is useful for setting layout-specific flags that the root layout reads:
+
+```typescript
+const extendedVars = { ...vars, showSidebar: true, pageType: 'article' }
+return defaultRootLayout({ children, vars: extendedVars, scripts, styles })
+```
+
+**Forward `page`, `pages`, and `workers` when the base layout uses them.** If your root layout accesses `page.path` for canonical URLs, iterates `pages` for navigation, or uses `workers`, those params must also be forwarded:
+
+```typescript
+export default function articleLayout ({ children, vars, scripts, styles, page, pages, workers }) {
+  return defaultRootLayout({ children, vars, scripts, styles, page, pages, workers })
+}
+```
+
+Layout-specific styles and client bundles have a similar explicit-composition requirement: parent layout assets are not included automatically in nested layouts. See [Nested layout client bundles and styles](#nested-layout-client-bundles-and-styles) for the required `@import` and `import` pattern.
+
+#### Nested layout client bundles and styles
+
+> [!WARNING]
+> Nested layouts do not automatically inherit the styles or client bundle of the layout they wrap. Import those assets explicitly or the rendered page will omit them.
+
+Import the wrapped layout's assets from the additional layout's client and style files. For example, if `article.layout.ts` wraps `root.layout.ts`, do the following:
+
+```css
+/* article.layout.css  */
+@import "./root.layout.css";
+```
+
+This will include the layout style from the `root` layout in the `article` layout style.
+
+```typescript
+/* article.layout.client.ts  */
+import './root.layout.client.ts'
+```
+
+Adding these imports will include the `root.layout.ts` layout assets into the `blog.layout.ts` asset files.
+
+### Generate RSS and JSON feeds
+
+Templates receive the standard variables available to pages, so they can inspect pages and generate feeds from site content.
+
+The following example generates an [RSS](https://www.rssboard.org) and [JSON Feed](https://www.jsonfeed.org) from the 10 most recent date-sorted pages using the `blog` layout and the AsyncIterator template type. It uses [`renderInnerPage()`](#rendering-page-content) to include each post's rendered HTML. See the [blog example's `feeds.template.ts`](https://github.com/bcomnes/domstack/blob/master/examples/blog/src/feeds.template.ts) for a working implementation.
 
 ```typescript
 import pMap from 'p-map'
@@ -1043,170 +2436,104 @@ const feedsTemplate: TemplateAsyncIterator<TemplateVars> = async function * ({
 export default feedsTemplate
 ```
 
-### Accessing rendered page content
+### Generate yearly blog index pages
 
-Any `PageData` instance exposes two methods for accessing rendered output:
+Global data centralizes collection and grouping once, then generated pages turn those records into pages. See the working [blog example directory](./examples/blog/), [`global.data.ts`](https://github.com/bcomnes/domstack/blob/master/examples/blog/src/global.data.ts), [`blog-indexes.pages.ts`](https://github.com/bcomnes/domstack/blob/master/examples/blog/src/blog-indexes.pages.ts), and [`year-index.layout.ts`](https://github.com/bcomnes/domstack/blob/master/examples/blog/src/layouts/year-index.layout.ts).
 
-- `await page.renderInnerPage({ pages })` returns the page's inner render output as produced by its builder, without a layout wrapper applied. This is often an HTML string (for example, markdown rendered to HTML), but the type depends on the page builder.
-- `await page.renderFullPage({ pages })` returns the complete page output with its layout applied.
+First, collect source-backed pages whose layout is `post`, validate and normalize their publish dates, sort them newest-first, and group them into yearly `blogIndexes`:
 
-Both methods are async and require the `pages` array available at that build stage. Templates, page functions, and layouts receive the final source-backed plus generated collection; `global.data.js` receives the source-backed collection before generated pages are created.
+```typescript
+// src/global.data.ts
+import type {
+  AsyncGlobalDataFunction,
+  GlobalDataFunctionParams,
+} from '@domstack/static/types.js'
 
-These methods also require that the `PageData` instance was successfully initialized first. When iterating a `pages` array, some entries may represent pages that failed initialization before the build aborts, and calling `renderInnerPage()` or `renderFullPage()` on those pages will throw.
-
-For templates that render many pages, pre-render in parallel and cache results to avoid doing the same work twice when producing several output files from one template:
-
-```js
-import pMap from 'p-map'
-
-const renderCache = new Map()
-await pMap(allPosts, async (page) => {
-  renderCache.set(page.pageInfo.path, await page.renderInnerPage({ pages }))
-}, { concurrency: 4 })
-
-// later, when building output:
-const html = renderCache.get(page.pageInfo.path) ?? ''
-```
-
-## Generated Pages
-
-Generated-pages files create real DomStack pages from one central module. They are similar to templates, but layout-driven: each generated definition supplies page vars and children, then DomStack renders it through the normal page and layout pipeline.
-
-Supported filenames are:
-
-- `*.pages.js`, `*.pages.mjs`, and `*.pages.cjs`
-- `*.pages.ts`, `*.pages.mts`, and `*.pages.cts` when the current Node.js runtime supports TypeScript loading
-
-### Generated-pages exports
-
-A generated-pages module can default export:
-
-| Export | Use when |
-|---|---|
-| One `GeneratedPageDefinition` object | The module always creates one page |
-| An array of definitions | The module always creates a fixed set of pages and needs no build context |
-| A normal or `async` function | Definitions depend on source pages, global or derived data, or other discovery data |
-| An async iterable, usually returned by `async function*` | Pages are discovered incrementally or the total is not known in advance |
-
-Static objects and arrays do not receive factory parameters:
-
-```ts
-// src/legal.pages.ts
-import type { GeneratedPageDefinition } from '@domstack/static/types.js'
-
-export default [
-  {
-    outputName: 'terms/index.html',
-    vars: { layout: 'legal', title: 'Terms' },
-    children: 'Terms of service',
-  },
-  {
-    outputName: 'privacy/index.html',
-    vars: { layout: 'legal', title: 'Privacy' },
-    children: 'Privacy policy',
-  },
-] satisfies GeneratedPageDefinition[]
-```
-
-For one static page, export a single object with the same shape instead of an array.
-
-Use `PagesFunction` for normal functions, `async` functions, and async generators. Its type parameters are the generated page vars, the generated children type, and the default/global/derived vars received by the factory:
-
-Prepare reusable collections in `global.data.*`, then keep the pages factory focused on turning those records into page definitions. Layouts remain responsible for rendering the HTML:
-
-```ts
-// src/blog-indexes.pages.ts
-import type { PagesFunction } from '@domstack/static/types.js'
-
-type BlogPost = {
+export interface BlogPost {
+  path: string
   title: string
-  url: string
   publishDate: string
 }
 
-type BlogIndex = {
+export interface BlogIndex {
   year: number
   posts: BlogPost[]
 }
 
-type CollectionVars = {
-  siteName: string
-  blogIndexes: BlogIndex[] // grouped and sorted by global.data.ts
+export interface GlobalData {
+  blogIndexes: BlogIndex[]
 }
 
-type BlogIndexVars = {
-  layout: string
+function collectBlogPosts (pages: GlobalDataFunctionParams['pages']): BlogPost[] {
+  return pages
+    .filter(page => page.vars.layout === 'post')
+    .map(page => {
+      const value = page.vars.publishDate
+      if (typeof value !== 'string' && !(value instanceof Date)) {
+        throw new TypeError(`Post "${page.pageInfo.path}" needs a publishDate`)
+      }
+
+      const publishDate = new Date(value.valueOf())
+      if (Number.isNaN(publishDate.valueOf())) {
+        throw new TypeError(`Post "${page.pageInfo.path}" has an invalid publishDate`)
+      }
+
+      return {
+        path: page.pageInfo.path,
+        title: String(page.vars.title ?? 'Untitled'),
+        publishDate: publishDate.toISOString(),
+      }
+    })
+    .sort((a, b) => b.publishDate.localeCompare(a.publishDate))
+}
+
+const globalData: AsyncGlobalDataFunction<GlobalData> = async ({ pages }) => {
+  const postsByYear = new Map<number, BlogPost[]>()
+
+  for (const post of collectBlogPosts(pages)) {
+    const year = new Date(post.publishDate).getUTCFullYear()
+    postsByYear.set(year, [...(postsByYear.get(year) ?? []), post])
+  }
+
+  const blogIndexes = [...postsByYear]
+    .map(([year, posts]) => ({ year, posts }))
+    .sort((a, b) => b.year - a.year)
+
+  return { blogIndexes }
+}
+
+export default globalData
+```
+
+Then consume `vars.blogIndexes` and create one `blog/<year>/index.html` page per group using the `year-index` layout:
+
+```typescript
+// src/blog-indexes.pages.ts
+import type { PagesFunction } from '@domstack/static/types.js'
+import type { BlogPost, GlobalData } from './global.data.js'
+
+type YearIndexPageVars = {
+  layout: 'year-index'
   title: string
   posts: BlogPost[]
 }
 
-const blogIndexes: PagesFunction<BlogIndexVars, string, CollectionVars> = ({ vars }) => {
-  const pages = []
-
-  for (const { year, posts } of vars.blogIndexes) {
-    pages.push({
-      outputName: `blog/${year}/index.html`,
-      vars: {
-        layout: 'blog-index',
-        title: `${vars.siteName}: ${year} posts`,
-        posts,
-      },
-    })
-  }
-
-  return pages
-}
+const blogIndexes: PagesFunction<YearIndexPageVars, string, GlobalData> = ({ vars }) =>
+  vars.blogIndexes.map(({ year, posts }) => ({
+    outputName: `blog/${year}/index.html`,
+    vars: {
+      layout: 'year-index',
+      title: String(year),
+      posts,
+    },
+  }))
 
 export default blogIndexes
 ```
 
-The same type describes an async generator without requiring a separate function type:
+### Generate redirect pages from page metadata
 
-```ts
-import type { PagesFunction } from '@domstack/static/types.js'
-
-type ArchiveVars = { layout: string, year: number }
-type CollectionVars = { blogYears: number[] }
-
-const archivePages: PagesFunction<ArchiveVars, string, CollectionVars> = async function * ({ vars }) {
-  for (const year of vars.blogYears) {
-    yield {
-      outputName: `blog/${year}/index.html`,
-      vars: { layout: 'archive', year },
-    }
-  }
-}
-
-export default archivePages
-```
-
-### Generated-pages factory parameters
-
-Functions receive one object with:
-
-| Parameter | Contents |
-|---|---|
-| `pages` | Initialized source-backed `PageData[]`. Generated pages from this or other pages files are not included. |
-| `vars` | Default and global vars plus the values returned by `global.data.*`. |
-| `pagesFile` | Information about the current file. `name` is the filename without its `.pages.*` suffix, `path` is its source-relative directory, and `pagesFile` contains the underlying file information. |
-| `siteData` | Discovery data returned by `identifyPages()`. Its `siteData.pages` array is also source-backed only. |
-
-Every pages file receives the same source-backed page list and the same derived global data, so generated output does not depend on pages-file processing order. After all definitions are collected, generated pages join the full `pages` array passed to templates, page functions, and layouts.
-
-The public `results.siteData` returned by a build remains discovery data. Generated pages are created later inside the page worker and are not added to `results.siteData.pages`.
-
-### Generated page definitions
-
-| Field | Behavior |
-|---|---|
-| `outputName` | Output path relative to the pages file's directory. It must name a file, must not be absolute or contain `..` segments, and cannot end in a path separator. Defaults to `<pages-file-name>/index.html`. |
-| `vars` | Page-level vars merged with the normal default, global, layout, and builder vars. |
-| `children` | Optional static child content or inline `PageFunction` rendered before the layout. When omitted or explicitly `undefined`, the page renders empty child content before the layout. |
-| `draft` | When `true`, the page is omitted unless the CLI uses `--drafts` or a programmatic build uses `buildDrafts: true`. |
-
-Generated pages use global and layout assets. They do not have page-local `style.css`, `client.js`, or worker entries because they do not have their own source-page directory.
-
-### Redirect Pages
+See the working [blog example directory](./examples/blog/), [`redirects.pages.ts`](https://github.com/bcomnes/domstack/blob/master/examples/blog/src/redirects.pages.ts), and [`redirect.layout.ts`](https://github.com/bcomnes/domstack/blob/master/examples/blog/src/layouts/redirect.layout.ts).
 
 Sites migrating from another platform often need redirect pages for old URLs that no longer exist. Keep that history on the current page with `redirectFrom` metadata instead of maintaining a separate old/new mapping:
 
@@ -1217,14 +2544,15 @@ redirectFrom:
   - /2020/old-slug/
   - /blog/original-title/
 ---
+<!-- src/blog/current-post.md -->
 
 # Current Post
 ```
 
-Collect the metadata in `global.data.js`. The current page's URL becomes the redirect target automatically:
+Collect the metadata in `global.data.ts`. The current page's URL becomes the redirect target automatically:
 
-```js
-// src/global.data.js
+```typescript
+// src/global.data.ts
 function collectRedirects (pages) {
   const redirects = []
   const redirectOwners = new Map()
@@ -1259,8 +2587,8 @@ export default function globalData ({ pages }) {
 
 Validation happens while the destination page is still known, so malformed or duplicate metadata reports the page that declared it. The pages factory then consumes the validated collection and renders each old location through a reusable redirect layout:
 
-```js
-// src/redirects.pages.js
+```typescript
+// src/redirects.pages.ts
 function redirectOutputName (from) {
   if (!from.startsWith('/') || from.startsWith('//')) throw new Error(`redirectFrom must be a same-origin URL path: ${from}`)
   if (from.includes('?') || from.includes('#')) throw new Error(`redirectFrom must not include a query or fragment: ${from}`)
@@ -1288,8 +2616,8 @@ export default function redirectsPages ({ vars }) {
 }
 ```
 
-```js
-// src/redirect.layout.js
+```typescript
+// src/redirect.layout.ts
 
 import { html, render } from 'fragtml'
 
@@ -1309,12 +2637,12 @@ export default function redirectLayout ({ vars }) {
 }
 ```
 
-`redirectFrom` contains old same-origin public URL paths. `redirectOutputName()` converts directory URLs such as `/2020/old-slug/` to `2020/old-slug/index.html`; DomStack's generated-output validation still rejects escaping paths such as `..`. The redirect target comes from the current page's normalized `pageInfo.url`, so moving the page again only requires retaining its previous URLs in that page's metadata. `fragtml` escapes interpolated values by default, including attribute values and link text.
+`redirectFrom` contains old same-origin public URL paths. `redirectOutputName()` converts directory URLs such as `/2020/old-slug/` to `2020/old-slug/index.html`. DOMStack's generated-output validation still rejects escaping paths such as `..`. The redirect target comes from the current page's normalized `pageInfo.url`, so moving the page again only requires retaining its previous URLs in that page's metadata. `fragtml` escapes interpolated values by default, including attribute values and link text.
 
 **SEO note:** Meta-refresh is a client-side redirect. Search engines may not treat it as a permanent 301 redirect. For static hosting platforms that support server-side redirects, you can instead generate a `_redirects` file (Netlify, Cloudflare Pages) or `vercel.json` (Vercel) using the object template type:
 
-```js
-// src/redirects-netlify.txt.template.js
+```typescript
+// src/redirects-netlify.txt.template.ts
 // Generates a _redirects file for Netlify / Cloudflare Pages.
 
 export default function ({ vars }) {
@@ -1325,987 +2653,7 @@ export default function ({ vars }) {
 }
 ```
 
-Both approaches can coexist and consume the same `global.data.js` redirect collection. Copying a directory that contains a hand-crafted `_redirects` file via `--copy` is also an option when you prefer to manage redirects outside the build.
-
-## Domstack Manifest
-
-> [!WARNING]
-> The domstack manifest, `domstack-manifest.settings.*`, first-class `service-worker.*` builds, manifest hooks, and related browser `process.env.DOMSTACK_*` defines are an unstable preview feature.
-> Their names, option shapes, manifest schema, generated output, and runtime semantics may change outside of a major version while the API is validated with real PWA use cases.
-> Avoid depending on this preview contract for long-lived integrations without pinning `@domstack/static` to an exact version.
-
-Programmatic one-shot builds return a `domstackManifest` object when a manifest consumer exists.
-A consumer is either a `domstack-manifest.settings.*` file or explicit `domstackManifest` configuration.
-`hooks.manifestBuilt` receives that manifest before the final service-worker bundle is emitted.
-The CLI does not write `domstack-manifest.json` by default; writing the JSON file is opt-in for deployment metadata or integrations that need a runtime/public manifest artifact.
-
-The manifest is a normalized list of files that domstack emitted:
-
-```js
-/**
- * @import { FromSchema } from 'json-schema-to-ts'
- */
-import { DOMSTACK_MANIFEST_SCHEMA_ID, domstackManifestSchema } from '@domstack/static'
-
-/**
- * @typedef {FromSchema<typeof domstackManifestSchema>} DomstackManifest
- */
-```
-
-Equivalent shape:
-
-```ts
-type DomstackManifest<Policy = Record<string, unknown>, ManifestVars = Record<string, unknown>> = {
-  $schema: typeof DOMSTACK_MANIFEST_SCHEMA_ID
-  version: string
-  generatedAt: string
-  entries: DomstackManifestEntry<ManifestVars>[]
-  policy?: Policy
-}
-
-type DomstackManifestEntry<ManifestVars = Record<string, unknown>> = {
-  url: string
-  outputRelname: string
-  kind: 'page' | 'template' | 'script' | 'style' | 'chunk' |
-    'service-worker' | 'worker' | 'worker-manifest' | 'static' |
-    'copy' | 'sourcemap' | 'metadata'
-  revision: string | null
-  bytes: number | null
-  contentType?: string
-  integrity?: string
-  manifestVars?: ManifestVars
-  urlRevisioned?: boolean
-  static?: boolean
-  role?: string
-  sourceRelname?: string
-  entryPoint?: string
-  pagePath?: string
-  pageUrl?: string
-  templatePath?: string
-  page?: {
-    path: string
-    url: string
-  }
-}
-```
-
-domstack exports `DOMSTACK_MANIFEST_SCHEMA_ID`, `DOMSTACK_MANIFEST_SCHEMA_PATH`,
-`getDomstackManifestSchemaId(version)`, `domstackManifestSchema`, `domstackManifestEntrySchema`,
-`domstackManifestEntryPageMetaSchema`, `domstackManifestKindSchema`, and `reconcileDomstackManifest`
-for tools that want to reconcile build records or use the JSON Schema contract directly.
-`reconcileDomstackManifest()` returns `{ manifest, warnings }`. Equivalent reports of the same
-output remain quiet; materially conflicting reports produce a
-`DOM_STACK_WARNING_CONFLICTING_MANIFEST_OUTPUT` warning while artifact-kind priority selects the
-manifest entry to keep.
-The public `DomstackManifest`, `DomstackManifestEntry`, `DomstackManifestEntryPageMeta`,
-`DomstackManifestKind`, `DomstackManifestOptions`, `DomstackManifestConfig`,
-`DomstackManifestTransformContext`, `DomstackManifestTransform`, `DomstackManifestPolicyTransformContext`, and
-`DomstackManifestPolicyTransform` types are derived from or aligned with those schemas.
-
-`version` is a sha256 hash of each sorted entry's cache-relevant fields: `url`, `revision`, `kind`,
-`contentType`, `integrity`, `manifestVars`, `urlRevisioned`, `static`, `role`, page-level
-`precache` / `offline` vars, and root `policy`. It intentionally does not depend on `generatedAt`, source
-metadata such as `sourceRelname`, or the final `/service-worker.js` build output, so identical cache
-inputs keep the same version and that version can be safely embedded into the service worker.
-
-Write the standard public manifest from the CLI with `--domstackManifest`:
-
-```console
-domstack --domstackManifest
-```
-
-Use the object form when you also need programmatic manifest options:
-
-```js
-const site = new DomStack('src', 'public', {
-  domstackManifest: {
-    write: true,
-    exclude: ['blog/**', '**/*.map'],
-    manifestVars: ['offline', 'precache'],
-    includeEntry: entry => entry.kind !== 'sourcemap',
-    policy: {
-      offlineFallbackUrl: '/offline/',
-    },
-  },
-})
-
-const results = await site.build()
-```
-
-Use `domstackManifest: true` when you only want to write the standard `domstack-manifest.json` file.
-Use the object form when you need programmatic `exclude`, `includeEntry`, `manifestVars`, `policy`, or
-`hooks` settings.
-Add `write: true` to the object form only when you also want Domstack to write `domstack-manifest.json`.
-Leaving `domstackManifest` unset skips the manifest pipeline unless a `domstack-manifest.settings.*` file exists.
-A settings file enables the pipeline, returns `results.domstackManifest`, and runs manifest hooks, but it does not write a public JSON file unless writing is explicitly enabled.
-The manifest file itself is never included in its own `entries`.
-Site service workers are also omitted from manifest entries so `manifest.version` can be embedded into `/service-worker.js` without a circular hash dependency.
-
-You can also add a `domstack-manifest.settings.js` file anywhere under `src`:
-
-```js
-export default {
-  exclude: ['admin/**'],
-  manifestVars: ['offline', 'precache'],
-  policy: {
-    offlineFallbackUrl: '/offline/',
-  },
-  includeEntry (entry) {
-    if (entry.kind === 'sourcemap') return false
-    if (entry.kind === 'metadata') return false
-    if (entry.manifestVars?.offline === false) return false
-    if (entry.manifestVars?.precache === false) return false
-    return true
-  },
-}
-```
-
-`domstack-manifest.settings.*` supports `.js`, `.mjs`, `.cjs`, `.ts`, `.mts`, and `.cts` when Node's
-TypeScript support is available. It can default export an object or a sync/async function that
-returns an object:
-
-```js
-export default async function domstackManifestSettings () {
-  return {
-    exclude: process.env.INCLUDE_BLOG_OFFLINE === '1'
-      ? ['**/*.map']
-      : ['blog/**', '**/*.map'],
-  }
-}
-```
-
-`domstackManifest.exclude` from programmatic options and `domstack-manifest.settings.*` `exclude` values are combined.
-Exclude patterns are ignore-style patterns checked against both `entry.url` and `entry.outputRelname`.
-Excludes run before `includeEntry(entry)`.
-When both configuration surfaces define `includeEntry(entry)`, the settings-file hook takes precedence
-over the programmatic hook. It receives the public manifest entry shape, not local filesystem paths.
-Custom public manifest-like files should be written from a `manifestBuilt` hook with `context.writeFile()`.
-
-Each entry also includes best-known service-worker/deployment metadata when domstack can derive it:
-
-- `contentType`: best-known build-time MIME type. This is not a guarantee that every deployment will serve the exact same HTTP `Content-Type` header.
-- `integrity`: SRI-formatted SHA-256 digest derived from the same file hash as `revision`.
-- `urlRevisioned`: whether the public URL already contains a content hash or equivalent revision token.
-- `static`: whether the entry is domstack static browser-loadable output. In domstack/static this includes pages as well as subresources.
-- `role`: normalized runtime purpose such as `navigation`, `subresource`, `worker`, or `metadata`.
-
-For page entries, an explicit string `manifestRole` page var overrides the domstack-derived `role`:
-
-```js
-export default {
-  manifestRole: 'offline-fallback',
-}
-```
-
-For custom manifest data, use `manifestVars` to explicitly expose selected page/app vars on entries for tools that need to inspect them, and use root `policy` for normalized service-worker or integration decisions. `DomstackManifestOptions<Policy, ManifestVars, SourceVars>` lets TypeScript users coordinate the emitted policy shape, emitted entry var shape, and source variable-cascade shape:
-
-```js
-export default {
-  manifestVars: ['offline', 'precache'],
-  policy: {
-    offlineFallbackUrl: '/offline/',
-  },
-}
-```
-
-`manifestVars` can also be a per-entry transform, and `policy` can be a whole-manifest transform that receives final entries:
-
-```js
-export default {
-  manifestVars ({ vars }) {
-    return typeof vars.analyticsLabel === 'string'
-      ? { analyticsLabel: vars.analyticsLabel }
-      : undefined
-  },
-  policy ({ entries }) {
-    return {
-      offlineUrls: entries
-        .filter(entry => entry.manifestVars?.offline === true)
-        .map(entry => entry.url),
-    }
-  },
-}
-```
-
-The `vars` passed to a `manifestVars` function are a snapshot of page vars that can be copied from the page worker. Top-level values used only while rendering, such as functions or `PageData` objects, are left out of this snapshot.
-
-Only values selected by `manifestVars` are copied into public manifest entries. Root `policy` is emitted once on the manifest. This avoids leaking arbitrary page vars while still letting service workers, Workbox hooks, and deployment tools consume a stable manifest-level policy shape.
-
-### Manifest built hooks
-
-`hooks.manifestBuilt` runs after domstack has finalized `manifest.entries`, `manifest.policy`, and
-`manifest.version`, but before `/service-worker.js` is bundled and before the manifest file is written.
-Hooks can write additional generated output files, or define constants that are available only to the
-final service-worker bundle:
-
-```js
-export default {
-  hooks: {
-    manifestBuilt: [context => {
-      const urls = context.manifest.entries
-        .filter(entry => entry.role === 'navigation')
-        .map(entry => entry.url)
-
-      context.defineServiceWorkerConstant('__APP_NAVIGATION_URLS__', urls)
-    }],
-  },
-}
-```
-
-Then the service worker can declare and use the injected constant:
-
-```js
-/** @type {string[]} */
-const navigationUrls = __APP_NAVIGATION_URLS__
-```
-
-Hook context shape:
-
-```ts
-type DomstackManifestBuiltHookContext<Policy, ManifestVars> = {
-  dest: string
-  manifest: DomstackManifest<Policy, ManifestVars>
-  defineServiceWorkerConstant: (identifier: string, value: unknown) => void
-  writeFile: (outputRelname: string, contents: string | Uint8Array) => Promise<void>
-}
-```
-
-`defineServiceWorkerConstant()` serializes `value` with `JSON.stringify()` and passes it to esbuild's
-`define` option for the final service-worker build. Use it for precomputed service-worker policy, such
-as a vanilla precache list or Workbox-shaped `precacheManifest`, when you do not want a runtime fetch or generated global script.
-
-### Service workers
-
-Put one site service worker source file anywhere under `src` and domstack will build it to a stable
-root `/service-worker.js` output:
-
-```txt
-src/
-  globals/
-    service-worker.js
-```
-
-When Node's TypeScript support is available, the same convention also supports
-`service-worker.ts`, `service-worker.mts`, and `service-worker.cts`. JavaScript projects can use
-`service-worker.js`, `service-worker.mjs`, or `service-worker.cjs`.
-
-Only one site service worker source is allowed. If multiple `service-worker.*` sources are present,
-domstack fails with `DOM_STACK_ERROR_DUPLICATE_SERVICE_WORKER`. Service workers are bundled by
-esbuild, so imports work the same way they do for client bundles and page-scoped web workers. The
-entry filename is intentionally not content-hashed because browser service-worker update checks need
-a stable URL.
-
-Domstack provides build facts to browser-side bundles through esbuild `define` values. The service
-worker is built after the manifest is finalized, so it additionally receives the finalized manifest
-version:
-
-| Define | Value |
-| --- | --- |
-| `process.env.DOMSTACK_MANIFEST_URL` | Standard public URL for the built-in domstack manifest, `/domstack-manifest.json` |
-| `process.env.DOMSTACK_MANIFEST_VERSION` | Finalized manifest version in `/service-worker.js`; `""` in other bundles |
-| `process.env.DOMSTACK_MANIFEST_ENABLED` | `"true"` for one-shot builds with an enabled manifest pipeline, `"false"` when disabled or in watch mode |
-| `process.env.DOMSTACK_SERVICE_WORKER_URL` | Public URL of the site service worker, usually `/service-worker.js`, or `""` when no service worker is present |
-| `process.env.DOMSTACK_SERVICE_WORKER_SCOPE` | Registration scope for the site service worker, usually `/`, or `""` when no service worker is present |
-
-Prefer injecting finalized service-worker policy from `hooks.manifestBuilt` instead of fetching the public manifest at runtime:
-
-```js
-// domstack-manifest.settings.js
-export default {
-  manifestVars: ['offline', 'precache'],
-  hooks: {
-    manifestBuilt: [context => {
-      context.defineServiceWorkerConstant('__APP_CACHE_POLICY__', {
-        version: context.manifest.version,
-        precacheEntries: context.manifest.entries
-          .filter(entry => entry.static === true)
-          .filter(entry => entry.revision)
-          .map(entry => ({
-            url: entry.url,
-            revision: entry.urlRevisioned ? null : entry.revision,
-            integrity: entry.integrity,
-          })),
-      })
-    }],
-  },
-}
-```
-
-Then consume that policy from the service worker:
-
-```js
-// service-worker.js
-const CACHE_PREFIX = 'domstack-precache-'
-const manifestEnabled = process.env.DOMSTACK_MANIFEST_ENABLED === 'true'
-
-self.addEventListener('install', event => {
-  if (!manifestEnabled) return
-  event.waitUntil(precache())
-})
-
-self.addEventListener('fetch', event => {
-  if (event.request.method !== 'GET') return
-  event.respondWith(cacheFirst(event.request))
-})
-
-async function precache () {
-  const policy = __APP_CACHE_POLICY__
-  const cache = await caches.open(CACHE_PREFIX + policy.version)
-  await cache.addAll(policy.precacheEntries.map(entry => new Request(entry.url, {
-    cache: 'reload',
-    credentials: 'same-origin',
-    ...(entry.integrity ? { integrity: entry.integrity } : {}),
-  })))
-}
-
-async function cacheFirst (request) {
-  const cached = await caches.match(request)
-  return cached || fetch(request)
-}
-```
-
-Use `context.writeFile()` from a manifest hook only when you intentionally need a public runtime artifact.
-
-Register the built service worker from your site client code, usually `global.client.js`:
-
-```js
-const serviceWorkerUrl = process.env.DOMSTACK_SERVICE_WORKER_URL
-const serviceWorkerScope = process.env.DOMSTACK_SERVICE_WORKER_SCOPE
-
-if (serviceWorkerUrl && serviceWorkerScope && 'serviceWorker' in navigator) {
-  navigator.serviceWorker.register(serviceWorkerUrl, { scope: serviceWorkerScope })
-}
-```
-
-domstack does not inject this into the default layout. Registration timing, update prompts,
-development opt-outs, and recovery behavior are application policy, so keep that logic in your
-global client or an imported client module.
-
-This keeps domstack's build pipeline to one page/template pass and one manifest reconciliation. Use
-`domstack-manifest.settings.*` `exclude` or `includeEntry(entry)` to keep entries such as source maps, admin
-routes, or blog pages out of the written manifest before the service worker sees it.
-
-Watch mode builds and rebundles site service-worker entries, but it does not write
-`domstack-manifest.json` or return `results.domstackManifest`. Use one-shot builds when testing
-service-worker and PWA cache behavior.
-
-Domstack does not clean the destination directory before a build. During this preview, run clean
-builds for service-worker lifecycle testing and deployments so removed or renamed preview outputs
-(such as `/service-worker.js` or a custom manifest filename) cannot remain as stale files.
-
-## Global Assets
-
-There are a few important (and optional) global assets that live anywhere in the `src` directory. If duplicate named files that match the global asset file name pattern are found, a build error will occur until the duplicate file error is resolved.
-
-### `global.vars.ts`
-
-The `global.vars.ts` or `global.vars.js` file should `export default` a variables object or a (sync or async) function that returns a variable object.
-The variables in this file are available to all pages, unless the page sets a variable with the same key, taking a higher precedence.
-
-```typescript
-export default {
-  siteName: 'The name of my website',
-  authorName: 'Mr. Wallace'
-}
-```
-
-#### `browser` variable
-
-`global.vars.ts` can uniquely export a `browser` object. These object variables are made available in all js bundles. The `browser` export can be an object, or a sync/async function that returns an object.
-
-```typescript
-export const browser = {
-  'process.env.TRANSPORT': 'http',
-  'process.env.HOST': 'localhost'
-}
-```
-
-The exported object is passed to esbuild's [`define`](https://esbuild.github.io/api/#define) options and is available to every js bundle.
-Domstack also reserves `process.env.DOMSTACK_MANIFEST_URL`,
-`process.env.DOMSTACK_MANIFEST_VERSION`, `process.env.DOMSTACK_MANIFEST_ENABLED`,
-`process.env.DOMSTACK_SERVICE_WORKER_URL`, and `process.env.DOMSTACK_SERVICE_WORKER_SCOPE` for generated build facts.
-
-> [!WARNING]
-> Setting `define` in [`esbuild.settings.ts`](#esbuild-settingsts) while also using the `browser` export will throw an error. Use one or the other.
-
-### `global.client.ts`
-
-This is a script bundle that is included on every page. It provides an easy way to inject analytics, or other small scripts that every page should have. Try to minimize what you put in here.
-
-```typescript
-console.log('I run on every page in the site!')
-```
-
-### `global.css`
-
-This is a global stylesheet that every page will use.
-Any styles that need to be on every single page should live here.
-Importing css from `npm` modules work well here.
-
-#### Optional cascade layers
-
-The bundled default stylesheet imports mine.css's main rules in its low-priority `mine` layer and its optional layout and syntax styles in `domstack.default`.
-Normal unlayered styles in your project override those defaults, so custom stylesheets do not have to use cascade layers.
-
-For projects that prefer explicit layers, each stylesheet can declare only its own optional scope:
-
-```css
-/* global.css */
-@layer domstack.global {
-  /* Site-wide rules */
-}
-```
-
-```css
-/* article.layout.css */
-@layer domstack.layout {
-  /* Layout rules */
-}
-```
-
-```css
-/* style.css */
-@layer domstack.page {
-  /* Page rules */
-}
-```
-
-DOMStack loads default, global, layout, and page stylesheets in that order, which gives these layers the same low-to-high precedence when they are used.
-A global stylesheet does not need to enumerate the layout or page layers.
-This is a recommended organization pattern, not a requirement.
-
-### `global.data.js`
-
-The `global.data.js` (or `.ts`, `.mjs`, etc.) file is an optional file that can live anywhere in your `src` tree — like all global assets, the first one found wins and duplicates warn. It runs **once per build**, after source-backed pages are initialized and before generated-page factories run.
-
-It receives the fully resolved source-backed `PageData[]` array and returns an object that is passed to generated-page factories and stamped onto every source-backed and generated page's vars. The derived data is therefore available to every page, layout, and template at final render time.
-
-```typescript
-import type { AsyncGlobalDataFunction } from '@domstack/static/types.js'
-import { html, render } from 'fragtml'
-
-type GlobalData = {
-  blogPostsHtml: string
-}
-
-const buildGlobalData: AsyncGlobalDataFunction<GlobalData> = async ({ pages }) => {
-  const blogPosts = pages
-    .filter(p => p.vars?.layout === 'blog' && p.vars?.publishDate)
-    .sort((a, b) => new Date(b.vars.publishDate) - new Date(a.vars.publishDate))
-    .slice(0, 5)
-
-  const blogPostsHtml = render(html`
-    <ul class="blog-index-list">
-      ${blogPosts.map(p => html`
-        <li class="blog-entry h-entry">
-          <a class="blog-entry-link u-url u-uid p-name" href="${p.pageInfo.url}">
-            ${p.vars?.title}
-          </a>
-        </li>
-      `)}
-    </ul>
-  `)
-
-  return { blogPostsHtml }
-}
-
-export default buildGlobalData
-```
-
-The returned object is stamped onto every page's vars before rendering, so any page or layout can read the derived data via `vars`:
-
-```md
-## [Blog](./blog/)
-
-{{{ vars.blogPostsHtml }}}
-```
-
-**Key properties of `global.data.js`:**
-
-- Receives fully resolved source-backed `PageData[]` — every page has `.vars` (merged global + page + builder vars), `.pageInfo` (path, type, etc.), `.styles`, `.scripts`, and more. Generated pages do not exist yet.
-- Runs inside the worker process (same as all other dynamic imports) to avoid ESM caching issues.
-- Skipped entirely if no `global.data.*` file exists — zero overhead.
-- Changes to `global.data.*` trigger a full page rebuild (same as `global.vars.*`), since the output is stamped onto every page's vars.
-
-Use `GlobalDataFunction<T>` or `AsyncGlobalDataFunction<T>` to type the function where `T` is the shape of the object you return.
-
-**Caveats:**
-
-**`page.vars` is a cached, read-only computed getter.** The first access merges all variable sources and DomStack caches a shallow-frozen result. Direct access and destructuring are both fine. Treat the returned object as read-only; if you need derived values, create a new object instead of mutating `page.vars`.
-
-**`page.vars` can throw.** If a page failed to initialize (often due to page vars module syntax errors, missing dependencies, or runtime errors), accessing `.vars` will throw. Treat this as a build issue to fix.
-
-**Raw markdown source is not exposed as `page.vars.content` by default.** For markdown pages, `page.vars` contains front matter-derived values such as `title`, but does not automatically include the raw markdown body as `content`. If you need the raw markdown body, call `await page.readMarkdownContent()`. For rendered output, see [Accessing rendered page content](#accessing-rendered-page-content).
-
-**`renderInnerPage()` is available.** `global.data.js` runs after source-backed page initialization has been attempted, and receives source-backed `PageData` instances (some may be uninitialized if they failed to initialize), so you can call `renderInnerPage()` here with the same care described above for `page.vars` and other page-dependent access. For examples and performance guidance, see [Accessing rendered page content](#accessing-rendered-page-content).
-
-### `domstack-manifest.settings.ts`
-
-This is an optional file you can create anywhere.
-It should export a default object or a default sync/async function that returns an object.
-Use this to filter the domstack manifest before hooks receive it, before domstack optionally writes
-`domstack-manifest.json`, and before `results.domstackManifest` is returned.
-
-```js
-/**
- * @import { DomstackManifestEntry } from '@domstack/static/types.js'
- */
-
-export default {
-  exclude: [
-    'admin/**',
-    '**/*.map',
-  ],
-  includeEntry,
-}
-
-/**
- * @param {DomstackManifestEntry} entry
- */
-function includeEntry (entry) {
-  return entry.kind !== 'metadata'
-}
-```
-
-The supported settings are:
-
-- `exclude` - ignore-style patterns matched against `entry.url` and `entry.outputRelname`.
-- `includeEntry(entry)` - a sync or async function that receives a public `DomstackManifestEntry` and returns `true` to keep it.
-
-The `domstackManifest.exclude` option and `domstack-manifest.settings.*` `exclude` values are combined.
-Excludes run before `includeEntry(entry)`.
-Watch mode builds and rebundles service workers, but it does not write or return the domstack manifest, so `domstack-manifest.settings.*` is only applied during one-shot builds.
-
-### `esbuild.settings.ts`
-
-This is an optional file you can create anywhere.
-It should export a default sync or async function that accepts a single argument (the esbuild settings object generated by domstack) and returns a modified build object.
-Use this to customize the esbuild settings directly.
-You can break domstack with this, so be careful.
-Here is an example of using this file to polyfill node builtins in the browser bundle:
-
-```typescript
-import { polyfillNode } from 'esbuild-plugin-polyfill-node'
-// BuildOptions re-exported from esbuild
-import type { BuildOptions } from '@domstack/static/types.js'
-
-const esbuildSettingsOverride = async (esbuildSettings: BuildOptions): Promise<BuildOptions> => {
-  esbuildSettings.plugins = [polyfillNode()]
-  return esbuildSettings
-}
-
-export default esbuildSettingsOverride
-```
-
-DOMStack passes its default `BuildOptions` into this function, including asset loader defaults for common images, icons, and fonts.
-DOMStack does not set a JSX runtime by default.
-You can return a shallow copy that modifies those defaults when you only need a small change.
-For example, this keeps DOMStack's default asset loaders and adds a custom loader for `.wasm` files:
-
-```typescript
-import type { BuildOptions } from '@domstack/static/types.js'
-
-const esbuildSettingsOverride = async (esbuildSettings: BuildOptions): Promise<BuildOptions> => {
-  return {
-    ...esbuildSettings,
-    loader: {
-      ...esbuildSettings.loader,
-      '.wasm': 'file',
-    },
-  }
-}
-
-export default esbuildSettingsOverride
-```
-
-If you want full control, reset DOMStack's convenience defaults back to esbuild's defaults while preserving the required DOMStack build wiring (`entryPoints`, `outdir`, `outbase`, etc.).
-From there, define only the settings you want:
-
-```typescript
-import type { BuildOptions } from '@domstack/static/types.js'
-
-const esbuildSettingsOverride = async (esbuildSettings: BuildOptions): Promise<BuildOptions> => {
-  return {
-    ...esbuildSettings,
-    jsx: undefined,
-    jsxImportSource: undefined,
-    loader: {
-      '.png': 'file',
-      '.svg': 'text',
-    },
-  }
-}
-
-export default esbuildSettingsOverride
-```
-
-Important esbuild settings you may want to set here are:
-
-- [target](https://esbuild.github.io/api/#target) - Set the `target` to make `esbuild` run a few small transforms on your CSS and JS code.
-- [jsx](https://esbuild.github.io/api/#jsx) - Configure how esbuild transforms JSX and TSX.
-- [jsxImportSource](https://esbuild.github.io/api/#jsx-import-source)  - Set this when using an automatic JSX runtime such as React or Preact.
-- [define](https://esbuild.github.io/api/#define) - Define compile-time constants for js bundles. Note: setting `define` here conflicts with the [`browser` export](#browser-variable) in `global.vars.ts` and will throw an error if both are set.
-
-### `markdown-it.settings.ts`
-
-This is an optional file you can create anywhere.
-It should export a default sync or async function that accepts a single argument (the markdown-it instance configured by domstack) and returns a modified markdown-it instance.
-Use this to add custom markdown-it plugins or modify the parser configuration.
-Here are some examples:
-
-```typescript
-import markdownItContainer from 'markdown-it-container'
-import markdownItPlantuml from 'markdown-it-plantuml'
-import type { MarkdownIt } from 'markdown-it'
-
-const markdownItSettingsOverride = async (md: MarkdownIt) => {
-  // Add custom plugins
-  md.use(markdownItContainer, 'spoiler', {
-    validate: (params: string) => {
-      return params.trim().match(/^spoiler\s+(.*)$/) !== null
-    },
-    render: (tokens: any[], idx: number) => {
-      const m = tokens[idx].info.trim().match(/^spoiler\s+(.*)$/)
-      if (tokens[idx].nesting === 1) {
-        return '<details><summary>' + md.utils.escapeHtml(m[1]) + '</summary>\n'
-      } else {
-        return '</details>\n'
-      }
-    }
-  })
-
-  md.use(markdownItPlantuml)
-
-  return md
-}
-
-export default markdownItSettingsOverride
-```
-
-```typescript
-import markdownIt, { MarkdownIt } from 'markdown-it'
-import myCustomPlugin from './my-custom-plugin'
-
-const markdownItSettingsOverride = async (md: MarkdownIt) => {
-  // Create a new instance with different settings
-  const newMd = markdownIt({
-    html: false,        // Disable HTML tags in source
-    breaks: true,       // Convert \n to <br>
-    linkify: false,     // Disable auto-linking
-  })
-
-  // Add only the plugins you want
-  newMd.use(myCustomPlugin)
-
-  return newMd
-}
-
-export default markdownItSettingsOverride
-```
-
-By default, DOMStack ships with the following markdown-it plugins enabled:
-
-- [markdown-it](https://github.com/markdown-it/markdown-it)
-- [markdown-it-footnote](https://github.com/markdown-it/markdown-it-footnote)
-- [markdown-it-highlightjs](https://github.com/valeriangalliat/markdown-it-highlightjs)
-- [markdown-it-emoji](https://github.com/markdown-it/markdown-it-emoji)
-- [markdown-it-sub](https://github.com/markdown-it/markdown-it-sub)
-- [markdown-it-sup](https://github.com/markdown-it/markdown-it-sup)
-- [markdown-it-deflist](https://github.com/markdown-it/markdown-it-deflist)
-- [markdown-it-ins](https://github.com/markdown-it/markdown-it-ins)
-- [markdown-it-mark](https://github.com/markdown-it/markdown-it-mark)
-- [markdown-it-abbr](https://github.com/markdown-it/markdown-it-abbr)
-- [markdown-it-task-lists](https://github.com/revin/markdown-it-task-lists)
-- [markdown-it-anchor](https://github.com/valeriangalliat/markdown-it-anchor)
-- [markdown-it-attrs](https://github.com/arve0/markdown-it-attrs)
-- [markdown-it-table-of-contents](https://github.com/cmaas/markdown-it-table-of-contents)
-
-## Variables
-
-Pages and Layouts receive an object with the following parameters:
-
-- `vars`: An object with the variables of `global.vars.ts`, `global.data.js`, `page.vars.ts`, and any front-matter or `vars` exports from the page merged together.
-- `pages`: An array of [`PageData`](https://github.com/bcomnes/d omstack/blob/master/lib/build-pages/page-data.js) instances for every page in the site build. Use this array to introspect pages to generate feeds and index pages.
-- `page`: An object of the page being rendered with the following parameters:
-  - `type`: The type of page (`md`, `html`, or `js`)
-  - `path`: The directory path for the page.
-  - `url`: The canonical URL path for the page (e.g. `/blog/my-post/` for index pages, `/blog/loose-page.html` for loose non-index pages). Combine with a `siteUrl` from `global.vars.ts` to build full URLs: `` `${vars.siteUrl}${page.url}` ``.
-  - `outputName`: The output name of the final file.
-  - `outputRelname`: The relative output name/path of the output file.
-  - `pageFile`: Raw `src` path details of the page file
-  - `pageStyle`: file info if the page has a page style
-  - `clientBundle`: file info if the page has a page js bundle
-  - `pageVars`: file info if the page has a page vars
-
-Template files receive a similar set of variables:
-
-- `vars`: An object with the variables from `global.vars.ts` and `global.data.js`
-- `pages`: An array of [`PageData`](https://github.com/bcomnes/domstack/blob/master/lib/build-pages/page-data.js) instances for every page in the site build. Use this array to introspect pages to generate feeds and index pages.
-- `template`: An object of the template file data being rendered.
-
-### Derived global data (Advanced)
-
-For data that aggregates across multiple pages — like blog indexes, sitemaps, or RSS feed content — use [`global.data.js`](#globaldatajs). That file runs once per build, receives the source-backed page list, and makes its return value available to generated-page factories and every page, layout, and template via `vars`.
-
-See the [`global.data.js`](#globaldatajs) section under [Global Assets](#global-assets) for a full example.
-
-## TypeScript Support
-
-`domstack` supports **TypeScript** via native type-stripping in Node.js.
-
-- **Requires Node.js ≥23** *(built-in)* or **Node.js 22** with the `NODE_OPTIONS="--experimental-strip-types" domstack` env variable.
-- Seamlessly mix `.ts`, `.mts`, `.cts` files alongside `.js`, `.mjs`, `.cjs`.
-- No explicit compilation step needed—Node.js handles type stripping at runtime.
-- Fully compatible with existing `domstack` file naming conventions.
-- Anywhere DOMStack loads JS files, it can now load TS files.
-
-### Supported File Types
-
-Anywhere you can use  a `.js`, `.mjs` or `.cjs` file in domstack, you can now use `.ts`, `.mts`, `.cts`.
-When running in a Node.js context, [type-stripping](https://nodejs.org/api/typescript.html#type-stripping) is used.
-When running in a web client context, [esbuild](https://esbuild.github.io/content-types/#typescript) type stripping is used.
-Type stripping provides 0 type checking, so be sure to set up `tsc` and `tsconfig.json` so you can catch type errors while editing or in CI.
-
-### Recommended `tsconfig.json`
-
-Install [@voxpelli/tsconfig](https://ghub.io/@voxpelli/tsconfig) which provides type checking in `.js` and `.ts` files and preconfigured for `--no-emit` and extend with type stripping friendly rules:
-
-```json
-{
-  "extends": "@voxpelli/tsconfig/node20.json",
-  "compilerOptions": {
-    "skipLibCheck": true,
-    "erasableSyntaxOnly": true,
-    "allowImportingTsExtensions": true,
-    "rewriteRelativeImportExtensions": true,
-    "verbatimModuleSyntax": true
-  },
-  "include": [
-    "**/*",
-  ],
-  "exclude": [
-    "**/*.js",
-    "node_modules",
-    "coverage",
-    ".github"
-  ]
-}
-```
-
-### Using TypeScript with domstack Types
-
-You can use `domstack`'s built-in types to strongly type your layout, page, and template functions. Runtime values are imported from `@domstack/static`; types are imported from the dedicated `@domstack/static/types.js` entry. The following types are available:
-
-```ts
-import type {
-  // Function types
-  LayoutFunction,
-  AsyncLayoutFunction,
-  GlobalDataFunction,
-  AsyncGlobalDataFunction,
-  PageFunction,
-  AsyncPageFunction,
-  TemplateFunction,
-  TemplateAsyncIterator,
-  PagesFunction,
-  // Data/param types
-  PageData,
-  PageInfo,
-  TemplateInfo,
-  PagesFileInfo,
-  GeneratedPageDefinition,
-  LayoutFunctionParams,
-  GlobalDataFunctionParams,
-  PageFunctionParams,
-  TemplateFunctionParams,
-  PagesFunctionParams,
-} from '@domstack/static/types.js'
-```
-
-> **Note:** Page, layout, and global-data functions have synchronous and asynchronous variants. `PagesFunction` covers normal functions, `async` functions, and async generators because generated-pages factories can return definitions, promises, or async iterables.
-
-The function types are generic and accept variable shapes that you can develop and share between files.
-
-The data and parameter types (`PageData`, `PageInfo`, `TemplateInfo`, `PagesFileInfo`, `GeneratedPageDefinition`, and `*FunctionParams`) are useful when you want to annotate variables or helper functions that receive these objects without using the function types directly:
-
-```ts
-import type { GlobalDataFunctionParams, PageData, PageInfo } from '@domstack/static/types.js'
-
-function getPublishedPages({ pages }: GlobalDataFunctionParams): PageData[] {
-  return pages.filter((p: PageData) => {
-    const info: PageInfo = p.pageInfo
-    return !info.draft
-  })
-}
-```
-
-#### Advanced type parameters
-
-`PageFunction`, `LayoutFunction`, and `PagesFunction` support additional type parameters for precise input and return type control:
-
-**PageFunction<T, U>**
-- `T` - The type of variables passed to the page (required)
-- `U` - The return type of the page function (optional, defaults to `any`)
-
-**LayoutFunction<T, U, V>**
-- `T` - The type of variables passed to the layout (required)
-- `U` - The type of content received from pages as `children` (optional, defaults to `any`)
-- `V` - The return type of the layout function (optional, defaults to `string`)
-
-**PagesFunction<T, U, V>**
-- `T` - The vars added to generated pages (optional, defaults to `Record<string, any>`)
-- `U` - The static children or inline page-function return type (optional, defaults to `any`)
-- `V` - The default and global vars received by the pages factory (optional, defaults to `Record<string, any>`)
-
-This allows pages to return custom types (like VDOM or JSON), ensures layouts produce HTML strings, and keeps generated-page vars separate from the vars used to create them:
-
-```ts
-// Define custom types
-type VDOMNode = {
-  type: string
-  props: Record<string, any>
-  children: Array<VDOMNode | string>
-}
-
-// Page returns VDOM
-const page: PageFunction<{title: string}, VDOMNode> = ({ vars }) => ({
-  type: 'h1',
-  props: {},
-  children: [vars.title]
-})
-
-// Layout accepts VDOM, returns HTML string
-const layout: LayoutFunction<{site: string}, VDOMNode, string> = ({ children }) => {
-  const html = renderVDOM(children) // Convert VDOM to HTML
-  return `<html><body>${html}</body></html>`
-}
-```
-
-### Swapping the default layout template renderer
-
-DOMStack's bundled default layout uses [`fragtml`][fragtml] because the default template only needs safe string manipulation.
-You can eject or replace that layout with any Node-compatible renderer that returns an HTML string.
-The previous incumbent for this job was `htm/preact` with `preact-render-to-string`.
-That is still a good fit when your Node-side pages or layouts produce Preact VNodes, or when you want the same component model on the server and in browser bundles.
-If you also want Preact or React in browser JSX/TSX bundles, configure that separately as described in [`.tsx/.jsx`](#tsxjsx).
-
-```console
-npm install htm preact preact-render-to-string
-```
-
-```js
-/**
- * @import { LayoutFunction } from '@domstack/static/types.js'
- * @import { VNode } from 'preact'
- */
-import { html } from 'htm/preact'
-import { render } from 'preact-render-to-string'
-
-/** @type {LayoutFunction<Record<string, any>, string | VNode, string>} */
-export default function rootLayout ({ children, vars, scripts, styles }) {
-  return `<!DOCTYPE html>
-${render(html`
-    <html lang=${vars.lang ?? 'en'}>
-      <head>
-        <title>${vars.title}</title>
-        ${styles?.map(style => html`<link rel="stylesheet" href=${style} />`)}
-        ${scripts?.map(script => html`<script type="module" src=${script}></script>`)}
-      </head>
-      <body>
-        ${typeof children === 'string'
-          ? html`<main dangerouslySetInnerHTML=${{ __html: children }} />`
-          : html`<main>${children}</main>`}
-      </body>
-    </html>
-  `)}`
-}
-```
-
-`preact-render-to-string` works, but it builds a virtual DOM tree just to serialize layout HTML.
-For layouts that mostly combine strings and already-rendered page content, [`async-htm-to-string`](https://github.com/voxpelli/async-htm-to-string) keeps the familiar HTM tagged-template style while rendering directly to strings.
-That can be a better-performing and more direct tool for server-only layout templates.
-You can still use Preact for browser-side components and use `async-htm-to-string` for Node-side layout rendering.
-
-```console
-npm install async-htm-to-string
-```
-
-```js
-/**
- * @import { LayoutFunction } from '@domstack/static/types.js'
- */
-import { html, rawHtml } from 'async-htm-to-string'
-
-/** @type {LayoutFunction<Record<string, any>, string, Promise<string>>} */
-export default async function rootLayout ({ children, vars, scripts, styles }) {
-  return await html`
-    <!DOCTYPE html>
-    <html lang="${vars.lang ?? 'en'}">
-      <head>
-        <title>${vars.title}</title>
-        ${styles?.map(style => html`<link rel="stylesheet" href="${style}" />`)}
-        ${scripts?.map(script => html`<script type="module" src="${script}"></script>`)}
-      </head>
-      <body>
-        <main>${rawHtml(children)}</main>
-      </body>
-    </html>
-  `
-}
-```
-
-Key differences from `htm/preact` and DOMStack's `fragtml` default:
-
-- **Attribute names are standard HTML.**
-Use `class` and `for` rather than React aliases like `className` and `htmlFor`, which `async-htm-to-string` will output literally with no warning.
-For attributes like `tabindex`, `tabIndex` is only a casing preference in HTML, but using standard lowercase keeps templates consistent.
-- **Always `await` the `html` tag.**
-The tag returns an object that resolves to a string asynchronously.
-If you return it without `await` from a non-async function, or assign it where a string is expected, you will get `[object Object]` in the output with no error thrown.
-Use `async function` and `await` the result.
-- **`rawHtml()` bypasses escaping.**
-It is equivalent to setting `innerHTML` directly.
-Use it only for HTML you generated yourself, such as the output of `await page.renderInnerPage({ pages })` or a trusted markdown renderer.
-`children` passed to a layout can be any type returned by a page function, and may contain unsanitized content depending on the page.
-Always verify the source before passing it through `rawHtml()`.
-
-## Design Goals
-
-- Convention over configuration. All configuration should be optional, and at most it should be minimal.
-- Align with the `index.html`/`README.md` pattern.
-- The HTML is the source of truth.
-- Don't re-implement what the browser already provides!
-  - No magic `<link>` or `<a>` tag magic.
-  - Don't facilitate client side routing. The browser supports routing by default.s
-  - Accept the nature of the medium. Browsers browse html documents. Don't facilitate shared state between pages.
-- Library agnostic. Strings are the interchange format.
-- Pages are shallow apps. New page, new blank canvas.
-- Just a program. `js` pages and layouts are just JavaScript programs. This provides an escape hatch to do anything. Use any template language want, but probably just use tagged template literals.
-- Steps remain orthogonal. Static file copying, css and js bundling, are mere optimizations on top of the `src` folder. The `src` folder should essentially run in the browser. Each step in a `domstack` build should work independent of the others. This allows for maximal parallelism when building.
-- Standardized entrypoints. Every page in a `domstack` site has a natural and obvious entrypoint. There is no magic redirection to learn about.
-- Pages build into `index.html` files inside of named directories. This allows for naturally colocated assets next to the page, pretty URLs and full support for relative URLs.
-- No parallel directory structures. You should never be forced to have two directories with identical layouts to put files next to each other. Everything should be colocatable.
-- Markdown entrypoints are named `page.md` or `README.md`. `README.md` allows for the `src` folder to be fully navigable in GitHub and other git repo hosting providing a natural hosted CMS UI. `page.md` is preferred when GitHub navigability is not a concern.
-- Real TC39 ESM from the start.
-- Garbage in, garbage out. Don't over-correct bad input.
-- Conventions + standards. Vanilla file types. No new file extensions. No weird syntax to learn. Language tools should just work because you aren't doing anything weird or out of band.
-- Encourage directly runnable source files. Direct run is an incredible, undervalued feature more people should learn to use.
-- Support typescript, via ts-in-js and type stripping features. Leave type checking to tsc.
-- Embrace the now. Limit support on features that let one pretend they are working with future ecosystem features e.g. pseudo esm (technology predictions nearly always are wrong!)
-
-## FAQ
-
-Why DOMStack?
-
-:   DOMStack is named after the DOM (Document Object Model) and the concept of stacking technologies together to build websites. It represents the layering of HTML, CSS, and JavaScript in a cohesive build system.
-
-How does `domstack` relate to [`sitedown`](https://ghub.io/sitedown)
-
-:   `domstack` used to be called `siteup` which is sort of like "markup", which is related to "markdown", which inspired the project `sitedown` to which `domstack` is a spiritual off-shoot of. Put a folder of web documents in your `domstack` build system, and generate a website.
-
-## Examples
-
-Look at [examples](./examples/) and `domstack` [dependents](https://github.com/bcomnes/domstack/network/dependents) for some examples how `domstack` can work.
+Both approaches can coexist and consume the same `global.data.ts` redirect collection. Copying a directory that contains a hand-crafted `_redirects` file via `--copy` is also an option when you prefer to manage redirects outside the build.
 
 ## Implementation
 
@@ -2318,29 +2666,6 @@ Look at [examples](./examples/) and `domstack` [dependents](https://github.com/b
 - `jsx/tsx` support via esbuild.
 
 These tools are treated as implementation details, but they may be exposed more in the future. The idea is that they can be swapped out for better tools in the future if they don't make it.
-
-### Programmatic test builds
-
-Use the top-level `testBuild` helper to build into a temporary directory from tests without managing setup and cleanup yourself.
-
-```js
-import { test } from 'node:test'
-import assert from 'node:assert'
-import { testBuild } from '@domstack/static'
-
-test('site output', async () => {
-  const build = await testBuild('./src')
-
-  try {
-    const html = await build.readOutput('index.html')
-    assert.match(html, /Hello/)
-  } finally {
-    await build.cleanup()
-  }
-})
-```
-
-`testBuild(src, opts)` creates a temporary destination directory, runs `new DomStack(src, dest, opts).build()`, and returns `{ dest, results, readOutput, cleanup }`. Options are passed through to `DomStack`, including `copy` paths.
 
 ### Build Process Flow
 
@@ -2394,17 +2719,17 @@ The following diagram illustrates the DomStack build process:
                     └────────┬─────────┘
                              │
                              ▼
-                    ┌──────────────────┐
-                    │  Return Results  │
-                    │                  │
-                    │ • siteData       │
-                    │ • esbuildResults │
-                    │ • staticResults  │
-                    │ • copyResults    │
-                    │ • pageResults    │
-                    │ • domstackManifest │
-                    │ • warnings       │
-                    └──────────────────┘
+                  ┌──────────────────────┐
+                  │    Return Results    │
+                  │                      │
+                  │ • siteData           │
+                  │ • esbuildResults     │
+                  │ • staticResults      │
+                  │ • copyResults        │
+                  │ • pageBuildResults   │
+                  │ • domstackManifest   │
+                  │ • warnings           │
+                  └──────────────────────┘
 ```
 
 The build process follows these key steps:
@@ -2467,14 +2792,14 @@ The `buildPages()` step processes pages in parallel with a concurrency limit:
                                 │
                                 ▼
                   ┌─────────────────────────────┐
-                  │     global.data.js runs     │
+                  │     global.data.ts runs     │
                   │ (receives source PageData[])│
                   └──────────────┬──────────────┘
                                  │
                                  ▼
                   ┌─────────────────────────────┐
-                  │ *.pages.* generates pages  │
-                  │   using the derived data   │
+                  │ *.pages.* generates pages   │
+                  │   using the derived data    │
                   └──────────────┬──────────────┘
                                  │
                                  ▼
@@ -2487,56 +2812,172 @@ The `buildPages()` step processes pages in parallel with a concurrency limit:
 Variable Resolution Layers, from lowest to highest precedence:
 - **Domstack defaults** - Internal defaults such as the default `layout: 'root'`.
 - **Global vars** - Site-wide variables from `global.vars.js` (resolved once).
-- **Global data** - Derived variables from `global.data.js`, resolved from source-backed pages before generated-page factories run and available to every page at final render time.
+- **Global data** - Derived variables from `global.data.ts`, resolved from [source-backed pages](#pages) before generated-page factories run and available to every page at final render time.
 - **Layout vars** - Optional `export const vars` from the selected layout module.
 - **Page-specific vars** vary by type:
   - **MD pages**: `page.vars.js` plus builder vars from frontmatter.
   - **HTML pages**: `page.vars.js`.
   - **JS pages**: exported `vars` plus `page.vars.js`.
 
-### Watch Mode
+### Watch mode
 
-When you run `domstack --watch` (or `domstack -w`), domstack performs an initial build and then watches for changes, rebuilding only what's necessary. Watch mode uses two independent watch loops:
+Running `domstack --watch` or `domstack -w` performs an initial build, watches the source inputs, and serves `dest` with live reload. Use `domstack --watch-only` when another process serves the output.
 
-**esbuild watch** — JS and CSS bundles are handled by esbuild's native `context.watch()`. In watch mode, output filenames are stable (no content hashes), so bundle changes never require a page HTML rebuild. `@domstack/sync` detects the updated files on disk and reloads the browser directly.
+Watch mode coordinates three independent watchers:
 
-**chokidar watch** — Page files, layouts, templates, and config files are watched by chokidar. When a file changes, domstack determines the minimal set of pages to rebuild using dependency tracking maps built at startup.
+- **esbuild** uses `context.watch()` for global, layout, and page client bundles, styles, page-scoped Web Workers, and the site service worker.
+- **chokidar** watches page, layout, template, generated-pages, variable, and settings modules. DOMStack uses the changed file and its dependency maps to choose a rebuild scope.
+- **cpx2** watches static assets under `src` and directories supplied with `--copy`, copying or removing their destination files directly.
 
-Domstack manifests are build-only artifacts. Watch mode builds and rebundles site service-worker
-entries, but it does not write `domstack-manifest.json` or return `results.domstackManifest`.
-Use `domstack --serve` when testing PWA cache lifecycle behavior locally: it runs a normal manifest-enabled build and serves the result without watch-mode filenames or live-reload HTML injection, so service-worker policy matches emitted build bytes. Add `--domstackManifest` if the worker or test needs the public JSON manifest file.
+> [!NOTE]
+> The filenames below use `.ts` by default. You can also use `.js`, and TypeScript client bundles can use `.tsx`. See [Supported file types](#supported-file-types) for all available extensions.
+
+DOMStack uses these rebuild scopes:
+
+- **esbuild only**: esbuild updates an existing browser entry without rendering HTML.
+- **Targeted page/template rebuild**: DOMStack renders only the affected source-backed pages or templates.
+- **Targeted generated-pages rebuild**: DOMStack renders and reconciles only the outputs owned by affected `*.pages.ts` files.
+- **Full page/template rebuild**: DOMStack renders every source-backed and generated page and every template without restarting esbuild.
+- **Full rebuild**: DOMStack rediscovers the source tree, restarts esbuild, renders all pages and templates, and refreshes its dependency maps.
+
+Like templates, generated-pages modules rebuild when their own source or imported dependencies change. Receiving the `pages` collection does not create an implicit watch dependency on every source-backed page.
 
 #### What triggers what
 
 | Change | Rebuild scope |
 |---|---|
-| `page.js`, `page.ts`, `page.html`, `page.md`, or `page.vars.*` | Only that page |
-| A file imported by a `page.js` or `page.vars.*` | Only the pages that import it (transitively) |
-| A layout file (`*.layout.js`) | Only the pages using that layout |
-| A file imported by a layout | Only the pages using the affected layout(s) |
-| A template file (`*.template.js`) | Only that template |
-| A file imported by a template | Only the affected template(s) |
-| `markdown-it.settings.*` | All `.md` pages |
-| `global.data.*` | All pages and templates |
-| `global.vars.*` or `esbuild.settings.*` | Full rebuild (esbuild restart + all pages) |
-| `domstack-manifest.settings.*` | No rebuild in watch mode; domstack manifests are only generated in one-shot builds |
-| `client.js`, `style.css`, `*.layout.css`, `*.layout.client.*`, `global.client.*`, `global.css`, `*.worker.*`, `service-worker.*` | esbuild handles it — no page rebuild |
-| Adding or removing an esbuild entry point (e.g. creating a new `client.js`) | esbuild restart + only the affected page(s) |
-| Adding or removing any other file | Full rebuild |
+| Existing `page.ts`, `page.html`, `page.md`, or adjacent `page.vars.ts` | That page |
+| A module imported by a TypeScript page or `page.vars.ts` | Pages that depend on it |
+| Existing `*.layout.ts` or a module it imports | Source-backed pages and generated-page owners using the affected layout |
+| Existing `*.template.ts` or a module it imports | Affected templates |
+| Existing `*.pages.ts` | Generated outputs owned by that file, then refresh dependency maps |
+| A module imported by `*.pages.ts` | Generated outputs owned by the importing files, then refresh dependency maps |
+| `markdown-it.settings.ts` | All source-backed Markdown pages, generated pages, and templates |
+| `global.data.ts` | All pages and templates |
+| `global.vars.ts` or `esbuild.settings.ts` | Full rebuild |
+| `domstack-manifest.settings.ts` | No rebuild. The manifest pipeline is disabled in watch mode |
+| Existing client, style, Web Worker, or service-worker entry | esbuild only |
+| Static asset under `src` or a file under a `--copy` directory | cpx2 copies or removes the output directly |
+
+Adding or removing a file changes the set of discovered build inputs:
+
+| Added or removed file | Rebuild scope |
+|---|---|
+| Site `service-worker.ts` | Restart esbuild. No page rebuild |
+| `global.client.ts` or `global.css` | Restart esbuild and rebuild all pages |
+| Layout client or style | Restart esbuild and rebuild source-backed pages and generated-page owners using that layout |
+| Page client, style, or Web Worker | Restart esbuild and rebuild that page |
+| Any other page, layout, template, generated-pages, variable, or settings file | Full rebuild |
+
+When a full page/template rebuild or targeted generated-pages rebuild no longer claims an output from the previous successful build, DOMStack removes that obsolete page or template output from `dest` without touching outputs owned by unaffected files.
 
 #### Dependency tracking
 
-domstack uses [`@11ty/dependency-tree-typescript`](https://github.com/11ty/dependency-tree-typescript) to statically analyze ESM imports in page files, layout files, and template files. This means if your `page.js` imports a shared utility module, changing that module will only rebuild the pages that depend on it — not the entire site.
+DOMStack uses [`@11ty/dependency-tree-typescript`](https://github.com/11ty/dependency-tree-typescript) to statically analyze ESM imports. It maintains maps for:
 
-esbuild tracks its own entry point dependencies independently. Changing a file imported by `client.js` will trigger an esbuild rebundle but will not trigger a page rebuild, since watch mode uses stable filenames.
+- Layout dependencies, source-backed pages using each layout, and generated-page owner layout membership
+- TypeScript pages and adjacent page-variable dependencies
+- Template dependencies
+- Generated-pages module dependencies
+- Current esbuild entry points
 
-#### Stable filenames
+The maps are created after the initial build and refreshed after structural or generated-pages rebuilds. Dependency analysis is best-effort. When DOMStack cannot safely determine a targeted scope, it falls back to a broader rebuild or skips an unrelated changed module.
 
-In watch mode, esbuild uses `[dir]/[name]` output patterns instead of `[dir]/[name]-[hash]`. This means the `<script>` and `<link>` tags in page HTML always point to the same filenames. When esbuild rebundles, the file contents change but the filenames don't, so page HTML never needs to be re-rendered just because a bundle changed.
+esbuild tracks browser-entry dependencies independently. Changing a module imported by `client.ts` rebundles that entry without rendering page HTML.
+
+#### Stable entry filenames
+
+Watch mode uses stable filenames for esbuild entry outputs:
+
+```text
+[dir]/[name]
+```
+
+Production builds use content-hashed entry filenames:
+
+```text
+[dir]/[name]-[hash]
+```
+
+Shared chunks remain content-hashed in both modes:
+
+```text
+chunks/[ext]/[name]-[hash]
+```
+
+Page HTML points to stable entry files during watch mode. esbuild can update an entry and its chunk imports without requiring DOMStack to render the page again.
+
+#### Manifest behavior
+
+Watch mode builds and rebundles the site service worker, but it does not finalize, return, or write the [DOMStack manifest](#domstack-manifest). Changes to `domstack-manifest.settings.ts` therefore do not trigger a watch rebuild.
+
+Use `domstack --serve` when testing manifest-driven cache behavior. It runs a one-shot build and serves the result without watch-mode filenames or live-reload HTML injection. Add `--domstackManifest` only when the service worker or test needs the public `domstack-manifest.json` file.
 
 #### Build serialization
 
-Chokidar events are serialized through a promise chain, so rapid saves don't cause overlapping rebuilds. Each rebuild completes before the next one starts.
+Chokidar events are serialized through a promise chain. Each page rebuild or esbuild restart completes before the next queued filesystem event is processed, preventing overlapping DOMStack rebuilds during rapid saves.
+
+## Design Goals
+
+- Be boring.
+- Work well. 
+- Be as simple as possible.
+- Make life simpler for the developer.
+- Tasteful design and decisions.
+- Avoid ugliness, hacks or other sources of infinite complexity.
+- Convention over configuration.
+- Bundle up the best tools together into a single system.
+- All configuration should be optional, and at most it should be minimal.
+- The source code structure of the site should follow the url structure of site
+- Align with the `index.html`/`README.md` pattern. (Natural GitHub navigation)
+- The HTML is the source of truth.
+- The directory structure defines the site structure
+- Don't re-implement what the browser already provides!
+  - No magic `<link>` or `<a>` tag magic.
+  - Don't facilitate client side routing. The browser supports routing by default.
+  - Accept the nature of the medium. Browsers browse html documents. Don't facilitate shared state between pages (but don't prevent it either).
+- Library agnostic. Strings are the interchange format.
+- Pages are shallow apps. New page, new blank canvas.
+- Just a program. `js` pages and layouts are just JavaScript programs. This provides an escape hatch to do anything. Use any template language want, but probably just use tagged template literals.
+- Steps remain orthogonal. Static file copying, css and js bundling, are mere optimizations on top of the `src` folder. The `src` folder should essentially run in the browser. Each step in a `domstack` build should work independent of the others. This allows for maximal parallelism when building.
+- Standardized entrypoints. Every page in a `domstack` site has a natural and obvious entrypoint. There is no unique redirection to learn about.
+- Pages build into `index.html` files inside of named directories. This allows for naturally colocated assets next to the page, pretty URLs and full support for relative URLs.
+- No parallel directory structures. You should never be forced to have two directories with identical layouts to put files next to each other. Everything should be colocatable.
+- Markdown entrypoints are named `page.md` or `README.md`. `README.md` allows for the `src` folder to be fully navigable in GitHub and other git repo hosting providing a natural hosted CMS UI. `page.md` is preferred when GitHub navigability is not a concern.
+- Real TC39 ESM from the start.
+- Garbage in, garbage out. Don't over-correct bad input.
+- Conventions + standards. 
+- Vanilla file types. 
+- No new file extensions. 
+- No framework specific editor extensions or additional tooling beyond the bin
+- No weird syntax to learn. 
+- Language tools should just work because you aren't doing anything weird or out of band.
+- Encourage directly runnable source files. Direct run is an incredible, undervalued feature more people should learn to use.
+- Support typescript, via ts-in-js and type stripping features. Leave type checking to tsc.
+- Embrace the now. Limit support on features that let one pretend they are working with future ecosystem features e.g. pseudo esm (technology predictions nearly always are wrong!)
+- By doing this not the weird way, benefit from passive platform improvements with minimal future changes.
+- Avoid trends and FOMO in th ecosystem unless there is something truly there. 
+
+## FAQ
+
+Why DOMStack?
+
+:   DOMStack is named after the [DOM (Document Object Model)](https://developer.mozilla.org/en-US/docs/Web/API/Document_Object_Model) and the concept of stacking technologies together to build websites. It represents the layering of HTML, CSS, and JavaScript in a cohesive build system and its emphasis of using what we have rather than inventing brand new ideas or concepts. Also since I had to replace a Wallace and Gromit reference, it could  maybe also double as a [cheeky](https://youtu.be/tiJ4ffGZ7cM?t=77) homage to Node's former legend `substack`.
+
+How does `domstack` relate to [`top-bun`](https://www.npmjs.com/package/top-bun)?
+
+:   `top-bun` is the former name of `domstack` and was named after the bakery in Wallace & Gromit's [A Matter of Loaf and Death 🍞](https://www.youtube.com/watch?v=zXBmZLmfQZ4) which my kids were watching at the time. The project and package were renamed to DOMStack and `@domstack/static` in v11. See the [`top-bun` to DOMStack migration guide](./docs/v11-migration.md) when updating an older project. The `bun` project took off
+and hosed the projects chances at SEO!
+
+How does `domstack` relate to [`sitedown`](https://ghub.io/sitedown)
+
+:   `top-bun` used to be called `siteup` which is sort of like "markup", which is related to "markdown", which inspired the project `sitedown` to which `domstack` is a spiritual off-shoot of. Put a folder of web documents in your `domstack` build system, and generate a website. `domstack` is definitely it's own thing now though!
+
+
+Is this for real?
+
+:   Yes! The frontend space is crowded and brutal, and full of repeat ideas. DOMStack started and will remain as an opensource-for-one project and my goal is to explore ideas that I haven't seen manifest in ways I would like to see elsewhere.
+Usage and contribution is encouraged and welcome and appreciated of course. I already consider the project a success for the goals I set out to achieve with it and don't plan to growth hack it at all.
 
 ## Roadmap
 
@@ -2585,45 +3026,17 @@ Some notable features are included below, see the [roadmap](https://github.com/u
 - [x] Remove `postVars` and implement `global.data.{j,t}s`
 - [x] Harden behavior around conflicting `browserVars` and esbuild settings
 - [x] Progressive watch rebuilds with dependency tracking
+- [x] Generated pages
+- [x] Data processing pipeline
+- [x] Native service worker support
+- [x] Build manifest with offline service worker examples
 - ...[See roadmap](https://github.com/users/bcomnes/projects/3/)
-
-## TODO (Content that needs to find a new home in the readme)
-
-- 📢 [v11 - top-bun is now domstack](docs/v11-migration.md)
-- 📢 [v7 Announcement](https://bret.io/blog/2023/reintroducing-top-bun/)
-- 📘 [Full TypeScript Support](#typescript-support)
-
-- Running `domstack --serve` will run a normal one-shot build and then serve the destination directory without watching or injecting live-reload snippets. This is useful for PWA testing because service-worker hooks and manifest versions run against stable build bytes. Add `--domstackManifest` if you also need to serve `domstack-manifest.json`. Use `domstack --serve --port 3001` to choose a different local port.
-
-## Migrating to v12
-
-domstack v12 moves the default server-side HTML path to [`fragtml`][fragtml] and makes browser UI runtimes opt-in. The package remains `@domstack/static`, and the CLI remains `domstack`/`dom`.
-
-Key changes at a glance:
-
-- **Default layout**: The bundled and ejected `root.layout.js` now uses [`fragtml`][fragtml].
-- **Included dependencies**: `domstack --eject` adds `mine.css`, `fragtml`, and `highlight.js`; Preact, HTM, and `preact-render-to-string` are no longer included for the default template.
-- **mine.css v11**: The bundled defaults now use mine.css v11. Sites using those defaults need no source changes; direct, ejected, or customized mine.css consumers should follow the upstream migration guide.
-- **CSS cascade layers**: The default mine.css rules and sidecars use low-priority layers. Custom styles may remain unlayered or optionally use the documented `domstack.global`, `domstack.layout`, and `domstack.page` organization pattern.
-- **JSX runtime**: Client `.jsx` and `.tsx` bundles still work through esbuild, but DOMStack no longer configures Preact as the default runtime. Install React, Preact, or another runtime in your own project and configure it with `esbuild.settings`.
-- **Preact examples**: Examples that actually mount Preact in the browser still use Preact and configure it locally.
-
-See [docs/v12-migration.md](docs/v12-migration.md) for the v12 migration guide. If you are migrating from `top-bun`, the historical v11 guide remains at [docs/v11-migration.md](docs/v11-migration.md).
-
-## History
-
-DOMStack started its life as `top-bun` in 2023, named after the bakery from Wallace and Gromit. The project was created to provide a simple, fast, and flexible static site generator that could handle modern web development needs while staying true to web standards.
-
-The project was renamed to DOMStack in version 11 to better reflect its purpose and avoid confusion with the Bun JavaScript runtime. The name DOMStack represents the layering of web technologies (HTML, CSS, JavaScript).
-It is also an homage to [substack](https://substack.net) as well as a play on the productname that stole his name.
 
 ## Links
 
 - [CHANGELOG](CHANGELOG.md)
 - [CONTRIBUTING](CONTRIBUTING.md)
 - [Dependencies](dependencygraph.svg)
-- [v12 Migration Guide](docs/v12-migration.md)
-- [v11 top-bun Migration Guide](docs/v11-migration.md)
 - [fragtml docs][fragtml-docs]
 
 ## License

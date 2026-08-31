@@ -121,16 +121,17 @@ const templateAsyncIterator: TemplateAsyncIterator<{ siteName: string }> = async
 const globalDataFunction: GlobalDataFunction<{ generated: true }> = () => ({ generated: true })
 const asyncGlobalDataFunction: AsyncGlobalDataFunction<{ generated: true }> = async () => ({ generated: true })
 
-const generatedPageWithoutChildren: GeneratedPageDefinition<{ layout: string }, string> = {
+const generatedPageWithoutChildren: GeneratedPageDefinition<{ layout: string }> = {
   outputName: 'without-children/index.html',
   vars: { layout: 'root' },
+  children: 'Body',
 }
-const generatedPageWithUndefinedChildren: GeneratedPageDefinition<{ layout: string }, string> = {
+const generatedPageWithUndefinedChildren: GeneratedPageDefinition<{ layout: string }> = {
   outputName: 'undefined-children/index.html',
   vars: { layout: 'root' },
   children: undefined,
 }
-const generatedPagesFunction: PagesFunction<{ layout: string }, string> = () => [
+const generatedPagesFunction: PagesFunction<{ layout: string }> = () => [
   generatedPageWithoutChildren,
   generatedPageWithUndefinedChildren,
 ]

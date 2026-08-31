@@ -1,17 +1,18 @@
 /**
  * @import { PageFunction, PagesFunction } from '#types'
  * @import { HtmlResult } from 'fragtml/types.js'
+ * @typedef {{ layout: string, title: string, sawGenerated: boolean, concreteCount: number }} ConcreteOnlyVars
  */
 
 import { html } from 'fragtml'
 
-/** @type {PageFunction<{ sawGenerated: boolean, concreteCount: number }, HtmlResult>} */
+/** @type {PageFunction<ConcreteOnlyVars, HtmlResult>} */
 const renderConcreteOnlyPage = ({ vars }) => html`
   <p id="saw-generated">${String(vars.sawGenerated)}</p>
   <p id="concrete-count">${vars.concreteCount}</p>
 `
 
-/** @type {PagesFunction} */
+/** @type {PagesFunction<ConcreteOnlyVars, HtmlResult>} */
 export default function concreteOnlyPages ({ pages }) {
   return {
     outputName: 'generated-introspection/index.html',

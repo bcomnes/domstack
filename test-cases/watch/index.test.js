@@ -1,7 +1,7 @@
 import { test, mock } from 'node:test'
 import assert from 'node:assert'
 import { DomStack } from '../../index.js'
-import { cp, rm, writeFile, readFile, unlink, mkdtemp, stat, readdir } from 'fs/promises'
+import { cp, rm, writeFile, readFile, unlink, mkdtemp, stat, readdir, mkdir } from 'fs/promises'
 import * as path from 'path'
 
 const fixtureDir = path.join(import.meta.dirname, '../general-features/src')
@@ -68,6 +68,57 @@ function createTestLogger (logs) {
 }
 
 test.describe('watch', () => {
+  test('targets generated-page owners independently', { timeout: 30_000 }, async (t) => {
+    const tmp = await mkdtemp(path.join(import.meta.dirname, '.tmp-generated-'))
+    const src = path.join(tmp, 'src')
+    const dest = path.join(tmp, 'public')
+    await mkdir(src, { recursive: true })
+
+    const sourcePage = path.join(src, 'page.md')
+    const alphaPages = path.join(src, 'alpha.pages.js')
+    const betaPages = path.join(src, 'beta.pages.js')
+
+    await Promise.all([
+      writeFile(sourcePage, '# Source v1\n'),
+      writeFile(alphaPages, "export default [{ outputName: 'generated/alpha.html', children: 'alpha v1' }]\n"),
+      writeFile(betaPages, "export default [{ outputName: 'generated/beta.html', children: 'beta v1' }]\n"),
+    ])
+
+    const loggerLogs = /** @type {string[]} */ ([])
+    const domStack = new DomStack(src, dest, { logger: createTestLogger(loggerLogs) })
+
+    t.after(async () => {
+      if (domStack.watching) await domStack.stopWatching()
+      await rm(tmp, { recursive: true, force: true })
+    })
+
+    await domStack.watch({ serve: false })
+
+    const alphaOutput = path.join(dest, 'generated/alpha.html')
+    const alphaRenamedOutput = path.join(dest, 'generated/alpha-renamed.html')
+    const betaOutput = path.join(dest, 'generated/beta.html')
+
+    assert.match(await readFile(alphaOutput, 'utf8'), /alpha v1/)
+    assert.match(await readFile(betaOutput, 'utf8'), /beta v1/)
+
+    loggerLogs.length = 0
+    await writeFile(sourcePage, '# Source v2\n')
+    await settle(domStack)
+
+    assert.match(await readFile(path.join(dest, 'index.html'), 'utf8'), /Source v2/)
+    assert.match(await readFile(alphaOutput, 'utf8'), /alpha v1/)
+    assert.ok(loggerLogs.some(line => line.includes('Pages built: 1')), 'source change rebuilds only its page')
+
+    loggerLogs.length = 0
+    await writeFile(alphaPages, "export default [{ outputName: 'generated/alpha-renamed.html', children: 'alpha v2' }]\n")
+    await settle(domStack)
+
+    assert.match(await readFile(alphaRenamedOutput, 'utf8'), /alpha v2/)
+    await assert.rejects(() => stat(alphaOutput), 'removed owner output is cleaned')
+    assert.match(await readFile(betaOutput, 'utf8'), /beta v1/)
+    assert.ok(loggerLogs.some(line => line.includes('Pages built: 1')), 'only the changed owner is rendered')
+  })
+
   test('progressive rebuilds', { timeout: 60_000 }, async (t) => {
     const { src, dest, tmp } = await setupTempSite()
 

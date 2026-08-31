@@ -252,7 +252,7 @@ export default (async function redirectsPages ({ pages }) {
 The generated page definition is template-like, but layout-driven: `outputName` chooses where to write the page, `children` supplies the layout child content, and `vars` controls page/layout variables.
 
 ```ts
-type GeneratedPageDefinition<Vars = Record<string, any>, Children = any> = {
+type GeneratedPageDefinition<Vars = Record<string, any>, Children = string> = {
   outputName?: string // default: '<pages-file-name>/index.html'
   vars?: Vars
   children?: Children | ((params: PageFunctionParams<Vars, Children>) => Children | Promise<Children>) | undefined

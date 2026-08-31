@@ -1,3 +1,44 @@
 @layer domstack.page {
-  /* Styles go here */
+  /* Keep the TOC inline until the complete two-column document fits comfortably. */
+  @media (min-width: 82rem) {
+    .app-main.has-sidebar-toc {
+      grid-template-columns: 16rem minmax(0, 56em);
+      column-gap: 4rem;
+      display: grid;
+      max-inline-size: calc(16rem + 4rem + 56em + 2em);
+    }
+
+    .docs-content {
+      grid-column: 2;
+      min-inline-size: 0;
+    }
+
+    .table-of-contents {
+      position: sticky;
+      grid-column: 1;
+      inset-block-start: 1rem;
+      align-self: start;
+      box-sizing: border-box;
+      max-block-size: calc(100vh - 2rem);
+      overflow-wrap: anywhere;
+      overflow-y: auto;
+      scrollbar-gutter: stable;
+    }
+
+    .table-of-contents::before {
+      display: block;
+      margin-block-end: 0.75rem;
+      font-family: 'DSWeiss-Gotisch', serif;
+      font-size: 1.5em;
+      font-weight: bold;
+      line-height: 1.2;
+      content: 'Table of Contents';
+    }
+
+    .table-of-contents a[aria-current='location'] {
+      font-weight: bold;
+      text-decoration-thickness: 0.15em;
+      text-underline-offset: 0.2em;
+    }
+  }
 }

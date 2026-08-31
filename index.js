@@ -9,6 +9,7 @@
  * @import { Logger as PinoLogger } from 'pino'
  * @import { DomstackManifestRecord } from './lib/domstack-manifest/index.js'
  * @typedef {{ dispose: () => Promise<void> }} DisposableBuildContext
+ * @typedef {{ pageFilePath: string, pagesFilePath?: string | undefined, layoutName?: string | undefined, outputs?: DomstackManifestRecord[] | undefined }} WatchedPageReport
  */
 import { once } from 'events'
 import assert from 'node:assert'
@@ -104,8 +105,12 @@ export class DomStack {
   #pagesFileDepMap = new Map()
   /** @type {Set<string>} absolute filepaths of esbuild entry points */
   #esbuildEntryPoints = new Set()
-  /** @type {Set<string>} destination-relative outputs from the last successful full page build */
+  /** @type {Set<string>} destination-relative outputs from the last successful page builds */
   #pageOutputRelnames = new Set()
+  /** @type {Map<string, Set<string>>} *.pages.* filepath → owned destination-relative outputs */
+  #pagesFileOutputMap = new Map()
+  /** @type {Map<string, Set<string>>} *.pages.* filepath → layouts used by its generated pages */
+  #pagesFileLayoutMap = new Map()
 
   // Serialized lock so concurrent chokidar events don't pile up
   /** @type {Promise<void>} */
@@ -205,6 +210,8 @@ export class DomStack {
         pageBuildResults,
       }
       this.#pageOutputRelnames = getPageOutputRelnames(pageBuildResults.outputs)
+      this.#pagesFileOutputMap = getPagesFileOutputMap(pageBuildResults.report.pages)
+      this.#pagesFileLayoutMap = getPagesFileLayoutMap(pageBuildResults.report.pages)
       buildLogger(report, this.#logger)
       this.#logger.info('Initial JS, CSS and Page Build Complete')
     } catch (err) {
@@ -280,6 +287,7 @@ export class DomStack {
       this.#syncServer = await createServer({
         server: this.#dest,
         files: basename(this.#dest),
+        ignore: ['**/domstack-esbuild-meta.json'],
         logger: this.#logger.child({ component: 'sync', logPrefix: '[domstack-sync]' }),
       })
     }
@@ -388,11 +396,6 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
         logRebuildTree(changedBasename, this.#logger, new Set(siteData.pages))
         await this.#runPageBuild(siteData)
       } else if (layoutClientSuffixs.some(s => changedBasename.endsWith(s)) || changedBasename.endsWith(layoutStyleSuffix)) {
-        if ((siteData.pagesFiles?.length ?? 0) > 0) {
-          this.#logger.info(`"${changedBasename}" ${event}, rebuilding all pages...`)
-          return this.#runGeneratedPageBuild(siteData)
-        }
-
         // Layout asset: rebuild pages using that layout
         const layoutName = Object.values(siteData.layouts).find(l =>
           l.layoutClient?.filepath === changedPath || l.layoutStyle?.filepath === changedPath
@@ -401,21 +404,22 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
           // Rebuild maps first so layoutPageMap is current
           await this.#rebuildMaps(siteData)
           const affectedPages = this.#layoutPageMap.get(layoutName)
-          if (affectedPages && affectedPages.size > 0) {
+          const pagesFileFilterPaths = this.#getPagesFilePathsUsingLayouts(new Set([layoutName]))
+          if ((affectedPages?.size ?? 0) > 0 || pagesFileFilterPaths.length > 0) {
             logRebuildTree(changedBasename, this.#logger, affectedPages)
-            const pageFilterPaths = Array.from(affectedPages).map(p => p.pageFile.filepath)
-            await this.#runPageBuild(siteData, pageFilterPaths, [])
+            const pageFilterPaths = Array.from(affectedPages ?? []).map(p => p.pageFile.filepath)
+            await this.#runPageBuild(siteData, pageFilterPaths, [], pagesFileFilterPaths)
             return
           }
         }
         // Couldn't determine layout — rebuild all pages to be safe
-        await this.#runPageBuild(siteData)
+        await this.#runPageBuild(siteData, null, [], null)
       } else {
         // Page-level asset (client.*, style.css, *.worker.*): rebuild only that page
         const affectedPage = siteData.pages.find(p => p.path === changedDir)
         if (affectedPage) {
           logRebuildTree(changedBasename, this.#logger, new Set([affectedPage]))
-          await this.#runPageBuild(siteData, [affectedPage.pageFile.filepath], [])
+          await this.#runPageBuild(siteData, [affectedPage.pageFile.filepath], [], [])
         } else {
           // Page not found (maybe it was removed) — rebuild all pages
           await this.#runPageBuild(siteData)
@@ -437,13 +441,15 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
    * @param {SiteData} siteData
    * @param {string[] | null} [pageFilterPaths]
    * @param {string[] | null} [templateFilterPaths]
+   * @param {string[] | null} [pagesFileFilterPaths]
    */
-  async #runPageBuild (siteData, pageFilterPaths = null, templateFilterPaths = null) {
+  async #runPageBuild (siteData, pageFilterPaths = null, templateFilterPaths = null, pagesFileFilterPaths = null) {
     try {
       const pageBuildResults = await buildPages(this.#src, this.#dest, siteData, {
         ...this.opts,
         ...(pageFilterPaths ? { pageFilterPaths } : {}),
         ...(templateFilterPaths ? { templateFilterPaths } : {}),
+        ...(pagesFileFilterPaths ? { pagesFileFilterPaths } : {}),
       })
       if (pageBuildResults.errors.length > 0) {
         throw new DomStackAggregateError(pageBuildResults.errors, 'Page build finished but there were errors.', {
@@ -451,8 +457,15 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
           pageBuildResults,
         })
       }
-      const isFiltered = pageFilterPaths !== null || templateFilterPaths !== null
-      if (!isFiltered) await this.#removeObsoletePageOutputs(pageBuildResults.outputs)
+      const isFiltered = pageFilterPaths !== null || templateFilterPaths !== null || pagesFileFilterPaths !== null
+      if (!isFiltered) {
+        await this.#removeObsoletePageOutputs(pageBuildResults.outputs)
+        this.#pagesFileOutputMap = getPagesFileOutputMap(pageBuildResults.report.pages)
+        this.#pagesFileLayoutMap = getPagesFileLayoutMap(pageBuildResults.report.pages)
+      } else if (pagesFileFilterPaths !== null) {
+        await this.#removeObsoleteGeneratedPageOutputs(pagesFileFilterPaths, pageBuildResults.report.pages)
+        updatePagesFileLayoutMap(this.#pagesFileLayoutMap, pagesFileFilterPaths, pageBuildResults.report.pages)
+      }
       buildLogger(
         isFiltered ? pageBuildResults : { warnings: pageBuildResults.warnings, siteData, pageBuildResults },
         this.#logger,
@@ -487,16 +500,69 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
   }
 
   /**
-   * Rebuild all pages and refresh dependency maps afterward.
-   * Generated pages can change their import graph without changing the site's
-   * discovered file structure, so their full rebuild paths use this helper.
+   * Remove outputs no longer emitted by the selected generated-pages owners.
+   * Ownership state changes only after a successful targeted build.
+   *
+   * @param {string[]} pagesFileFilterPaths
+   * @param {WatchedPageReport[]} pageReports
+   */
+  async #removeObsoleteGeneratedPageOutputs (pagesFileFilterPaths, pageReports) {
+    const currentByOwner = getPagesFileOutputMap(pageReports)
+    const dest = resolve(this.#dest)
+
+    for (const pagesFilePath of pagesFileFilterPaths) {
+      const previousOutputs = this.#pagesFileOutputMap.get(pagesFilePath) ?? new Set()
+      const currentOutputs = currentByOwner.get(pagesFilePath) ?? new Set()
+
+      await Promise.all(Array.from(previousOutputs, async outputRelname => {
+        if (currentOutputs.has(outputRelname)) return
+        const filepath = resolve(dest, outputRelname)
+        assertInsideDest(dest, filepath)
+        if (filepath === dest) throw new Error('Refusing to remove the build destination')
+        await rm(filepath, { force: true })
+      }))
+
+      for (const outputRelname of previousOutputs) this.#pageOutputRelnames.delete(outputRelname)
+      for (const report of pageReports) {
+        if (report.pagesFilePath !== pagesFilePath) continue
+        for (const output of report.outputs ?? []) {
+          if (output.kind === 'page') this.#pageOutputRelnames.add(output.outputRelname)
+        }
+      }
+
+      if (currentOutputs.size > 0) this.#pagesFileOutputMap.set(pagesFilePath, currentOutputs)
+      else this.#pagesFileOutputMap.delete(pagesFilePath)
+    }
+  }
+
+  /**
+   * Rebuild generated outputs owned by selected pages files and refresh their
+   * dependency maps after a successful build.
    *
    * @param {SiteData} siteData
+   * @param {Set<PagesFileInfo>} pagesFiles
    */
-  async #runGeneratedPageBuild (siteData) {
-    const pageBuildResults = await this.#runPageBuild(siteData)
-    await this.#rebuildMaps(siteData)
+  async #runTargetedPagesFileBuild (siteData, pagesFiles) {
+    const pagesFileFilterPaths = Array.from(pagesFiles, pagesFile => pagesFile.pagesFile.filepath)
+    const pageBuildResults = await this.#runPageBuild(siteData, [], [], pagesFileFilterPaths)
+    if (pageBuildResults) await this.#rebuildMaps(siteData)
     return pageBuildResults
+  }
+
+  /**
+   * Find generated-page owners whose last successful outputs used any affected layout.
+   *
+   * @param {Set<string>} layoutNames
+   * @returns {string[]}
+   */
+  #getPagesFilePathsUsingLayouts (layoutNames) {
+    const pagesFilePaths = []
+    for (const [pagesFilePath, usedLayouts] of this.#pagesFileLayoutMap) {
+      if (Array.from(usedLayouts).some(layoutName => layoutNames.has(layoutName))) {
+        pagesFilePaths.push(pagesFilePath)
+      }
+    }
+    return pagesFilePaths
   }
 
   /**
@@ -680,17 +746,12 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
       return this.#fullRebuild()
     }
 
-    // 5. markdown-it.settings.* → rebuild all md pages only, unless generated
-    // pages may consume their rendered output.
+    // 5. markdown-it.settings.* → rebuild Markdown pages and all consumers that
+    // may render their content. Calls to renderInnerPage() cannot be inferred statically.
     if (markdownItSettingsNames.some(n => changedBasename === n)) {
-      if ((siteData.pagesFiles?.length ?? 0) > 0) {
-        this.#logger.info(`"${changedBasename}" changed, rebuilding all pages...`)
-        return this.#runGeneratedPageBuild(siteData)
-      }
-
       const mdPages = new Set(siteData.pages.filter(p => p.type === 'md'))
       logRebuildTree(changedBasename, this.#logger, mdPages)
-      return this.#runPageBuild(siteData, Array.from(mdPages).map(p => p.pageFile.filepath), [])
+      return this.#runPageBuild(siteData, Array.from(mdPages).map(p => p.pageFile.filepath), null, null)
     }
 
     // domstack-manifest.settings.* only affects one-shot domstack manifest generation.
@@ -710,18 +771,14 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
 
     // 7. Layout file itself → rebuild pages using that layout
     if (layoutSuffixs.some(s => changedBasename.endsWith(s))) {
-      if ((siteData.pagesFiles?.length ?? 0) > 0) {
-        this.#logger.info(`"${changedBasename}" changed, rebuilding all pages...`)
-        return this.#runGeneratedPageBuild(siteData)
-      }
-
       const layoutName = this.#layoutFileMap.get(changedPath)
       if (layoutName) {
         const affectedPages = this.#layoutPageMap.get(layoutName)
-        if (affectedPages && affectedPages.size > 0) {
+        const pagesFileFilterPaths = this.#getPagesFilePathsUsingLayouts(new Set([layoutName]))
+        if ((affectedPages?.size ?? 0) > 0 || pagesFileFilterPaths.length > 0) {
           logRebuildTree(changedBasename, this.#logger, affectedPages)
-          const pageFilterPaths = Array.from(affectedPages).map(p => p.pageFile.filepath)
-          return this.#runPageBuild(siteData, pageFilterPaths, [])
+          const pageFilterPaths = Array.from(affectedPages ?? []).map(p => p.pageFile.filepath)
+          return this.#runPageBuild(siteData, pageFilterPaths, [], pagesFileFilterPaths)
         }
         this.#logger.info(`"${changedBasename}" changed but no pages use layout "${layoutName}", skipping.`)
         return
@@ -731,20 +788,17 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
 
     // 8. Dep of a layout
     if (this.#layoutDepMap.has(changedPath)) {
-      if ((siteData.pagesFiles?.length ?? 0) > 0) {
-        this.#logger.info(`"${changedBasename}" changed, rebuilding all pages...`)
-        return this.#runGeneratedPageBuild(siteData)
-      }
       const affectedLayoutNames = this.#layoutDepMap.get(changedPath) ?? new Set()
       const affectedPages = new Set(/** @type {PageInfo[]} */ ([]))
       for (const layoutName of affectedLayoutNames) {
         const pages = this.#layoutPageMap.get(layoutName)
         if (pages) for (const p of pages) affectedPages.add(p)
       }
-      if (affectedPages.size > 0) {
+      const pagesFileFilterPaths = this.#getPagesFilePathsUsingLayouts(affectedLayoutNames)
+      if (affectedPages.size > 0 || pagesFileFilterPaths.length > 0) {
         logRebuildTree(changedBasename, this.#logger, affectedPages)
         const pageFilterPaths = Array.from(affectedPages).map(p => p.pageFile.filepath)
-        return this.#runPageBuild(siteData, pageFilterPaths, [])
+        return this.#runPageBuild(siteData, pageFilterPaths, [], pagesFileFilterPaths)
       }
     }
 
@@ -752,20 +806,17 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
     if (this.#pageFileMap.has(changedPath)) {
       const affectedPage = this.#pageFileMap.get(changedPath)
       if (affectedPage) {
-        if ((siteData.pagesFiles?.length ?? 0) > 0) {
-          this.#logger.info(`"${changedBasename}" changed, rebuilding all pages...`)
-          return this.#runGeneratedPageBuild(siteData)
-        }
         logRebuildTree(changedBasename, this.#logger, new Set([affectedPage]))
-        return this.#runPageBuild(siteData, [affectedPage.pageFile.filepath], [])
+        return this.#runPageBuild(siteData, [affectedPage.pageFile.filepath], [], [])
       }
     }
 
-    // 10. Pages file itself → full page rebuild
+    // 10. Pages file itself → rebuild outputs owned by that file
     if (pagesSuffixs.some(s => changedBasename.endsWith(s))) {
-      if (siteData.pagesFiles?.some(p => p.pagesFile.filepath === changedPath)) {
-        this.#logger.info(`"${changedBasename}" changed, rebuilding all pages...`)
-        return this.#runGeneratedPageBuild(siteData)
+      const pagesFile = siteData.pagesFiles?.find(p => p.pagesFile.filepath === changedPath)
+      if (pagesFile) {
+        this.#logger.info(`"${changedBasename}" changed, rebuilding its generated pages...`)
+        return this.#runTargetedPagesFileBuild(siteData, new Set([pagesFile]))
       }
     }
 
@@ -774,7 +825,7 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
       const templateInfo = siteData.templates.find(t => t.templateFile.filepath === changedPath)
       if (templateInfo) {
         logRebuildTree(changedBasename, this.#logger, undefined, new Set([templateInfo]))
-        return this.#runPageBuild(siteData, [], [templateInfo.templateFile.filepath])
+        return this.#runPageBuild(siteData, [], [templateInfo.templateFile.filepath], [])
       }
     }
 
@@ -782,20 +833,17 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
     if (this.#pageDepMap.has(changedPath)) {
       const affectedPages = this.#pageDepMap.get(changedPath) ?? new Set()
       if (affectedPages.size > 0) {
-        if ((siteData.pagesFiles?.length ?? 0) > 0) {
-          this.#logger.info(`"${changedBasename}" changed, rebuilding all pages...`)
-          return this.#runGeneratedPageBuild(siteData)
-        }
         logRebuildTree(changedBasename, this.#logger, affectedPages)
         const pageFilterPaths = Array.from(affectedPages).map(p => p.pageFile.filepath)
-        return this.#runPageBuild(siteData, pageFilterPaths, [])
+        return this.#runPageBuild(siteData, pageFilterPaths, [], [])
       }
     }
 
-    // 13. Dep of a pages file → full page rebuild
+    // 13. Dep of a pages file → rebuild outputs owned by affected files
     if (this.#pagesFileDepMap.has(changedPath)) {
-      this.#logger.info(`"${changedBasename}" changed, rebuilding all pages...`)
-      return this.#runGeneratedPageBuild(siteData)
+      const affectedPagesFiles = this.#pagesFileDepMap.get(changedPath) ?? new Set()
+      this.#logger.info(`"${changedBasename}" changed, rebuilding affected generated pages...`)
+      return this.#runTargetedPagesFileBuild(siteData, affectedPagesFiles)
     }
 
     // 14. Dep of a template file
@@ -804,7 +852,7 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
       if (affectedTemplates.size > 0) {
         logRebuildTree(changedBasename, this.#logger, undefined, affectedTemplates)
         const templateFilterPaths = Array.from(affectedTemplates).map(t => t.templateFile.filepath)
-        return this.#runPageBuild(siteData, [], templateFilterPaths)
+        return this.#runPageBuild(siteData, [], templateFilterPaths, [])
       }
     }
 
@@ -845,6 +893,62 @@ function getPageOutputRelnames (outputs) {
   return new Set(outputs
     .filter(output => output.kind === 'page')
     .map(output => output.outputRelname))
+}
+
+/**
+ * Group generated-page outputs by their owning *.pages.* filepath.
+ *
+ * @param {WatchedPageReport[]} pageReports
+ * @returns {Map<string, Set<string>>}
+ */
+function getPagesFileOutputMap (pageReports) {
+  /** @type {Map<string, Set<string>>} */
+  const outputsByOwner = new Map()
+
+  for (const report of pageReports) {
+    if (!report.pagesFilePath) continue
+    const outputs = outputsByOwner.get(report.pagesFilePath) ?? new Set()
+    for (const output of report.outputs ?? []) outputs.add(output.outputRelname)
+    outputsByOwner.set(report.pagesFilePath, outputs)
+  }
+
+  return outputsByOwner
+}
+
+/**
+ * Group layouts used by generated pages by their owning *.pages.* filepath.
+ *
+ * @param {WatchedPageReport[]} pageReports
+ * @returns {Map<string, Set<string>>}
+ */
+function getPagesFileLayoutMap (pageReports) {
+  /** @type {Map<string, Set<string>>} */
+  const layoutsByOwner = new Map()
+
+  for (const report of pageReports) {
+    if (!report.pagesFilePath || !report.layoutName) continue
+    const layouts = layoutsByOwner.get(report.pagesFilePath) ?? new Set()
+    layouts.add(report.layoutName)
+    layoutsByOwner.set(report.pagesFilePath, layouts)
+  }
+
+  return layoutsByOwner
+}
+
+/**
+ * Replace layout membership for generated-page owners included in a targeted build.
+ *
+ * @param {Map<string, Set<string>>} layoutMap
+ * @param {string[]} rebuiltOwnerPaths
+ * @param {WatchedPageReport[]} pageReports
+ */
+function updatePagesFileLayoutMap (layoutMap, rebuiltOwnerPaths, pageReports) {
+  const rebuiltLayouts = getPagesFileLayoutMap(pageReports)
+  for (const ownerPath of rebuiltOwnerPaths) {
+    const layouts = rebuiltLayouts.get(ownerPath)
+    if (layouts?.size) layoutMap.set(ownerPath, layouts)
+    else layoutMap.delete(ownerPath)
+  }
 }
 
 /**

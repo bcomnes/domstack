@@ -554,7 +554,7 @@ test.describe('generated pages', () => {
     }
   })
 
-  test('rebuilds generated pages when a concrete page changes in watch mode', { timeout: 15_000 }, async () => {
+  test('does not infer a generated-pages dependency from receiving concrete pages', { timeout: 15_000 }, async () => {
     await withTempFixture({
       'root.layout.js': minimalRootLayout,
       'global.vars.js': minimalGlobalVars,
@@ -576,7 +576,7 @@ test.describe('generated pages', () => {
         await new Promise(resolve => setTimeout(resolve, 800))
         await domstack.settled()
 
-        assert.match(await readFile(outputPath, 'utf8'), /Updated title/)
+        assert.match(await readFile(outputPath, 'utf8'), /First title/)
       } finally {
         if (domstack.watching) await domstack.stopWatching()
       }

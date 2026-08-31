@@ -48,7 +48,7 @@
   },
   "dependencies": {
     "@11ty/dependency-tree-typescript": "^1.0.0",
-    "@domstack/sync": "^0.0.5",
+    "@domstack/sync": "^0.0.6",
     "argsclopts": "^1.0.4",
     "async-folder-walker": "^3.0.5",
     "chokidar": "^5.0.0",
@@ -69,6 +69,7 @@
     "markdown-it-deflist": "^4.0.0",
     "markdown-it-emoji": "^3.1.0",
     "markdown-it-footnote": "^4.0.0",
+    "markdown-it-github-alerts": "^1.0.1",
     "markdown-it-highlightjs": "^4.1.0",
     "markdown-it-ins": "^4.0.0",
     "markdown-it-mark": "^4.0.0",
