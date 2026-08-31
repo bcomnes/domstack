@@ -115,6 +115,7 @@ The public types were simplified before release:
 - `PagesFunctionParams` is generic, and `PagesFunction` has a separate third generic for the default/global/global-data vars received by the factory. Generated-page vars and factory input vars can therefore be typed independently.
 - `GeneratedPageDefinition.outputName` documents its `<pages-file-name>/index.html` default.
 - Type-checked fixtures cover an async generator and separately typed generated/factory vars.
+- The blog fixture and real blog example prepare grouped yearly collections in `global.data.*`; pages files only declare outputs, and layouts render their HTML.
 - Runtime coverage confirms static object, static array, and async function exports.
 
 The redirect security warning and meta-refresh SEO guidance remain accurate.
@@ -133,7 +134,7 @@ The implementation achieves the core design in a clean one-shot build:
 - Detects generated-to-concrete and generated-to-generated page conflicts.
 - Rebuilds generated pages for normal pages-file and imported-dependency changes.
 
-The generated-page build, watch behavior, and public site-data model are now intentional and covered by regression tests. The documented programmatic index builds successfully from collection data returned by `global.data.*`. Runtime-only `PageData[]` values remain available while rendering and are left out of the page-vars snapshot returned from the worker.
+The generated-page build, watch behavior, and public site-data model are now intentional and covered by regression tests. The documented programmatic index builds successfully from grouped collection data returned by `global.data.*`, while its layout owns the rendered HTML. Runtime-only `PageData[]` values remain available while rendering and are left out of the page-vars snapshot returned from the worker.
 
 #### 8. Resolved: generated pages close issue #237
 
@@ -529,24 +530,25 @@ Redirect metadata validation happens in `global.data.*` while the destination so
 
 ### Blog indexes
 
+`global.data.*` groups and sorts the source posts once. The pages file maps that prepared collection to normal pages, and the selected layout renders each archive:
+
 ```js
 // src/blog-indexes.pages.js
 export default function ({ vars }) {
-  const years = new Set()
-  const indexes = []
+  const pages = []
 
-  for (const post of vars.blogPosts) {
-    const year = new Date(post.publishDate).getUTCFullYear().toString()
-    if (years.has(year)) continue
-
-    years.add(year)
-    indexes.push({
+  for (const { year, posts } of vars.blogIndexes) {
+    pages.push({
       outputName: `blog/${year}/index.html`,
-      vars: { layout: 'blog-index', title: `${year} posts` },
+      vars: {
+        layout: 'blog-index',
+        title: `${year} posts`,
+        posts,
+      },
     })
   }
 
-  return indexes
+  return pages
 }
 ```
 

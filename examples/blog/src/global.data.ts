@@ -9,6 +9,11 @@ export interface BlogPost {
   tags: string[]
 }
 
+export interface BlogIndex {
+  year: number
+  posts: BlogPost[]
+}
+
 export interface PageRedirect {
   /** Old same-origin URL path that should redirect. */
   from: string
@@ -16,7 +21,7 @@ export interface PageRedirect {
   to: string
 }
 
-export function collectRedirects (pages: GlobalDataFunctionParams['pages']): PageRedirect[] {
+function collectRedirects (pages: GlobalDataFunctionParams['pages']): PageRedirect[] {
   const redirects: PageRedirect[] = []
   const redirectOwners = new Map<string, string>()
 
@@ -49,9 +54,53 @@ export function collectRedirects (pages: GlobalDataFunctionParams['pages']): Pag
   return redirects
 }
 
+function collectBlogPosts (pages: GlobalDataFunctionParams['pages']): BlogPost[] {
+  const blogPosts: BlogPost[] = []
+
+  for (const page of pages) {
+    const publishDateValue = page.vars.publishDate
+    if (page.vars.layout !== 'post' || (typeof publishDateValue !== 'string' && !(publishDateValue instanceof Date))) continue
+
+    const publishDate = new Date(publishDateValue.valueOf())
+    if (Number.isNaN(publishDate.valueOf())) continue
+
+    blogPosts.push({
+      path: page.pageInfo.path,
+      title: String(page.vars.title ?? 'Untitled'),
+      publishDate: publishDate.toISOString(),
+      description: String(page.vars.description ?? ''),
+      tags: Array.isArray(page.vars.tags) ? page.vars.tags as string[] : [],
+    })
+  }
+
+  blogPosts.sort((a, b) => b.publishDate.localeCompare(a.publishDate))
+  return blogPosts
+}
+
+function collectBlogIndexes (blogPosts: BlogPost[]): BlogIndex[] {
+  const postsByYear = new Map<number, BlogPost[]>()
+
+  for (const post of blogPosts) {
+    const year = new Date(post.publishDate).getUTCFullYear()
+    const yearPosts = postsByYear.get(year) ?? []
+    yearPosts.push(post)
+    postsByYear.set(year, yearPosts)
+  }
+
+  const blogIndexes: BlogIndex[] = []
+  for (const [year, posts] of postsByYear) {
+    blogIndexes.push({ year, posts })
+  }
+
+  blogIndexes.sort((a, b) => b.year - a.year)
+  return blogIndexes
+}
+
 export interface GlobalData {
   /** All blog posts, sorted newest-first. Available to every page and template. */
   blogPosts: BlogPost[]
+  /** Yearly post groups used to generate and render archive pages. */
+  blogIndexes: BlogIndex[]
   /** The 5 most recent posts — used by the home page listing. */
   recentPosts: BlogPost[]
   /** Pre-rendered HTML snippet of recent posts — drop into a page with {{{ vars.recentPostsHtml }}} */
@@ -63,17 +112,8 @@ export interface GlobalData {
 }
 
 const buildGlobalData: AsyncGlobalDataFunction<GlobalData> = async ({ pages }) => {
-  const blogPosts: BlogPost[] = pages
-    .filter(p => p.vars?.layout === 'post' && p.vars?.publishDate)
-    .map(p => ({
-      path: p.pageInfo.path,
-      title: String(p.vars?.title ?? 'Untitled'),
-      publishDate: String(p.vars?.publishDate),
-      description: String(p.vars?.description ?? ''),
-      tags: Array.isArray(p.vars?.tags) ? (p.vars.tags as string[]) : [],
-    }))
-    .sort((a, b) => new Date(b.publishDate).getTime() - new Date(a.publishDate).getTime())
-
+  const blogPosts = collectBlogPosts(pages)
+  const blogIndexes = collectBlogIndexes(blogPosts)
   const redirects = collectRedirects(pages)
   const recentPosts = blogPosts.slice(0, 5)
 
@@ -109,7 +149,7 @@ const buildGlobalData: AsyncGlobalDataFunction<GlobalData> = async ({ pages }) =
     }
   }
 
-  return { blogPosts, recentPosts, recentPostsHtml, tagIndex, redirects }
+  return { blogPosts, blogIndexes, recentPosts, recentPostsHtml, tagIndex, redirects }
 }
 
 export default buildGlobalData

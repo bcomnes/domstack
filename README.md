@@ -1138,10 +1138,10 @@ For one static page, export a single object with the same shape instead of an ar
 
 Use `PagesFunction` for normal functions, `async` functions, and async generators. Its type parameters are the generated page vars, the generated children type, and the default/global/derived vars received by the factory:
 
+Prepare reusable collections in `global.data.*`, then keep the pages factory focused on turning those records into page definitions. Layouts remain responsible for rendering the HTML:
+
 ```ts
 // src/blog-indexes.pages.ts
-import { html } from 'fragtml'
-import type { HtmlResult } from 'fragtml/types.js'
 import type { PagesFunction } from '@domstack/static/types.js'
 
 type BlogPost = {
@@ -1150,9 +1150,14 @@ type BlogPost = {
   publishDate: string
 }
 
+type BlogIndex = {
+  year: number
+  posts: BlogPost[]
+}
+
 type CollectionVars = {
   siteName: string
-  blogPosts: BlogPost[] // returned by global.data.ts
+  blogIndexes: BlogIndex[] // grouped and sorted by global.data.ts
 }
 
 type BlogIndexVars = {
@@ -1161,16 +1166,21 @@ type BlogIndexVars = {
   posts: BlogPost[]
 }
 
-const blogIndexes: PagesFunction<BlogIndexVars, HtmlResult, CollectionVars> = ({ vars }) => {
-  return {
-    outputName: 'blog/index.html',
-    vars: {
-      layout: 'blog-index',
-      title: `${vars.siteName} blog`,
-      posts: vars.blogPosts,
-    },
-    children: ({ vars }) => html`<h1>${vars.title}</h1><p>${vars.posts.length} posts</p>`,
+const blogIndexes: PagesFunction<BlogIndexVars, string, CollectionVars> = ({ vars }) => {
+  const pages = []
+
+  for (const { year, posts } of vars.blogIndexes) {
+    pages.push({
+      outputName: `blog/${year}/index.html`,
+      vars: {
+        layout: 'blog-index',
+        title: `${vars.siteName}: ${year} posts`,
+        posts,
+      },
+    })
   }
+
+  return pages
 }
 
 export default blogIndexes
@@ -1182,15 +1192,10 @@ The same type describes an async generator without requiring a separate function
 import type { PagesFunction } from '@domstack/static/types.js'
 
 type ArchiveVars = { layout: string, year: number }
-type CollectionVars = { blogPosts: Array<{ publishDate: string }> }
+type CollectionVars = { blogYears: number[] }
 
 const archivePages: PagesFunction<ArchiveVars, string, CollectionVars> = async function * ({ vars }) {
-  const years = new Set<number>()
-  for (const post of vars.blogPosts) {
-    years.add(new Date(post.publishDate).getUTCFullYear())
-  }
-
-  for (const year of years) {
+  for (const year of vars.blogYears) {
     yield {
       outputName: `blog/${year}/index.html`,
       vars: { layout: 'archive', year },

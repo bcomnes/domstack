@@ -11,6 +11,12 @@
  */
 
 /**
+ * @typedef {object} BlogIndex
+ * @property {string} year
+ * @property {BlogPost[]} posts
+ */
+
+/**
  * @typedef {object} Redirect
  * @property {string} from
  * @property {string} to
@@ -19,6 +25,7 @@
 /**
  * @typedef {object} BlogData
  * @property {BlogPost[]} blogPosts
+ * @property {BlogIndex[]} blogIndexes
  * @property {Redirect[]} redirects
  * @property {number} sourcePageCount
  */
@@ -27,7 +34,7 @@
  * @param {PageData<any, any, any>[]} pages
  * @returns {Redirect[]}
  */
-export function collectRedirects (pages) {
+function collectRedirects (pages) {
   /** @type {Redirect[]} */
   const redirects = []
   /** @type {Map<string, string>} */
@@ -62,11 +69,13 @@ export function collectRedirects (pages) {
   return redirects
 }
 
-/** @type {GlobalDataFunction<BlogData>} */
-export default function globalData ({ pages }) {
+/**
+ * @param {PageData<any, any, any>[]} pages
+ * @returns {BlogPost[]}
+ */
+function collectBlogPosts (pages) {
   /** @type {BlogPost[]} */
   const blogPosts = []
-  const redirects = collectRedirects(pages)
 
   for (const page of pages) {
     const publishDateValue = page.vars.publishDate
@@ -84,10 +93,41 @@ export default function globalData ({ pages }) {
   }
 
   blogPosts.sort((a, b) => b.publishDate.localeCompare(a.publishDate))
+  return blogPosts
+}
+
+/**
+ * @param {BlogPost[]} blogPosts
+ * @returns {BlogIndex[]}
+ */
+function collectBlogIndexes (blogPosts) {
+  /** @type {Map<string, BlogPost[]>} */
+  const postsByYear = new Map()
+
+  for (const post of blogPosts) {
+    const year = String(new Date(post.publishDate).getUTCFullYear())
+    const yearPosts = postsByYear.get(year) ?? []
+    yearPosts.push(post)
+    postsByYear.set(year, yearPosts)
+  }
+
+  const blogIndexes = []
+  for (const [year, posts] of postsByYear) {
+    blogIndexes.push({ year, posts })
+  }
+
+  blogIndexes.sort((a, b) => b.year.localeCompare(a.year))
+  return blogIndexes
+}
+
+/** @type {GlobalDataFunction<BlogData>} */
+export default function globalData ({ pages }) {
+  const blogPosts = collectBlogPosts(pages)
 
   return {
     blogPosts,
-    redirects,
+    blogIndexes: collectBlogIndexes(blogPosts),
+    redirects: collectRedirects(pages),
     sourcePageCount: pages.length,
   }
 }

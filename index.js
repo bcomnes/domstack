@@ -618,8 +618,9 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
           if (!pagesFileDepMap.has(absPath)) pagesFileDepMap.set(absPath, new Set())
           pagesFileDepMap.get(absPath)?.add(pagesFileInfo)
         }
-      } catch {
-        // best-effort
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        this.#logger.debug(`Could not analyze dependencies for pages file "${pagesFileInfo.pagesFile.relname}": ${message}`)
       }
     }
 

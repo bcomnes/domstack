@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promis
 import { dirname, join } from 'node:path'
 import * as cheerio from 'cheerio'
 import { DomStack, testBuild } from '../../index.js'
-import { collectRedirects } from './src/global.data.js'
+import globalData from './src/global.data.js'
 
 const __dirname = import.meta.dirname
 const fixturePrefix = '.tmp-'
@@ -88,6 +88,15 @@ function firstGeneratedPagesError (error) {
   return generatedError
 }
 
+/**
+ * @param {any[]} pages
+ */
+function collectRedirects (pages) {
+  const data = globalData(/** @type {any} */ ({ pages }))
+  if (data instanceof Promise) throw new TypeError('Expected synchronous global data')
+  return data.redirects
+}
+
 test.describe('generated pages', () => {
   test('validates page-owned redirect metadata with destination context', () => {
     /**
@@ -97,7 +106,7 @@ test.describe('generated pages', () => {
      */
     const page = (relname, url, redirectFrom) => /** @type {any} */ ({
       vars: { redirectFrom },
-      pageInfo: { url, pageFile: { relname } },
+      pageInfo: { path: relname.replace(/\/README\.md$/, ''), url, pageFile: { relname } },
     })
 
     assert.deepEqual(collectRedirects([
