@@ -5,14 +5,9 @@
 [![Types in JS](https://img.shields.io/badge/types_in_js-yes-brightgreen)](https://github.com/voxpelli/types-in-js)
 [![Neocities][neocities-img]](https://domstack.net)
 
-`domstack`: Cut the [gordian knot](https://en.wikipedia.org/wiki/Gordian_Knot) of modern web development and build websites with a stack of html, md, css, ts, tsx, (and/or js/jsx).
+`domstack`: Cut the [gordian knot](https://en.wikipedia.org/wiki/Gordian_Knot) of modern web development and build websites with a stack of HTML, CSS, and Javascript (Typescript and JSX included). 
 
-DOMStack provides a few project conventions around esbuild ande Node.js that lets you quickly, cleanly and easily build websites and web apps using all of your favorite technolgies without any framework specific impurities, unlocking the web platform as a freeform canvas.
-
-It's fast to learn, quick to build with, and performs better than you are used to.
-
-`domstack` currently ships a static site generator tool which is great for building static wesbites, and static PWA/MPAs.
-There is an experimental fastify plugin in the works that will unlock dynamic hypermedia webapps using the same project structure.
+[DOMStack](#) provides a few project conventions around [esbuild][esbuild] ande [Node.js](https://nodejs.org/en) that lets you quickly, cleanly and easily build websites and web apps using all of your favorite technolgies without any framework specific impurities, unlocking the web platform as a freeform canvas, by simply placing some standard file types into a directory structure that represents the website.
 
 ```console
 npm install @domstack/static
@@ -21,9 +16,6 @@ npm install @domstack/static
 - 🌎 [domstack docs website](https://domstack.net)
 - 💬 [Discord Chat](https://discord.gg/AVTsPRGeR9)
 - 📢 [v12 Migration Guide](docs/v12-migration.md)
-- 📢 [v11 - top-bun is now domstack](docs/v11-migration.md)
-- 📢 [v7 Announcement](https://bret.io/blog/2023/reintroducing-top-bun/)
-- 📘 [Full TypeScript Support](#typescript-support)
 
 ## Table of Contents
 
@@ -55,101 +47,83 @@ domstack (v12.0.0)
 ```
 
 `domstack` builds a `src` directory into a `dest` directory (default: `public`).
-`domstack` is also aliased to a `dom` bin.
 
 - Running `domstack` will result in a `build` by default.
 - Running `domstack --watch` or `domstack -w` will build the site and start an auto-reloading development web-server that watches for changes (provided by [`@domstack/sync`][domstack-sync]).
-- Running `domstack --serve` will run a normal one-shot build and then serve the destination directory without watching or injecting live-reload snippets. This is useful for PWA testing because service-worker hooks and manifest versions run against stable build bytes. Add `--domstackManifest` if you also need to serve `domstack-manifest.json`. Use `domstack --serve --port 3001` to choose a different local port.
+
 - Running `domstack --eject` or `domstack -e` will extract the default layout, global styles, and client-side JavaScript into your source directory and add the necessary dependencies to your package.json.
 
-`domstack` is primarily a unix `bin` written for the [Node.js](https://nodejs.org) runtime that is intended to be installed from `npm` as a `devDependency` inside a `package.json` committed to a `git` repository.
+`domstack` is a devtool. It's primarily a unix `bin` written for the [Node.js](https://nodejs.org) runtime that is intended to be installed from `npm` as a `devDependency` inside a `package.json` committed to a `git` repository.
 It can be used outside of this context, but it works best within it.
-
-## Programmatic test builds
-
-Use the top-level `testBuild` helper to build into a temporary directory from tests without managing setup and cleanup yourself.
-
-```js
-import { test } from 'node:test'
-import assert from 'node:assert'
-import { testBuild } from '@domstack/static'
-
-test('site output', async () => {
-  const build = await testBuild('./src')
-
-  try {
-    const html = await build.readOutput('index.html')
-    assert.match(html, /Hello/)
-  } finally {
-    await build.cleanup()
-  }
-})
-```
-
-`testBuild(src, opts)` creates a temporary destination directory, runs `new DomStack(src, dest, opts).build()`, and returns `{ dest, results, readOutput, cleanup }`. Options are passed through to `DomStack`, including `copy` paths.
 
 ## Core Concepts
 
-`domstack` is a static site generator that builds a website from "pages" in a `src` directory, nearly 1:1 into a `dest` directory.
-By building "pages" from their `src` location to the `dest` destination, the directory structure inside of `src` becomes a "filesystem router" naturally, without any additional moving systems or structures.
+`domstack` builds pages from a `src` directory into a destination directory, usually `public`. Page URLs follow the source directory structure, creating a filesystem router without separate routing configuration.
 
-A `src` directory tree might look something like this:
+Given this source:
 
-```bash
-src % tree
-.
-├── md-page
-│        ├── page.md # page.md (or README.md) in a directory turns into /md-page/index.html. page.md takes precedence.
-│        ├── client.ts # Every page can define its own client.ts script that loads only with it.
-│        ├── style.css # Every page can define its own style.css style that loads only with it.
-│        ├── loose-md-page.md # loose markdown get built in place, but lacks some page features.
-│        └── nested-page # pages are built in place and can nest.
-│               ├── README.md # This page is accessed at /md-page/nested-page/. (page.md works here too)
-│               ├── style.css # nested pages are just pages, so they also can have a page scoped client and style.
-│               └── client.js # Anywhere JS loads, you can use .js or .ts
-├── html-page
-│        ├── client.tsx # client bundles can also be written in .jsx/.tsx
-│        ├── page.html # Raw html pages are also supported. They support handlebars template blocks.
-│        ├── page.vars.ts # pages can define page variables in a page.vars.ts
-│        └── style.css
-├── js-page
-│        └── page.js # A page can also just be a plain javascript function that returns content. They can also be type checked.
-├── ts-page
-│        ├── client.ts # domstack provides type-stripping via Node.JS and esbuild
-│        ├── page.vars.ts # use tsc to run typechecking
-│        └── page.ts
-├── feeds
-│        └── feeds.template.ts # Templates let you generate any file you want from variables and page data.
-├── page-with-workers
-│        ├── client.ts
-│        └── page.ts
-│        ├── counter.worker.ts # Web workers use a .worker.{ts,js} naming convention and are auto-bundled
-│        └── analytics.worker.js
-├── layouts # layouts can live anywhere. The inner content of your page is slotted into your layout.
-│        ├── blog.layout.ts # pages specify which layout they want by setting a `layout` page variable.
-│        ├── blog.layout.css # layouts can define an additional layout style.
-│        ├── blog.layout.client.ts # layouts can also define a layout client.
-│        ├── article.layout.ts # layouts can extend other layouts, since they are just functions.
-│        ├── javascript.layout.js # layouts can also be written in javascript
-│        └── root.layout.ts # the default layout is called "root"
-├── globals # global assets can live anywhere. Here they are in a folder called globals.
-│        ├── global.client.ts # you can define a global client that loads on every page.
-│        ├── global.css # you can define a global css file that loads on every page.
-│        ├── global.vars.ts # site wide variables get defined in global.vars.ts
-│        ├── global.data.ts # optional file to derive and aggregate data from source-backed pages
-│        ├── markdown-it.settings.ts # You can customize the markdown-it instance used to render markdown
-│        ├── domstack-manifest.settings.ts # You can customize the domstack manifest
-│        ├── esbuild.settings.ts # You can even customize the build settings passed to esbuild
-│        └── service-worker.ts # a site service worker builds to /service-worker.js.
-├── page.md # The top level page can also be a page.md (or README.md) file.
-├── client.ts # the top level page can define a page scoped js client.
-├── style.css # the top level page can define a page scoped css style.
-└── favicon-16x16.png # static assets can live anywhere. Anything other than JS, CSS and HTML get copied over automatically.
+```text
+src/
+├── page.md                   # The home page
+├── style.css                 # Styles scoped to the home page
+├── client.ts                 # Browser code loaded by the home page
+├── layouts/
+│   ├── root.layout.ts        # The default layout for every page
+│   └── blog.layout.ts        # An optional layout selected by page variables
+├── globals/
+│   ├── global.css            # Styles loaded by every page
+│   ├── global.client.ts      # Browser code loaded by every page
+│   └── global.vars.ts        # Variables available to every page and layout
+├── about/
+│   └── page.md               # The /about/ page
+├── interactive/
+│   ├── page.html             # The /interactive/ page
+│   └── client.tsx            # Page-scoped browser UI written with JSX
+└── blog/
+    ├── page.ts               # The /blog/ page
+    └── first-post/
+        ├── README.md         # The /blog/first-post/ page
+        └── diagram.svg       # A static asset colocated with the post
 ```
 
-The core idea of `domstack` is that a `src` directory of markdown, html and ts/js "inner" documents will be transformed into layout wrapped html documents in the `dest` directory, along with page scoped js and css bundles, as well as a global stylesheet and global js bundle.
+`domstack` produces output resembling the following (generated bundle hashes will vary):
 
-It ships with sane defaults so that you can point `domstack` at a standard [markdown documented repository](https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github) and have it build a website with near-zero preparation.
+```text
+public/
+├── index.html                # Home content rendered through root.layout.ts
+├── style-ABC123.css          # Bundle built from the home page's style.css
+├── client-ABC123.js          # Bundle built from the home page's client.ts
+├── globals/
+│   ├── global-ABC123.css     # Site-wide bundle built from global.css
+│   └── global.client-ABC123.js # Site-wide bundle built from global.client.ts
+├── about/
+│   └── index.html            # About content rendered through root.layout.ts
+├── interactive/
+│   ├── index.html            # Loads the bundle built from client.tsx
+│   └── client-ABC123.js      # Approximate output name for the TSX bundle
+└── blog/
+    ├── index.html            # Blog content rendered through the selected layout
+    └── first-post/
+        ├── index.html        # Post content rendered through the selected layout
+        └── diagram.svg       # Copied alongside the page that uses it
+```
+
+A page directory contains a `page.md`, `page.html`, or `page.ts` file. `README.md` may be used instead of `page.md`, making the source tree browsable on GitHub.
+
+Pages can also have colocated assets:
+
+- `style.css` for page-specific styles
+- `client.ts` or `client.tsx` for page-specific browser code
+- `page.vars.ts` for page variables
+- `*.worker.ts` for web workers
+
+Wherever you see `.ts` being used, you can also use `.js`. Type checking is supported in both file types. Likewise, `.tsx` can be replaced with `.jsx`.
+
+Layouts wrap page content in complete HTML documents. The `root` layout is the default, while pages can select another layout through the `layout` variable. Global styles, browser code, and variables apply across the site regardless of where their files live in `src`.
+
+Templates and other advanced features can generate additional output as needed. The following sections document each convention in detail.
+
+`domstack` ships with sane defaults, so you can point it at a standard [markdown-documented repository](https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github) and build a website with near-zero preparation.
 
 ## Examples
 
@@ -2345,6 +2319,29 @@ Look at [examples](./examples/) and `domstack` [dependents](https://github.com/b
 
 These tools are treated as implementation details, but they may be exposed more in the future. The idea is that they can be swapped out for better tools in the future if they don't make it.
 
+### Programmatic test builds
+
+Use the top-level `testBuild` helper to build into a temporary directory from tests without managing setup and cleanup yourself.
+
+```js
+import { test } from 'node:test'
+import assert from 'node:assert'
+import { testBuild } from '@domstack/static'
+
+test('site output', async () => {
+  const build = await testBuild('./src')
+
+  try {
+    const html = await build.readOutput('index.html')
+    assert.match(html, /Hello/)
+  } finally {
+    await build.cleanup()
+  }
+})
+```
+
+`testBuild(src, opts)` creates a temporary destination directory, runs `new DomStack(src, dest, opts).build()`, and returns `{ dest, results, readOutput, cleanup }`. Options are passed through to `DomStack`, including `copy` paths.
+
 ### Build Process Flow
 
 The following diagram illustrates the DomStack build process:
@@ -2589,6 +2586,14 @@ Some notable features are included below, see the [roadmap](https://github.com/u
 - [x] Harden behavior around conflicting `browserVars` and esbuild settings
 - [x] Progressive watch rebuilds with dependency tracking
 - ...[See roadmap](https://github.com/users/bcomnes/projects/3/)
+
+## TODO (Content that needs to find a new home in the readme)
+
+- 📢 [v11 - top-bun is now domstack](docs/v11-migration.md)
+- 📢 [v7 Announcement](https://bret.io/blog/2023/reintroducing-top-bun/)
+- 📘 [Full TypeScript Support](#typescript-support)
+
+- Running `domstack --serve` will run a normal one-shot build and then serve the destination directory without watching or injecting live-reload snippets. This is useful for PWA testing because service-worker hooks and manifest versions run against stable build bytes. Add `--domstackManifest` if you also need to serve `domstack-manifest.json`. Use `domstack --serve --port 3001` to choose a different local port.
 
 ## Migrating to v12
 
