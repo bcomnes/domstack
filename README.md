@@ -136,7 +136,7 @@ src % tree
 │        ├── global.client.ts # you can define a global client that loads on every page.
 │        ├── global.css # you can define a global css file that loads on every page.
 │        ├── global.vars.ts # site wide variables get defined in global.vars.ts
-│        ├── global.data.ts # optional file to derive and aggregate data from all pages before rendering
+│        ├── global.data.ts # optional file to derive and aggregate data from source-backed pages
 │        ├── markdown-it.settings.ts # You can customize the markdown-it instance used to render markdown
 │        ├── domstack-manifest.settings.ts # You can customize the domstack manifest
 │        ├── esbuild.settings.ts # You can even customize the build settings passed to esbuild
@@ -1076,9 +1076,9 @@ Any `PageData` instance exposes two methods for accessing rendered output:
 - `await page.renderInnerPage({ pages })` returns the page's inner render output as produced by its builder, without a layout wrapper applied. This is often an HTML string (for example, markdown rendered to HTML), but the type depends on the page builder.
 - `await page.renderFullPage({ pages })` returns the complete page output with its layout applied.
 
-Both methods are async and require the full `pages` array. They are available inside templates, in `global.data.js`, inside page functions, and inside layouts.
+Both methods are async and require the `pages` array available at that build stage. Templates, page functions, and layouts receive the final source-backed plus generated collection; `global.data.js` receives the source-backed collection before generated pages are created.
 
-These methods also require that the `PageData` instance was successfully initialized first. When iterating the full `pages` array -- especially in `global.data.js` -- some entries may represent pages that failed initialization before the build aborts, and calling `renderInnerPage()` or `renderFullPage()` on those pages will throw.
+These methods also require that the `PageData` instance was successfully initialized first. When iterating a `pages` array, some entries may represent pages that failed initialization before the build aborts, and calling `renderInnerPage()` or `renderFullPage()` on those pages will throw.
 
 For templates that render many pages, pre-render in parallel and cache results to avoid doing the same work twice when producing several output files from one template:
 
@@ -1093,6 +1093,265 @@ await pMap(allPosts, async (page) => {
 // later, when building output:
 const html = renderCache.get(page.pageInfo.path) ?? ''
 ```
+
+## Generated Pages
+
+Generated-pages files create real DomStack pages from one central module. They are similar to templates, but layout-driven: each generated definition supplies page vars and children, then DomStack renders it through the normal page and layout pipeline.
+
+Supported filenames are:
+
+- `*.pages.js`, `*.pages.mjs`, and `*.pages.cjs`
+- `*.pages.ts`, `*.pages.mts`, and `*.pages.cts` when the current Node.js runtime supports TypeScript loading
+
+### Generated-pages exports
+
+A generated-pages module can default export:
+
+| Export | Use when |
+|---|---|
+| One `GeneratedPageDefinition` object | The module always creates one page |
+| An array of definitions | The module always creates a fixed set of pages and needs no build context |
+| A normal or `async` function | Definitions depend on source pages, global or derived data, or other discovery data |
+| An async iterable, usually returned by `async function*` | Pages are discovered incrementally or the total is not known in advance |
+
+Static objects and arrays do not receive factory parameters:
+
+```ts
+// src/legal.pages.ts
+import type { GeneratedPageDefinition } from '@domstack/static/types.js'
+
+export default [
+  {
+    outputName: 'terms/index.html',
+    vars: { layout: 'legal', title: 'Terms' },
+    children: 'Terms of service',
+  },
+  {
+    outputName: 'privacy/index.html',
+    vars: { layout: 'legal', title: 'Privacy' },
+    children: 'Privacy policy',
+  },
+] satisfies GeneratedPageDefinition[]
+```
+
+For one static page, export a single object with the same shape instead of an array.
+
+Use `PagesFunction` for normal functions, `async` functions, and async generators. Its type parameters are the generated page vars, the generated children type, and the default/global/derived vars received by the factory:
+
+Prepare reusable collections in `global.data.*`, then keep the pages factory focused on turning those records into page definitions. Layouts remain responsible for rendering the HTML:
+
+```ts
+// src/blog-indexes.pages.ts
+import type { PagesFunction } from '@domstack/static/types.js'
+
+type BlogPost = {
+  title: string
+  url: string
+  publishDate: string
+}
+
+type BlogIndex = {
+  year: number
+  posts: BlogPost[]
+}
+
+type CollectionVars = {
+  siteName: string
+  blogIndexes: BlogIndex[] // grouped and sorted by global.data.ts
+}
+
+type BlogIndexVars = {
+  layout: string
+  title: string
+  posts: BlogPost[]
+}
+
+const blogIndexes: PagesFunction<BlogIndexVars, string, CollectionVars> = ({ vars }) => {
+  const pages = []
+
+  for (const { year, posts } of vars.blogIndexes) {
+    pages.push({
+      outputName: `blog/${year}/index.html`,
+      vars: {
+        layout: 'blog-index',
+        title: `${vars.siteName}: ${year} posts`,
+        posts,
+      },
+    })
+  }
+
+  return pages
+}
+
+export default blogIndexes
+```
+
+The same type describes an async generator without requiring a separate function type:
+
+```ts
+import type { PagesFunction } from '@domstack/static/types.js'
+
+type ArchiveVars = { layout: string, year: number }
+type CollectionVars = { blogYears: number[] }
+
+const archivePages: PagesFunction<ArchiveVars, string, CollectionVars> = async function * ({ vars }) {
+  for (const year of vars.blogYears) {
+    yield {
+      outputName: `blog/${year}/index.html`,
+      vars: { layout: 'archive', year },
+    }
+  }
+}
+
+export default archivePages
+```
+
+### Generated-pages factory parameters
+
+Functions receive one object with:
+
+| Parameter | Contents |
+|---|---|
+| `pages` | Initialized source-backed `PageData[]`. Generated pages from this or other pages files are not included. |
+| `vars` | Default and global vars plus the values returned by `global.data.*`. |
+| `pagesFile` | Information about the current file. `name` is the filename without its `.pages.*` suffix, `path` is its source-relative directory, and `pagesFile` contains the underlying file information. |
+| `siteData` | Discovery data returned by `identifyPages()`. Its `siteData.pages` array is also source-backed only. |
+
+Every pages file receives the same source-backed page list and the same derived global data, so generated output does not depend on pages-file processing order. After all definitions are collected, generated pages join the full `pages` array passed to templates, page functions, and layouts.
+
+The public `results.siteData` returned by a build remains discovery data. Generated pages are created later inside the page worker and are not added to `results.siteData.pages`.
+
+### Generated page definitions
+
+| Field | Behavior |
+|---|---|
+| `outputName` | Output path relative to the pages file's directory. It must name a file, must not be absolute or contain `..` segments, and cannot end in a path separator. Defaults to `<pages-file-name>/index.html`. |
+| `vars` | Page-level vars merged with the normal default, global, layout, and builder vars. |
+| `children` | Optional static child content or inline `PageFunction` rendered before the layout. When omitted or explicitly `undefined`, the page renders empty child content before the layout. |
+| `draft` | When `true`, the page is omitted unless the CLI uses `--drafts` or a programmatic build uses `buildDrafts: true`. |
+
+Generated pages use global and layout assets. They do not have page-local `style.css`, `client.js`, or worker entries because they do not have their own source-page directory.
+
+### Redirect Pages
+
+Sites migrating from another platform often need redirect pages for old URLs that no longer exist. Keep that history on the current page with `redirectFrom` metadata instead of maintaining a separate old/new mapping:
+
+```md
+---
+title: Current Post
+redirectFrom:
+  - /2020/old-slug/
+  - /blog/original-title/
+---
+
+# Current Post
+```
+
+Collect the metadata in `global.data.js`. The current page's URL becomes the redirect target automatically:
+
+```js
+// src/global.data.js
+function collectRedirects (pages) {
+  const redirects = []
+  const redirectOwners = new Map()
+
+  for (const page of pages) {
+    const redirectFrom = page.vars.redirectFrom
+    if (redirectFrom === undefined) continue
+
+    const source = page.pageInfo.pageFile.relname
+    if (!Array.isArray(redirectFrom)) throw new TypeError(`redirectFrom on "${source}" must be an array`)
+
+    for (const from of redirectFrom) {
+      if (typeof from !== 'string') throw new TypeError(`redirectFrom entries on "${source}" must be strings`)
+      if (from.trim() !== from || !from.startsWith('/') || from.startsWith('//')) throw new Error(`Invalid redirectFrom "${from}" on "${source}": expected a same-origin URL path`)
+      if (from.includes('?') || from.includes('#') || from.includes('\\') || from.split('/').some(part => part === '.' || part === '..')) throw new Error(`Invalid redirectFrom "${from}" on "${source}": unsupported URL path`)
+
+      const existingSource = redirectOwners.get(from)
+      if (existingSource) throw new Error(`redirectFrom "${from}" is declared by both "${existingSource}" and "${source}"`)
+
+      redirectOwners.set(from, source)
+      redirects.push({ from, to: page.pageInfo.url })
+    }
+  }
+
+  return redirects
+}
+
+export default function globalData ({ pages }) {
+  return { redirects: collectRedirects(pages) }
+}
+```
+
+Validation happens while the destination page is still known, so malformed or duplicate metadata reports the page that declared it. The pages factory then consumes the validated collection and renders each old location through a reusable redirect layout:
+
+```js
+// src/redirects.pages.js
+function redirectOutputName (from) {
+  if (!from.startsWith('/') || from.startsWith('//')) throw new Error(`redirectFrom must be a same-origin URL path: ${from}`)
+  if (from.includes('?') || from.includes('#')) throw new Error(`redirectFrom must not include a query or fragment: ${from}`)
+
+  const relativePath = from.slice(1)
+  if (relativePath.length === 0) return 'index.html'
+  return relativePath.endsWith('/') ? `${relativePath}index.html` : relativePath
+}
+
+export default function redirectsPages ({ vars }) {
+  const pages = []
+
+  for (const { from, to } of vars.redirects) {
+    pages.push({
+      outputName: redirectOutputName(from),
+      vars: {
+        layout: 'redirect',
+        title: 'Redirecting...',
+        redirectTo: to,
+      },
+    })
+  }
+
+  return pages
+}
+```
+
+```js
+// src/redirect.layout.js
+
+import { html, render } from 'fragtml'
+
+export default function redirectLayout ({ vars }) {
+  return render(html`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="refresh" content="0;url=${vars.redirectTo}" />
+  <link rel="canonical" href="${vars.redirectTo}" />
+  <title>${vars.title}</title>
+</head>
+<body>
+  <p>Redirecting to <a href="${vars.redirectTo}">${vars.redirectTo}</a></p>
+</body>
+</html>`)
+}
+```
+
+`redirectFrom` contains old same-origin public URL paths. `redirectOutputName()` converts directory URLs such as `/2020/old-slug/` to `2020/old-slug/index.html`; DomStack's generated-output validation still rejects escaping paths such as `..`. The redirect target comes from the current page's normalized `pageInfo.url`, so moving the page again only requires retaining its previous URLs in that page's metadata. `fragtml` escapes interpolated values by default, including attribute values and link text.
+
+**SEO note:** Meta-refresh is a client-side redirect. Search engines may not treat it as a permanent 301 redirect. For static hosting platforms that support server-side redirects, you can instead generate a `_redirects` file (Netlify, Cloudflare Pages) or `vercel.json` (Vercel) using the object template type:
+
+```js
+// src/redirects-netlify.txt.template.js
+// Generates a _redirects file for Netlify / Cloudflare Pages.
+
+export default function ({ vars }) {
+  return {
+    outputName: '_redirects',
+    content: vars.redirects.map(({ from, to }) => `${from}  ${to}  301`).join('\n'),
+  }
+}
+```
+
+Both approaches can coexist and consume the same `global.data.js` redirect collection. Copying a directory that contains a hand-crafted `_redirects` file via `--copy` is also an option when you prefer to manage redirects outside the build.
 
 ## Domstack Manifest
 
@@ -1293,6 +1552,8 @@ export default {
   },
 }
 ```
+
+The `vars` passed to a `manifestVars` function are a snapshot of page vars that can be copied from the page worker. Top-level values used only while rendering, such as functions or `PageData` objects, are left out of this snapshot.
 
 Only values selected by `manifestVars` are copied into public manifest entries. Root `policy` is emitted once on the manifest. This avoids leaking arbitrary page vars while still letting service workers, Workbox hooks, and deployment tools consume a stable manifest-level policy shape.
 
@@ -1541,9 +1802,9 @@ This is a recommended organization pattern, not a requirement.
 
 ### `global.data.js`
 
-The `global.data.js` (or `.ts`, `.mjs`, etc.) file is an optional file that can live anywhere in your `src` tree — like all global assets, the first one found wins and duplicates warn. It runs **once per build**, after all pages are initialized and before rendering begins.
+The `global.data.js` (or `.ts`, `.mjs`, etc.) file is an optional file that can live anywhere in your `src` tree — like all global assets, the first one found wins and duplicates warn. It runs **once per build**, after source-backed pages are initialized and before generated-page factories run.
 
-It receives a fully resolved `PageData[]` array and returns an object that is stamped onto every page's vars — making the derived data available to every page, layout, and template.
+It receives the fully resolved source-backed `PageData[]` array and returns an object that is passed to generated-page factories and stamped onto every source-backed and generated page's vars. The derived data is therefore available to every page, layout, and template at final render time.
 
 ```typescript
 import type { AsyncGlobalDataFunction } from '@domstack/static/types.js'
@@ -1587,7 +1848,7 @@ The returned object is stamped onto every page's vars before rendering, so any p
 
 **Key properties of `global.data.js`:**
 
-- Receives fully resolved `PageData[]` — every page has `.vars` (merged global + page + builder vars), `.pageInfo` (path, type, etc.), `.styles`, `.scripts`, and more.
+- Receives fully resolved source-backed `PageData[]` — every page has `.vars` (merged global + page + builder vars), `.pageInfo` (path, type, etc.), `.styles`, `.scripts`, and more. Generated pages do not exist yet.
 - Runs inside the worker process (same as all other dynamic imports) to avoid ESM caching issues.
 - Skipped entirely if no `global.data.*` file exists — zero overhead.
 - Changes to `global.data.*` trigger a full page rebuild (same as `global.vars.*`), since the output is stamped onto every page's vars.
@@ -1602,7 +1863,7 @@ Use `GlobalDataFunction<T>` or `AsyncGlobalDataFunction<T>` to type the function
 
 **Raw markdown source is not exposed as `page.vars.content` by default.** For markdown pages, `page.vars` contains front matter-derived values such as `title`, but does not automatically include the raw markdown body as `content`. If you need the raw markdown body, call `await page.readMarkdownContent()`. For rendered output, see [Accessing rendered page content](#accessing-rendered-page-content).
 
-**`renderInnerPage()` is available.** `global.data.js` runs after page initialization has been attempted, and receives `PageData` instances (some may be uninitialized if they failed to initialize), so you can call `renderInnerPage()` here with the same care described above for `page.vars` and other page-dependent access. For examples and performance guidance, see [Accessing rendered page content](#accessing-rendered-page-content).
+**`renderInnerPage()` is available.** `global.data.js` runs after source-backed page initialization has been attempted, and receives source-backed `PageData` instances (some may be uninitialized if they failed to initialize), so you can call `renderInnerPage()` here with the same care described above for `page.vars` and other page-dependent access. For examples and performance guidance, see [Accessing rendered page content](#accessing-rendered-page-content).
 
 ### `domstack-manifest.settings.ts`
 
@@ -1613,7 +1874,7 @@ Use this to filter the domstack manifest before hooks receive it, before domstac
 
 ```js
 /**
- * @import { DomstackManifestEntry } from '@domstack/static'
+ * @import { DomstackManifestEntry } from '@domstack/static/types.js'
  */
 
 export default {
@@ -1804,13 +2065,13 @@ Pages and Layouts receive an object with the following parameters:
 
 Template files receive a similar set of variables:
 
-- `vars`: An object with the variables of `global.vars.ts`
+- `vars`: An object with the variables from `global.vars.ts` and `global.data.js`
 - `pages`: An array of [`PageData`](https://github.com/bcomnes/domstack/blob/master/lib/build-pages/page-data.js) instances for every page in the site build. Use this array to introspect pages to generate feeds and index pages.
 - `template`: An object of the template file data being rendered.
 
 ### Derived global data (Advanced)
 
-For data that aggregates across multiple pages — like blog indexes, sitemaps, or RSS feed content — use [`global.data.js`](#globaldatajs). That file runs once per build, receives the raw page list, and merges its return value into `globalVars` so every page, layout, and template can read it via `vars`.
+For data that aggregates across multiple pages — like blog indexes, sitemaps, or RSS feed content — use [`global.data.js`](#globaldatajs). That file runs once per build, receives the source-backed page list, and makes its return value available to generated-page factories and every page, layout, and template via `vars`.
 
 See the [`global.data.js`](#globaldatajs) section under [Global Assets](#global-assets) for a full example.
 
@@ -1872,22 +2133,26 @@ import type {
   AsyncPageFunction,
   TemplateFunction,
   TemplateAsyncIterator,
+  PagesFunction,
   // Data/param types
   PageData,
   PageInfo,
   TemplateInfo,
+  PagesFileInfo,
+  GeneratedPageDefinition,
   LayoutFunctionParams,
   GlobalDataFunctionParams,
   PageFunctionParams,
   TemplateFunctionParams,
+  PagesFunctionParams,
 } from '@domstack/static/types.js'
 ```
 
-> **Note:** All function types have both synchronous and asynchronous variants (e.g., `LayoutFunction` and `AsyncLayoutFunction`). Use the async variants when your function is an `async` function.
+> **Note:** Page, layout, and global-data functions have synchronous and asynchronous variants. `PagesFunction` covers normal functions, `async` functions, and async generators because generated-pages factories can return definitions, promises, or async iterables.
 
-They are all generic and accept a variable template that you can develop and share between files.
+The function types are generic and accept variable shapes that you can develop and share between files.
 
-The data and param types (`PageData`, `PageInfo`, `TemplateInfo`, `*FunctionParams`) are useful when you want to annotate variables or helper functions that receive these objects without using the function types directly:
+The data and parameter types (`PageData`, `PageInfo`, `TemplateInfo`, `PagesFileInfo`, `GeneratedPageDefinition`, and `*FunctionParams`) are useful when you want to annotate variables or helper functions that receive these objects without using the function types directly:
 
 ```ts
 import type { GlobalDataFunctionParams, PageData, PageInfo } from '@domstack/static/types.js'
@@ -1900,9 +2165,9 @@ function getPublishedPages({ pages }: GlobalDataFunctionParams): PageData[] {
 }
 ```
 
-#### Advanced Type Parameters for PageFunction and LayoutFunction
+#### Advanced type parameters
 
-`PageFunction` and `LayoutFunction` support additional template parameters for precise return type control:
+`PageFunction`, `LayoutFunction`, and `PagesFunction` support additional type parameters for precise input and return type control:
 
 **PageFunction<T, U>**
 - `T` - The type of variables passed to the page (required)
@@ -1913,7 +2178,12 @@ function getPublishedPages({ pages }: GlobalDataFunctionParams): PageData[] {
 - `U` - The type of content received from pages as `children` (optional, defaults to `any`)
 - `V` - The return type of the layout function (optional, defaults to `string`)
 
-This allows pages to return custom types (like VDOM or JSON) while ensuring layouts produce HTML strings:
+**PagesFunction<T, U, V>**
+- `T` - The vars added to generated pages (optional, defaults to `Record<string, any>`)
+- `U` - The static children or inline page-function return type (optional, defaults to `any`)
+- `V` - The default and global vars received by the pages factory (optional, defaults to `Record<string, any>`)
+
+This allows pages to return custom types (like VDOM or JSON), ensures layouts produce HTML strings, and keeps generated-page vars separate from the vars used to create them:
 
 ```ts
 // Define custom types
@@ -2199,15 +2469,20 @@ The `buildPages()` step processes pages in parallel with a concurrency limit:
          └──────────────────────┼──────────────────────┘
                                 │
                                 ▼
-                    ┌───────────────────────┐
-                    │  global.data.js runs  │
-                    │  (receives PageData[])│
-                    │  stamps vars on pages │
-                    └───────────┬───────────┘
-                                │
-                                ▼
+                  ┌─────────────────────────────┐
+                  │     global.data.js runs     │
+                  │ (receives source PageData[])│
+                  └──────────────┬──────────────┘
+                                 │
+                                 ▼
+                  ┌─────────────────────────────┐
+                  │ *.pages.* generates pages  │
+                  │   using the derived data   │
+                  └──────────────┬──────────────┘
+                                 │
+                                 ▼
                 ┌───────────────────────────────┐
-                │  Parallel Render + Write      │
+                │  Stamp data, render + write   │
                 │ (Concurrency: min(CPUs, 24))  │
                 └───────────────────────────────┘
 ```
@@ -2215,7 +2490,7 @@ The `buildPages()` step processes pages in parallel with a concurrency limit:
 Variable Resolution Layers, from lowest to highest precedence:
 - **Domstack defaults** - Internal defaults such as the default `layout: 'root'`.
 - **Global vars** - Site-wide variables from `global.vars.js` (resolved once).
-- **Global data** - Derived variables from `global.data.js`, stamped onto every page after all pages initialize.
+- **Global data** - Derived variables from `global.data.js`, resolved from source-backed pages before generated-page factories run and available to every page at final render time.
 - **Layout vars** - Optional `export const vars` from the selected layout module.
 - **Page-specific vars** vary by type:
   - **MD pages**: `page.vars.js` plus builder vars from frontmatter.

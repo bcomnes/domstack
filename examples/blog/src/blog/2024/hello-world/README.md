@@ -3,6 +3,8 @@ layout: post
 title: "Hello, World"
 publishDate: "2024-03-15T12:00:00.000Z"
 description: "The first post on this blog. An introduction to what this is all about."
+redirectFrom:
+  - /blog/hello-world/
 tags:
   - meta
   - intro
@@ -21,13 +23,23 @@ They're generated at build time by `global.data.ts`:
 
 ```ts
 // src/global.data.ts
-const blogPosts = pages
-  .filter(p => p.vars?.layout === 'post' && p.vars?.publishDate)
-  .sort((a, b) => new Date(b.publishDate) - new Date(a.publishDate))
+const blogPosts = collectBlogPosts(pages)
+const blogIndexes = collectBlogIndexes(blogPosts)
+
+return { blogPosts, blogIndexes /* ...other site data */ }
 ```
 
 The returned object is stamped onto every page's `vars`, so any page or layout can read
 `vars.blogPosts` directly — no postVars, no custom wiring.
+
+The yearly `/blog/2024/` and `/blog/2025/` archives are generated separately by
+`src/blog-indexes.pages.ts`. `global.data.ts` groups the posts by year once, the pages file
+turns those groups into normal pages, and the `year-index` layout renders each group's
+newest-first posts. There are no hand-maintained year index files.
+
+This page also owns its old `/blog/hello-world/` location through the `redirectFrom`
+frontmatter above. `global.data.ts` collects that metadata, and `redirects.pages.ts`
+generates the redirect to this page's current URL.
 
 ## This layout
 

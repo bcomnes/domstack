@@ -27,6 +27,7 @@ import type {
   DomstackManifestRecord,
   DomstackManifestTransform,
   DomstackManifestTransformContext,
+  GeneratedPageDefinition,
   GlobalDataFunction,
   GlobalDataFunctionParams,
   LayoutFunction,
@@ -34,6 +35,7 @@ import type {
   PageFunction,
   PageFunctionParams,
   PageInfo,
+  PagesFunction,
   Results,
   ServiceWorkerInfo,
   SiteData,
@@ -118,6 +120,20 @@ const templateAsyncIterator: TemplateAsyncIterator<{ siteName: string }> = async
 }
 const globalDataFunction: GlobalDataFunction<{ generated: true }> = () => ({ generated: true })
 const asyncGlobalDataFunction: AsyncGlobalDataFunction<{ generated: true }> = async () => ({ generated: true })
+
+const generatedPageWithoutChildren: GeneratedPageDefinition<{ layout: string }, string> = {
+  outputName: 'without-children/index.html',
+  vars: { layout: 'root' },
+}
+const generatedPageWithUndefinedChildren: GeneratedPageDefinition<{ layout: string }, string> = {
+  outputName: 'undefined-children/index.html',
+  vars: { layout: 'root' },
+  children: undefined,
+}
+const generatedPagesFunction: PagesFunction<{ layout: string }, string> = () => [
+  generatedPageWithoutChildren,
+  generatedPageWithUndefinedChildren,
+]
 
 const templateOutputOverride: TemplateOutputOverride = {
   content: 'Hello',
@@ -205,6 +221,9 @@ assert.equal([
   templateAsyncIterator,
   globalDataFunction,
   asyncGlobalDataFunction,
+  generatedPageWithoutChildren,
+  generatedPageWithUndefinedChildren,
+  generatedPagesFunction,
   templateOutputOverride,
   buildOptions,
   domStackOpts,
@@ -222,7 +241,7 @@ assert.equal([
   domstackManifestPolicyTransformContext,
   domstackManifestPolicyTransform,
   domstackManifestOptions,
-].length, 29)
+].length, 32)
 
 test('PageData is importable from the package entry point', () => {
   assert.strictEqual(typeof PageData, 'function', 'PageData is a class')

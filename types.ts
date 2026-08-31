@@ -7,8 +7,11 @@ export type { BuildOptions } from 'esbuild'
 export type { DomStackOpts, Results, SiteData } from './lib/builder.js'
 export type {
   AsyncGlobalDataFunction,
+  GeneratedPageDefinition,
   GlobalDataFunction,
   GlobalDataFunctionParams,
+  PagesFunction,
+  PagesFunctionParams,
 } from './lib/build-pages/index.js'
 export type {
   AsyncLayoutFunction,
@@ -30,7 +33,7 @@ export type {
   TemplateFunctionParams,
   TemplateOutputOverride,
 } from './lib/build-pages/page-builders/template-builder.js'
-export type { PageInfo, ServiceWorkerInfo, TemplateInfo } from './lib/identify-pages.js'
+export type { PageInfo, PagesFileInfo, ServiceWorkerInfo, TemplateInfo } from './lib/identify-pages.js'
 export type {
   DomstackManifest,
   DomstackManifestEntry,

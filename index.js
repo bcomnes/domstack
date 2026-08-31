@@ -3,8 +3,7 @@
  * @import { Stats } from 'node:fs'
  * @import { FSWatcher } from 'chokidar'
  * @import { WorkerBuildStepResult } from './lib/build-pages/index.js'
-
- * @import { PageInfo, TemplateInfo } from './lib/identify-pages.js'
+ * @import { PageInfo, TemplateInfo, PagesFileInfo } from './lib/identify-pages.js'
  * @import { TestBuildResult } from './types.js'
  * @import { BsInstance } from '@domstack/sync'
  * @import { Logger as PinoLogger } from 'pino'
@@ -25,6 +24,7 @@ import { inspect } from 'util'
 import { createServer } from '@domstack/sync'
 import { find } from '@11ty/dependency-tree-typescript'
 
+import { assertInsideDest } from './lib/helpers/path.js'
 import { getCopyGlob } from './lib/build-static/index.js'
 import { getCopyDirs } from './lib/build-copy/index.js'
 import { builder } from './lib/builder.js'
@@ -35,6 +35,7 @@ import {
   layoutSuffixs,
   layoutStyleSuffix,
   templateSuffixs,
+  pagesSuffixs,
   globalVarsNames,
   globalDataNames,
   esbuildSettingsNames,
@@ -99,8 +100,12 @@ export class DomStack {
   #pageDepMap = new Map()
   /** @type {Map<string, Set<TemplateInfo>>} depFilepath → Set<TemplateInfo> */
   #templateDepMap = new Map()
+  /** @type {Map<string, Set<PagesFileInfo>>} depFilepath → Set<PagesFileInfo> */
+  #pagesFileDepMap = new Map()
   /** @type {Set<string>} absolute filepaths of esbuild entry points */
   #esbuildEntryPoints = new Set()
+  /** @type {Set<string>} destination-relative outputs from the last successful full page build */
+  #pageOutputRelnames = new Set()
 
   // Serialized lock so concurrent chokidar events don't pile up
   /** @type {Promise<void>} */
@@ -199,6 +204,7 @@ export class DomStack {
         siteData,
         pageBuildResults,
       }
+      this.#pageOutputRelnames = getPageOutputRelnames(pageBuildResults.outputs)
       buildLogger(report, this.#logger)
       this.#logger.info('Initial JS, CSS and Page Build Complete')
     } catch (err) {
@@ -382,6 +388,11 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
         logRebuildTree(changedBasename, this.#logger, new Set(siteData.pages))
         await this.#runPageBuild(siteData)
       } else if (layoutClientSuffixs.some(s => changedBasename.endsWith(s)) || changedBasename.endsWith(layoutStyleSuffix)) {
+        if ((siteData.pagesFiles?.length ?? 0) > 0) {
+          this.#logger.info(`"${changedBasename}" ${event}, rebuilding all pages...`)
+          return this.#runGeneratedPageBuild(siteData)
+        }
+
         // Layout asset: rebuild pages using that layout
         const layoutName = Object.values(siteData.layouts).find(l =>
           l.layoutClient?.filepath === changedPath || l.layoutStyle?.filepath === changedPath
@@ -441,6 +452,7 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
         })
       }
       const isFiltered = pageFilterPaths !== null || templateFilterPaths !== null
+      if (!isFiltered) await this.#removeObsoletePageOutputs(pageBuildResults.outputs)
       buildLogger(
         isFiltered ? pageBuildResults : { warnings: pageBuildResults.warnings, siteData, pageBuildResults },
         this.#logger,
@@ -450,6 +462,41 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
     } catch (err) {
       errorLogger(err, this.#logger)
     }
+  }
+
+  /**
+   * Remove page files that were emitted by the previous successful full build
+   * but are no longer claimed by the current page or template build.
+   *
+   * @param {DomstackManifestRecord[]} outputs
+   */
+  async #removeObsoletePageOutputs (outputs) {
+    const currentOutputRelnames = new Set(outputs.map(output => output.outputRelname))
+    const currentPageOutputRelnames = getPageOutputRelnames(outputs)
+    const dest = resolve(this.#dest)
+
+    await Promise.all(Array.from(this.#pageOutputRelnames, async outputRelname => {
+      if (currentOutputRelnames.has(outputRelname)) return
+      const filepath = resolve(dest, outputRelname)
+      assertInsideDest(dest, filepath)
+      if (filepath === dest) throw new Error('Refusing to remove the build destination')
+      await rm(filepath, { force: true })
+    }))
+
+    this.#pageOutputRelnames = currentPageOutputRelnames
+  }
+
+  /**
+   * Rebuild all pages and refresh dependency maps afterward.
+   * Generated pages can change their import graph without changing the site's
+   * discovered file structure, so their full rebuild paths use this helper.
+   *
+   * @param {SiteData} siteData
+   */
+  async #runGeneratedPageBuild (siteData) {
+    const pageBuildResults = await this.#runPageBuild(siteData)
+    await this.#rebuildMaps(siteData)
+    return pageBuildResults
   }
 
   /**
@@ -478,6 +525,7 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
     const layoutFileMap = /** @type {Map<string, string>} */ (new Map())
     const pageDepMap = /** @type {Map<string, Set<PageInfo>>} */ (new Map())
     const templateDepMap = /** @type {Map<string, Set<TemplateInfo>>} */ (new Map())
+    const pagesFileDepMap = /** @type {Map<string, Set<PagesFileInfo>>} */ (new Map())
 
     // layoutFileMap: layout filepath → layoutName
     for (const layout of Object.values(siteData.layouts)) {
@@ -561,6 +609,21 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
       }
     }
 
+    // pagesFileDepMap: dep filepath → Set<PagesFileInfo>
+    for (const pagesFileInfo of siteData.pagesFiles ?? []) {
+      try {
+        const deps = await find(pagesFileInfo.pagesFile.filepath)
+        for (const dep of deps) {
+          const absPath = resolve(dep)
+          if (!pagesFileDepMap.has(absPath)) pagesFileDepMap.set(absPath, new Set())
+          pagesFileDepMap.get(absPath)?.add(pagesFileInfo)
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        this.#logger.debug(`Could not analyze dependencies for pages file "${pagesFileInfo.pagesFile.relname}": ${message}`)
+      }
+    }
+
     // esbuildEntryPoints: absolute filepaths of all esbuild entry points
     const esbuildEntryPoints = /** @type {Set<string>} */ (new Set())
     if (siteData.globalClient) esbuildEntryPoints.add(resolve(siteData.globalClient.filepath))
@@ -584,6 +647,7 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
     this.#layoutFileMap = layoutFileMap
     this.#pageDepMap = pageDepMap
     this.#templateDepMap = templateDepMap
+    this.#pagesFileDepMap = pagesFileDepMap
     this.#esbuildEntryPoints = esbuildEntryPoints
   }
 
@@ -616,8 +680,14 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
       return this.#fullRebuild()
     }
 
-    // 5. markdown-it.settings.* → rebuild all md pages only
+    // 5. markdown-it.settings.* → rebuild all md pages only, unless generated
+    // pages may consume their rendered output.
     if (markdownItSettingsNames.some(n => changedBasename === n)) {
+      if ((siteData.pagesFiles?.length ?? 0) > 0) {
+        this.#logger.info(`"${changedBasename}" changed, rebuilding all pages...`)
+        return this.#runGeneratedPageBuild(siteData)
+      }
+
       const mdPages = new Set(siteData.pages.filter(p => p.type === 'md'))
       logRebuildTree(changedBasename, this.#logger, mdPages)
       return this.#runPageBuild(siteData, Array.from(mdPages).map(p => p.pageFile.filepath), [])
@@ -640,6 +710,11 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
 
     // 7. Layout file itself → rebuild pages using that layout
     if (layoutSuffixs.some(s => changedBasename.endsWith(s))) {
+      if ((siteData.pagesFiles?.length ?? 0) > 0) {
+        this.#logger.info(`"${changedBasename}" changed, rebuilding all pages...`)
+        return this.#runGeneratedPageBuild(siteData)
+      }
+
       const layoutName = this.#layoutFileMap.get(changedPath)
       if (layoutName) {
         const affectedPages = this.#layoutPageMap.get(layoutName)
@@ -656,6 +731,10 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
 
     // 8. Dep of a layout
     if (this.#layoutDepMap.has(changedPath)) {
+      if ((siteData.pagesFiles?.length ?? 0) > 0) {
+        this.#logger.info(`"${changedBasename}" changed, rebuilding all pages...`)
+        return this.#runGeneratedPageBuild(siteData)
+      }
       const affectedLayoutNames = this.#layoutDepMap.get(changedPath) ?? new Set()
       const affectedPages = new Set(/** @type {PageInfo[]} */ ([]))
       for (const layoutName of affectedLayoutNames) {
@@ -673,12 +752,24 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
     if (this.#pageFileMap.has(changedPath)) {
       const affectedPage = this.#pageFileMap.get(changedPath)
       if (affectedPage) {
+        if ((siteData.pagesFiles?.length ?? 0) > 0) {
+          this.#logger.info(`"${changedBasename}" changed, rebuilding all pages...`)
+          return this.#runGeneratedPageBuild(siteData)
+        }
         logRebuildTree(changedBasename, this.#logger, new Set([affectedPage]))
         return this.#runPageBuild(siteData, [affectedPage.pageFile.filepath], [])
       }
     }
 
-    // 10. Template file itself
+    // 10. Pages file itself → full page rebuild
+    if (pagesSuffixs.some(s => changedBasename.endsWith(s))) {
+      if (siteData.pagesFiles?.some(p => p.pagesFile.filepath === changedPath)) {
+        this.#logger.info(`"${changedBasename}" changed, rebuilding all pages...`)
+        return this.#runGeneratedPageBuild(siteData)
+      }
+    }
+
+    // 11. Template file itself
     if (templateSuffixs.some(s => changedBasename.endsWith(s))) {
       const templateInfo = siteData.templates.find(t => t.templateFile.filepath === changedPath)
       if (templateInfo) {
@@ -687,17 +778,27 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
       }
     }
 
-    // 11. Dep of a page.js or page.vars
+    // 12. Dep of a page.js or page.vars
     if (this.#pageDepMap.has(changedPath)) {
       const affectedPages = this.#pageDepMap.get(changedPath) ?? new Set()
       if (affectedPages.size > 0) {
+        if ((siteData.pagesFiles?.length ?? 0) > 0) {
+          this.#logger.info(`"${changedBasename}" changed, rebuilding all pages...`)
+          return this.#runGeneratedPageBuild(siteData)
+        }
         logRebuildTree(changedBasename, this.#logger, affectedPages)
         const pageFilterPaths = Array.from(affectedPages).map(p => p.pageFile.filepath)
         return this.#runPageBuild(siteData, pageFilterPaths, [])
       }
     }
 
-    // 12. Dep of a template file
+    // 13. Dep of a pages file → full page rebuild
+    if (this.#pagesFileDepMap.has(changedPath)) {
+      this.#logger.info(`"${changedBasename}" changed, rebuilding all pages...`)
+      return this.#runGeneratedPageBuild(siteData)
+    }
+
+    // 14. Dep of a template file
     if (this.#templateDepMap.has(changedPath)) {
       const affectedTemplates = this.#templateDepMap.get(changedPath) ?? new Set()
       if (affectedTemplates.size > 0) {
@@ -707,7 +808,7 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
       }
     }
 
-    // 13. No matching rule — skip.
+    // 15. No matching rule — skip.
     this.#logger.info(`"${changedBasename}" changed but did not match any rebuild rule, skipping.`)
   }
 
@@ -734,6 +835,16 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
   async settled () {
     await this.#buildLock
   }
+}
+
+/**
+ * @param {DomstackManifestRecord[]} outputs
+ * @returns {Set<string>}
+ */
+function getPageOutputRelnames (outputs) {
+  return new Set(outputs
+    .filter(output => output.kind === 'page')
+    .map(output => output.outputRelname))
 }
 
 /**
@@ -839,7 +950,7 @@ function buildLogger (results, logger, dest) {
   if ('siteData' in results && results.siteData) {
     // Full build: show site totals
     const layoutCount = Object.keys(results.siteData.layouts).length
-    logger.info(`Pages: ${results.siteData.pages.length} Layouts: ${layoutCount} Templates: ${results.siteData.templates.length}`)
+    logger.info(`Source pages: ${results.siteData.pages.length} Layouts: ${layoutCount} Templates: ${results.siteData.templates.length}`)
     const outputs = results.pageBuildResults?.outputs
     if (outputs) {
       const summary = summarizePageDomstackManifests(outputs)

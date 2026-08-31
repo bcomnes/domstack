@@ -194,7 +194,7 @@ export default async function ({ pages }) {
 Key differences:
 - There is only **one** `global.data.js` per project (the first one found wins; duplicates emit a warning)
 - The function is the **default export**, not a named `postVars` export
-- The returned data is stamped onto **every** page's vars (same behavior as `postVars` was)
+- The returned data is available to generated-page factories and stamped onto **every** page's vars (same final-render behavior as `postVars` had)
 - The types `PostVarsFunction` and `AsyncPostVarsFunction` are replaced by `GlobalDataFunction` and `AsyncGlobalDataFunction`
 
 ---
@@ -205,7 +205,7 @@ Two new filenames are now recognized and processed by domstack. If you have exis
 
 ### `global.data.js` (and `.ts`, `.mjs`, `.mts`, `.cjs`, `.cts`)
 
-Now treated as the global data aggregation file. Its default export is called with `{ pages }` after all pages are initialized. See [section 7](#7-postvars-removed--globaldatajs) above.
+Now treated as the global data aggregation file. Its default export is called with `{ pages }` after source-backed pages are initialized and before generated-page factories run. See [section 7](#7-postvars-removed--globaldatajs) above.
 
 ### `markdown-it.settings.js` (and `.ts`, `.mjs`, `.mts`, `.cjs`, `.cts`)
 
