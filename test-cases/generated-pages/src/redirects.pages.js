@@ -31,7 +31,6 @@ export default function redirectsPages ({ vars }) {
         title: 'Redirecting...',
         redirectTo: to,
       },
-      children: '',
     })
   }
 

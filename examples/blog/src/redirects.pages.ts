@@ -27,7 +27,6 @@ const redirectPages: PagesFunction<RedirectPageVars, string, GlobalData> = ({ va
         title: 'Redirecting…',
         redirectTo: to,
       },
-      children: '',
     })
   }
 

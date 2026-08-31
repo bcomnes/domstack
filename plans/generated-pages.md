@@ -255,7 +255,7 @@ The generated page definition is template-like, but layout-driven: `outputName` 
 type GeneratedPageDefinition<Vars = Record<string, any>, Children = any> = {
   outputName?: string // default: '<pages-file-name>/index.html'
   vars?: Vars
-  children?: Children | ((params: PageFunctionParams<Vars, Children>) => Children | Promise<Children>)
+  children?: Children | ((params: PageFunctionParams<Vars, Children>) => Children | Promise<Children>) | undefined
   draft?: boolean
 }
 ```
@@ -265,7 +265,7 @@ Rules:
 - `outputName` is a relative output path, resolved from the `*.pages.*` file's directory, with no leading `/` and no `..` segments.
 - `outputName` defaults to `<pages-file-name>/index.html`.
 - `vars.layout` participates in normal layout resolution. If omitted, the usual default/global layout value applies.
-- `children` can be static content or an inline page-like render function.
+- `children` is optional and can be static content or an inline page-like render function. Omitted or explicitly `undefined` children render as empty content.
 - Generated pages must not reference another page file as their render template.
 - Generated pages intentionally do not get page-local assets (`style.css`, `client.js`, workers). They only participate in global and layout assets.
 

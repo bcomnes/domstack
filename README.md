@@ -1222,7 +1222,7 @@ The public `results.siteData` returned by a build remains discovery data. Genera
 |---|---|
 | `outputName` | Output path relative to the pages file's directory. It must name a file, must not be absolute or contain `..` segments, and cannot end in a path separator. Defaults to `<pages-file-name>/index.html`. |
 | `vars` | Page-level vars merged with the normal default, global, layout, and builder vars. |
-| `children` | Static child content or an inline `PageFunction` rendered before the layout. |
+| `children` | Optional static child content or inline `PageFunction` rendered before the layout. When omitted or explicitly `undefined`, the page renders empty child content before the layout. |
 | `draft` | When `true`, the page is omitted unless the CLI uses `--drafts` or a programmatic build uses `buildDrafts: true`. |
 
 Generated pages use global and layout assets. They do not have page-local `style.css`, `client.js`, or worker entries because they do not have their own source-page directory.
