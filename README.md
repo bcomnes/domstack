@@ -1,5 +1,6 @@
 # domstack
 [![npm version](https://img.shields.io/npm/v/@domstack/static.svg)](https://npmjs.org/package/@domstack/static)
+[![npm beta version](https://img.shields.io/npm/v/@domstack/static/beta.svg?label=beta)](https://www.npmjs.com/package/@domstack/static?activeTab=versions)
 [![Actions Status](https://github.com/bcomnes/domstack/workflows/tests/badge.svg)](https://github.com/bcomnes/domstack/actions)
 [![Coverage Status](https://coveralls.io/repos/github/bcomnes/domstack/badge.svg?branch=master)](https://coveralls.io/github/bcomnes/domstack?branch=master)
 [![Types in JS](https://img.shields.io/badge/types_in_js-yes-brightgreen)](https://github.com/voxpelli/types-in-js)
@@ -10,8 +11,11 @@
 [DOMStack](#) provides a few project conventions around [esbuild][esbuild] ande [Node.js](https://nodejs.org/en) that lets you quickly, cleanly and easily build websites and web apps using all of your favorite technolgies without any framework specific impurities, unlocking the web platform as a freeform canvas, by simply placing some standard file types into a directory structure that represents the website. It's deceptively simple, highly efficient and very flexible and powerful.
 
 ```console
-npm install @domstack/static
+npm install @domstack/static@beta
 ```
+
+> [!NOTE]
+> DOMStack v12 is currently published under npm's `beta` dist-tag. Omit `@beta` to install the latest stable release.
 
 - 🌎 [domstack docs website](https://domstack.net)
 - 💬 [Discord Chat](https://discord.gg/AVTsPRGeR9)
