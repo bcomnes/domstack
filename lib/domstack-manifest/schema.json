@@ -1,13 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://unpkg.com/@domstack/static@12.0.0-beta.0/lib/domstack-manifest/schema.json",
+  "$id": "https://unpkg.com/@domstack/static@12/lib/domstack-manifest/schema.json",
   "title": "Domstack manifest",
   "description": "A normalized, revisioned manifest of public files emitted by a domstack build.",
   "type": "object",
   "properties": {
     "$schema": {
       "description": "Versioned URL of the JSON Schema that describes this manifest.",
-      "const": "https://unpkg.com/@domstack/static@12.0.0-beta.0/lib/domstack-manifest/schema.json"
+      "const": "https://unpkg.com/@domstack/static@12/lib/domstack-manifest/schema.json"
     },
     "version": {
       "description": "SHA-256 hex digest derived from the final cache-relevant manifest entries.",

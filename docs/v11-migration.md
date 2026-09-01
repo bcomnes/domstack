@@ -4,22 +4,7 @@ This guide covers all breaking changes introduced in the `next` branch relative 
 
 ## Table of Contents
 
-1. [Package and Installation](#1-package-and-installation)
-2. [CLI Binary Names](#2-cli-binary-names)
-3. [Programmatic API: Class Rename](#3-programmatic-api-class-rename)
-4. [TypeScript Type Renames](#4-typescript-type-renames)
-5. [Error Classes and Codes](#5-error-classes-and-codes)
-6. [Warning Codes](#6-warning-codes)
-7. [postVars Removed → global.data.js](#7-postvars-removed--globaldatajs)
-8. [New Reserved Filenames](#8-new-reserved-filenames)
-9. [page.md Now Recognized](#9-pagemd-now-recognized)
-10. [Web Worker Files Bundled Automatically](#10-web-worker-files-bundled-automatically)
-11. [browserVars + esbuild define Conflict Now Throws](#11-browservars--esbuild-define-conflict-now-throws)
-12. [Default Layout: uhtml-isomorphic → preact](#12-default-layout-uhtml-isomorphic--preact)
-13. [Default siteName Changed](#13-default-sitename-changed)
-14. [Output File Changes](#14-output-file-changes)
-15. [Watch Mode: Unhashed Filenames](#15-watch-mode-unhashed-filenames)
-16. [TypeScript: Removed and Changed Exported Types](#16-typescript-removed-and-changed-exported-types)
+[[toc]]
 
 ---
 

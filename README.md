@@ -133,22 +133,22 @@ Templates and other advanced features can generate additional output as needed. 
 
 A collection of examples can be found in the [`./examples`](https://github.com/bcomnes/domstack/tree/master/examples) folder:
 
-- [`basic`](./examples/basic/) — A broad tour of Markdown, HTML, and TypeScript pages, nested pages and layouts, variables, styles, client bundles, and static assets.
-- [`blog`](./examples/blog/) — A blog with derived global data, generated archive pages, redirects, nested layouts, and feed templates.
-- [`css-modules`](./examples/css-modules/) — Using CSS Modules from page code alongside global and page styles.
-- [`default-layout`](./examples/default-layout/) — Building a Markdown site with DOMStack's built-in default layout and no custom layout.
-- [`esbuild-settings`](./examples/esbuild-settings/) — Customizing the browser build through `esbuild.settings`.
-- [`markdown-settings`](./examples/markdown-settings/) — Customizing Markdown rendering with `markdown-it.settings` and Markdown-it plugins.
-- [`nested-dest`](./examples/nested-dest/) — Using the project root as `src` while writing the built site to a nested `public` directory.
-- [`preact-isomorphic`](./examples/preact-isomorphic/) — Rendering with Preact on the server and mounting page-scoped Preact and JSX in the browser.
-- [`react`](./examples/react/) — Configuring React and TypeScript for a page-scoped TSX client.
-- [`static-mpa-offline`](./examples/static-mpa-offline/) — A static multi-page app with DOMStack manifests, an offline fallback, precaching, and custom service-worker caching policies.
-- [`static-mpa-workbox-offline`](./examples/static-mpa-workbox-offline/) — The offline static MPA pattern implemented with Workbox routing, strategies, and precaching.
-- [`string-layouts`](./examples/string-layouts/) — Writing layouts that return plain HTML strings instead of using the default renderer.
-- [`tailwind`](./examples/tailwind/) — Integrating Tailwind CSS through an esbuild plugin.
-- [`type-stripping`](./examples/type-stripping/) — Using Node.js type stripping for TypeScript pages and layouts, plus a page-scoped TSX client.
-- [`uhtml-isomorphic`](./examples/uhtml-isomorphic/) — Rendering with `uhtml-isomorphic` on the server and mounting or hydrating UI in the browser.
-- [`worker-example`](./examples/worker-example/) — Bundling and communicating with page-scoped JavaScript and TypeScript Web Workers.
+- [`basic`](https://github.com/bcomnes/domstack/tree/master/examples/basic) — A broad tour of Markdown, HTML, and TypeScript pages, nested pages and layouts, variables, styles, client bundles, and static assets.
+- [`blog`](https://github.com/bcomnes/domstack/tree/master/examples/blog) — A blog with derived global data, generated archive pages, redirects, nested layouts, and feed templates.
+- [`css-modules`](https://github.com/bcomnes/domstack/tree/master/examples/css-modules) — Using CSS Modules from page code alongside global and page styles.
+- [`default-layout`](https://github.com/bcomnes/domstack/tree/master/examples/default-layout) — Building a Markdown site with DOMStack's built-in default layout and no custom layout.
+- [`esbuild-settings`](https://github.com/bcomnes/domstack/tree/master/examples/esbuild-settings) — Customizing the browser build through `esbuild.settings`.
+- [`markdown-settings`](https://github.com/bcomnes/domstack/tree/master/examples/markdown-settings) — Customizing Markdown rendering with `markdown-it.settings` and Markdown-it plugins.
+- [`nested-dest`](https://github.com/bcomnes/domstack/tree/master/examples/nested-dest) — Using the project root as `src` while writing the built site to a nested `public` directory.
+- [`preact-isomorphic`](https://github.com/bcomnes/domstack/tree/master/examples/preact-isomorphic) — Rendering with Preact on the server and mounting page-scoped Preact and JSX in the browser.
+- [`react`](https://github.com/bcomnes/domstack/tree/master/examples/react) — Configuring React and TypeScript for a page-scoped TSX client.
+- [`static-mpa-offline`](https://github.com/bcomnes/domstack/tree/master/examples/static-mpa-offline) — A static multi-page app with DOMStack manifests, an offline fallback, precaching, and custom service-worker caching policies.
+- [`static-mpa-workbox-offline`](https://github.com/bcomnes/domstack/tree/master/examples/static-mpa-workbox-offline) — The offline static MPA pattern implemented with Workbox routing, strategies, and precaching.
+- [`string-layouts`](https://github.com/bcomnes/domstack/tree/master/examples/string-layouts) — Writing layouts that return plain HTML strings instead of using the default renderer.
+- [`tailwind`](https://github.com/bcomnes/domstack/tree/master/examples/tailwind) — Integrating Tailwind CSS through an esbuild plugin.
+- [`type-stripping`](https://github.com/bcomnes/domstack/tree/master/examples/type-stripping) — Using Node.js type stripping for TypeScript pages and layouts, plus a page-scoped TSX client.
+- [`uhtml-isomorphic`](https://github.com/bcomnes/domstack/tree/master/examples/uhtml-isomorphic) — Rendering with `uhtml-isomorphic` on the server and mounting or hydrating UI in the browser.
+- [`worker-example`](https://github.com/bcomnes/domstack/tree/master/examples/worker-example) — Bundling and communicating with page-scoped JavaScript and TypeScript Web Workers.
 
 To run an example:
 
@@ -2917,46 +2917,51 @@ Use `domstack --serve` when testing manifest-driven cache behavior. It runs a on
 
 Chokidar events are serialized through a promise chain. Each page rebuild or esbuild restart completes before the next queued filesystem event is processed, preventing overlapping DOMStack rebuilds during rapid saves.
 
-## Design Goals
+## Design goals
 
-- Be boring.
-- Work well. 
-- Be as simple as possible.
-- Make life simpler for the developer.
-- Tasteful design and decisions.
-- Avoid ugliness, hacks or other sources of infinite complexity.
-- Convention over configuration.
-- Bundle up the best tools together into a single system.
-- All configuration should be optional, and at most it should be minimal.
-- The source code structure of the site should follow the url structure of site
-- Align with the `index.html`/`README.md` pattern. (Natural GitHub navigation)
-- The HTML is the source of truth.
-- The directory structure defines the site structure
-- Don't re-implement what the browser already provides!
-  - No magic `<link>` or `<a>` tag magic.
-  - Don't facilitate client side routing. The browser supports routing by default.
-  - Accept the nature of the medium. Browsers browse html documents. Don't facilitate shared state between pages (but don't prevent it either).
-- Library agnostic. Strings are the interchange format.
-- Pages are shallow apps. New page, new blank canvas.
-- Just a program. `js` pages and layouts are just JavaScript programs. This provides an escape hatch to do anything. Use any template language want, but probably just use tagged template literals.
-- Steps remain orthogonal. Static file copying, css and js bundling, are mere optimizations on top of the `src` folder. The `src` folder should essentially run in the browser. Each step in a `domstack` build should work independent of the others. This allows for maximal parallelism when building.
-- Standardized entrypoints. Every page in a `domstack` site has a natural and obvious entrypoint. There is no unique redirection to learn about.
-- Pages build into `index.html` files inside of named directories. This allows for naturally colocated assets next to the page, pretty URLs and full support for relative URLs.
-- No parallel directory structures. You should never be forced to have two directories with identical layouts to put files next to each other. Everything should be colocatable.
-- Markdown entrypoints are named `page.md` or `README.md`. `README.md` allows for the `src` folder to be fully navigable in GitHub and other git repo hosting providing a natural hosted CMS UI. `page.md` is preferred when GitHub navigability is not a concern.
-- Real TC39 ESM from the start.
-- Garbage in, garbage out. Don't over-correct bad input.
-- Conventions + standards. 
-- Vanilla file types. 
-- No new file extensions. 
-- No framework specific editor extensions or additional tooling beyond the bin
-- No weird syntax to learn. 
-- Language tools should just work because you aren't doing anything weird or out of band.
-- Encourage directly runnable source files. Direct run is an incredible, undervalued feature more people should learn to use.
-- Support typescript, via ts-in-js and type stripping features. Leave type checking to tsc.
-- Embrace the now. Limit support on features that let one pretend they are working with future ecosystem features e.g. pseudo esm (technology predictions nearly always are wrong!)
-- By doing this not the weird way, benefit from passive platform improvements with minimal future changes.
-- Avoid trends and FOMO in th ecosystem unless there is something truly there. 
+DOMStack aims to make building a website feel like working directly with the web platform, with a small set of dependable conventions layered on top.
+
+### Be simple and dependable
+
+- Be boring, work well, and make the developer's job easier.
+- Prefer convention over configuration. Configuration should be optional and minimal.
+- Combine proven tools into one coherent system instead of reimplementing them.
+- Avoid clever hacks, speculative abstractions, and complexity that becomes permanent maintenance work.
+- Do not over-correct bad input. Clear inputs should produce predictable outputs.
+
+### Build on the web platform
+
+- HTML is the source of truth, and strings are the interchange format between rendering tools.
+- Let browsers handle links, navigation, documents, and URLs. Do not add magic behavior to `<a>` or `<link>` elements or require client-side routing.
+- Treat pages as shallow applications: each page starts as a new document and a blank canvas. Shared client state is possible, but not assumed.
+- Remain library-agnostic. A page or layout is a program, so it can use tagged templates, a rendering library, or any other approach that returns the expected output.
+
+### Make structure visible
+
+- The source directory structure should mirror the site's URL structure.
+- Every page should have an obvious entrypoint and build to an `index.html` in its corresponding directory, enabling clean URLs and reliable relative links.
+- Keep pages and their assets colocated. Do not require parallel directory trees with matching structures.
+- Support both `page.md` and `README.md` entrypoints. `README.md` keeps a source tree navigable on Git hosts, while `page.md` is available when repository navigation is not a concern.
+
+### Keep build steps orthogonal
+
+- Page rendering, static copying, and CSS and JavaScript bundling should remain independent build steps.
+- Treat bundling as an optimization over a source tree that stays close to directly runnable web content.
+- Keep entry filenames stable and conventional so each build input has an obvious purpose.
+- Design independent steps so they can run concurrently when possible and rebuild only the outputs they affect.
+
+### Use standard language tooling
+
+- Use standard file types and syntax rather than framework-specific extensions or editor plugins.
+- Use real TC39 ESM and prefer standard `.ts` and `.js` modules with `"type": "module"` over compatibility escape hatches.
+- Support TypeScript through Node.js type stripping and JavaScript through JSDoc. Leave static type checking to `tsc`.
+- Encourage directly runnable source modules. Language servers, formatters, linters, and debuggers should work without understanding a DOMStack-specific language.
+
+### Prefer durable choices
+
+- Build for the platform that exists now instead of simulating predicted future standards.
+- Benefit from passive improvements to browsers, JavaScript, TypeScript, and Node.js by staying close to their conventions.
+- Adopt ecosystem trends only when they solve a concrete problem better than the existing platform.
 
 ## FAQ
 
@@ -2979,58 +2984,23 @@ Is this for real?
 :   Yes! The frontend space is crowded and brutal, and full of repeat ideas. DOMStack started and will remain as an opensource-for-one project and my goal is to explore ideas that I haven't seen manifest in ways I would like to see elsewhere.
 Usage and contribution is encouraged and welcome and appreciated of course. I already consider the project a success for the goals I set out to achieve with it and don't plan to growth hack it at all.
 
-## Roadmap
+## Project status
 
-`domstack` works and has a watch command with progressive rebuilds.
-If you end up trying it out, please open any issues or ideas that you have, and feel free to share what you build.
+DOMStack is actively developed and currently available as a v12 prerelease. Its core feature set includes:
 
-Some notable features are included below, see the [roadmap](https://github.com/users/bcomnes/projects/3/) for a more in depth view of whats planned.
+- Markdown, HTML, and TypeScript pages
+- Layouts with colocated styles and client bundles
+- Global, layout, and page-scoped variables
+- Centralized global data processing
+- Generated pages and templates
+- Static assets and additional copy directories
+- Progressive watch rebuilds with dependency tracking
+- TypeScript, JavaScript, and client-bundle TSX support
+- Page-scoped Web Workers and a site service worker
+- The DOMStack build manifest
+- A built-in development server powered by [`@domstack/sync`][domstack-sync]
 
-- [x] `md` pages
-- [x] `js` pages
-- [x] `html` pages
-- [x] `client.js` page bundles
-- [x] `style.css` page stylesheets
-- [x] `page.vars.js` page variables
-- [x] `loose-markdown-pages.md`
-- [x] Static asset copying.
-- [x] CLI build command
-- [x] CLI watch command
-- [x] Ignore globbing
-- [x] Nested site dest (`src` = `.`, `dest` = `public`)
-- [x] Default layouts/styles with 0 config starting point
-- [x] More examples and ideas.
-- [x] Hardened error handling w/ tests
-- [x] Multiple layout files
-- [x] Nested layout files
-- [x] Layout styles
-- [x] Layout scripts
-- [x] Template files
-- [x] Page data available to pages, layouts and template files.
-- [x] Handlebars template support in `md` and `html`
-- [x] `mjs` and `cjs` file extension support
-- [x] Improved watch log output
-- [x] Docs website built with `domstack`: https://domstack.net
-- [x] `--eject` cli flag
-- [x] Global assets can live anywhere
-- [x] Built in `@domstack/sync` dev server
-- [x] Real default layout style builds
-- [x] Esbuild settings escape hatch
-- [x] Copy folders
-- [x] Full Typescript support via native type stripping
-- [x] JSX+TSX support in client bundles
-- [x] Rename to domstack
-- [x] markdown-it.settings.ts support
-- [x] page-worker.worker.ts page worker support
-- [x] `page.md` page support
-- [x] Remove `postVars` and implement `global.data.{j,t}s`
-- [x] Harden behavior around conflicting `browserVars` and esbuild settings
-- [x] Progressive watch rebuilds with dependency tracking
-- [x] Generated pages
-- [x] Data processing pipeline
-- [x] Native service worker support
-- [x] Build manifest with offline service worker examples
-- ...[See roadmap](https://github.com/users/bcomnes/projects/3/)
+See the [GitHub roadmap](https://github.com/users/bcomnes/projects/3/) for planned work, or the [changelog](CHANGELOG.md) for completed changes. Issues, ideas, and examples of sites built with DOMStack are welcome.
 
 ## Links
 

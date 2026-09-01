@@ -255,6 +255,7 @@ test('domstack manifest schemas are importable from the package entry point', as
   ])
   const schemaFile = JSON.parse(schemaJson)
   const packageInfo = JSON.parse(packageJson)
+  const packageMajor = packageInfo.version.split('.')[0]
 
   assert.deepStrictEqual(
     schemaFile,
@@ -262,13 +263,18 @@ test('domstack manifest schemas are importable from the package entry point', as
     'packaged schema.json matches exported schema'
   )
   assert.ok(
-    DOMSTACK_MANIFEST_SCHEMA_ID.includes(`@${packageInfo.version}/`),
-    'manifest schema ID includes the package version'
+    DOMSTACK_MANIFEST_SCHEMA_ID.includes(`@${packageMajor}/`),
+    'manifest schema ID includes only the package major version'
   )
   assert.strictEqual(
     DOMSTACK_MANIFEST_SCHEMA_ID,
     getDomstackManifestSchemaId(packageInfo.version),
     'schema ID helper builds the exported schema ID from the package version'
+  )
+  assert.strictEqual(
+    getDomstackManifestSchemaId('12.0.0-beta.7'),
+    getDomstackManifestSchemaId('12.9.3'),
+    'prerelease and stable versions in the same major share a schema ID'
   )
   assert.strictEqual(
     DOMSTACK_MANIFEST_SCHEMA_PATH,
