@@ -218,6 +218,36 @@ test.describe('watch', () => {
       )
     })
 
+    await t.test('layout change rebuilds pages that select it through frontmatter', async () => {
+      const layoutFile = path.join(src, 'layouts/blog.layout.js')
+      const pageOutput = path.join(dest, 'md-page/index.html')
+      const original = await readFile(layoutFile, 'utf8')
+      await writeFile(layoutFile, original.replace('article-layout h-entry', 'article-layout frontmatter-layout-updated h-entry'))
+
+      await settle(domStack)
+
+      const output = await readFile(pageOutput, 'utf8')
+      assert.match(output, /frontmatter-layout-updated/)
+    })
+
+    await t.test('changed global data keys rebuild consumers of those keys', async () => {
+      mockLog.mock.resetCalls()
+      loggerLogs.length = 0
+      const sourcePage = path.join(src, 'blog/2023/a-blog-post-from-2023/README.md')
+      const indexOutput = path.join(dest, 'index.html')
+      const original = await readFile(sourcePage, 'utf8')
+      assert.match(await readFile(indexOutput, 'utf8'), /A Blogpost from 2023/)
+      await writeFile(sourcePage, original.replace('A Blogpost from 2023', 'Updated collection title'))
+
+      await settle(domStack)
+
+      const output = await readFile(indexOutput, 'utf8')
+      assert.match(output, /Updated collection title/)
+      assert.doesNotMatch(output, /A Blogpost from 2023/)
+      const logs = getLogLines(mockLog, loggerLogs)
+      assert.ok(logs.some(line => line.includes('Pages built: 2')), 'only the changed page and global-data consumer rebuild')
+    })
+
     // ── esbuild entry point change → no page rebuild ─────────────────
     await t.test('esbuild entry point change does not rebuild pages', async () => {
       mockLog.mock.resetCalls()

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert'
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import * as cheerio from 'cheerio'
 import { DomStack, testBuild } from '../../index.js'
@@ -554,7 +554,7 @@ test.describe('generated pages', () => {
     }
   })
 
-  test('does not infer a generated-pages dependency from receiving concrete pages', { timeout: 15_000 }, async () => {
+  test('rebuilds a generated-pages owner when an observed page var changes', { timeout: 15_000 }, async () => {
     await withTempFixture({
       'root.layout.js': minimalRootLayout,
       'global.vars.js': minimalGlobalVars,
@@ -562,21 +562,28 @@ test.describe('generated pages', () => {
       'page.vars.js': "export default { title: 'First title' }\n",
       'watch-indexes.pages.js': `export default function ({ pages }) {
   const title = pages[0].vars.title
-  return { outputName: 'watch-generated/index.html', children: () => title }
+  const outputName = title === 'First title'
+    ? 'watch-first/index.html'
+    : 'watch-updated/index.html'
+  return { outputName, children: () => title }
 }
 `,
     }, async ({ src, dest }) => {
       const domstack = new DomStack(src, dest)
       try {
         await domstack.watch({ serve: false })
-        const outputPath = join(dest, 'watch-generated/index.html')
-        assert.match(await readFile(outputPath, 'utf8'), /First title/)
+        const initialOutputPath = join(dest, 'watch-first/index.html')
+        const updatedOutputPath = join(dest, 'watch-updated/index.html')
+        assert.match(await readFile(initialOutputPath, 'utf8'), /First title/)
 
         await writeFile(join(src, 'page.vars.js'), "export default { title: 'Updated title' }\n")
         await new Promise(resolve => setTimeout(resolve, 800))
         await domstack.settled()
 
-        assert.match(await readFile(outputPath, 'utf8'), /First title/)
+        const updatedOutput = await readFile(updatedOutputPath, 'utf8')
+        assert.match(updatedOutput, /Updated title/)
+        assert.doesNotMatch(updatedOutput, /First title/)
+        await assert.rejects(() => stat(initialOutputPath), 'obsolete dependency-driven output is removed')
       } finally {
         if (domstack.watching) await domstack.stopWatching()
       }

@@ -8,6 +8,7 @@
  * @import { BsInstance } from '@domstack/sync'
  * @import { Logger as PinoLogger } from 'pino'
  * @import { DomstackManifestRecord } from './lib/domstack-manifest/index.js'
+ * @import { WatchDependencyState } from './lib/build-pages/watch-dependencies.js'
  * @typedef {{ dispose: () => Promise<void> }} DisposableBuildContext
  * @typedef {{ pageFilePath: string, sourcePageFilePath?: string | undefined, pagesFilePath?: string | undefined, layoutNames: string[], outputs?: DomstackManifestRecord[] | undefined }} WatchedPageReport
  */
@@ -109,6 +110,8 @@ export class DomStack {
   #pagesFileOutputMap = new Map()
   /** @type {Map<string, Set<string>>} *.pages.* filepath → layouts used by its generated pages */
   #pagesFileLayoutMap = new Map()
+  /** @type {WatchDependencyState | null} dependency observations from the last successful page build */
+  #watchDependencies = null
   /** @type {boolean} Failed builds may leave the previous routing state incomplete. */
   #pageBuildFailed = false
 
@@ -197,6 +200,7 @@ export class DomStack {
     try {
       const pageBuildResults = await buildPages(this.#src, this.#dest, siteData, {
         ...this.opts,
+        trackWatchDependencies: true,
       })
       if (pageBuildResults.errors.length > 0) {
         throw new DomStackAggregateError(pageBuildResults.errors, 'Page build finished but there were errors.', {
@@ -214,6 +218,9 @@ export class DomStack {
       this.#pagesFileLayoutMap = getPagesFileLayoutMap(pageBuildResults.report.pages)
       this.#updatePageLayoutNames(pageBuildResults.report.pages, true)
       this.#pageBuildFailed = false
+      this.#watchDependencies = pageBuildResults.report.watchDependencies ?? null
+      delete pageBuildResults.report.watchDependencies
+      delete pageBuildResults.report.rebuiltPagesFilePaths
       buildLogger(report, this.#logger)
       this.#logger.info('Initial JS, CSS and Page Build Complete')
     } catch (err) {
@@ -456,6 +463,8 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
         ...(pageFilterPaths ? { pageFilterPaths } : {}),
         ...(templateFilterPaths ? { templateFilterPaths } : {}),
         ...(pagesFileFilterPaths ? { pagesFileFilterPaths } : {}),
+        previousWatchDependencies: this.#watchDependencies,
+        trackWatchDependencies: true,
       })
       if (pageBuildResults.errors.length > 0) {
         throw new DomStackAggregateError(pageBuildResults.errors, 'Page build finished but there were errors.', {
@@ -469,10 +478,13 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
         await this.#removeObsoletePageOutputs(pageBuildResults.outputs)
         this.#pagesFileOutputMap = getPagesFileOutputMap(pageBuildResults.report.pages)
         this.#pagesFileLayoutMap = getPagesFileLayoutMap(pageBuildResults.report.pages)
-      } else if (pagesFileFilterPaths !== null) {
-        await this.#removeObsoleteGeneratedPageOutputs(pagesFileFilterPaths, pageBuildResults.report.pages)
-        updatePagesFileLayoutMap(this.#pagesFileLayoutMap, pagesFileFilterPaths, pageBuildResults.report.pages)
+      } else if ((pageBuildResults.report.rebuiltPagesFilePaths?.length ?? 0) > 0) {
+        await this.#removeObsoleteGeneratedPageOutputs(pageBuildResults.report.rebuiltPagesFilePaths ?? [], pageBuildResults.report.pages)
+        updatePagesFileLayoutMap(this.#pagesFileLayoutMap, pageBuildResults.report.rebuiltPagesFilePaths ?? [], pageBuildResults.report.pages)
       }
+      this.#watchDependencies = pageBuildResults.report.watchDependencies ?? this.#watchDependencies
+      delete pageBuildResults.report.watchDependencies
+      delete pageBuildResults.report.rebuiltPagesFilePaths
       await this.#rebuildMaps(siteData)
       this.#pageBuildFailed = false
       buildLogger(
