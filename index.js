@@ -11,6 +11,7 @@
  * @import { Logger as PinoLogger } from 'pino'
  * @import { DomstackManifestRecord } from './lib/domstack-manifest/index.js'
  * @import { WatchDependencyState } from './lib/build-pages/watch-dependencies.js'
+ * @import { WatchSnapshot, WatchEvent, WatchPlan } from './lib/watch-plan.js'
  * @typedef {{ dispose: () => Promise<void> }} DisposableBuildContext
  * @typedef {{ pageFilePath: string, sourcePageFilePath?: string | undefined, pagesFilePath?: string | undefined, layoutNames: string[], outputs?: DomstackManifestRecord[] | undefined }} WatchedPageReport
  * @typedef {object} WatchSession
@@ -24,7 +25,7 @@ import assert from 'node:assert'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import chokidar from 'chokidar'
-import { basename, dirname, join, relative, resolve } from 'node:path'
+import { basename, join, relative, resolve } from 'node:path'
 // @ts-expect-error
 import makeArray from 'make-array'
 import ignore from 'ignore'
@@ -36,22 +37,12 @@ import { find } from '@11ty/dependency-tree-typescript'
 import { assertInsideDest } from './lib/helpers/path.js'
 import { getCopyGlob } from './lib/build-static/index.js'
 import { getCopyDirs } from './lib/build-copy/index.js'
-import { classifyFile, isProcessedFile, globalBundleAssets, pageBundleAssets, layoutBundleAssets } from './lib/file-conventions.js'
+import { isProcessedFile, globalBundleAssets, pageBundleAssets, layoutBundleAssets } from './lib/file-conventions.js'
 import { builder } from './lib/builder.js'
 import { buildEsbuildWatch } from './lib/build-esbuild/index.js'
 import { buildPages } from './lib/build-pages/index.js'
-import {
-  identifyPages,
-  layoutStyleSuffix,
-  globalVarsNames,
-  esbuildSettingsNames,
-  markdownItSettingsNames,
-  domstackManifestSettingsNames,
-  layoutClientSuffixs,
-  globalClientNames,
-  globalStyleNames,
-  serviceWorkerNames,
-} from './lib/identify-pages.js'
+import { identifyPages } from './lib/identify-pages.js'
+import { classifyWatchEvent, planWatchEvent, planBundleChange } from './lib/watch-plan.js'
 import { ensureDest } from './lib/helpers/ensure-dest.js'
 import { DomStackAggregateError } from './lib/helpers/domstack-aggregate-error.js'
 import { createDomStackLogger } from './lib/logger.js'
@@ -245,15 +236,15 @@ export class DomStack {
     }
 
     watcher.on('add', path => {
-      enqueue(() => this.#handleAddUnlink(path, 'added'))
+      enqueue(() => this.#handleWatchEvent(path, 'added'))
     })
     watcher.on('change', path => {
       assert(this.#src)
       assert(this.#dest)
-      enqueue(() => this.#handleChange(path))
+      enqueue(() => this.#handleWatchEvent(path, 'change'))
     })
     watcher.on('unlink', path => {
-      enqueue(() => this.#handleAddUnlink(path, 'removed'))
+      enqueue(() => this.#handleWatchEvent(path, 'removed'))
     })
     watcher.on('error', err => errorLogger(err, this.#logger))
 
@@ -441,87 +432,82 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
     await this.#rebuildMaps(siteData)
   }
 
-  /**
-   * Handle file add/unlink events. Categorizes the file to determine the minimal rebuild:
-   * - esbuild entry point added/removed: restart esbuild + targeted page rebuild
-   * - Otherwise: full rebuild (structural change to the page/layout/template set)
-   *
-   * @param {string} changedPath - Absolute path of the added/removed file.
-   * @param {'added' | 'removed'} event - The type of event.
-   */
-  async #handleAddUnlink (changedPath, event) {
-    const changedBasename = basename(changedPath)
-    const changedDir = relative(this.#src, dirname(changedPath))
-
-    // Check if this is an esbuild entry point by basename pattern
-    const isEsbuildEntry = classifyFile(changedBasename)?.bundleScope
-
-    if (isEsbuildEntry) {
-      this.#logger.info(`"${changedBasename}" ${event}, restarting esbuild...`)
-
-      // Re-identify pages to discover the new/removed entry point
-      const siteData = await identifyPages(this.#src, this.opts)
-      if (siteData.errors.length > 0) {
-        this.#logger.error(`identifyPages errors:\n${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
-        return
-      }
-
-      await ensureDest(this.#dest, siteData)
-
-      // Restart esbuild with updated entry points
-      if (this.#esbuildContext) {
-        await this.#esbuildContext.dispose()
-        this.#esbuildContext = null
-      }
-      const { context } = await buildEsbuildWatch(this.#src, this.#dest, siteData, this.opts)
-      this.#esbuildContext = context
-      this.#siteData = siteData
-
-      // Determine which pages are affected by this entry point change
-      if (serviceWorkerNames.includes(changedBasename)) {
-        // Service workers are site-level esbuild entries and do not affect page HTML.
-        this.#logger.info(`"${changedBasename}" ${event}, no page rebuild needed.`)
-      } else if (globalClientNames.includes(changedBasename) || globalStyleNames.includes(changedBasename)) {
-        // Global asset: rebuild all pages
-        logRebuildTree(changedBasename, this.#logger, new Set(siteData.pages))
-        await this.#runPageBuild(siteData)
-      } else if (layoutClientSuffixs.some(s => changedBasename.endsWith(s)) || changedBasename.endsWith(layoutStyleSuffix)) {
-        // Layout asset: rebuild pages using that layout
-        const layoutName = Object.values(siteData.layouts).find(l =>
-          l.layoutClient?.filepath === changedPath || l.layoutStyle?.filepath === changedPath
-        )?.layoutName
-        if (layoutName) {
-          // Rebuild maps first so layoutPageMap is current
-          await this.#rebuildMaps(siteData)
-          const affectedPages = this.#layoutPageMap.get(layoutName)
-          const pagesFileFilterPaths = this.#getPagesFilePathsUsingLayouts(new Set([layoutName]))
-          if ((affectedPages?.size ?? 0) > 0 || pagesFileFilterPaths.length > 0) {
-            logRebuildTree(changedBasename, this.#logger, affectedPages)
-            const pageFilterPaths = Array.from(affectedPages ?? []).map(p => p.pageFile.filepath)
-            await this.#runPageBuild(siteData, pageFilterPaths, [], pagesFileFilterPaths)
-            return
-          }
-        }
-        // Couldn't determine layout — rebuild all pages to be safe
-        await this.#runPageBuild(siteData, null, [], null)
-      } else {
-        // Page-level asset (client.*, style.css, *.worker.*): rebuild only that page
-        const affectedPage = siteData.pages.find(p => p.path === changedDir)
-        if (affectedPage) {
-          logRebuildTree(changedBasename, this.#logger, new Set([affectedPage]))
-          await this.#runPageBuild(siteData, [affectedPage.pageFile.filepath], [], [])
-        } else {
-          // Page not found (maybe it was removed) — rebuild all pages
-          await this.#runPageBuild(siteData)
-        }
-      }
-
-      await this.#rebuildMaps(siteData)
-    } else {
-      // Non-esbuild file: structural change (page, layout, template, config, etc.)
-      this.#logger.info(`"${changedBasename}" ${event}, triggering full rebuild...`)
-      return this.#fullRebuild()
+  /** @returns {WatchSnapshot | undefined} */
+  #watchSnapshot () {
+    if (!this.#siteData) return
+    return {
+      siteData: this.#siteData,
+      layoutDepMap: this.#layoutDepMap,
+      layoutPageMap: this.#layoutPageMap,
+      pageFileMap: this.#pageFileMap,
+      layoutFileMap: this.#layoutFileMap,
+      pageDepMap: this.#pageDepMap,
+      templateDepMap: this.#templateDepMap,
+      pagesFileDepMap: this.#pagesFileDepMap,
+      pagesFileLayoutMap: this.#pagesFileLayoutMap,
+      globalDataDepPaths: this.#globalDataDepPaths,
+      pageBuildFailed: this.#pageBuildFailed,
+      esbuildEntryPoints: this.#esbuildEntryPoints,
     }
+  }
+
+  /**
+   * @param {string} changedPath
+   * @param {'change' | 'added' | 'removed'} type
+   */
+  async #handleWatchEvent (changedPath, type) {
+    const snapshot = this.#watchSnapshot()
+    if (!snapshot) return
+    const event = classifyWatchEvent(type, changedPath)
+    await this.#executeWatchPlan(planWatchEvent(snapshot, event), event)
+  }
+
+  /**
+   * Keep resource ownership and successful-build state updates in the executor.
+   * @param {WatchPlan} plan
+   * @param {WatchEvent} event
+   * @returns {Promise<void>}
+   */
+  async #executeWatchPlan (plan, event) {
+    if (plan.message) this.#logger.info(plan.message)
+    if (plan.kind === 'skip') return
+    if (plan.kind === 'full') {
+      await this.#fullRebuild()
+      return
+    }
+    if (plan.kind === 'restart') {
+      await this.#restartEsbuildForEvent(event)
+      return
+    }
+    if (!this.#siteData) return
+    if (plan.pages || plan.templates) {
+      logRebuildTree(event.name, this.#logger, new Set(plan.pages), new Set(plan.templates))
+    }
+    await this.#runPageBuild(this.#siteData, plan.pageFilterPaths, plan.templateFilterPaths, plan.pagesFileFilterPaths)
+  }
+
+  /** @param {WatchEvent} event */
+  async #restartEsbuildForEvent (event) {
+    const siteData = await identifyPages(this.#src, this.opts)
+    if (siteData.errors.length > 0) {
+      this.#logger.error(`identifyPages errors:\n${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
+      return
+    }
+    await ensureDest(this.#dest, siteData)
+    if (this.#esbuildContext) {
+      await this.#esbuildContext.dispose()
+      this.#esbuildContext = null
+    }
+    const { context } = await buildEsbuildWatch(this.#src, this.#dest, siteData, this.opts)
+    this.#esbuildContext = context
+    this.#siteData = siteData
+    const snapshot = this.#watchSnapshot()
+    if (!snapshot) return
+    const plan = planBundleChange(snapshot, event, this.#src)
+    // Successful page builds refresh their own maps. Service workers have no
+    // HTML consumers, but their entry map still changes.
+    if (plan.kind === 'skip') await this.#rebuildMaps(siteData)
+    await this.#executeWatchPlan(plan, event)
   }
 
   /**
@@ -634,22 +620,6 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
       if (currentOutputs.size > 0) this.#pagesFileOutputMap.set(pagesFilePath, currentOutputs)
       else this.#pagesFileOutputMap.delete(pagesFilePath)
     }
-  }
-
-  /**
-   * Find generated-page owners whose last successful outputs used any affected layout.
-   *
-   * @param {Set<string>} layoutNames
-   * @returns {string[]}
-   */
-  #getPagesFilePathsUsingLayouts (layoutNames) {
-    const pagesFilePaths = []
-    for (const [pagesFilePath, usedLayouts] of this.#pagesFileLayoutMap) {
-      if (Array.from(usedLayouts).some(layoutName => layoutNames.has(layoutName))) {
-        pagesFilePaths.push(pagesFilePath)
-      }
-    }
-    return pagesFilePaths
   }
 
   /**
@@ -805,103 +775,6 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
     this.#pagesFileDepMap = pagesFileDepMap
     this.#globalDataDepPaths = globalDataDepPaths
     this.#esbuildEntryPoints = esbuildEntryPoints
-  }
-
-  /**
-   * Chokidar change handler — implements the decision tree from the plan.
-   *
-   * @param {string} changedPath - Absolute path of the changed file.
-   */
-  async #handleChange (changedPath) {
-    const siteData = this.#siteData
-    if (!siteData) return
-
-    const changedBasename = basename(changedPath)
-
-    // 2. global.vars.* → full rebuild (esbuild restart + all pages)
-    if (globalVarsNames.some(n => changedBasename === n)) {
-      this.#logger.info(`"${changedBasename}" changed, triggering full rebuild...`)
-      return this.#fullRebuild()
-    }
-
-    // 3. global.data.* → recompute data and rebuild only declared subscribers
-    const globalDataChanged = this.#globalDataDepPaths.has(changedPath)
-    if (globalDataChanged) {
-      this.#logger.info(`"${changedBasename}" changed, rebuilding data subscribers...`)
-    }
-
-    // 4. esbuild.settings.* → full rebuild
-    if (esbuildSettingsNames.some(n => changedBasename === n)) {
-      this.#logger.info(`"${changedBasename}" changed, triggering full rebuild...`)
-      return this.#fullRebuild()
-    }
-
-    // 5. markdown-it.settings.* → rebuild Markdown pages and any data subscribers
-    // affected by global.data recomputation.
-    if (markdownItSettingsNames.some(n => changedBasename === n)) {
-      const mdPages = new Set(siteData.pages.filter(p => p.type === 'md'))
-      logRebuildTree(changedBasename, this.#logger, mdPages)
-      return this.#runPageBuild(siteData, Array.from(mdPages).map(p => p.pageFile.filepath), [], [])
-    }
-
-    // domstack-manifest.settings.* only affects one-shot domstack manifest generation.
-    // Watch mode intentionally does not write or return a domstack manifest.
-    if (domstackManifestSettingsNames.some(n => changedBasename === n)) {
-      this.#logger.info(`"${changedBasename}" changed but domstack manifests are disabled in watch mode, skipping.`)
-      return
-    }
-
-    if (this.#pageBuildFailed) {
-      this.#logger.info(`"${changedBasename}" changed, retrying all pages after the previous build failure...`)
-      return this.#runPageBuild(siteData)
-    }
-
-    // A source can serve several roles at once: an imported parent layout may
-    // also be selected directly, and a helper may be shared by pages and templates.
-    // Union every matching consumer before scheduling one build.
-    const affectedLayouts = new Set(this.#layoutDepMap.get(changedPath))
-    const directLayout = this.#layoutFileMap.get(changedPath)
-    if (directLayout) affectedLayouts.add(directLayout)
-
-    const affectedPages = new Set(this.#pageDepMap.get(changedPath))
-    const directPage = this.#pageFileMap.get(changedPath)
-    if (directPage) affectedPages.add(directPage)
-    for (const name of affectedLayouts) {
-      for (const page of this.#layoutPageMap.get(name) ?? []) affectedPages.add(page)
-    }
-
-    const affectedTemplates = new Set(this.#templateDepMap.get(changedPath))
-    for (const template of siteData.templates) {
-      if (template.templateFile.filepath === changedPath) affectedTemplates.add(template)
-    }
-
-    const affectedOwners = new Set(this.#getPagesFilePathsUsingLayouts(affectedLayouts))
-    for (const pagesFile of this.#pagesFileDepMap.get(changedPath) ?? []) {
-      affectedOwners.add(pagesFile.pagesFile.filepath)
-    }
-    for (const pagesFile of siteData.pagesFiles ?? []) {
-      if (pagesFile.pagesFile.filepath === changedPath) affectedOwners.add(changedPath)
-    }
-
-    if (globalDataChanged || affectedPages.size || affectedTemplates.size || affectedOwners.size) {
-      logRebuildTree(changedBasename, this.#logger, affectedPages, affectedTemplates)
-      return this.#runPageBuild(
-        siteData,
-        Array.from(affectedPages, page => page.pageFile.filepath),
-        Array.from(affectedTemplates, template => template.templateFile.filepath),
-        [...affectedOwners]
-      )
-    }
-
-    // Browser entry points can also be imported by server-side consumers.
-    // Only skip the page phase once all those consumers have been considered.
-    if (this.#esbuildEntryPoints.has(changedPath)) {
-      this.#logger.info(`"${changedBasename}" changed, esbuild will handle rebundling.`)
-      return
-    }
-
-    // No matching rule — skip.
-    this.#logger.info(`"${changedBasename}" changed but did not match any rebuild rule, skipping.`)
   }
 
   /**
