@@ -117,6 +117,10 @@ export class DomStack {
   #watchDependencies = null
   /** @type {boolean} Failed builds may leave the previous routing state incomplete. */
   #pageBuildFailed = false
+  #starting = false
+  #acceptWatchEvents = false
+  /** @type {Promise<void> | null} */
+  #stopping = null
 
   // Serialized lock so concurrent chokidar events don't pile up
   /** @type {Promise<void>} */
@@ -176,8 +180,24 @@ export class DomStack {
   } = {
     serve: true,
   }) {
-    if (this.watching) throw new Error('Already watching.')
+    if (this.watching || this.#starting || this.#stopping) throw new Error('Already watching.')
+    this.#starting = true
+    try {
+      return await this.#startWatch({ serve, onInitialBuild })
+    } catch (error) {
+      try {
+        await this.#disposeWatchResources()
+      } catch (cleanupError) {
+        throw new AggregateError([error, cleanupError], 'Watch startup and cleanup failed')
+      }
+      throw error
+    } finally {
+      this.#starting = false
+    }
+  }
 
+  /** @param {{ serve: boolean, onInitialBuild: ((results: Results) => void | Promise<void>) | undefined }} params */
+  async #startWatch ({ serve, onInitialBuild }) {
     // ── Initial build (inline, not via builder()) ────────────────────────
     const siteData = await identifyPages(this.#src, this.opts)
 
@@ -239,10 +259,9 @@ export class DomStack {
     // ── Copy watchers & dev server ───────────────────────────────────────
     const copyDirs = getCopyDirs(this.opts.copy ?? [])
 
-    this.#cpxWatchers = [
-      cpxWatch(getCopyGlob(this.#src), this.#dest, { ignore: this.opts.ignore ?? [] }),
-      ...copyDirs.map(copyDir => cpxWatch(copyDir, this.#dest))
-    ]
+    this.#cpxWatchers = []
+    this.#cpxWatchers.push(cpxWatch(getCopyGlob(this.#src), this.#dest, { ignore: this.opts.ignore ?? [] }))
+    for (const copyDir of copyDirs) this.#cpxWatchers.push(cpxWatch(copyDir, this.#dest))
 
     const copyWatchersReady = this.#cpxWatchers.map(async w => {
       w.on('copy', (/** @type{{ srcPath: string, dstPath: string }} */e) => {
@@ -305,6 +324,7 @@ export class DomStack {
       })
     }
 
+    this.#acceptWatchEvents = true
     const enqueue = (/** @type {() => Promise<unknown>} */ fn) => {
       this.#enqueueBuild(fn)
     }
@@ -579,7 +599,9 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
    * @param {() => Promise<unknown>} fn
    */
   #enqueueBuild (fn) {
+    if (!this.#acceptWatchEvents) return
     this.#buildLock = this.#buildLock.then(async () => {
+      if (!this.#acceptWatchEvents) return
       try {
         await fn()
       } catch (err) {
@@ -831,19 +853,38 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
   }
 
   async stopWatching () {
+    if (this.#stopping) return this.#stopping
     if ((!this.watching || !this.#cpxWatchers)) throw new Error('Not watching')
-    if (this.#watcher) this.#watcher.close()
-    this.#cpxWatchers.forEach(w => {
-      w.close()
-    })
+    this.#stopping = this.#disposeWatchResources()
+    try {
+      await this.#stopping
+    } finally {
+      this.#stopping = null
+    }
+  }
+
+  async #disposeWatchResources () {
+    this.#acceptWatchEvents = false
+    const closures = [
+      () => this.#watcher?.close(),
+      ...(this.#cpxWatchers ?? []).map(w => () => w.close()),
+    ]
+    const results = await Promise.allSettled(closures.map(close => Promise.resolve().then(close)))
+
+    // Queued events are cancelled; a build already running may still replace the
+    // esbuild context, so wait before disposing the final context and server.
+    await this.#buildLock
+    results.push(...await Promise.allSettled([
+      Promise.resolve().then(() => this.#esbuildContext?.dispose()),
+      Promise.resolve().then(() => this.#syncServer?.exit()),
+    ]))
     this.#watcher = null
     this.#cpxWatchers = null
-    if (this.#esbuildContext) {
-      await this.#esbuildContext.dispose()
-      this.#esbuildContext = null
-    }
-    await this.#syncServer?.exit()
+    this.#esbuildContext = null
     this.#syncServer = null
+    this.#siteData = null
+    const errors = results.filter(result => result.status === 'rejected').map(result => result.reason)
+    if (errors.length > 0) throw new AggregateError(errors, 'Watch cleanup failed')
   }
 
   /**
