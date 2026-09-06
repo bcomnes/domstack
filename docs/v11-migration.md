@@ -190,7 +190,9 @@ Two new filenames are now recognized and processed by domstack. If you have exis
 
 ### `global.data.js` (and `.ts`, `.mjs`, `.mts`, `.cjs`, `.cts`)
 
-Now treated as the global data aggregation file. Its default export is called with `{ pages }` after source-backed pages are initialized and before generated-page factories run. See [section 7](#7-postvars-removed--globaldatajs) above.
+Now treated as the global data aggregation file.
+Its default export is called with `{ pages }` after source-backed pages are initialized and before generated-page factories run.
+See [section 7](#7.-postvars-removed-%E2%86%92-global.data.js) above.
 
 ### `markdown-it.settings.js` (and `.ts`, `.mjs`, `.mts`, `.cjs`, `.cts`)
 
