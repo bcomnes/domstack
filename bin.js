@@ -19,9 +19,9 @@ import { inspect } from 'util'
 import { createServer } from '@domstack/sync'
 import { packageDirectory } from 'package-directory'
 import { readPackage } from 'read-pkg'
-import { addPackageDependencies } from 'write-package'
 
 import { copyFile } from './lib/helpers/copy-file.js'
+import { addPackageDependencies } from './lib/helpers/add-package-dependencies.js'
 import { DomStack } from './index.js'
 import { DomStackAggregateError } from './lib/helpers/domstack-aggregate-error.js'
 import { generateTreeData } from './lib/helpers/generate-tree-data.js'
@@ -200,11 +200,9 @@ domstack eject actions:
     await addPackageDependencies(
       localPkgJson,
       {
-        dependencies: {
-          'mine.css': mineVersion,
-          fragtml: fragtmlVersion,
-          'highlight.js': highlightVersion,
-        },
+        'mine.css': mineVersion,
+        fragtml: fragtmlVersion,
+        'highlight.js': highlightVersion,
       })
 
     console.log('Done ejecting files!')
