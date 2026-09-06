@@ -137,7 +137,7 @@ export class DomStack {
 
     this.#src = src
     this.#dest = dest
-    this.#logger = opts.logger ?? createDomStackLogger()
+    this.#logger = /** @type {PinoLogger} */ (opts.logger ?? createDomStackLogger())
     this.opts = normalizeDomStackOpts(opts, dest)
 
     const copyDirs = this.opts.copy ?? []

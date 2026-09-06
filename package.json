@@ -120,6 +120,7 @@
     "test:installed-check": "installed-check --ignore-dev --no-workspaces",
     "test:neostandard": "eslint . --ignore-pattern 'test-cases/build-errors/src/**/*.js' --ignore-pattern 'test-cases/page-build-errors/src/**/*.js'",
     "test:node-test": "node --test --experimental-test-coverage --test-reporter=dot --test-reporter=lcov --test-reporter-destination=stdout --test-reporter-destination=lcov.info",
+    "test:packed-types": "node scripts/test-packed-types.js",
     "test:playwright": "playwright test",
     "test:tsc": "tsc",
     "build-examples": "run-p example:*",
