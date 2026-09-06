@@ -80,6 +80,19 @@ test('failed startup closes acquired watchers and permits a retry', async t => {
   await site.dom.stopWatching()
 })
 
+test('stopping in the initial-build callback does not resume watch startup', async t => {
+  const site = await fixture(t)
+  await site.dom.watch({
+    serve: false,
+    onInitialBuild: () => site.dom.stopWatching(),
+  })
+  assert.equal(site.dom.watching, false)
+  assert.equal(site.watcher().closed, true)
+  assert.equal(site.watcher().listenerCount('change'), 0)
+  await site.dom.watch({ serve: false })
+  await site.dom.stopWatching()
+})
+
 test('cleanup reports close failures after releasing remaining resources', async t => {
   const site = await fixture(t)
   await site.dom.watch({ serve: false })

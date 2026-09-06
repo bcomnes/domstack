@@ -315,6 +315,9 @@ export class DomStack {
 
     await onInitialBuild?.(report)
 
+    // The callback may have stopped this watch session.
+    if (!this.watching || this.#stopping) return report
+
     if (serve) {
       this.#syncServer = await createServer({
         server: this.#dest,
