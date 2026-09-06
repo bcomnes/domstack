@@ -1,10 +1,9 @@
 ---
+layout: docs
 handlebars: false
 ---
 
 # Recipes
-
-[Home](../../) · [Documentation](../)
 
 ## Table of Contents
 

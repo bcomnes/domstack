@@ -1,10 +1,9 @@
 ---
+layout: docs
 handlebars: false
 ---
 
 # Programmatic API
-
-[Home](../../) · [Documentation](../)
 
 ## Table of Contents
 

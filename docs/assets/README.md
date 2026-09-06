@@ -1,10 +1,9 @@
 ---
+layout: docs
 handlebars: false
 ---
 
 # Assets and settings reference
-
-[Home](../../) · [Documentation](../)
 
 ## Table of Contents
 

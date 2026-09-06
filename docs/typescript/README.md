@@ -1,10 +1,9 @@
 ---
+layout: docs
 handlebars: false
 ---
 
 # TypeScript reference
-
-[Home](../../) · [Documentation](../)
 
 ## Table of Contents
 

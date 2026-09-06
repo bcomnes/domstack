@@ -1,10 +1,9 @@
 ---
+layout: docs
 handlebars: false
 ---
 
 # Example projects
-
-[Home](../../) · [Documentation](../)
 
 ## Table of Contents
 

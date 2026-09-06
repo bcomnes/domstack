@@ -1,10 +1,9 @@
 ---
+layout: docs
 handlebars: false
 ---
 
 # About DOMStack
-
-[Home](../../) · [Documentation](../)
 
 ## Table of Contents
 

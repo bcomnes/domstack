@@ -1,3 +1,7 @@
+---
+layout: docs
+---
+
 # Documentation
 
 [DOMStack](../) builds websites from ordinary HTML, Markdown, CSS, and JavaScript files.

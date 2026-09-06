@@ -1,10 +1,9 @@
 ---
+layout: docs
 handlebars: false
 ---
 
 # Build internals
-
-[Home](../../) · [Documentation](../)
 
 ## Table of Contents
 

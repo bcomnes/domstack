@@ -1,10 +1,9 @@
 ---
+layout: docs
 handlebars: false
 ---
 
 # Page authoring reference
-
-[Home](../../) · [Documentation](../)
 
 ## Table of Contents
 
@@ -473,6 +472,8 @@ See [Page data and introspection](../../docs/content/#page-data-and-introspectio
 - `children`: The immediate child's render result: the page's content for the innermost layout, or the next inner layout's return value for a parent.
 Markdown and HTML pages return strings; TypeScript pages and nested layouts may return other values.
 - `page`: An object with metadata and other facts about the current page being rendered into the template.
+
+<a id="the-default-rootlayoutts"></a>
 
 ### The default `root.layout.ts`
 

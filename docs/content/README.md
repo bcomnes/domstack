@@ -1,10 +1,9 @@
 ---
+layout: docs
 handlebars: false
 ---
 
 # Content generation reference
-
-[Home](../../) · [Documentation](../)
 
 ## Table of Contents
 

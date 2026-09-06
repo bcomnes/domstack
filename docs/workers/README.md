@@ -1,10 +1,9 @@
 ---
+layout: docs
 handlebars: false
 ---
 
 # Workers and manifest reference
-
-[Home](../../) · [Documentation](../)
 
 ## Table of Contents
 

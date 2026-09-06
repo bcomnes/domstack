@@ -1,3 +1,7 @@
+---
+layout: docs
+---
+
 # Migration Guide: domstack v12
 
 This guide covers breaking and notable changes when moving from domstack v11 to v12.

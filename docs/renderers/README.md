@@ -1,10 +1,9 @@
 ---
+layout: docs
 handlebars: false
 ---
 
 # Rendering integrations
-
-[Home](../../) · [Documentation](../)
 
 ## Table of Contents
 

@@ -152,6 +152,8 @@ The detailed reference now lives in the documentation above.
 Existing documentation-site bookmarks open their new locations automatically.
 On GitHub, follow the corresponding link below.
 
+<a id="table-of-contents" data-reference-url="docs/" href="docs/">table-of-contents</a>
+
 <a id="usage" data-reference-url="docs/cli/#usage" href="docs/cli/#usage">usage</a>
 
 <a id="examples" data-reference-url="docs/example-projects/#examples" href="docs/example-projects/#examples">examples</a>

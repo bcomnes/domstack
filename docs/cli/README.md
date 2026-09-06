@@ -1,10 +1,9 @@
 ---
+layout: docs
 handlebars: false
 ---
 
 # Command-line reference
-
-[Home](../../) · [Documentation](../)
 
 ## Table of Contents
 

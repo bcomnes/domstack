@@ -1,3 +1,7 @@
+---
+layout: docs
+---
+
 # Migration Guide: top-bun → domstack
 
 This guide covers all breaking changes introduced in the `next` branch relative to `master`, documenting what needs to change when migrating from `top-bun` to `domstack` (`@domstack/static`).

@@ -1,0 +1,22 @@
+@layer domstack.layout {
+  .docs-breadcrumb {
+    margin-block: 1em;
+
+    ol {
+      display: flex;
+      flex-wrap: wrap;
+      padding: 0;
+      margin: 0;
+      list-style: none;
+    }
+
+    li + li::before {
+      margin-inline: 0.5em;
+      content: '/';
+    }
+
+    [aria-current='page'] {
+      font-weight: bold;
+    }
+  }
+}
