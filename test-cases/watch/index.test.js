@@ -1,3 +1,8 @@
+/**
+ * @import { TestContext } from 'node:test'
+ * @import { Logger } from 'pino'
+ */
+
 import { test, mock } from 'node:test'
 import assert from 'node:assert'
 import { DomStack } from '../../index.js'
@@ -17,6 +22,36 @@ async function setupTempSite () {
   const dest = path.join(tmp, 'public')
   await cp(fixtureDir, src, { recursive: true })
   return { src, dest, tmp }
+}
+
+/**
+ * Start a watched site from a small inline fixture and register its cleanup.
+ *
+ * @param {TestContext} t
+ * @param {object} options
+ * @param {string} options.prefix
+ * @param {Record<string, string>} options.files
+ * @param {Logger} [options.logger]
+ */
+async function setupTempWatch (t, { prefix, files, logger }) {
+  const tmp = await mkdtemp(path.join(import.meta.dirname, prefix))
+  const src = path.join(tmp, 'src')
+  const dest = path.join(tmp, 'public')
+  await mkdir(src, { recursive: true })
+  await Promise.all(Object.entries(files).map(async ([relname, content]) => {
+    const filepath = path.join(src, relname)
+    await mkdir(path.dirname(filepath), { recursive: true })
+    await writeFile(filepath, content)
+  }))
+
+  const domStack = new DomStack(src, dest, { logger })
+  t.after(async () => {
+    if (domStack.watching) await domStack.stopWatching()
+    await rm(tmp, { recursive: true, force: true })
+  })
+  await domStack.watch({ serve: false })
+
+  return { src, dest, domStack }
 }
 
 /**
@@ -64,31 +99,21 @@ function createTestLogger (logs) {
     child () { return logger },
   }
 
-  return /** @type {import('pino').Logger} */ (/** @type {unknown} */ (logger))
+  return /** @type {Logger} */ (/** @type {unknown} */ (logger))
 }
 
 test.describe('watch', () => {
   test('maps pages to the layout that actually rendered them', { timeout: 20_000 }, async (t) => {
-    const tmp = await mkdtemp(path.join(import.meta.dirname, '.tmp-layout-report-'))
-    const src = path.join(tmp, 'src')
-    const dest = path.join(tmp, 'public')
-    await mkdir(src, { recursive: true })
-
-    const rootLayout = path.join(src, 'root.layout.js')
-    await Promise.all([
-      writeFile(path.join(src, 'global.vars.js'), "export default { layout: 'root' }\n"),
-      writeFile(rootLayout, "export const vars = { layout: 'shadowed' }; export default ({ children }) => 'root-v1:' + children\n"),
-      writeFile(path.join(src, 'shadowed.layout.js'), "export default ({ children }) => 'shadowed:' + children\n"),
-      writeFile(path.join(src, 'page.js'), "export default () => 'content'\n"),
-    ])
-
-    const domStack = new DomStack(src, dest)
-    t.after(async () => {
-      if (domStack.watching) await domStack.stopWatching()
-      await rm(tmp, { recursive: true, force: true })
+    const { src, dest, domStack } = await setupTempWatch(t, {
+      prefix: '.tmp-layout-report-',
+      files: {
+        'global.vars.js': "export default { layout: 'root' }\n",
+        'root.layout.js': "export const vars = { layout: 'shadowed' }; export default ({ children }) => 'root-v1:' + children\n",
+        'shadowed.layout.js': "export default ({ children }) => 'shadowed:' + children\n",
+        'page.js': "export default () => 'content'\n",
+      },
     })
-
-    await domStack.watch({ serve: false })
+    const rootLayout = path.join(src, 'root.layout.js')
     const outputPath = path.join(dest, 'index.html')
     assert.equal(await readFile(outputPath, 'utf8'), 'root-v1:content')
 
@@ -99,27 +124,17 @@ test.describe('watch', () => {
   })
 
   test('updates layout mapping after builder vars select a new layout', { timeout: 20_000 }, async (t) => {
-    const tmp = await mkdtemp(path.join(import.meta.dirname, '.tmp-builder-layout-'))
-    const src = path.join(tmp, 'src')
-    const dest = path.join(tmp, 'public')
-    await mkdir(src, { recursive: true })
-
+    const { src, dest, domStack } = await setupTempWatch(t, {
+      prefix: '.tmp-builder-layout-',
+      files: {
+        'global.vars.js': "export default { layout: 'root' }\n",
+        'root.layout.js': "export default ({ children }) => 'root:' + children\n",
+        'blog.layout.js': "export default ({ children }) => 'blog-v1:' + children\n",
+        'page.js': "export const vars = { layout: 'root' }; export default () => 'content'\n",
+      },
+    })
     const pageFile = path.join(src, 'page.js')
     const blogLayout = path.join(src, 'blog.layout.js')
-    await Promise.all([
-      writeFile(path.join(src, 'global.vars.js'), "export default { layout: 'root' }\n"),
-      writeFile(path.join(src, 'root.layout.js'), "export default ({ children }) => 'root:' + children\n"),
-      writeFile(blogLayout, "export default ({ children }) => 'blog-v1:' + children\n"),
-      writeFile(pageFile, "export const vars = { layout: 'root' }; export default () => 'content'\n"),
-    ])
-
-    const domStack = new DomStack(src, dest)
-    t.after(async () => {
-      if (domStack.watching) await domStack.stopWatching()
-      await rm(tmp, { recursive: true, force: true })
-    })
-
-    await domStack.watch({ serve: false })
     const outputPath = path.join(dest, 'index.html')
     assert.equal(await readFile(outputPath, 'utf8'), 'root:content')
 
@@ -133,27 +148,18 @@ test.describe('watch', () => {
   })
 
   test('retains the last successful layout mapping after a failed build', { timeout: 20_000 }, async (t) => {
-    const tmp = await mkdtemp(path.join(import.meta.dirname, '.tmp-failed-layout-'))
-    const src = path.join(tmp, 'src')
-    const dest = path.join(tmp, 'public')
-    await mkdir(src, { recursive: true })
-
+    const loggerLogs = /** @type {string[]} */ ([])
+    const { src, domStack } = await setupTempWatch(t, {
+      prefix: '.tmp-failed-layout-',
+      logger: createTestLogger(loggerLogs),
+      files: {
+        'global.vars.js': "export default { layout: 'root' }\n",
+        'root.layout.js': "export default ({ children }) => 'root-v1:' + children\n",
+        'page.js': "export default () => 'content'\n",
+      },
+    })
     const pageFile = path.join(src, 'page.js')
     const rootLayout = path.join(src, 'root.layout.js')
-    await Promise.all([
-      writeFile(path.join(src, 'global.vars.js'), "export default { layout: 'root' }\n"),
-      writeFile(rootLayout, "export default ({ children }) => 'root-v1:' + children\n"),
-      writeFile(pageFile, "export default () => 'content'\n"),
-    ])
-
-    const loggerLogs = /** @type {string[]} */ ([])
-    const domStack = new DomStack(src, dest, { logger: createTestLogger(loggerLogs) })
-    t.after(async () => {
-      if (domStack.watching) await domStack.stopWatching()
-      await rm(tmp, { recursive: true, force: true })
-    })
-
-    await domStack.watch({ serve: false })
     await writeFile(pageFile, 'export default (\n')
     await settle(domStack)
 
