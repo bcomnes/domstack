@@ -115,14 +115,16 @@ The experiment currently:
 - Sends plain dependency records through the existing worker result.
 - Persists the last successful records in the main `DomStack` instance.
 - Tracks individual page variable properties, page metadata, render-helper calls, and top-level global-data keys.
+- Tracks source-page and complete-page collection membership and order.
 - Fingerprints observed values and invalidates only consumers whose observed values changed.
+- Propagates generated-page value and collection changes to pages and templates that consume them.
 - Rebuilds generated-page owners that observed changed page values.
 - Removes obsolete generated outputs when dependency invalidation changes an owner's output names.
 - Uses successful page reports as the source of truth for page-to-layout mapping.
 - Keeps dependency proxies out of one-shot production builds.
 
 Render-helper calls are currently treated as opaque dependencies and invalidate conservatively when their source page changes.
-Collection membership does not need incremental comparison yet because page additions and removals already take the structural full-rebuild path.
+Generated-page additions, removals, reordering, and output renames are compared during incremental builds because their factories can change shape without a structural source-file event.
 File, network, environment, and other external reads remain untracked and still need an explicit invalidation API.
 Targeted template builds still use the existing template-output cleanup behavior and may need owner-based obsolete-output cleanup as a separate improvement.
 

@@ -565,7 +565,14 @@ test.describe('generated pages', () => {
   const outputName = title === 'First title'
     ? 'watch-first/index.html'
     : 'watch-updated/index.html'
-  return { outputName, children: () => title }
+  return { outputName, vars: { title }, children: () => title }
+}
+`,
+      'summary.template.js': `export default function ({ pages }) {
+  return pages
+    .filter(page => page.pageInfo.generated)
+    .map(page => page.pageInfo.outputRelname + ':' + page.vars.title)
+    .join('\\n')
 }
 `,
     }, async ({ src, dest }) => {
@@ -575,6 +582,7 @@ test.describe('generated pages', () => {
         const initialOutputPath = join(dest, 'watch-first/index.html')
         const updatedOutputPath = join(dest, 'watch-updated/index.html')
         assert.match(await readFile(initialOutputPath, 'utf8'), /First title/)
+        assert.equal(await readFile(join(dest, 'summary'), 'utf8'), 'watch-first/index.html:First title')
 
         await writeFile(join(src, 'page.vars.js'), "export default { title: 'Updated title' }\n")
         await new Promise(resolve => setTimeout(resolve, 800))
@@ -583,6 +591,7 @@ test.describe('generated pages', () => {
         const updatedOutput = await readFile(updatedOutputPath, 'utf8')
         assert.match(updatedOutput, /Updated title/)
         assert.doesNotMatch(updatedOutput, /First title/)
+        assert.equal(await readFile(join(dest, 'summary'), 'utf8'), 'watch-updated/index.html:Updated title')
         await assert.rejects(() => stat(initialOutputPath), 'obsolete dependency-driven output is removed')
       } finally {
         if (domstack.watching) await domstack.stopWatching()

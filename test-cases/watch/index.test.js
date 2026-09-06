@@ -68,6 +68,103 @@ function createTestLogger (logs) {
 }
 
 test.describe('watch', () => {
+  test('maps pages to the layout that actually rendered them', { timeout: 20_000 }, async (t) => {
+    const tmp = await mkdtemp(path.join(import.meta.dirname, '.tmp-layout-report-'))
+    const src = path.join(tmp, 'src')
+    const dest = path.join(tmp, 'public')
+    await mkdir(src, { recursive: true })
+
+    const rootLayout = path.join(src, 'root.layout.js')
+    await Promise.all([
+      writeFile(path.join(src, 'global.vars.js'), "export default { layout: 'root' }\n"),
+      writeFile(rootLayout, "export const vars = { layout: 'shadowed' }; export default ({ children }) => 'root-v1:' + children\n"),
+      writeFile(path.join(src, 'shadowed.layout.js'), "export default ({ children }) => 'shadowed:' + children\n"),
+      writeFile(path.join(src, 'page.js'), "export default () => 'content'\n"),
+    ])
+
+    const domStack = new DomStack(src, dest)
+    t.after(async () => {
+      if (domStack.watching) await domStack.stopWatching()
+      await rm(tmp, { recursive: true, force: true })
+    })
+
+    await domStack.watch({ serve: false })
+    const outputPath = path.join(dest, 'index.html')
+    assert.equal(await readFile(outputPath, 'utf8'), 'root-v1:content')
+
+    await writeFile(rootLayout, "export const vars = { layout: 'shadowed' }; export default ({ children }) => 'root-v2:' + children\n")
+    await settle(domStack)
+
+    assert.equal(await readFile(outputPath, 'utf8'), 'root-v2:content')
+  })
+
+  test('updates layout mapping after builder vars select a new layout', { timeout: 20_000 }, async (t) => {
+    const tmp = await mkdtemp(path.join(import.meta.dirname, '.tmp-builder-layout-'))
+    const src = path.join(tmp, 'src')
+    const dest = path.join(tmp, 'public')
+    await mkdir(src, { recursive: true })
+
+    const pageFile = path.join(src, 'page.js')
+    const blogLayout = path.join(src, 'blog.layout.js')
+    await Promise.all([
+      writeFile(path.join(src, 'global.vars.js'), "export default { layout: 'root' }\n"),
+      writeFile(path.join(src, 'root.layout.js'), "export default ({ children }) => 'root:' + children\n"),
+      writeFile(blogLayout, "export default ({ children }) => 'blog-v1:' + children\n"),
+      writeFile(pageFile, "export const vars = { layout: 'root' }; export default () => 'content'\n"),
+    ])
+
+    const domStack = new DomStack(src, dest)
+    t.after(async () => {
+      if (domStack.watching) await domStack.stopWatching()
+      await rm(tmp, { recursive: true, force: true })
+    })
+
+    await domStack.watch({ serve: false })
+    const outputPath = path.join(dest, 'index.html')
+    assert.equal(await readFile(outputPath, 'utf8'), 'root:content')
+
+    await writeFile(pageFile, "export const vars = { layout: 'blog' }; export default () => 'content'\n")
+    await settle(domStack)
+    assert.equal(await readFile(outputPath, 'utf8'), 'blog-v1:content')
+
+    await writeFile(blogLayout, "export default ({ children }) => 'blog-v2:' + children\n")
+    await settle(domStack)
+    assert.equal(await readFile(outputPath, 'utf8'), 'blog-v2:content')
+  })
+
+  test('retains the last successful layout mapping after a failed build', { timeout: 20_000 }, async (t) => {
+    const tmp = await mkdtemp(path.join(import.meta.dirname, '.tmp-failed-layout-'))
+    const src = path.join(tmp, 'src')
+    const dest = path.join(tmp, 'public')
+    await mkdir(src, { recursive: true })
+
+    const pageFile = path.join(src, 'page.js')
+    const rootLayout = path.join(src, 'root.layout.js')
+    await Promise.all([
+      writeFile(path.join(src, 'global.vars.js'), "export default { layout: 'root' }\n"),
+      writeFile(rootLayout, "export default ({ children }) => 'root-v1:' + children\n"),
+      writeFile(pageFile, "export default () => 'content'\n"),
+    ])
+
+    const loggerLogs = /** @type {string[]} */ ([])
+    const domStack = new DomStack(src, dest, { logger: createTestLogger(loggerLogs) })
+    t.after(async () => {
+      if (domStack.watching) await domStack.stopWatching()
+      await rm(tmp, { recursive: true, force: true })
+    })
+
+    await domStack.watch({ serve: false })
+    await writeFile(pageFile, 'export default (\n')
+    await settle(domStack)
+
+    loggerLogs.length = 0
+    await writeFile(rootLayout, "export default ({ children }) => 'root-v2:' + children\n")
+    await settle(domStack)
+
+    assert.ok(loggerLogs.some(line => line.includes('"root.layout.js" changed:') && line.includes('index.html')))
+    assert.ok(!loggerLogs.some(line => line.includes('no pages use layout "root"')))
+  })
+
   test('targets generated-page owners independently', { timeout: 30_000 }, async (t) => {
     const tmp = await mkdtemp(path.join(import.meta.dirname, '.tmp-generated-'))
     const src = path.join(tmp, 'src')
