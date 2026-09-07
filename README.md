@@ -2231,138 +2231,63 @@ Applied examples that combine multiple DOMStack features.
 
 ### Compose nested layouts
 
-Since layouts are just functions™️, they nest naturally. If you define the majority of your HTML page metadata in a `root.layout.ts`, you can define additional layouts that act as child wrappers without having to redefine everything in `root.layout.ts`.
-
-For example, you could define a `blog.layout.ts` that re-uses the `root.layout.ts`:
+Pages select their innermost layout with `vars.layout`.
+A layout can export a static `parentLayout` name to let DOMStack wrap it in another layout.
 
 ```typescript
-import defaultRootLayout from './root.layout.ts'
+// article.layout.ts
 import { html, raw, render } from 'fragtml'
-import type { HtmlResult } from 'fragtml/types.js'
 import type { LayoutFunction } from '@domstack/static/types.js'
+import type { RootLayoutVars } from './root.layout.ts'
 
-// Import the type from root layout
-import type { RootLayoutVars } from './root.layout'
+export const parentLayout = 'root'
+export const vars = { showSidebar: true }
 
-// Extend the RootLayoutVars with blog-specific properties
-interface BlogLayoutVars extends RootLayoutVars {
-  authorImgUrl?: string;
-  authorImgAlt?: string;
-  authorName?: string;
-  authorUrl?: string;
-  publishDate?: string;
-  updatedDate?: string;
+const articleLayout: LayoutFunction<RootLayoutVars, string, string> = ({ children }) => {
+  return render(html`<article>${raw(children)}</article>`)
 }
 
-const blogLayout: LayoutFunction<BlogLayoutVars, string | HtmlResult, string> = (layoutVars) => {
-  const { children: innerChildren, ...rest } = layoutVars
-  const vars = layoutVars.vars
-
-  const children = render(html`
-    <article class="article-layout h-entry" itemscope itemtype="http://schema.org/NewsArticle">
-      <header class="article-header">
-        <h1 class="p-name article-title" itemprop="headline">${vars.title}</h1>
-        <div class="metadata">
-          <address class="author-info" itemprop="author" itemscope itemtype="http://schema.org/Person">
-            ${vars.authorImgUrl
-              ? html`<img height="40" width="40" src="${vars.authorImgUrl}" alt="${vars.authorImgAlt}" class="u-photo" itemprop="image" />`
-              : null
-            }
-            ${vars.authorName && vars.authorUrl
-              ? html`
-                  <a href="${vars.authorUrl}" class="p-author h-card" itemprop="url">
-                    <span itemprop="name">${vars.authorName}</span>
-                  </a>`
-              : null
-            }
-          </address>
-          ${vars.publishDate
-            ? html`
-              <time class="dt-published" itemprop="datePublished" datetime="${vars.publishDate}">
-                <a href="#" class="u-url">
-                  ${(new Date(vars.publishDate)).toLocaleString()}
-                </a>
-              </time>`
-            : null
-          }
-          ${vars.updatedDate
-            ? html`<time class="dt-updated" itemprop="dateModified" datetime="${vars.updatedDate}">Updated ${(new Date(vars.updatedDate)).toLocaleString()}</time>`
-            : null
-          }
-        </div>
-      </header>
-
-      <section class="e-content" itemprop="articleBody">
-        ${typeof innerChildren === 'string'
-          ? html`<div>${raw(innerChildren)}</div>`
-          : innerChildren
-        }
-      </section>
-    </article>
-  `)
-
-  const rootArgs = { ...rest, children }
-  return defaultRootLayout(rootArgs)
-}
-
-export default blogLayout
+export default articleLayout
 ```
-
-Now `blog.layout.ts` becomes a nested layout of `root.layout.ts`. No magic, just functions.
-
-Alternatively, you could compose your layouts from re-usable template functions and strings.
-If you find your layouts nesting more than one or two levels, perhaps composition would be a better strategy.
-
-#### Layout composition pitfalls
-
-> [!WARNING]
-> Nested layouts must explicitly forward `scripts` and `styles`. If these values are omitted, the page renders without its CSS or client-side JavaScript, and no error is reported.
 
 ```typescript
-// wrong: scripts and styles are dropped
-return defaultRootLayout({ children, vars })
-
-// correct: forward them along
-return defaultRootLayout({ children, vars, scripts, styles })
+// post.page.ts
+export const vars = { layout: 'article', title: 'A post' }
+export default () => '<p>Hello from the post.</p>'
 ```
 
-**Vars can be modified before forwarding.** The rest-spread pattern shown above forwards vars unchanged, but you can extend the object before passing it to the base layout. This is useful for setting layout-specific flags that the root layout reads:
+DOMStack renders `root(article(page()))`.
+A root layout omits `parentLayout`; child layouts can name any discovered layout, including the bundled `root`.
+Names are the same filename-derived names used by `vars.layout`, not import paths.
+Missing parents, invalid parent exports, and cycles fail the build with the offending layout or chain.
 
-```typescript
-const extendedVars = { ...vars, showSidebar: true, pageType: 'article' }
-return defaultRootLayout({ children, vars: extendedVars, scripts, styles })
-```
-
-**Forward `page`, `pages`, and `workers` when the base layout uses them.** If your root layout accesses `page.path` for canonical URLs, iterates `pages` for navigation, or uses `workers`, those params must also be forwarded:
-
-```typescript
-export default function articleLayout ({ children, vars, scripts, styles, page, pages, workers }) {
-  return defaultRootLayout({ children, vars, scripts, styles, page, pages, workers })
-}
-```
-
-Layout-specific styles and client bundles have a similar explicit-composition requirement: parent layout assets are not included automatically in nested layouts. See [Nested layout client bundles and styles](#nested-layout-client-bundles-and-styles) for the required `@import` and `import` pattern.
+All renderers receive the same resolved vars, page metadata, worker URLs, and asset lists.
+Vars merge from outermost to innermost layout, followed by page vars and builder/frontmatter vars.
+Layout `vars.layout` does not select a parent; only the named `parentLayout` export establishes nesting.
+Async layouts are awaited at every step, and intermediate values pass through unchanged until the final result is serialized.
+Each parent must accept the kind of children its immediate child returns.
 
 #### Nested layout client bundles and styles
 
-> [!WARNING]
-> Nested layouts do not automatically inherit the styles or client bundle of the layout they wrap. Import those assets explicitly or the rendered page will omit them.
+DOMStack includes each ancestor's own style and client entry automatically.
+The order is defaults → globals → outer layouts → inner layouts → page assets.
+For example, a post using `article` receives `root.layout.css` before `article.layout.css`.
+Do not also import the parent's layout CSS or client from the child: doing both duplicates its contents or execution.
 
-Import the wrapped layout's assets from the additional layout's client and style files. For example, if `article.layout.ts` wraps `root.layout.ts`, do the following:
+Watch mode uses the resolved chain for source-backed and generated pages.
+Changing a parent layout or one of its imported helpers rebuilds descendant pages, and changing the chain updates those relationships after a successful build.
+Existing asset edits use esbuild's watcher; adding or removing a layout asset updates the affected pages' asset lists.
 
-```css
-/* article.layout.css  */
-@import "./root.layout.css";
-```
+#### Manual composition
 
-This will include the layout style from the `root` layout in the `article` layout style.
+Existing function-based composition remains supported.
+A layout without `parentLayout` still runs once, and it may import and call other render functions itself.
+DOMStack does not infer a parent from those imports, merge the imported function's vars, or add its assets.
+Manual composition must forward the required arguments and explicitly import parent assets.
 
-```typescript
-/* article.layout.client.ts  */
-import './root.layout.client.ts'
-```
-
-Adding these imports will include the `root.layout.ts` layout assets into the `blog.layout.ts` asset files.
+To migrate, replace the parent function call with a `parentLayout` export and return only the child wrapper.
+Move shared defaults into exported layout `vars`, and remove child imports of the parent's layout CSS and client.
+Do not keep the manual parent call when adding `parentLayout`, or the parent will render twice.
 
 ### Generate RSS and JSON feeds
 

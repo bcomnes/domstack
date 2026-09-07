@@ -1,8 +1,9 @@
 import { html, raw, render } from 'fragtml'
 import type { HtmlResult } from 'fragtml/types.js'
 import type { LayoutFunction } from '@domstack/static/types.js'
-import rootLayout from './root.layout.ts'
 import type { RootVars } from './root.layout.ts'
+
+export const parentLayout = 'root'
 
 export type PostVars = RootVars & {
   publishDate?: string
@@ -16,13 +17,13 @@ export type PostVars = RootVars & {
  * schema.org/h-entry microformats, publish date, author card, tag list.
  */
 const postLayout: LayoutFunction<PostVars, string | HtmlResult, string> = (args) => {
-  const { children, page, pages, ...rest } = args
+  const { children, page } = args
   const { vars } = args
 
   const publishDate = vars.publishDate ? new Date(vars.publishDate) : null
   const updatedDate = vars.updatedDate ? new Date(vars.updatedDate) : null
 
-  const wrappedChildren = render(html`
+  return render(html`
     <article class="h-entry" itemscope itemtype="https://schema.org/BlogPosting">
 
       <header class="post-header">
@@ -91,8 +92,6 @@ const postLayout: LayoutFunction<PostVars, string | HtmlResult, string> = (args)
 
     </article>
   `)
-
-  return rootLayout({ ...rest, page, pages, children: wrappedChildren })
 }
 
 export default postLayout

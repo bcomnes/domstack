@@ -9,7 +9,7 @@
  * @import { Logger as PinoLogger } from 'pino'
  * @import { DomstackManifestRecord } from './lib/domstack-manifest/index.js'
  * @typedef {{ dispose: () => Promise<void> }} DisposableBuildContext
- * @typedef {{ pageFilePath: string, pagesFilePath?: string | undefined, layoutName?: string | undefined, outputs?: DomstackManifestRecord[] | undefined }} WatchedPageReport
+ * @typedef {{ pageFilePath: string, sourcePageFilePath?: string | undefined, pagesFilePath?: string | undefined, layoutNames: string[], outputs?: DomstackManifestRecord[] | undefined }} WatchedPageReport
  */
 import { once } from 'events'
 import assert from 'node:assert'
@@ -50,7 +50,6 @@ import {
   pageWorkerSuffixs,
   serviceWorkerNames,
 } from './lib/identify-pages.js'
-import { resolveVars } from './lib/build-pages/resolve-vars.js'
 import { ensureDest } from './lib/helpers/ensure-dest.js'
 import { DomStackAggregateError } from './lib/helpers/domstack-aggregate-error.js'
 import { createDomStackLogger } from './lib/logger.js'
@@ -93,6 +92,8 @@ export class DomStack {
   #layoutDepMap = new Map()
   /** @type {Map<string, Set<PageInfo>>} layoutName → Set<PageInfo> */
   #layoutPageMap = new Map()
+  /** @type {Map<string, string[]>} source filepath → last successfully rendered layout chain */
+  #pageLayoutNamesMap = new Map()
   /** @type {Map<string, PageInfo>} filepath → PageInfo */
   #pageFileMap = new Map()
   /** @type {Map<string, string>} filepath → layoutName */
@@ -212,6 +213,7 @@ export class DomStack {
       this.#pageOutputRelnames = getPageOutputRelnames(pageBuildResults.outputs)
       this.#pagesFileOutputMap = getPagesFileOutputMap(pageBuildResults.report.pages)
       this.#pagesFileLayoutMap = getPagesFileLayoutMap(pageBuildResults.report.pages)
+      this.#updatePageLayoutNames(pageBuildResults.report.pages, true)
       buildLogger(report, this.#logger)
       this.#logger.info('Initial JS, CSS and Page Build Complete')
     } catch (err) {
@@ -458,6 +460,7 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
         })
       }
       const isFiltered = pageFilterPaths !== null || templateFilterPaths !== null || pagesFileFilterPaths !== null
+      this.#updatePageLayoutNames(pageBuildResults.report.pages, !isFiltered)
       if (!isFiltered) {
         await this.#removeObsoletePageOutputs(pageBuildResults.outputs)
         this.#pagesFileOutputMap = getPagesFileOutputMap(pageBuildResults.report.pages)
@@ -466,6 +469,7 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
         await this.#removeObsoleteGeneratedPageOutputs(pagesFileFilterPaths, pageBuildResults.report.pages)
         updatePagesFileLayoutMap(this.#pagesFileLayoutMap, pagesFileFilterPaths, pageBuildResults.report.pages)
       }
+      await this.#rebuildMaps(siteData)
       buildLogger(
         isFiltered ? pageBuildResults : { warnings: pageBuildResults.warnings, siteData, pageBuildResults },
         this.#logger,
@@ -579,7 +583,20 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
   }
 
   /**
-   * Build and maintain the six watch maps from siteData.
+   * Record source-page layout chains only after successful builds.
+   *
+   * @param {WatchedPageReport[]} reports
+   * @param {boolean} replace
+   */
+  #updatePageLayoutNames (reports, replace) {
+    if (replace) this.#pageLayoutNamesMap.clear()
+    for (const report of reports) {
+      if (report.sourcePageFilePath) this.#pageLayoutNamesMap.set(report.sourcePageFilePath, report.layoutNames)
+    }
+  }
+
+  /**
+   * Build and maintain the watch maps from siteData.
    * `find()` returns CWD-relative paths; we resolve them to absolute for map keys.
    *
    * @param {SiteData} siteData
@@ -612,29 +629,12 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
       }
     }
 
-    // layoutPageMap: layoutName → Set<PageInfo>
-    // Build by reading each page's vars file (lightweight, no full render)
-    const defaultVars = /** @type {{ layout?: string }} */ (await resolveVars({
-      varsPath: resolve(import.meta.dirname, 'lib/defaults/default.vars.js'),
-    }))
-    const bareGlobalVars = /** @type {{ layout?: string }} */ (await resolveVars({
-      varsPath: siteData?.globalVars?.filepath,
-    }))
-    const globalVars = { ...defaultVars, ...bareGlobalVars }
-    const defaultLayout = globalVars.layout ?? 'root'
-
+    // Use the worker's actual selection, including frontmatter and all ancestors.
     for (const pageInfo of siteData.pages) {
-      let layoutName = defaultLayout
-      if (pageInfo.pageVars) {
-        try {
-          const pageVars = /** @type {{ layout?: string }} */ (await resolveVars({ varsPath: pageInfo.pageVars.filepath }))
-          if (typeof pageVars.layout === 'string') layoutName = pageVars.layout
-        } catch {
-          // fall back to default
-        }
+      for (const layoutName of this.#pageLayoutNamesMap.get(pageInfo.pageFile.filepath) ?? []) {
+        if (!layoutPageMap.has(layoutName)) layoutPageMap.set(layoutName, new Set())
+        layoutPageMap.get(layoutName)?.add(pageInfo)
       }
-      if (!layoutPageMap.has(layoutName)) layoutPageMap.set(layoutName, new Set())
-      layoutPageMap.get(layoutName)?.add(pageInfo)
     }
 
     // pageFileMap: page filepath & page.vars filepath → PageInfo
@@ -926,9 +926,9 @@ function getPagesFileLayoutMap (pageReports) {
   const layoutsByOwner = new Map()
 
   for (const report of pageReports) {
-    if (!report.pagesFilePath || !report.layoutName) continue
+    if (!report.pagesFilePath) continue
     const layouts = layoutsByOwner.get(report.pagesFilePath) ?? new Set()
-    layouts.add(report.layoutName)
+    for (const name of report.layoutNames) layouts.add(name)
     layoutsByOwner.set(report.pagesFilePath, layouts)
   }
 

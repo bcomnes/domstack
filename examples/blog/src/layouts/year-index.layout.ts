@@ -1,9 +1,10 @@
 import { html, raw, render } from 'fragtml'
 import type { HtmlResult } from 'fragtml/types.js'
 import type { LayoutFunction } from '@domstack/static/types.js'
-import rootLayout from './root.layout.ts'
 import type { RootVars } from './root.layout.ts'
 import type { BlogPost } from '../global.data.ts'
+
+export const parentLayout = 'root'
 
 export type YearIndexVars = RootVars & {
   posts?: BlogPost[]
@@ -14,9 +15,9 @@ export type YearIndexVars = RootVars & {
  * collection and `blog-indexes.pages.ts` assigns it to a generated page.
  */
 const yearIndexLayout: LayoutFunction<YearIndexVars, string | HtmlResult, string> = (args) => {
-  const { children, ...rest } = args
+  const { children } = args
 
-  const wrappedChildren = render(html`
+  return render(html`
     <div>
       <h1>${args.vars.title}</h1>
       <ul class="post-list">
@@ -43,8 +44,6 @@ const yearIndexLayout: LayoutFunction<YearIndexVars, string | HtmlResult, string
       }
     </div>
   `)
-
-  return rootLayout({ ...rest, children: wrappedChildren })
 }
 
 export default yearIndexLayout

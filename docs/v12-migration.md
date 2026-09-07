@@ -116,6 +116,38 @@ This is additive for most sites. If a layout module already exported a named `va
 
 ---
 
+## Declare nested layouts with parentLayout
+
+Layouts can now export a static `parentLayout` name instead of importing and invoking their parent render function.
+Pages still select the innermost layout through `vars.layout`.
+
+```ts
+// article.layout.ts
+export const parentLayout = 'root'
+export const vars = { showSidebar: true }
+
+export default function articleLayout ({ children }) {
+  return `<article>${children}</article>`
+}
+```
+
+DOMStack renders from the page outward and passes intermediate values unchanged between layouts.
+All renderers receive the final resolved vars, with precedence:
+
+```text
+builder/frontmatter > page.vars.* > inner layout vars > outer layout vars > global vars > defaults
+```
+
+Styles and client entry points are included automatically in default, global, outer-layout, inner-layout, page order.
+Watch mode follows the resolved chain and each layout's ordinary imported helpers for both source-backed and generated pages.
+Missing parents, invalid parent names, and cycles fail the build.
+
+Existing single layouts and manual function composition continue to work.
+To migrate a manually nested layout, replace its parent call with `parentLayout`, return only its own wrapper, and remove explicit imports of the parent's layout CSS and client.
+Move manually merged defaults to the appropriate layout's `vars` export.
+Do not retain both the parent function call and `parentLayout`, because that renders the parent twice.
+Manual composition remains responsible for its own vars, asset imports, and argument forwarding.
+
 ## Keep layout dependencies explicit
 
 DOMStack only installs dependencies for its bundled defaults.
