@@ -2251,7 +2251,7 @@ export default articleLayout
 ```
 
 ```typescript
-// post.page.ts
+// posts/example/page.ts
 export const vars = { layout: 'article', title: 'A post' }
 export default () => '<p>Hello from the post.</p>'
 ```
