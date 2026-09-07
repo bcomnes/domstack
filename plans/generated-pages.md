@@ -4,11 +4,6 @@
 
 Plan for adding first-class generated page support in response to the redirect-page discussion in PR #253.
 
-> [!NOTE]
-> This file records the original generated-pages implementation review.
-> Its descriptions of passing `pages` broadly or merging `global.data.*` into `vars` were superseded by the declarative subscription boundary in [`v12-release-review.md`](./v12-release-review.md#declarative-global-data-dependencies).
-> See the README for the current public API.
-
 ## PR #253 implementation review
 
 Originally reviewed at commit `78d012e` on 2026-08-29. Follow-up fixes were completed during the review.
