@@ -1,10 +1,11 @@
 /**
  * @import { AsyncPageFunction } from '#types'
+ * @import { HtmlResult } from 'fragtml/types.js'
  */
 import { html } from 'fragtml'
 
 /**
- * @type {AsyncPageFunction<{}, string, { blogYears: string[] }>}
+ * @type {AsyncPageFunction<{}, HtmlResult, { blogYears: string[] }>}
  */
 export default async function blogIndex ({
   data
@@ -23,7 +24,6 @@ export default async function blogIndex ({
     </div>
   `
 
-  // @ts-ignore
   return children
 }
 

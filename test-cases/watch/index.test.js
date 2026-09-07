@@ -65,27 +65,32 @@ async function settle (domStack, ms = 800) {
 }
 
 test('global-data imports refresh subscribers and any direct consumers of the same helper', { timeout: 30_000 }, async t => {
-  const { src, dest, domStack } = await setupTempWatch(t, {
-    prefix: '.tmp-data-imports-',
-    files: {
-      'global.vars.js': "export default { layout: 'root' }",
-      'root.layout.js': 'export default ({ children }) => children',
-      'value.js': "export const value = 'first'",
-      'global.data.js': "import { value } from './value.js'; export default { value }",
-      'page.js': "export const vars = { dataDeps: ['value'] }; export default ({data}) => data.value",
-      'direct/page.js': "import { value } from '../value.js'; export default () => value",
-      'unchanged/page.html': 'Unrelated',
-      'value.txt.template.js': "export const dataDeps = ['value']; export default ({data}) => data.value",
-      'value.pages.js': "export const dataDeps = ['value']; export default ({data}) => ({ outputName: 'generated.html', children: data.value })",
-    },
-  })
-  const unrelatedTime = (await stat(path.join(dest, 'unchanged/index.html'))).mtimeMs
-  await writeFile(path.join(src, 'value.js'), "export const value = 'second'")
-  await settle(domStack)
-  for (const name of ['index.html', 'direct/index.html', 'value.txt', 'generated.html']) {
-    assert.match(await readFile(path.join(dest, name), 'utf8'), /second/)
+  for (const helper of ['value.js', 'client.js']) {
+    await t.test(helper, async t => {
+      const { src, dest, domStack } = await setupTempWatch(t, {
+        prefix: '.tmp-data-imports-',
+        files: {
+          'global.vars.js': "export default { layout: 'root' }",
+          'root.layout.js': 'export default ({ children }) => children',
+          [helper]: "export const value = 'first'",
+          'global.data.js': `import { value } from './${helper}'; export default { value }`,
+          'page.js': "export const vars = { dataDeps: ['value'] }; export default ({data}) => data.value",
+          'direct/page.js': `import { value } from '../${helper}'; export default () => value`,
+          'unchanged/page.html': 'Unrelated',
+          'value.txt.template.js': "export const dataDeps = ['value']; export default ({data}) => data.value",
+          'value.pages.js': "export const dataDeps = ['value']; export default ({data}) => ({ outputName: 'generated.html', children: data.value })",
+        },
+      })
+      const unrelatedTime = (await stat(path.join(dest, 'unchanged/index.html'))).mtimeMs
+      await writeFile(path.join(src, helper), "export const value = 'second'")
+      await settle(domStack)
+      for (const name of ['index.html', 'direct/index.html', 'value.txt', 'generated.html']) {
+        assert.match(await readFile(path.join(dest, name), 'utf8'), /second/)
+      }
+      if (helper === 'client.js') assert.match(await readFile(path.join(dest, helper), 'utf8'), /second/)
+      assert.equal((await stat(path.join(dest, 'unchanged/index.html'))).mtimeMs, unrelatedTime)
+    })
   }
-  assert.equal((await stat(path.join(dest, 'unchanged/index.html'))).mtimeMs, unrelatedTime)
 })
 
 test('targeted factories reserve untouched owners outputs and recover after a collision', { timeout: 30_000 }, async t => {
@@ -104,7 +109,7 @@ test('targeted factories reserve untouched owners outputs and recover after a co
   const retainedTime = (await stat(path.join(dest, 'b.html'))).mtimeMs
   await writeFile(path.join(src, 'a.pages.js'), "export default { outputName: 'b.html', children: 'Collision' }")
   await settle(domStack)
-  assert.ok(logs.some(line => line.includes('Output path conflict')))
+  assert.ok(logs.some(line => line.includes('Output path conflict: b.html is produced by both b.pages.js and a.pages.js#0.')), 'both conflicting producers use source-relative names')
   assert.match(await readFile(path.join(dest, 'b.html'), 'utf8'), /Owner B/)
   assert.match(await readFile(path.join(dest, 'a.html'), 'utf8'), /Owner A/)
   assert.equal((await stat(path.join(dest, 'b.html'))).mtimeMs, retainedTime)
