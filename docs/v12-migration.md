@@ -145,9 +145,8 @@ Styles and client entry points are included automatically in default, global, ou
 Watch mode follows the resolved chain and each layout's ordinary imported helpers for both source-backed and generated pages.
 Missing parents, invalid parent names, and cycles fail the build.
 
-Existing single layouts and manual function composition continue to work.
-Manual composition is tested for rendering, forwarded assets, and watch rebuilds through statically imported parent functions.
-Prefer `parentLayout` for normal nesting so DOMStack manages the full layout dependency chain and its assets automatically.
+Existing single layouts and manual function composition from earlier versions continue to work.
+Migrate manually nested layouts to `parentLayout` so DOMStack can follow their full dependency chain for reliable rebuilds and manage their assets automatically.
 To migrate a manually nested layout, replace its parent call with `parentLayout`, return only its own wrapper, and remove explicit imports of the parent's layout CSS and client.
 Move manually merged defaults to the appropriate layout's `vars` export.
 Do not retain both the parent function call and `parentLayout`, because that renders the parent twice.

@@ -109,6 +109,8 @@ export class DomStack {
   #pagesFileOutputMap = new Map()
   /** @type {Map<string, Set<string>>} *.pages.* filepath → layouts used by its generated pages */
   #pagesFileLayoutMap = new Map()
+  /** @type {boolean} Failed builds may leave the previous routing state incomplete. */
+  #pageBuildFailed = false
 
   // Serialized lock so concurrent chokidar events don't pile up
   /** @type {Promise<void>} */
@@ -211,12 +213,14 @@ export class DomStack {
       this.#pagesFileOutputMap = getPagesFileOutputMap(pageBuildResults.report.pages)
       this.#pagesFileLayoutMap = getPagesFileLayoutMap(pageBuildResults.report.pages)
       this.#updatePageLayoutNames(pageBuildResults.report.pages, true)
+      this.#pageBuildFailed = false
       buildLogger(report, this.#logger)
       this.#logger.info('Initial JS, CSS and Page Build Complete')
     } catch (err) {
-      errorLogger(err, this.#logger)
       if (!(err instanceof DomStackAggregateError)) throw new Error('Non-aggregate error thrown', { cause: err })
+      this.#pageBuildFailed = true
       report = err.results
+      errorLogger(err, this.#logger)
     }
 
     // Build watch maps after initial build
@@ -443,6 +447,9 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
    * @param {string[] | null} [pagesFileFilterPaths]
    */
   async #runPageBuild (siteData, pageFilterPaths = null, templateFilterPaths = null, pagesFileFilterPaths = null) {
+    // Retry the complete page phase after a failure: layout routing from a
+    // failed build cannot safely drive an incremental retry.
+    if (this.#pageBuildFailed) pageFilterPaths = templateFilterPaths = pagesFileFilterPaths = null
     try {
       const pageBuildResults = await buildPages(this.#src, this.#dest, siteData, {
         ...this.opts,
@@ -467,6 +474,7 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
         updatePagesFileLayoutMap(this.#pagesFileLayoutMap, pagesFileFilterPaths, pageBuildResults.report.pages)
       }
       await this.#rebuildMaps(siteData)
+      this.#pageBuildFailed = false
       buildLogger(
         isFiltered ? pageBuildResults : { warnings: pageBuildResults.warnings, siteData, pageBuildResults },
         this.#logger,
@@ -474,6 +482,7 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
       )
       return pageBuildResults
     } catch (err) {
+      this.#pageBuildFailed = true
       errorLogger(err, this.#logger)
     }
   }
@@ -744,12 +753,9 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
       return
     }
 
-    // 6. esbuild entry point (client.js, style.css, .layout.css, .layout.client.*, *.worker.*, global.client.*, global.css)
-    // esbuild's own watcher handles these. Stable filenames mean page HTML doesn't
-    // change, so no page rebuild is needed.
-    if (this.#esbuildEntryPoints.has(changedPath)) {
-      this.#logger.info(`"${changedBasename}" changed, esbuild will handle rebundling.`)
-      return
+    if (this.#pageBuildFailed) {
+      this.#logger.info(`"${changedBasename}" changed, retrying all pages after the previous build failure...`)
+      return this.#runPageBuild(siteData)
     }
 
     // A source can serve several roles at once: an imported parent layout may
@@ -787,6 +793,13 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
         Array.from(affectedTemplates, template => template.templateFile.filepath),
         [...affectedOwners]
       )
+    }
+
+    // Browser entry points can also be imported by server-side consumers.
+    // Only skip the page phase once all those consumers have been considered.
+    if (this.#esbuildEntryPoints.has(changedPath)) {
+      this.#logger.info(`"${changedBasename}" changed, esbuild will handle rebundling.`)
+      return
     }
 
     // No matching rule — skip.

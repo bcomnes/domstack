@@ -196,3 +196,53 @@ test('a shared helper rebuilds layouts, pages, templates, and generated owners t
     assert.match(await read(file), /shared-v2/)
   }
 })
+
+test('a browser entry point also rebuilds all of its server-side consumers', { timeout: 30_000 }, async t => {
+  const { domstack, write, read, dest } = await setup(t)
+  await write('global.client.js', "export const label = 'browser-v1'")
+  await write('root.layout.js', rootLayout.replace('./label.js', './global.client.js'))
+  await write('typed/page.ts', "import {label} from '../global.client.js'; export default () => label")
+  await write('label.template.js', "import {label} from './global.client.js'; export default () => label")
+  await write('label.pages.js', "import {label} from './global.client.js'; export default {outputName:'label.html', children:label}")
+  await domstack.watch({ serve: false })
+  const unrelatedTime = (await stat(join(dest, 'plain/index.html'))).mtimeMs
+  const affectedOutputs = ['source/index.html', 'typed/index.html', 'archive.html', 'label', 'label.html', 'global.client.js']
+  for (const output of affectedOutputs) assert.match(await read(output), /browser-v1/)
+
+  await write('global.client.js', "export const label = 'browser-v2'")
+  await new Promise(resolve => setTimeout(resolve, 800))
+  await domstack.settled()
+  for (const output of affectedOutputs) assert.match(await read(output), /browser-v2/)
+  assert.equal((await stat(join(dest, 'plain/index.html'))).mtimeMs, unrelatedTime)
+})
+
+test('watch recovers from initial layout failures before any routing state exists', { timeout: 60_000 }, async t => {
+  const failures = {
+    render: "export default () => { throw new Error('broken render') }",
+    vars: "export const vars = () => { throw new Error('broken vars') }; export default ({children}) => children",
+    declaration: 'export const parentLayout = 42; export default ({children}) => children',
+  }
+  for (const [name, layout] of Object.entries(failures)) {
+    await t.test(name, async t => {
+      const { domstack, write, read, dest } = await setup(t)
+      await write('root.layout.js', layout)
+      const results = await domstack.watch({ serve: false })
+      assert.ok(results.pageBuildResults?.errors.length, 'startup reports the layout failure without stopping watch')
+
+      await write('root.layout.js', rootLayout)
+      await new Promise(resolve => setTimeout(resolve, 800))
+      await domstack.settled()
+      for (const output of ['source/index.html', 'typed/index.html', 'markup/index.html', 'archive.html']) {
+        assert.match(await read(output), /data-root="v1"/)
+      }
+
+      const unrelatedTime = (await stat(join(dest, 'plain/index.html'))).mtimeMs
+      await write('label.js', "export const label = 'recovered'")
+      await new Promise(resolve => setTimeout(resolve, 800))
+      await domstack.settled()
+      assert.match(await read('source/index.html'), /data-root="recovered"/)
+      assert.match(await read('archive.html'), /data-root="recovered"/)
+      assert.equal((await stat(join(dest, 'plain/index.html'))).mtimeMs, unrelatedTime, 'successful recovery restores targeted routing')
+    })
+  }
+})
