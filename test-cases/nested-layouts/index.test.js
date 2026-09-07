@@ -76,13 +76,17 @@ async function setup (t) {
 }
 
 test('nested layouts render source and generated pages, cascade vars and preserve intermediate values', async t => {
-  const { domstack, read } = await setup(t)
+  const { domstack, read, write } = await setup(t)
+  await write('source/page.vars.js', "export default {layout: 'other', title: 'adjacent'}")
   const results = await domstack.build()
   assert.equal(results.pageBuildResults?.errors.length, 0)
   for (const [output, title] of [['source/index.html', 'source'], ['typed/index.html', 'typed'], ['markup/index.html', 'markup'], ['archive.html', 'archive']]) {
     const html = await read(/** @type {string} */ (output))
     assert.match(html, new RegExp(`data-vars="root:article:${title}"`))
     assert.match(html, /<article>\s*<section>/)
+    assert.equal((html.match(/<html>/g) ?? []).length, 1, 'the root layout runs once')
+    assert.equal((html.match(/<article>/g) ?? []).length, 1, 'the middle layout runs once')
+    assert.equal((html.match(/<section>/g) ?? []).length, 1, 'the inner layout runs once')
     const styles = [...html.matchAll(/<link href="([^"]+)"/g)].map(match => match[1]?.replace(/-[A-Z0-9]+\./, '.'))
     assert.deepEqual(styles, ['/global.css', '/root.layout.css', '/article.layout.css', '/post.layout.css', ...(title === 'source' ? ['./style.css'] : [])])
     const scripts = [...html.matchAll(/<script src="([^"]+)"/g)].map(match => match[1]?.replace(/-[A-Z0-9]+\./, '.'))
@@ -135,6 +139,10 @@ test('watch follows ancestor edits, imports, reparenting, and asset membership',
   await settle()
   assert.match(await read('source/index.html'), /<aside>/)
   assert.doesNotMatch(await read('archive.html'), /root\.layout\.(css|client\.js)/)
+  const detachedTime = (await stat(join(dest, 'archive.html'))).mtimeMs
+  await write('root.layout.js', rootLayout.replace('data-root', 'data-detached-root'))
+  await settle()
+  assert.equal((await stat(join(dest, 'archive.html'))).mtimeMs, detachedTime, 'the former ancestor no longer rebuilds this output')
   await write('other.layout.js', "export default ({children}) => '<nav>' + children + '</nav>'")
   await settle()
   assert.match(await read('source/index.html'), /<nav>/)
@@ -229,6 +237,7 @@ test('watch recovers from initial layout failures before any routing state exist
       await write('root.layout.js', layout)
       const results = await domstack.watch({ serve: false })
       assert.ok(results.pageBuildResults?.errors.length, 'startup reports the layout failure without stopping watch')
+      await assert.rejects(read('source/index.html'), { code: 'ENOENT' }, 'the initial failure did not produce the page')
       if (name === 'nonError') {
         const error = results.pageBuildResults?.errors[0]
         assert.ok(error instanceof Error, 'non-Error throws use the normal build error channel')

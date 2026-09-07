@@ -1,5 +1,4 @@
-import { test } from 'node:test'
-import assert from 'node:assert/strict'
+// Compile-time regressions exercised by npm run test:tsc, not the Node test runner.
 import type { LayoutFunction, PageData, PageFunction, PageFunctionParams, LayoutFunctionParams } from '#types'
 import type { ResolvedLayout } from '../../lib/build-pages/page-data.js'
 import { pageWriter } from '../../lib/build-pages/page-builders/page-writer.js'
@@ -41,10 +40,4 @@ const invalidLayout: LayoutFunction<Vars, Frame, string> = ({ children }) => chi
 // @ts-expect-error This layout promises a Frame, not a string.
 const invalidResult: LayoutFunction<Vars, string, Frame> = ({ children }) => children
 
-test('layout types support async, heterogeneous, and manually composed render values', () => {
-  assert.equal(typeof manual, 'function')
-  assert.equal(typeof checkPageTypes, 'function')
-  assert.equal(typeof invalidPage, 'function')
-  assert.equal(typeof invalidLayout, 'function')
-  assert.equal(typeof invalidResult, 'function')
-})
+export { manual, checkPageTypes, invalidPage, invalidLayout, invalidResult }
