@@ -622,7 +622,7 @@ It is always passed a single object argument with the following entries.
 See [Page data and introspection](#page-data-and-introspection) for details about `page`, and [Global data](#global-data) for `data`:
 
 - `vars`: The resolved page variable cascade, including domstack defaults, global vars, layout vars, page vars, and page builder vars/frontmatter. Pages can customize layouts by overriding global or layout defaults.
-- `data`: Only the top-level global-data keys declared by the page and layout through `dataDependencies`.
+- `data`: Only the top-level global-data keys declared by this layout through `vars.dataDependencies`.
 - `scripts`: array of paths that should be included onto the page in a script tag src with type `module`.
 - `styles`: array of paths that should be included onto the page in a `link rel="stylesheet"` tag with the `href` pointing to the paths in the array.
 - `children`: The immediate child's render result: the page's content for the innermost layout, or the next inner layout's return value for a parent.
@@ -810,7 +810,7 @@ export default async function vars () {
 Pages and layouts receive an object with the following parameters:
 
 - `vars`: An object with the variables of `global.vars.ts`, `page.vars.ts`, layout vars, and any frontmatter or `vars` exports from the page merged together.
-- `data`: Only the top-level values selected from [`global.data.ts`](#global-data) by the page and layout's `dataDependencies` declarations.
+- `data`: Only the top-level values selected from [`global.data.ts`](#global-data) by this renderer's own `dataDependencies` declarations.
 - `page`: The current page's [`PageInfo` metadata](#page-metadata).
 
 Template files receive a similar set of variables:
@@ -1228,7 +1228,10 @@ export default function archiveTemplate ({ data }) {
 ```
 
 `dataDependencies` is build metadata and is removed from the resolved `vars` object.
-For a page, DOMStack unions declarations from its frontmatter or page vars with the selected layout's `vars.dataDependencies`.
+The page receives the union of its own frontmatter, page-vars, and builder declarations.
+Each layout receives only its own `vars.dataDependencies`, not its parent's or the page's data.
+For output invalidation, DOMStack unions the page's declarations with those of every layout in its resolved `parentLayout` chain.
+Children do not repeat ancestor declarations, and a parent's subscriptions cannot be cleared by a child's empty declaration.
 When one layout calls another layout function directly, the composing layout must declare every global-data key the composed rendering needs.
 
 **Key properties of `global.data.ts`:**
@@ -1717,7 +1720,8 @@ This is useful when derived data needs to embed a page's content, such as the [`
 - `await page.renderFullPage()` returns the complete page output with its layout applied.
 
 Both methods are async, and rendering errors propagate and fail the build.
-Do not render a page or layout that subscribes to global data while `global.data.ts` is still resolving, because its subscribed data does not exist yet.
+While `global.data.ts` is resolving, `renderInnerPage()` is allowed if the page itself has no subscriptions, even when its layouts subscribe to data.
+`renderFullPage()` requires the page and its entire layout chain to be unsubscribed at that stage, because derived data does not exist yet.
 
 ### Rendering many pages
 
@@ -2416,6 +2420,42 @@ Layout `vars.layout` does not select a parent; only the named `parentLayout` exp
 Async layouts are awaited at every step, and intermediate values pass through unchanged until the final result is serialized.
 Each parent must accept the kind of children its immediate child returns.
 
+#### Data subscriptions in nested layouts
+
+Each layout declares only the data it reads.
+Keep focused consumer types beside their producer in `global.data.ts`:
+
+```typescript
+// global.data.ts
+export type RootLayoutData = { navigation: { title: string, url: string }[] }
+export type ArticleLayoutData = { recentPosts: { title: string, url: string }[] }
+export type GlobalData = RootLayoutData & ArticleLayoutData
+```
+
+```typescript
+// root.layout.ts
+import type { RootLayoutData } from './global.data.ts'
+
+export const vars = {
+  dataDependencies: ['navigation'] satisfies Array<keyof RootLayoutData>,
+}
+```
+
+```typescript
+// article.layout.ts
+import type { ArticleLayoutData } from './global.data.ts'
+
+export const parentLayout = 'root'
+export const vars = {
+  dataDependencies: ['recentPosts'] satisfies Array<keyof ArticleLayoutData>,
+}
+```
+
+These declaration snippets accompany each layout's render function.
+The root receives `data.navigation`, and the article receives `data.recentPosts`.
+A page using `article` rebuilds when either key changes, but it receives neither key unless it declares its own subscription.
+Only put a subscription in a shared root when every descendant genuinely uses that data through the root.
+
 #### Nested layout client bundles and styles
 
 DOMStack includes each ancestor's own style and client entry automatically.
@@ -2434,6 +2474,7 @@ Prefer `parentLayout` for ordinary nesting: DOMStack can then manage the full ch
 A layout without `parentLayout` still runs once, and it may import and call other render functions itself.
 DOMStack does not infer a parent from those imports, merge the imported function's vars, or add its assets.
 Manual composition must forward the required arguments and explicitly import parent assets.
+On this advanced path, the composing layout must also declare every data key its manually called helpers need and forward `data` itself.
 
 ```typescript
 // manual.layout.ts
@@ -2958,7 +2999,7 @@ The `buildPages()` step processes pages in parallel with a concurrency limit:
 Variable Resolution Layers, from lowest to highest precedence:
 - **Domstack defaults** - Internal defaults such as the default `layout: 'root'`.
 - **Global vars** - Site-wide variables from `global.vars.js` (resolved once).
-- **Layout vars** - Optional `export const vars` from the selected layout module.
+- **Layout vars** - Optional `export const vars` from the resolved layout chain, merged outermost to innermost.
 - **Page-specific vars** vary by type:
   - **MD pages**: `page.vars.js` plus builder vars from frontmatter.
   - **HTML pages**: `page.vars.js`.

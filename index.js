@@ -110,7 +110,7 @@ export class DomStack {
   #pagesFileOutputMap = new Map()
   /** @type {Map<string, Set<string>>} *.pages.* filepath → layouts used by its generated pages */
   #pagesFileLayoutMap = new Map()
-  /** @type {WatchDependencyState | null} dependency observations from the last successful page build */
+  /** @type {WatchDependencyState | null} subscriptions and fingerprints from the last successful page build */
   #watchDependencies = null
   /** @type {boolean} Failed builds may leave the previous routing state incomplete. */
   #pageBuildFailed = false

@@ -342,7 +342,11 @@ Subscribed values arrive through a separate `data` argument and are not merged i
 
 Pages declare `dataDependencies` in frontmatter, an adjacent `page.vars.ts`, or a TypeScript page's `vars` export.
 Layouts declare them in their `vars` export.
+Each layout receives only the keys it declares, independently of its parent and page.
+The output's watch subscriptions include the union from the page and every layout in its `parentLayout` chain, so children do not repeat ancestor declarations.
 Templates and `*.pages.ts` factories use a named `export const dataDependencies = [...]` because they do not have consumer vars.
+While `global.data.ts` is resolving, `renderInnerPage()` can render a page without its own subscriptions even if its layouts subscribe to derived data.
+`renderFullPage()` cannot run until data is ready if the page or any layout in its chain subscribes.
 Keep focused consumer data types beside the complete type returned by `global.data.ts`.
 Export those contracts for pages, layouts, templates, and factories instead of making each consumer reconstruct a `Pick<GlobalData, ...>` selection.
 

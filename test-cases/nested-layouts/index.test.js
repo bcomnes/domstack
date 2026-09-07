@@ -262,3 +262,119 @@ test('watch recovers from initial layout failures before any routing state exist
     })
   }
 })
+
+const globalData = `
+import assert from 'node:assert/strict'
+export default async ({ pages }) => {
+  const source = pages.find(page => page.pageInfo.path === 'source')
+  await assert.rejects(source.renderFullPage(), /Global data is not available/)
+  return {
+  navigation: 'nav-v1',
+  recentPosts: 'recent-v1',
+  footer: 'footer-v1',
+  pageMessage: 'message-v1',
+  rendered: await source.renderInnerPage()
+  }
+}
+`
+
+/** @param {TestContext} t */
+async function setupSubscriptions (t) {
+  const site = await setup(t)
+  await site.write('global.data.js', globalData)
+  await site.write('root.layout.js', `
+    import assert from 'node:assert/strict'
+    export const vars = { dataDependencies: ['navigation', 'rendered'] }
+    export default ({ children, data, vars }) => {
+      assert.deepEqual(Object.keys(data), ['navigation', 'rendered'])
+      assert.throws(() => data.recentPosts, /undeclared global data key/)
+      assert.equal(vars.dataDependencies, undefined)
+      return '<main>' + data.navigation + data.rendered + children + '</main>'
+    }
+  `)
+  await site.write('article.layout.js', `
+    import assert from 'node:assert/strict'
+    export const parentLayout = 'root'
+    export const vars = { dataDependencies: ['recentPosts'] }
+    export default ({ children, data }) => {
+      assert.deepEqual(Object.keys(data), ['recentPosts'])
+      assert.throws(() => data.navigation, /undeclared global data key/)
+      return '<article>' + data.recentPosts + children + '</article>'
+    }
+  `)
+  await site.write('post.layout.js', `
+    import assert from 'node:assert/strict'
+    export const parentLayout = 'article'
+    export const vars = { dataDependencies: ['footer'] }
+    export default ({ children, data }) => {
+      assert.deepEqual(Object.keys(data), ['footer'])
+      assert.throws(() => data.pageMessage, /undeclared global data key/)
+      return '<section>' + data.footer + children + '</section>'
+    }
+  `)
+  await site.write('typed/page.ts', `
+    import assert from 'node:assert/strict'
+    export const vars = { layout: 'post', dataDependencies: ['pageMessage'] }
+    export default ({ data }) => {
+      assert.deepEqual(Object.keys(data), ['pageMessage'])
+      assert.throws(() => data.footer, /undeclared global data key/)
+      return '<p>' + data.pageMessage + '</p>'
+    }
+  `)
+  return site
+}
+
+test('each nested renderer gets only its own subscriptions; global data can render unsubscribed inner content', async t => {
+  const { domstack, read } = await setupSubscriptions(t)
+  const results = await domstack.build()
+  assert.equal(results.pageBuildResults?.errors.length, 0)
+  for (const file of ['source/index.html', 'markup/index.html', 'typed/index.html', 'archive.html']) {
+    const html = await read(file)
+    assert.match(html, /nav-v1/)
+    assert.match(html, /recent-v1/)
+    assert.match(html, /footer-v1/)
+    assert.match(html, /Content/)
+  }
+  assert.match(await read('typed/index.html'), /message-v1/)
+})
+
+test('watch subscribes outputs to the full layout chain and drops old ancestor subscriptions after reparenting', { timeout: 60_000 }, async t => {
+  const { domstack, read, write, dest } = await setupSubscriptions(t)
+  await domstack.watch({ serve: false })
+  const mtime = async (/** @type {string} */ name) => (await stat(join(dest, name))).mtimeMs
+  const settle = async () => {
+    await new Promise(resolve => setTimeout(resolve, 800))
+    await domstack.settled()
+  }
+  const plainTime = await mtime('plain/index.html')
+  await write('source/page.md', '---\nlayout: post\n---\nChanged content')
+  await settle()
+  for (const file of ['markup/index.html', 'typed/index.html', 'archive.html']) {
+    assert.match(await read(file), /Changed content/)
+  }
+  assert.equal(await mtime('plain/index.html'), plainTime)
+
+  const archiveTime = await mtime('archive.html')
+  await write('global.data.js', globalData.replace('message-v1', 'message-v2'))
+  await settle()
+  assert.match(await read('typed/index.html'), /message-v2/)
+  assert.equal(await mtime('archive.html'), archiveTime, 'page-only data does not invalidate layouts or other pages')
+
+  await write('global.data.js', globalData.replace('recent-v1', 'recent-v2'))
+  await settle()
+  assert.match(await read('archive.html'), /recent-v2/)
+  assert.match(await read('markup/index.html'), /recent-v2/)
+
+  await write('post.layout.js', `
+    export const parentLayout = 'other'
+    export const vars = { dataDependencies: ['footer'] }
+    export default ({ children, data }) => '<section>' + data.footer + children + '</section>'
+  `)
+  await settle()
+  assert.doesNotMatch(await read('archive.html'), /nav-v1|recent-v2/)
+  const detachedTime = await mtime('archive.html')
+  await write('global.data.js', globalData.replace('navigation: \'nav-v1\'', 'navigation: \'nav-v2\''))
+  await settle()
+  assert.equal(await mtime('archive.html'), detachedTime, 'old ancestors no longer invalidate generated outputs')
+  assert.equal(await mtime('plain/index.html'), plainTime)
+})
