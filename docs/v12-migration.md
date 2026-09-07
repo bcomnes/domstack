@@ -120,6 +120,9 @@ This is additive for most sites. If a layout module already exported a named `va
 
 Layouts can now export a static `parentLayout` name instead of importing and invoking their parent render function.
 Pages still select the innermost layout through `vars.layout`.
+`parentLayout` is an optional named string export, not a field in `vars`, an import path, or a callback.
+Omitting it leaves the selected layout without a parent; a non-root layout is not automatically wrapped by `root`.
+See the [layout module reference](../README.md#layout-module-exports) and [nested-layout declaration contract](../README.md#declaring-nested-layouts) for name resolution, validation, rendering order, and rebuild behavior.
 
 ```ts
 // article.layout.ts
