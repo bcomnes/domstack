@@ -140,3 +140,59 @@ test('watch follows ancestor edits, imports, reparenting, and asset membership',
   assert.match(await read('source/index.html'), /<nav>/)
   assert.match(await read('archive.html'), /<nav>/)
 })
+
+test('manual composition preserves render values, forwarded assets, and imported-parent rebuilds', { timeout: 30_000 }, async t => {
+  const { domstack, src, write, read, dest } = await setup(t)
+  await mkdir(join(src, 'manual'))
+  await write('manual/page.ts', `
+    export const vars = { layout: 'manual', title: 'Manual page' }
+    export default async () => ({ html: '<p>Manual content</p>' })
+  `)
+  await write('manual.layout.js', `
+    import rootLayout from './root.layout.js'
+    export const vars = { inherited: 'manual', overridden: 'manual' }
+    export default async function (args) {
+      return rootLayout({ ...args, children: '<article>' + args.children.html + '</article>' })
+    }
+  `)
+  await write('manual.layout.css', "@import './root.layout.css'; article { color: blue }")
+  await write('manual.layout.client.js', "import './root.layout.client.js'; console.log('manual')")
+  await write('manual.pages.js', `export default {
+    outputName: 'manual-generated.html', vars: {layout: 'manual', title: 'Generated'},
+    children: {html: '<p>Generated content</p>'}
+  }`)
+  await domstack.watch({ serve: false })
+  const unrelatedTime = (await stat(join(dest, 'plain/index.html'))).mtimeMs
+  assert.match(await read('manual/index.html'), /data-vars="manual:manual:Manual page"/)
+  assert.match(await read('manual/index.html'), /<article>\s*<p>Manual content<\/p>/)
+  assert.match(await read('manual-generated.html'), /Generated content/)
+  assert.match(await read('manual/index.html'), /href="\/manual\.layout\.css"/)
+  assert.match(await read('manual/index.html'), /src="\/manual\.layout\.client\.js"/)
+  assert.match(await read('manual.layout.css'), /background:\s*white/)
+  const manualClient = await read('manual.layout.client.js')
+  const sharedClient = manualClient.match(/import "(.+)";/)?.[1]
+  assert.ok(sharedClient, 'manual client retains the shared parent client import')
+  assert.match(await read(sharedClient), /root/)
+
+  await write('root.layout.js', rootLayout.replace('data-root', 'data-manual-parent'))
+  await new Promise(resolve => setTimeout(resolve, 800))
+  await domstack.settled()
+  assert.match(await read('manual/index.html'), /data-manual-parent/)
+  assert.match(await read('manual-generated.html'), /data-manual-parent/)
+  assert.equal((await stat(join(dest, 'plain/index.html'))).mtimeMs, unrelatedTime)
+})
+
+test('a shared helper rebuilds layouts, pages, templates, and generated owners together', { timeout: 30_000 }, async t => {
+  const { domstack, write, read } = await setup(t)
+  await write('plain/page.vars.js', "import {label} from '../label.js'; export default {label}")
+  await write('other.layout.js', "export default ({children, vars}) => '<aside>' + vars.label + children + '</aside>'")
+  await write('label.template.js', "import {label} from './label.js'; export default () => label")
+  await write('label.pages.js', "import {label} from './label.js'; export default {outputName:'label.html', children:label}")
+  await domstack.watch({ serve: false })
+  await write('label.js', "export const label = 'shared-v2'")
+  await new Promise(resolve => setTimeout(resolve, 800))
+  await domstack.settled()
+  for (const file of ['source/index.html', 'plain/index.html', 'label', 'label.html']) {
+    assert.match(await read(file), /shared-v2/)
+  }
+})

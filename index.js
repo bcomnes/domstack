@@ -33,10 +33,7 @@ import { buildEsbuildWatch } from './lib/build-esbuild/index.js'
 import { buildPages } from './lib/build-pages/index.js'
 import {
   identifyPages,
-  layoutSuffixs,
   layoutStyleSuffix,
-  templateSuffixs,
-  pagesSuffixs,
   globalVarsNames,
   globalDataNames,
   esbuildSettingsNames,
@@ -540,20 +537,6 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
   }
 
   /**
-   * Rebuild generated outputs owned by selected pages files and refresh their
-   * dependency maps after a successful build.
-   *
-   * @param {SiteData} siteData
-   * @param {Set<PagesFileInfo>} pagesFiles
-   */
-  async #runTargetedPagesFileBuild (siteData, pagesFiles) {
-    const pagesFileFilterPaths = Array.from(pagesFiles, pagesFile => pagesFile.pagesFile.filepath)
-    const pageBuildResults = await this.#runPageBuild(siteData, [], [], pagesFileFilterPaths)
-    if (pageBuildResults) await this.#rebuildMaps(siteData)
-    return pageBuildResults
-  }
-
-  /**
    * Find generated-page owners whose last successful outputs used any affected layout.
    *
    * @param {Set<string>} layoutNames
@@ -769,94 +752,44 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
       return
     }
 
-    // 7. Layout file itself → rebuild pages using that layout
-    if (layoutSuffixs.some(s => changedBasename.endsWith(s))) {
-      const layoutName = this.#layoutFileMap.get(changedPath)
-      if (layoutName) {
-        const affectedPages = this.#layoutPageMap.get(layoutName)
-        const pagesFileFilterPaths = this.#getPagesFilePathsUsingLayouts(new Set([layoutName]))
-        if ((affectedPages?.size ?? 0) > 0 || pagesFileFilterPaths.length > 0) {
-          logRebuildTree(changedBasename, this.#logger, affectedPages)
-          const pageFilterPaths = Array.from(affectedPages ?? []).map(p => p.pageFile.filepath)
-          return this.#runPageBuild(siteData, pageFilterPaths, [], pagesFileFilterPaths)
-        }
-        this.#logger.info(`"${changedBasename}" changed but no pages use layout "${layoutName}", skipping.`)
-        return
-      }
-      // Not a registered layout — fall through to dep checks
+    // A source can serve several roles at once: an imported parent layout may
+    // also be selected directly, and a helper may be shared by pages and templates.
+    // Union every matching consumer before scheduling one build.
+    const affectedLayouts = new Set(this.#layoutDepMap.get(changedPath))
+    const directLayout = this.#layoutFileMap.get(changedPath)
+    if (directLayout) affectedLayouts.add(directLayout)
+
+    const affectedPages = new Set(this.#pageDepMap.get(changedPath))
+    const directPage = this.#pageFileMap.get(changedPath)
+    if (directPage) affectedPages.add(directPage)
+    for (const name of affectedLayouts) {
+      for (const page of this.#layoutPageMap.get(name) ?? []) affectedPages.add(page)
     }
 
-    // 8. Dep of a layout
-    if (this.#layoutDepMap.has(changedPath)) {
-      const affectedLayoutNames = this.#layoutDepMap.get(changedPath) ?? new Set()
-      const affectedPages = new Set(/** @type {PageInfo[]} */ ([]))
-      for (const layoutName of affectedLayoutNames) {
-        const pages = this.#layoutPageMap.get(layoutName)
-        if (pages) for (const p of pages) affectedPages.add(p)
-      }
-      const pagesFileFilterPaths = this.#getPagesFilePathsUsingLayouts(affectedLayoutNames)
-      if (affectedPages.size > 0 || pagesFileFilterPaths.length > 0) {
-        logRebuildTree(changedBasename, this.#logger, affectedPages)
-        const pageFilterPaths = Array.from(affectedPages).map(p => p.pageFile.filepath)
-        return this.#runPageBuild(siteData, pageFilterPaths, [], pagesFileFilterPaths)
-      }
+    const affectedTemplates = new Set(this.#templateDepMap.get(changedPath))
+    for (const template of siteData.templates) {
+      if (template.templateFile.filepath === changedPath) affectedTemplates.add(template)
     }
 
-    // 9. Page file or page.vars file
-    if (this.#pageFileMap.has(changedPath)) {
-      const affectedPage = this.#pageFileMap.get(changedPath)
-      if (affectedPage) {
-        logRebuildTree(changedBasename, this.#logger, new Set([affectedPage]))
-        return this.#runPageBuild(siteData, [affectedPage.pageFile.filepath], [], [])
-      }
+    const affectedOwners = new Set(this.#getPagesFilePathsUsingLayouts(affectedLayouts))
+    for (const pagesFile of this.#pagesFileDepMap.get(changedPath) ?? []) {
+      affectedOwners.add(pagesFile.pagesFile.filepath)
+    }
+    for (const pagesFile of siteData.pagesFiles ?? []) {
+      if (pagesFile.pagesFile.filepath === changedPath) affectedOwners.add(changedPath)
     }
 
-    // 10. Pages file itself → rebuild outputs owned by that file
-    if (pagesSuffixs.some(s => changedBasename.endsWith(s))) {
-      const pagesFile = siteData.pagesFiles?.find(p => p.pagesFile.filepath === changedPath)
-      if (pagesFile) {
-        this.#logger.info(`"${changedBasename}" changed, rebuilding its generated pages...`)
-        return this.#runTargetedPagesFileBuild(siteData, new Set([pagesFile]))
-      }
+    if (affectedPages.size || affectedTemplates.size || affectedOwners.size) {
+      logRebuildTree(changedBasename, this.#logger, affectedPages, affectedTemplates)
+      return this.#runPageBuild(
+        siteData,
+        Array.from(affectedPages, page => page.pageFile.filepath),
+        Array.from(affectedTemplates, template => template.templateFile.filepath),
+        [...affectedOwners]
+      )
     }
 
-    // 11. Template file itself
-    if (templateSuffixs.some(s => changedBasename.endsWith(s))) {
-      const templateInfo = siteData.templates.find(t => t.templateFile.filepath === changedPath)
-      if (templateInfo) {
-        logRebuildTree(changedBasename, this.#logger, undefined, new Set([templateInfo]))
-        return this.#runPageBuild(siteData, [], [templateInfo.templateFile.filepath], [])
-      }
-    }
-
-    // 12. Dep of a page.js or page.vars
-    if (this.#pageDepMap.has(changedPath)) {
-      const affectedPages = this.#pageDepMap.get(changedPath) ?? new Set()
-      if (affectedPages.size > 0) {
-        logRebuildTree(changedBasename, this.#logger, affectedPages)
-        const pageFilterPaths = Array.from(affectedPages).map(p => p.pageFile.filepath)
-        return this.#runPageBuild(siteData, pageFilterPaths, [], [])
-      }
-    }
-
-    // 13. Dep of a pages file → rebuild outputs owned by affected files
-    if (this.#pagesFileDepMap.has(changedPath)) {
-      const affectedPagesFiles = this.#pagesFileDepMap.get(changedPath) ?? new Set()
-      this.#logger.info(`"${changedBasename}" changed, rebuilding affected generated pages...`)
-      return this.#runTargetedPagesFileBuild(siteData, affectedPagesFiles)
-    }
-
-    // 14. Dep of a template file
-    if (this.#templateDepMap.has(changedPath)) {
-      const affectedTemplates = this.#templateDepMap.get(changedPath) ?? new Set()
-      if (affectedTemplates.size > 0) {
-        logRebuildTree(changedBasename, this.#logger, undefined, affectedTemplates)
-        const templateFilterPaths = Array.from(affectedTemplates).map(t => t.templateFile.filepath)
-        return this.#runPageBuild(siteData, [], templateFilterPaths, [])
-      }
-    }
-
-    // 15. No matching rule — skip.
+    // No matching rule — skip.
     this.#logger.info(`"${changedBasename}" changed but did not match any rebuild rule, skipping.`)
   }
 

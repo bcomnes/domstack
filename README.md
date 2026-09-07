@@ -2280,10 +2280,28 @@ Existing asset edits use esbuild's watcher; adding or removing a layout asset up
 
 #### Manual composition
 
-Existing function-based composition remains supported.
+Manual function composition is supported and tested for source-backed and generated pages.
+Prefer `parentLayout` for ordinary nesting: DOMStack can then manage the full chain's defaults, assets, dependencies, and rebuilds for you.
 A layout without `parentLayout` still runs once, and it may import and call other render functions itself.
 DOMStack does not infer a parent from those imports, merge the imported function's vars, or add its assets.
 Manual composition must forward the required arguments and explicitly import parent assets.
+
+```typescript
+// manual.layout.ts
+import rootLayout from './root.layout.ts'
+import type { LayoutFunction } from '@domstack/static/types.js'
+import type { RootLayoutVars } from './root.layout.ts'
+
+const manualLayout: LayoutFunction<RootLayoutVars, string, string> = args => {
+  return rootLayout({ ...args, children: `<article>${args.children}</article>` })
+}
+
+export default manualLayout
+```
+
+Static import tracking still rebuilds these pages when an imported parent or helper changes.
+If the parent has layout CSS or client code, import those files from the composing layout's corresponding asset entries.
+These manual responsibilities are why explicit `parentLayout` nesting is recommended, not a restriction on using ordinary functions.
 
 To migrate, replace the parent function call with a `parentLayout` export and return only the child wrapper.
 Move shared defaults into exported layout `vars`, and remove child imports of the parent's layout CSS and client.
