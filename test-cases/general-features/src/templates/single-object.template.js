@@ -1,5 +1,5 @@
 /**
- * @import { TemplateFunction } from '#types'
+ * @import { AsyncTemplateFunction } from '#types'
  */
 
 /**
@@ -7,7 +7,7 @@
  * @property {string} foo
  */
 
-/** @type {TemplateFunction<SingleObjectTemplateVars>} */
+/** @type {AsyncTemplateFunction<SingleObjectTemplateVars>} */
 export default async ({
   vars: { foo },
 }) => ({

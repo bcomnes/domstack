@@ -1,5 +1,5 @@
 /**
- * @import { TemplateFunction } from '#types'
+ * @import { AsyncTemplateFunction } from '#types'
  */
 
 /**
@@ -8,7 +8,7 @@
  * @property {string} testVar
  */
 
-/** @type {TemplateFunction<ObjectArrayTemplateVars>} */
+/** @type {AsyncTemplateFunction<ObjectArrayTemplateVars>} */
 export default async function objectArrayTemplate ({
   vars: {
     foo,

@@ -3,6 +3,8 @@
 // and `types.js` is reserved for a future runtime/type companion entry if needed.
 import type { Results } from './lib/builder.js'
 
+export type { DataDeps } from './lib/build-pages/data-deps.js'
+
 export type { BuildOptions } from 'esbuild'
 export type { DomStackOpts, Results, SiteData } from './lib/builder.js'
 export type {
@@ -28,6 +30,7 @@ export type {
   PageFunctionParams,
 } from './lib/build-pages/page-builders/page-writer.js'
 export type {
+  AsyncTemplateFunction,
   TemplateAsyncIterator,
   TemplateFunction,
   TemplateFunctionParams,

@@ -23,7 +23,7 @@ export default function defaultRootLayout ({
   scripts,
   styles,
   children,
-  /* pages */
+  /* data */
   /* page */
 }) {
   return render(String, html`

@@ -91,19 +91,19 @@ const layoutParams: LayoutFunctionParams<Record<string, any>, string, string> = 
   vars: { title: 'Hello' },
   children: 'Body',
   page: pageInfo,
-  pages: [pageData],
+  data: {},
 }
 
 const pageParams: PageFunctionParams<Record<string, any>, string> = {
   vars: { title: 'Hello' },
   page: pageInfo,
-  pages: [pageData],
+  data: {},
 }
 
 const templateParams: TemplateFunctionParams<Record<string, any>> = {
   vars: { siteName: 'DomStack' },
   template: templateInfo,
-  pages: [pageData],
+  data: {},
 }
 
 const globalDataParams: GlobalDataFunctionParams = {

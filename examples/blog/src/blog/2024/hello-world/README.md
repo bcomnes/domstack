@@ -29,8 +29,8 @@ const blogIndexes = collectBlogIndexes(blogPosts)
 return { blogPosts, blogIndexes /* ...other site data */ }
 ```
 
-The returned object is stamped onto every page's `vars`, so any page or layout can read
-`vars.blogPosts` directly — no postVars, no custom wiring.
+Pages and build factories explicitly subscribe to the returned keys they need and read
+them through `data`, so unrelated pages stay independent of collection changes.
 
 The yearly `/blog/2024/` and `/blog/2025/` archives are generated separately by
 `src/blog-indexes.pages.ts`. `global.data.ts` groups the posts by year once, the pages file

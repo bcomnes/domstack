@@ -1,26 +1,30 @@
 /**
  * @import { PageFunction, PagesFunction } from '#types'
  * @import { HtmlResult } from 'fragtml/types.js'
- * @typedef {{ layout: string, title: string, sawGenerated: boolean, concreteCount: number }} ConcreteOnlyVars
+ * @typedef {{ layout: string, title: string, hasPages: boolean, hasSiteData: boolean, concreteCount: number }} ConcreteOnlyVars
  */
 
 import { html } from 'fragtml'
 
 /** @type {PageFunction<ConcreteOnlyVars, HtmlResult>} */
 const renderConcreteOnlyPage = ({ vars }) => html`
-  <p id="saw-generated">${String(vars.sawGenerated)}</p>
+  <p id="has-pages">${String(vars.hasPages)}</p>
+  <p id="has-site-data">${String(vars.hasSiteData)}</p>
   <p id="concrete-count">${vars.concreteCount}</p>
 `
 
-/** @type {PagesFunction<ConcreteOnlyVars, HtmlResult>} */
-export default function concreteOnlyPages ({ pages }) {
+export const dataDeps = ['sourcePageCount']
+
+/** @type {PagesFunction<ConcreteOnlyVars, HtmlResult, Record<string, any>, { sourcePageCount: number }>} */
+export default function concreteOnlyPages (args) {
   return {
     outputName: 'generated-introspection/index.html',
     vars: {
       layout: 'root',
       title: 'Generated introspection',
-      sawGenerated: pages.some(page => Boolean(page.pageInfo.generated)),
-      concreteCount: pages.length,
+      hasPages: Object.hasOwn(args, 'pages'),
+      hasSiteData: Object.hasOwn(args, 'siteData'),
+      concreteCount: args.data.sourcePageCount,
     },
     children: renderConcreteOnlyPage,
   }

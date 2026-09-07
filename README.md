@@ -284,7 +284,7 @@ src/page-name/page.ts
 
 - `ts` pages consist of a named directory with a `page.ts` file that exports a default function returning the contents of the inner page.
 - A `ts` page needs to `export default` a function (async or sync) that accepts a variables argument and returns a string of the inner HTML of the page, or any other type that your layout can accept.
-- You can specify the return type using `PageFunction<T, U>` where `T` is the variables type and `U` is the return type (defaults to `any`).
+- You can specify the return type using `PageFunction<T, U, D>` where `T` is the variables type, `U` is the return type (defaults to `any`), and `D` is the declared global-data shape.
 - A `ts` page can export a [`vars` variable provider](#variable-providers) that takes highest variable precedence when rendering the page. `export vars` is similar to a `md` page's front matter.
 - A `ts` page receives the standard `domstack` [Variables](#variables) set.
 - There is no built-in Handlebars support in `ts` pages; however, you are free to use any template library that you can import.
@@ -311,35 +311,40 @@ const page: PageFunction<typeof vars> = async ({
 export default page
 ```
 
-It is recommended to use some level of template processing over raw string templates so that HTML is well-formed and variable values are properly escaped. DOMStack's default layout uses [`fragtml`][fragtml], a safe-by-default HTML tagged template library. Here is a more realistic TypeScript example that uses `fragtml` and `domstack` page introspection.
+It is recommended to use some level of template processing over raw string templates so that HTML is well-formed and variable values are properly escaped.
+DOMStack's default layout uses [`fragtml`][fragtml], a safe-by-default HTML tagged template library.
+Here is a more realistic TypeScript example that uses `fragtml` and an explicit global-data subscription.
 
 
 ```typescript
 import { html } from 'fragtml'
 import type { HtmlResult } from 'fragtml/types.js'
-import { dirname, basename } from 'node:path'
 import type { PageFunction } from '@domstack/static/types.js'
 
 type BlogVars = {
   favoriteCake: string
 }
 
-export const vars = {
-  favoriteCake: 'Chocolate Cloud Cake'
+type BlogData = {
+  blogYears: number[]
 }
 
-const blogIndex: PageFunction<BlogVars, HtmlResult> = async ({
+export const vars = {
+  favoriteCake: 'Chocolate Cloud Cake',
+  dataDeps: ['blogYears'],
+}
+
+const blogIndex: PageFunction<BlogVars, HtmlResult, BlogData> = async ({
   vars: { favoriteCake },
-  pages
+  data,
 }) => {
-  const yearPages = pages.filter(page => dirname(page.pageInfo.path) === 'blog')
   return html`<div>
     <p>I love ${favoriteCake}!!</p>
     <ul>
-      ${yearPages.map(yearPage => html`
+      ${data.blogYears.map(year => html`
         <li>
-          <a href="${yearPage.pageInfo.url}">
-            ${basename(yearPage.pageInfo.path)}
+          <a href="/blog/${year}/">
+            ${year}
           </a>
         </li>
       `)}
@@ -538,7 +543,62 @@ title: 'My Article Title'
 Thanks for reading my article
 ```
 
-A page referencing a layout name that doesn't have a matching layout file will result in a build error. To reuse a common frame across multiple layouts, see [Compose nested layouts](#compose-nested-layouts).
+A page referencing a layout name that doesn't have a matching layout file will result in a build error.
+Filenames determine layout names, but nesting is an explicit module declaration, not a directory or import convention.
+
+### Layout module exports
+
+DOMStack recognizes these exports from a layout module:
+
+| Export | Required | Contract |
+| --- | --- | --- |
+| `default` | Yes | A synchronous or asynchronous [layout render function](#layout-render-function). |
+| `vars` | No | An object, or a sync/async function returning an object, providing [layout defaults](#layout-variables). |
+| `parentLayout` | No | A non-empty string naming the immediate outer layout; see [Declaring nested layouts](#declaring-nested-layouts). |
+
+### Declaring nested layouts
+
+Declare a parent with a named `parentLayout` export in the child layout module:
+
+```ts
+// src/layouts/article.layout.ts
+import type { LayoutFunction } from '@domstack/static/types.js'
+
+export const parentLayout = 'root'
+
+const articleLayout: LayoutFunction<Record<string, never>, string, string> = ({ children }) => {
+  return `<article>${children}</article>`
+}
+
+export default articleLayout
+```
+
+`parentLayout` is a layout name, not a file path or imported function.
+For example, `'root'` resolves the discovered `root.layout.ts` or `root.layout.js`, wherever it lives under `src`, or DOMStack's bundled root when no custom root exists.
+Names are matched exactly, using the same filename-derived names as the page's `layout` variable.
+
+Omit `parentLayout` (or export `undefined`) when the layout has no parent; DOMStack does not automatically wrap a selected non-root layout in `root`.
+
+DOMStack renders the page, passes its result to `article`, then passes that result to `root`: `root(article(page()))`.
+Each parent can declare another parent, forming a chain that ends at a layout without `parentLayout`.
+Missing parents and cycles, including a layout naming itself, fail the build.
+
+Every render step is awaited, and each parent receives its immediate child's return value as `children` without intermediate string conversion.
+The outermost result is converted to a string for HTML output.
+All layouts receive the same final resolved page vars, metadata, and asset lists.
+Layout defaults merge outermost-to-innermost before page overrides, and ancestor CSS/client entries are included automatically between global and page assets.
+Watch mode tracks the resolved chain and each layout's static imports for source-backed and generated pages, updating those relationships after successful rebuilds.
+
+Each layout can also declare its own global-data subscriptions through `vars.dataDeps`.
+DOMStack passes only those declared keys to that layout's `data` argument; a child does not receive its parent's data or need to repeat its declarations.
+For rebuilds, the page depends on the union of its own subscriptions and every layout's subscriptions in the declared chain.
+See [Data subscriptions in nested layouts](#data-subscriptions-in-nested-layouts) for typed declarations and examples.
+
+Manual function composition remains supported, but `parentLayout` is recommended so DOMStack manages the ancestor chain and its rebuild dependencies.
+Do not both declare a parent and call its render function manually, or the parent will render twice.
+See [Compose nested layouts](#compose-nested-layouts) for a complete example, asset guidance, and the manual-composition alternative.
+
+### Layout variables
 
 Layouts may also export an optional [`vars` variable provider](#variable-providers) containing defaults for pages that use the layout:
 
@@ -549,28 +609,35 @@ export const vars = {
 }
 ```
 
-Layout vars are merged into the same resolved page variable cascade that pages, layouts, templates, and domstack manifest settings receive. Precedence is:
+Layout vars are merged into the resolved variable cascade for pages using that layout.
+Precedence is:
 
 ```txt
-page/frontmatter vars > page.vars.* > layout vars > global.data/global.vars > domstack defaults
+page/frontmatter vars > page.vars.* > inner layout vars > outer layout vars > global.vars > domstack defaults
 ```
 
 This makes layout vars useful for section-wide defaults while still letting individual pages override them.
 
-### The default `root.layout.ts`
+### Layout render function
 
-A layout is a `ts` file that default-exports an async or sync function implementing an outer HTML template that houses the page's inner content (`children`). Think of the frame around a picture. That's a layout. 🖼️
+A layout's default export is an async or sync function that wraps its `children` in an outer template.
+With nested layouts, `children` is the result of the immediately inner layout, or the page itself for the innermost layout.
 
-It is always passed a single object argument with the following entries. See [Page data and introspection](#page-data-and-introspection) for details about the `page` and `pages` entries:
+It is always passed a single object argument with the following entries.
+See [Page data and introspection](#page-data-and-introspection) for details about `page`, and [Global data](#global-data) for `data`:
 
-- `vars`: The resolved page variable cascade, including domstack defaults, global vars/data, layout vars, page vars, and page builder vars/frontmatter. Pages can customize layouts by overriding global or layout defaults.
+- `vars`: The resolved page variable cascade, including domstack defaults, global vars, layout vars, page vars, and page builder vars/frontmatter. Pages can customize layouts by overriding global or layout defaults.
+- `data`: Only the top-level global-data keys declared by this layout through `vars.dataDeps`.
 - `scripts`: array of paths that should be included onto the page in a script tag src with type `module`.
 - `styles`: array of paths that should be included onto the page in a `link rel="stylesheet"` tag with the `href` pointing to the paths in the array.
-- `children`: A string containing the page's inner content, or whatever type your `ts` page function returns. `md` and `html` page types always return strings.
-- `pages`: An array of page data that you can use to generate index pages with, or any other page-introspection based content that you desire.
-- `page`: An object with metadata and other facts about the current page being rendered into the template. This will also be found somewhere in the `pages` array.
+- `children`: The immediate child's render result: the page's content for the innermost layout, or the next inner layout's return value for a parent.
+Markdown and HTML pages return strings; TypeScript pages and nested layouts may return other values.
+- `page`: An object with metadata and other facts about the current page being rendered into the template.
 
-The default `root.layout.ts` is featured below, and is implemented with [`fragtml`][fragtml], though it could just be done with a template literal or any other template system that runs in Node.js. See the [`fragtml` docs][fragtml-docs] for escaping, raw HTML, rendering, and fragment usage.
+### The default `root.layout.ts`
+
+The default `root.layout.ts` is featured below, and is implemented with [`fragtml`][fragtml], though it could just be done with a template literal or any other template system that runs in Node.js.
+See the [`fragtml` docs][fragtml-docs] for escaping, raw HTML, rendering, and fragment usage.
 
 `root.layout.ts` can live anywhere in the `src` directory.
 
@@ -600,7 +667,7 @@ const defaultRootLayout: LayoutFunction<RootLayoutVars, string | HtmlResult, str
   scripts,
   styles,
   children,
-  pages,
+  data,
   page,
 }) => {
   return render(html`
@@ -647,9 +714,11 @@ While the layout file can live anywhere in `src`, the layout style must live nex
 
 /* This layout style is included in every page rendered with the 'article' layout */
 ```
-Layout styles are loaded on all pages that use that layout.
+Layout styles are loaded on all pages that use that layout directly or through a `parentLayout` chain.
 Layout styles are bundled with [`esbuild`][esbuild] and can bundle relative and `npm` css using css `@import` statements.
-DOMStack loads stylesheets in this order: global, layout, then page. Under the normal [CSS cascade](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_cascade/Cascade), later styles take precedence when origin, importance, cascade layer, and specificity are otherwise equal. This lets page styles override layout styles, and layout styles override global styles.
+DOMStack loads stylesheets in this order: optional defaults, global, outermost-to-innermost layouts, then page.
+Under the normal [CSS cascade](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_cascade/Cascade), later styles take precedence when origin, importance, cascade layer, and specificity are otherwise equal.
+This lets page styles override layout styles, and inner layout styles override outer layout styles.
 
 
 ### Layout client bundles
@@ -668,16 +737,17 @@ console.log('I run on every page rendered with the \'article\' layout')
 /* This layout client is included in every page rendered with the 'article' layout */
 ```
 
-Layout client bundles are loaded on all pages that use that layout.
+Layout client bundles are loaded on all pages that use that layout directly or through a `parentLayout` chain.
 Layout client bundles are built with [`esbuild`][esbuild] and can bundle relative and `npm` modules using ESM `import` statements.
 
 ### Layout types
 
-Layouts can be typed using `LayoutFunction<T, U, V>` where:
+Layouts can be typed using `LayoutFunction<T, U, V, D>` where:
 
 - `T` is the variables type
-- `U` is the type of content received from pages (defaults to `any`)
+- `U` is the immediate child's render result, from a page or nested layout (defaults to `any`)
 - `V` is the layout's return type (defaults to `string` for HTML output)
+- `D` is the declared global-data shape (defaults to `Record<string, unknown>`)
 
 ```typescript
 import type { LayoutFunction } from '@domstack/static/types.js'
@@ -744,14 +814,14 @@ export default async function vars () {
 
 Pages and layouts receive an object with the following parameters:
 
-- `vars`: An object with the variables of `global.vars.ts`, [`global.data.ts`](#global-data), `page.vars.ts`, and any frontmatter or `vars` exports from the page merged together.
-- `pages`: The available [`PageData` collection](#page-data-and-introspection).
+- `vars`: An object with the variables of `global.vars.ts`, `page.vars.ts`, layout vars, and any frontmatter or `vars` exports from the page merged together.
+- `data`: Only the top-level values selected from [`global.data.ts`](#global-data) by this renderer's own `dataDeps` declarations.
 - `page`: The current page's [`PageInfo` metadata](#page-metadata).
 
 Template files receive a similar set of variables:
 
-- `vars`: An object with the variables from `global.vars.ts` and [`global.data.ts`](#global-data).
-- `pages`: The available [`PageData` collection](#page-data-and-introspection).
+- `vars`: An object with the variables from `global.vars.ts`.
+- `data`: Only the top-level values selected from [`global.data.ts`](#global-data) by the template's `dataDeps` named export.
 - `template`: Information about the current template file.
 
 ## Static assets
@@ -1071,16 +1141,20 @@ The `global.data.ts` file is an optional file that can live anywhere in your `sr
 > [!NOTE]
 > `global.data.js` works too. See [Supported file types](#supported-file-types) for all available extensions.
 
-For data that aggregates across multiple pages — like blog indexes, sitemaps, or RSS feed content — use `global.data.ts`. It receives the fully resolved source-backed `PageData[]` array and returns an object that is passed to generated-page factories and stamped onto every source-backed and generated page's vars. The derived data is therefore available to every page, layout, and template at final render time.
+For data that aggregates across multiple pages — like blog indexes, sitemaps, recent-post lists, or RSS feed content — use `global.data.ts`.
+It is the only public build hook that receives the source-backed `PageData[]` collection.
+It returns an object of named, top-level values that downstream consumers can explicitly subscribe to.
 
 ```typescript
 // src/global.data.ts
 import type { AsyncGlobalDataFunction } from '@domstack/static/types.js'
 import { html, render } from 'fragtml'
 
-type GlobalData = {
+export type GlobalData = {
   blogPostsHtml: string
 }
+
+export type ArchiveData = Pick<GlobalData, 'blogPostsHtml'>
 
 const buildGlobalData: AsyncGlobalDataFunction<GlobalData> = async ({ pages }) => {
   const blogPosts = pages
@@ -1106,26 +1180,89 @@ const buildGlobalData: AsyncGlobalDataFunction<GlobalData> = async ({ pages }) =
 export default buildGlobalData
 ```
 
-The returned object is stamped onto every page's vars before rendering, so any page or layout can read the derived data via `vars`:
+The returned object is not merged into `vars`.
+A page or layout declares the keys it needs through `dataDeps`, then reads those keys from the separate `data` argument:
 
 ```md
 <!-- src/page.md -->
+---
+dataDeps:
+  - blogPostsHtml
+---
+
 ## [Blog](./blog/)
 
-{{{ vars.blogPostsHtml }}}
+{{{ data.blogPostsHtml }}}
 ```
+
+HTML pages declare the same field in an adjacent `page.vars.ts` file:
+
+```typescript
+// src/archive/page.vars.ts
+export default {
+  dataDeps: ['blogPostsHtml'],
+}
+```
+
+TypeScript pages and layouts can put the declaration in their `vars` export:
+
+```typescript
+import type { DataDeps, PageFunction } from '@domstack/static/types.js'
+import type { ArchiveData } from './global.data.js'
+
+export const vars = {
+  dataDeps: ['blogPostsHtml'] satisfies DataDeps<ArchiveData>,
+}
+
+const archivePage: PageFunction<Record<string, never>, string, ArchiveData> = ({ data }) =>
+  `<h1>Archive</h1>${data.blogPostsHtml}`
+
+export default archivePage
+```
+
+Keep these focused consumer contracts beside the complete global-data type so pages and layouts can import a meaningful name instead of reconstructing a `Pick<GlobalData, ...>` selection.
+`DataDeps<Contract>` checks declaration names against that contract and accepts readonly arrays, including `as const` tuples.
+The declaration is still required at runtime; a TypeScript type alone does not subscribe a renderer.
+
+For `*.template.ts` and `*.pages.ts` files, export `dataDeps` as a named module export because those files do not have consumer vars:
+
+```typescript
+export const dataDeps = ['blogPostsHtml']
+
+export default function archiveTemplate ({ data }) {
+  return data.blogPostsHtml
+}
+```
+
+`dataDeps` is build metadata and is removed from the resolved `vars` object.
+The page receives the union of its own frontmatter, page-vars, and builder declarations.
+Each layout receives only its own `vars.dataDeps`, not its parent's or the page's data.
+For output invalidation, DOMStack unions the page's declarations with those of every layout in its resolved `parentLayout` chain.
+Children do not repeat ancestor declarations, and a parent's subscriptions cannot be cleared by a child's empty declaration.
+When one layout calls another layout function directly, the composing layout must declare every global-data key the composed rendering needs.
 
 **Key properties of `global.data.ts`:**
 
-- **Centralizes page collation and processing.** Collect, filter, group, and sort pages once, then share the result with generated pages, normal pages, layouts, and templates instead of repeating the same work in each downstream consumer.
+- **Centralizes page collation and processing.** Collect, filter, group, sort, and render source pages once, then expose purpose-built values instead of the page graph itself.
 - Receives fully resolved source-backed `PageData[]` — every page has `.vars` (merged global + page + builder vars), `.pageInfo` (path, type, etc.), `.styles`, `.scripts`, and more. Generated pages do not exist yet.
+- Gives pages, layouts, templates, and page factories only their declared top-level keys through `data`.
+- Keeps global data separate from ordinary `vars`, so derived values cannot silently collide with page or layout configuration.
 - Runs inside the worker process (same as all other dynamic imports) to avoid ESM caching issues.
 - Skipped entirely if no `global.data.*` file exists — zero overhead.
-- Changes to `global.data.*` trigger a full page rebuild (same as `global.vars.*`), since the output is stamped onto every page's vars.
+- In watch mode, DOMStack fingerprints each top-level returned value and rebuilds only consumers subscribed to changed keys.
+- Editing `global.data.*` or one of its statically imported helpers recomputes data; a shared helper also rebuilds its direct page, layout, template, and factory consumers.
+- Values composed of JSON-safe primitives, arrays, and plain objects get stable fingerprints; opaque values such as functions, class instances, maps, sets, or cycles conservatively invalidate their subscribers on every page build.
+- A declaration naming a missing key fails the build, and access to an existing but undeclared key throws a focused error.
+
+Subscription failures use `DomStackDataError` with code `DOM_STACK_ERROR_DATA`.
+Its `dataDependency` metadata identifies the consumer, optional key, and reason: `INVALID_DECLARATION`, `MISSING_KEY`, `UNDECLARED_KEY`, or `NOT_READY`.
+The subtype and metadata survive worker transport inside the build's aggregate errors.
+After a failed watch build, the next page build retries the complete page phase before returning to incremental routing.
 
 ### Global data types
 
-Use `GlobalDataFunction<T>` for a synchronous function or `AsyncGlobalDataFunction<T>` for an async function. In both types, `T` describes the derived variables object returned by `global.data.ts`:
+`GlobalDataFunction<T>` accepts synchronous or asynchronous implementations; `AsyncGlobalDataFunction<T>` specifically requires a promise.
+In both types, `T` describes the named data returned by `global.data.ts`:
 
 ```typescript
 // src/global.data.ts
@@ -1147,6 +1284,8 @@ export default globalData
 ```
 
 Use `AsyncGlobalDataFunction<DerivedData>` instead when the implementation needs to await rendering, network requests, or other asynchronous work.
+For typed source input, use `GlobalDataFunction<Result, SourceVars, SourceContent>` or its async counterpart.
+Helpers can accept `GlobalDataFunctionParams<SourceVars, SourceContent>['pages']` without recovering types from the full global-data result.
 
 ### Global data caveats
 
@@ -1184,17 +1323,21 @@ const markdownSources = await Promise.all(
 ```
 
 > [!TIP]
-> `global.data.ts` can call `renderInnerPage()` because it runs after source-backed page initialization has been attempted. The same initialization caveat applies, and rendering requires the current `pages` collection.
+> `global.data.ts` can call `renderInnerPage()` because it runs after source-backed page initialization has been attempted.
+> The same initialization caveat applies.
 
 ```typescript
 // src/global.data.ts
 const renderedPages = await Promise.all(
   pages.map(async page => ({
     path: page.pageInfo.path,
-    html: await page.renderInnerPage({ pages }),
+    html: await page.renderInnerPage(),
   }))
 )
 ```
+
+Global-data computation cannot read the `data` values it is still producing.
+If a source page declares data dependencies, attempting to render it from `global.data.ts` fails rather than creating a hidden cycle.
 
 See [Rendering page content](#rendering-page-content) for rendering semantics and performance guidance.
 
@@ -1219,7 +1362,7 @@ A generated-pages module can default-export:
 |---|---|
 | One `GeneratedPageDefinition` object | The module always creates one page |
 | An array of definitions | The module always creates a fixed set of pages and needs no build context |
-| A normal or `async` function | Definitions depend on source pages, global or derived data, or other discovery data |
+| A normal or `async` function | Definitions depend on global vars, declared global data, or pages-file metadata |
 | An async iterable, usually returned by `async function*` | Pages are discovered incrementally or the total is not known in advance |
 
 Static objects and arrays do not receive factory parameters.
@@ -1259,12 +1402,14 @@ export default [
 
 #### Synchronous factory
 
-Export a function when definitions depend on source pages or shared variables:
+Export a function when definitions depend on declared global data or shared variables:
 
 ```ts
 // src/tag-indexes.pages.ts
-export default function tagIndexes ({ vars }) {
-  return Object.entries(vars.tagIndex).map(([tag, posts]) => ({
+export const dataDeps = ['tagIndex']
+
+export default function tagIndexes ({ data }) {
+  return Object.entries(data.tagIndex).map(([tag, posts]) => ({
     outputName: `tags/${tag}/index.html`,
     vars: { layout: 'tag-index', title: `Posts tagged ${tag}`, posts },
   }))
@@ -1299,8 +1444,10 @@ Export an async generator when pages should be yielded incrementally:
 
 ```ts
 // src/archive.pages.ts
-export default async function * archivePages ({ vars }) {
-  for (const year of vars.blogYears) {
+export const dataDeps = ['blogYears']
+
+export default async function * archivePages ({ data }) {
+  for (const year of data.blogYears) {
     yield {
       outputName: `blog/${year}/index.html`,
       vars: { layout: 'archive', year },
@@ -1313,17 +1460,15 @@ export default async function * archivePages ({ vars }) {
 
 Functions receive one object with:
 
-> [!IMPORTANT]
-> Generated-page factories receive only [source-backed pages](#pages). They do not receive pages generated by the same or other `*.pages.ts` files.
-
 | Parameter | Contents |
 |---|---|
-| `pages` | Initialized source-backed `PageData[]`. Generated pages from this or other pages files are not included. |
-| `vars` | Default and global vars plus the values returned by `global.data.*`. |
+| `vars` | Default and global vars. |
+| `data` | Only the top-level values named by the module's `dataDeps` export. |
 | `pagesFile` | Information about the current file. `name` is the filename without its `.pages.*` suffix, `path` is its source-relative directory, and `pagesFile` contains the underlying file information. |
-| `siteData` | Discovery data returned by `identifyPages()`. Its `siteData.pages` array is also source-backed only. |
 
-Every `*.pages.ts` factory receives the same snapshot of source-backed pages and global data. A `*.pages.ts` file cannot access pages created by another `*.pages.ts` file, regardless of file processing order. After every factory finishes, DOMStack adds all generated pages to the final `pages` collection used while rendering page functions, layouts, and templates.
+Factories do not receive raw source or generated `PageData` collections.
+Put page-collection logic in `global.data.ts`, return a focused serializable value, and subscribe to its key from the factory.
+This keeps factories downstream of source discovery without exposing generation order or creating page-generation cycles.
 
 ### Generated page definitions
 
@@ -1338,7 +1483,8 @@ Generated pages use [global assets](#global-assets) and [layout assets](#layout-
 
 ### Generated-pages types
 
-Use `GeneratedPageDefinition<T, U>` to type an individual definition. `T` is the generated page's variables type, and `U` is its children type, which defaults to `string`:
+Use `GeneratedPageDefinition<T, U, D>` to type an individual definition.
+`T` is the generated page's variables type, `U` is its children type, which defaults to `string`, and `D` is the declared data shape for inline page functions:
 
 ```ts
 // src/terms.pages.ts
@@ -1358,21 +1504,24 @@ const terms: GeneratedPageDefinition<LegalPageVars> = {
 export default terms
 ```
 
-Use `PagesFunction<T, U, V>` for normal functions, async functions, and async generators:
+Use `PagesFunction<T, U, V, D>` for normal functions, async functions, and async generators:
 
 - `T` is the variables type added to each generated page.
 - `U` is the generated children type (defaults to `string`).
-- `V` is the default, global, and derived variables type received by the factory.
+- `V` is the default and global vars type received by the factory.
+- `D` is the global-data shape declared by the factory.
 
 ```ts
 // src/archive.pages.ts
 import type { PagesFunction } from '@domstack/static/types.js'
 
 type ArchiveVars = { layout: string, year: number }
-type CollectionVars = { blogYears: number[] }
+type ArchiveData = { blogYears: number[] }
 
-const archivePages: PagesFunction<ArchiveVars, string, CollectionVars> = async function * ({ vars }) {
-  for (const year of vars.blogYears) {
+export const dataDeps = ['blogYears']
+
+const archivePages: PagesFunction<ArchiveVars, string, Record<string, never>, ArchiveData> = async function * ({ data }) {
+  for (const year of data.blogYears) {
     yield {
       outputName: `blog/${year}/index.html`,
       vars: { layout: 'archive', year },
@@ -1387,7 +1536,9 @@ For metadata-driven redirects, see the cookbook recipe [Generate redirect pages 
 
 ## Templates
 
-Template files let you write any kind of file type to the `dest` folder while customizing the contents of that file with access to the site [Variables](#variables) object, or inject any other kind of data fetched at build time. Template files can be located anywhere in the `src` directory. For a complete feed-generation recipe, see [Generate RSS and JSON feeds](#generate-rss-and-json-feeds).
+Template files let you write any kind of file type to the `dest` folder while customizing the contents with global vars and explicitly subscribed global data.
+Template files can be located anywhere in the `src` directory.
+For a complete feed-generation recipe, see [Generate RSS and JSON feeds](#generate-rss-and-json-feeds).
 
 Template files look like:
 
@@ -1523,7 +1674,8 @@ This is just a file with access to global vars: ${testVar}`,
 export default templateIterator
 ```
 
-Templates receive the current page collection through `pages`. See [Page data and introspection](#page-data-and-introspection) for page metadata and rendering methods.
+Templates receive only global vars, their declared global `data`, and metadata for the current template.
+Use `global.data.ts` to turn source-page collections into values a template can subscribe to.
 
 ### Choosing a template return type
 
@@ -1541,18 +1693,20 @@ Start with a string return and only switch to a more complex type when you need 
 
 ## Page data and introspection
 
-Page functions and layouts, including those rendering generated pages, receive metadata for the current page through `page`. Page functions, layouts, and templates receive the final collection of source-backed and generated `PageData` instances through `pages`. Entries in `pages` expose their resolved variables, source metadata, and methods for rendering page content.
+Page functions and layouts, including those rendering generated pages, receive metadata for the current page through `page`.
+Only `global.data.ts` receives the collection of source-backed `PageData` instances.
+This is the intentional boundary between source-page introspection and downstream rendering.
 
 ```typescript
 // src/example/page.ts
-export default function examplePage ({ page, pages }) {
+export default function examplePage ({ page }) {
   console.log(page.url)
-  console.log(pages[0]?.pageInfo.url)
   return ''
 }
 ```
 
-Earlier build stages, including `global.data.ts` and generated-page factories, receive only [source-backed pages](#pages). See [Generated-pages factory parameters](#generated-pages-factory-parameters) for the snapshot available to `*.pages.ts` files.
+Generated-page factories do not receive `PageData`.
+They consume values explicitly returned by `global.data.ts` instead.
 
 ### Page metadata
 
@@ -1569,20 +1723,26 @@ The current `page` is a `PageInfo` object with the following properties:
 - `pageVars`: File information when the page has an adjacent page-variable file.
 - `generated`: Metadata about the `*.pages.ts` file that created a generated page, or `undefined` for a source-backed page.
 
-Each `PageData` entry exposes this object as `page.pageInfo`. Combine `page.pageInfo.url` with a `siteUrl` from `global.vars.ts` to build an absolute URL: `` `${vars.siteUrl}${page.pageInfo.url}` ``. The [RSS and JSON feed recipe](#generate-rss-and-json-feeds) uses this pattern for feed item URLs.
+Each `PageData` entry supplied to `global.data.ts` exposes this object as `page.pageInfo`.
+Combine `page.pageInfo.url` with a `siteUrl` from `global.vars.ts` to build an absolute URL: `` `${vars.siteUrl}${page.pageInfo.url}` ``.
+The [RSS and JSON feed recipe](#generate-rss-and-json-feeds) uses this pattern for feed item URLs.
 
 ### Rendering page content
 
-Each `PageData` instance exposes two methods for accessing rendered output. This is useful when another generated file needs to embed a page's content, such as the [`feeds.template.ts`](https://github.com/bcomnes/domstack/blob/master/examples/blog/src/feeds.template.ts) implementation in the [RSS and JSON feed recipe](#generate-rss-and-json-feeds).
+Each `PageData` instance passed to `global.data.ts` exposes two methods for accessing rendered output.
+This is useful when derived data needs to embed a page's content, such as the [`global.data.ts`](https://github.com/bcomnes/domstack/blob/master/examples/blog/src/global.data.ts) implementation used by the [RSS and JSON feed recipe](#generate-rss-and-json-feeds).
 
-- `await page.renderInnerPage({ pages })` returns the page's inner render output as produced by its builder, without a layout wrapper applied. This is often an HTML string, such as Markdown rendered to HTML, but the type depends on the page builder.
-- `await page.renderFullPage({ pages })` returns the complete page output with its layout applied.
+- `await page.renderInnerPage()` returns the page's inner render output as produced by its builder, without a layout wrapper applied. This is often an HTML string, such as Markdown rendered to HTML, but the type depends on the page builder.
+- `await page.renderFullPage()` returns the complete page output with its layout applied.
 
-Both methods are async and require the `pages` array available at that build stage. Rendering errors propagate and fail the build.
+Both methods are async, and rendering errors propagate and fail the build.
+While `global.data.ts` is resolving, `renderInnerPage()` is allowed if the page itself has no subscriptions, even when its layouts subscribe to data.
+`renderFullPage()` requires the page and its entire layout chain to be unsubscribed at that stage, because derived data does not exist yet.
 
 ### Rendering many pages
 
-Use [`global.data.ts`](#global-data) to pre-render content shared by multiple downstream pages or templates. This centralizes the work and makes the result available through the resolved variable cascade:
+Use [`global.data.ts`](#global-data) to pre-render content shared by multiple downstream pages or templates.
+This centralizes the work and makes the result available through an explicit subscription:
 
 ```typescript
 // src/global.data.ts
@@ -1592,7 +1752,7 @@ const globalData: AsyncGlobalDataFunction = async ({ pages }) => {
   const entries = await Promise.all(
     pages.map(async page => [
       page.pageInfo.path,
-      await page.renderInnerPage({ pages })
+      await page.renderInnerPage()
     ] as const)
   )
 
@@ -1602,7 +1762,8 @@ const globalData: AsyncGlobalDataFunction = async ({ pages }) => {
 export default globalData
 ```
 
-Rendering performed inside `global.data.ts` cannot use the derived values that the same file is still computing. After `global.data.ts` returns, DOMStack adds those values to the page variable cascade before the normal rendering pass.
+Rendering performed inside `global.data.ts` cannot use the derived values that the same file is still computing.
+After `global.data.ts` returns, consumers receive only the values named by their `dataDeps` declarations.
 
 
 ## TypeScript Support
@@ -1704,7 +1865,9 @@ import type {
 ```
 
 > [!NOTE]
-> Use `PageFunction`, `LayoutFunction`, and `GlobalDataFunction` for ordinary synchronous or asynchronous implementations. Their `Async*` variants are available when a type must specifically require a promise return value. `PagesFunction` supports normal functions, `async` functions, and async generators.
+> Use `PageFunction`, `LayoutFunction`, `TemplateFunction`, and `GlobalDataFunction` for ordinary synchronous or asynchronous implementations.
+> Their `Async*` variants are available when a type must specifically require a promise return value, including JSDoc annotations directly on async functions.
+> `PagesFunction` supports normal functions, `async` functions, and async generators.
 
 The function types are generic and accept variable shapes that you can develop and share between files.
 
@@ -1724,21 +1887,37 @@ function getPublishedPages({ pages }: GlobalDataFunctionParams): PageData[] {
 
 #### Advanced type parameters
 
-`PageFunction`, `LayoutFunction`, and `PagesFunction` support additional type parameters for precise input and return type control:
+`PageFunction`, `LayoutFunction`, `TemplateFunction`, and `PagesFunction` support additional type parameters for precise input, data, and return type control:
 
-**PageFunction<T, U>**
+**PageFunction<T, U, D>**
+
 - `T` - The type of variables passed to the page (required)
 - `U` - The return type of the page function (optional, defaults to `any`)
+- `D` - The declared global-data shape (optional, defaults to `Record<string, unknown>`)
 
-**LayoutFunction<T, U, V>**
+**LayoutFunction<T, U, V, D>**
+
 - `T` - The type of variables passed to the layout (required)
 - `U` - The type of content received from pages as `children` (optional, defaults to `any`)
 - `V` - The return type of the layout function (optional, defaults to `string`)
+- `D` - The declared global-data shape (optional, defaults to `Record<string, unknown>`)
 
-**PagesFunction<T, U, V>**
+**TemplateFunction<T, D>**
+
+- `T` - The global vars passed to the template (required)
+- `D` - The declared global-data shape (optional, defaults to `Record<string, unknown>`)
+
+**PagesFunction<T, U, V, D, P>**
+
 - `T` - The vars added to generated pages (optional, defaults to `Record<string, any>`)
 - `U` - The static children or inline page-function return type (optional, defaults to `string`)
 - `V` - The default and global vars received by the pages factory (optional, defaults to `Record<string, any>`)
+- `D` - The factory's declared global-data shape (optional, defaults to `Record<string, unknown>`)
+- `P` - Inline pages' declared global-data shape (optional, defaults to `D` for convenience; set it independently when factory and page subscriptions differ)
+
+Each layout's input, output, and data types are independent of its parent and page.
+DOMStack resolves layout names at runtime, so it cannot statically prove that two separately declared layout modules have compatible content types.
+Manual function calls do receive normal TypeScript argument checking.
 
 This allows pages to return custom types (like VDOM or JSON), ensures layouts produce HTML strings, and keeps generated-page vars separate from the vars used to create them:
 
@@ -1849,7 +2028,7 @@ If you return it without `await` from a non-async function, or assign it where a
 Use `async function` and `await` the result.
 
 > [!CAUTION]
-> `rawHtml()` bypasses HTML escaping and is equivalent to setting `innerHTML` directly. Only use it with trusted HTML that you generated or sanitized yourself, such as the output of `await page.renderInnerPage({ pages })` or a trusted Markdown renderer. `children` passed to a layout can be any type returned by a page function and may contain unsanitized content; always verify its source before passing it to `rawHtml()`.
+> `rawHtml()` bypasses HTML escaping and is equivalent to setting `innerHTML` directly. Only use it with trusted HTML that you generated or sanitized yourself, such as the output of `await page.renderInnerPage()` or a trusted Markdown renderer. `children` passed to a layout can be any type returned by a page function and may contain unsanitized content; always verify its source before passing it to `rawHtml()`.
 
 ### Web workers
 
@@ -2231,149 +2410,176 @@ Applied examples that combine multiple DOMStack features.
 
 ### Compose nested layouts
 
-Since layouts are just functions™️, they nest naturally. If you define the majority of your HTML page metadata in a `root.layout.ts`, you can define additional layouts that act as child wrappers without having to redefine everything in `root.layout.ts`.
-
-For example, you could define a `blog.layout.ts` that re-uses the `root.layout.ts`:
+This recipe uses the [explicit `parentLayout` declaration](#declaring-nested-layouts) described in the layout API.
+Pages select their innermost layout with `vars.layout`.
+A layout can export a static `parentLayout` name to let DOMStack wrap it in another layout.
 
 ```typescript
-import defaultRootLayout from './root.layout.ts'
+// article.layout.ts
 import { html, raw, render } from 'fragtml'
-import type { HtmlResult } from 'fragtml/types.js'
 import type { LayoutFunction } from '@domstack/static/types.js'
+import type { RootLayoutVars } from './root.layout.ts'
 
-// Import the type from root layout
-import type { RootLayoutVars } from './root.layout'
+export const parentLayout = 'root'
+export const vars = { showSidebar: true }
 
-// Extend the RootLayoutVars with blog-specific properties
-interface BlogLayoutVars extends RootLayoutVars {
-  authorImgUrl?: string;
-  authorImgAlt?: string;
-  authorName?: string;
-  authorUrl?: string;
-  publishDate?: string;
-  updatedDate?: string;
+const articleLayout: LayoutFunction<RootLayoutVars, string, string> = ({ children }) => {
+  return render(html`<article>${raw(children)}</article>`)
 }
 
-const blogLayout: LayoutFunction<BlogLayoutVars, string | HtmlResult, string> = (layoutVars) => {
-  const { children: innerChildren, ...rest } = layoutVars
-  const vars = layoutVars.vars
-
-  const children = render(html`
-    <article class="article-layout h-entry" itemscope itemtype="http://schema.org/NewsArticle">
-      <header class="article-header">
-        <h1 class="p-name article-title" itemprop="headline">${vars.title}</h1>
-        <div class="metadata">
-          <address class="author-info" itemprop="author" itemscope itemtype="http://schema.org/Person">
-            ${vars.authorImgUrl
-              ? html`<img height="40" width="40" src="${vars.authorImgUrl}" alt="${vars.authorImgAlt}" class="u-photo" itemprop="image" />`
-              : null
-            }
-            ${vars.authorName && vars.authorUrl
-              ? html`
-                  <a href="${vars.authorUrl}" class="p-author h-card" itemprop="url">
-                    <span itemprop="name">${vars.authorName}</span>
-                  </a>`
-              : null
-            }
-          </address>
-          ${vars.publishDate
-            ? html`
-              <time class="dt-published" itemprop="datePublished" datetime="${vars.publishDate}">
-                <a href="#" class="u-url">
-                  ${(new Date(vars.publishDate)).toLocaleString()}
-                </a>
-              </time>`
-            : null
-          }
-          ${vars.updatedDate
-            ? html`<time class="dt-updated" itemprop="dateModified" datetime="${vars.updatedDate}">Updated ${(new Date(vars.updatedDate)).toLocaleString()}</time>`
-            : null
-          }
-        </div>
-      </header>
-
-      <section class="e-content" itemprop="articleBody">
-        ${typeof innerChildren === 'string'
-          ? html`<div>${raw(innerChildren)}</div>`
-          : innerChildren
-        }
-      </section>
-    </article>
-  `)
-
-  const rootArgs = { ...rest, children }
-  return defaultRootLayout(rootArgs)
-}
-
-export default blogLayout
+export default articleLayout
 ```
 
-Now `blog.layout.ts` becomes a nested layout of `root.layout.ts`. No magic, just functions.
-
-Alternatively, you could compose your layouts from re-usable template functions and strings.
-If you find your layouts nesting more than one or two levels, perhaps composition would be a better strategy.
-
-#### Layout composition pitfalls
-
-> [!WARNING]
-> Nested layouts must explicitly forward `scripts` and `styles`. If these values are omitted, the page renders without its CSS or client-side JavaScript, and no error is reported.
-
 ```typescript
-// wrong: scripts and styles are dropped
-return defaultRootLayout({ children, vars })
-
-// correct: forward them along
-return defaultRootLayout({ children, vars, scripts, styles })
+// posts/example/page.ts
+export const vars = { layout: 'article', title: 'A post' }
+export default () => '<p>Hello from the post.</p>'
 ```
 
-**Vars can be modified before forwarding.** The rest-spread pattern shown above forwards vars unchanged, but you can extend the object before passing it to the base layout. This is useful for setting layout-specific flags that the root layout reads:
+DOMStack renders `root(article(page()))`.
+A root layout omits `parentLayout`; child layouts can name any discovered layout, including the bundled `root`.
+Names are the same filename-derived names used by `vars.layout`, not import paths.
+Missing parents, invalid parent exports, and cycles fail the build with the offending layout or chain.
+
+All renderers receive the same resolved vars, page metadata, worker URLs, and asset lists.
+Vars merge from outermost to innermost layout, followed by page vars and builder/frontmatter vars.
+Layout `vars.layout` does not select a parent; only the named `parentLayout` export establishes nesting.
+Async layouts are awaited at every step, and intermediate values pass through unchanged until the final result is serialized.
+Each parent must accept the kind of children its immediate child returns.
+
+#### Data subscriptions in nested layouts
+
+Each layout declares only the data it reads.
+Keep focused consumer types beside their producer in `global.data.ts`:
 
 ```typescript
-const extendedVars = { ...vars, showSidebar: true, pageType: 'article' }
-return defaultRootLayout({ children, vars: extendedVars, scripts, styles })
+// global.data.ts
+export type RootLayoutData = { navigation: { title: string, url: string }[] }
+export type ArticleLayoutData = { recentPosts: { title: string, url: string }[] }
+export type GlobalData = RootLayoutData & ArticleLayoutData
 ```
 
-**Forward `page`, `pages`, and `workers` when the base layout uses them.** If your root layout accesses `page.path` for canonical URLs, iterates `pages` for navigation, or uses `workers`, those params must also be forwarded:
-
 ```typescript
-export default function articleLayout ({ children, vars, scripts, styles, page, pages, workers }) {
-  return defaultRootLayout({ children, vars, scripts, styles, page, pages, workers })
+// root.layout.ts
+import type { DataDeps } from '@domstack/static/types.js'
+import type { RootLayoutData } from './global.data.ts'
+
+export const vars = {
+  dataDeps: ['navigation'] satisfies DataDeps<RootLayoutData>,
 }
 ```
 
-Layout-specific styles and client bundles have a similar explicit-composition requirement: parent layout assets are not included automatically in nested layouts. See [Nested layout client bundles and styles](#nested-layout-client-bundles-and-styles) for the required `@import` and `import` pattern.
+```typescript
+// article.layout.ts
+import type { DataDeps } from '@domstack/static/types.js'
+import type { ArticleLayoutData } from './global.data.ts'
+
+export const parentLayout = 'root'
+export const vars = {
+  dataDeps: ['recentPosts'] satisfies DataDeps<ArticleLayoutData>,
+}
+```
+
+These declaration snippets accompany each layout's render function.
+The root receives `data.navigation`, and the article receives `data.recentPosts`.
+A page using `article` rebuilds when either key changes, but it receives neither key unless it declares its own subscription.
+Only put a subscription in a shared root when every descendant genuinely uses that data through the root.
 
 #### Nested layout client bundles and styles
 
-> [!WARNING]
-> Nested layouts do not automatically inherit the styles or client bundle of the layout they wrap. Import those assets explicitly or the rendered page will omit them.
+DOMStack includes each ancestor's own style and client entry automatically.
+The order is defaults → globals → outer layouts → inner layouts → page assets.
+For example, a post using `article` receives `root.layout.css` before `article.layout.css`.
+Do not also import the parent's layout CSS or client from the child: doing both duplicates its contents or execution.
 
-Import the wrapped layout's assets from the additional layout's client and style files. For example, if `article.layout.ts` wraps `root.layout.ts`, do the following:
+Watch mode uses the resolved chain for source-backed and generated pages.
+Changing a parent layout or one of its imported helpers rebuilds descendant pages, and changing the chain updates those relationships after a successful build.
+Existing asset edits use esbuild's watcher; adding or removing a layout asset updates the affected pages' asset lists.
 
-```css
-/* article.layout.css  */
-@import "./root.layout.css";
-```
+#### Manual composition
 
-This will include the layout style from the `root` layout in the `article` layout style.
+Manual function composition is supported and tested for source-backed and generated pages.
+Prefer `parentLayout` for ordinary nesting: DOMStack can then manage the full chain's defaults, assets, dependencies, and rebuilds for you.
+A layout without `parentLayout` still runs once, and it may import and call other render functions itself.
+DOMStack does not infer a parent from those imports, merge the imported function's vars, or add its assets.
+Manual composition must forward the required arguments and explicitly import parent assets.
+The composing layout also declares every data key its manually called helpers need and forwards `data` itself.
 
 ```typescript
-/* article.layout.client.ts  */
-import './root.layout.client.ts'
+// manual.layout.ts
+import rootLayout from './root.layout.ts'
+import type { DataDeps, LayoutFunction } from '@domstack/static/types.js'
+import type { RootLayoutVars } from './root.layout.ts'
+import type { RootLayoutData } from './global.data.ts'
+
+export const vars = { dataDeps: ['navigation'] satisfies DataDeps<RootLayoutData> }
+
+const manualLayout: LayoutFunction<RootLayoutVars, string, string, RootLayoutData> = args => {
+  return rootLayout({ ...args, children: `<article>${args.children}</article>` })
+}
+
+export default manualLayout
 ```
 
-Adding these imports will include the `root.layout.ts` layout assets into the `blog.layout.ts` asset files.
+Static import tracking still rebuilds these pages when an imported parent or helper changes.
+The composing layout's declared keys also trigger rebuilds when their global-data values change, for both source-backed and generated pages.
+If the parent has layout CSS or client code, import those files from the composing layout's corresponding asset entries.
+These manual responsibilities are why explicit `parentLayout` nesting is recommended, not a restriction on using ordinary functions.
+
+To migrate, replace the parent function call with a `parentLayout` export and return only the child wrapper.
+Move shared defaults into exported layout `vars`, and remove child imports of the parent's layout CSS and client.
+Do not keep the manual parent call when adding `parentLayout`, or the parent will render twice.
 
 ### Generate RSS and JSON feeds
 
-Templates receive the standard variables available to pages, so they can inspect pages and generate feeds from site content.
+Use `global.data.ts` to inspect and render source pages, then let a feed template subscribe to the prepared records.
 
-The following example generates an [RSS](https://www.rssboard.org) and [JSON Feed](https://www.jsonfeed.org) from the 10 most recent date-sorted pages using the `blog` layout and the AsyncIterator template type. It uses [`renderInnerPage()`](#rendering-page-content) to include each post's rendered HTML. See the [blog example's `feeds.template.ts`](https://github.com/bcomnes/domstack/blob/master/examples/blog/src/feeds.template.ts) for a working implementation.
+The following example generates an [RSS](https://www.rssboard.org) and [JSON Feed](https://www.jsonfeed.org) from the 10 most recent date-sorted pages using the `blog` layout and the AsyncIterator template type.
+It uses [`renderInnerPage()`](#rendering-page-content) while global data is computed, so the template never receives the page graph.
+See the [blog example's `global.data.ts`](https://github.com/bcomnes/domstack/blob/master/examples/blog/src/global.data.ts) and [`feeds.template.ts`](https://github.com/bcomnes/domstack/blob/master/examples/blog/src/feeds.template.ts) for a working implementation.
 
 ```typescript
+// src/global.data.ts
 import pMap from 'p-map'
+import type { AsyncGlobalDataFunction } from '@domstack/static/types.js'
+
+export interface FeedItem {
+  datePublished: string
+  title: string
+  urlPath: string
+  contentHtml: string
+}
+
+export interface GlobalData {
+  feedItems: FeedItem[]
+}
+
+export type FeedsTemplateData = Pick<GlobalData, 'feedItems'>
+
+const globalData: AsyncGlobalDataFunction<GlobalData> = async ({ pages }) => {
+  const posts = pages
+    .filter(page => page.pageInfo.path.startsWith('blog/') && page.vars.layout === 'blog')
+    .sort((a, b) => new Date(b.vars.publishDate).valueOf() - new Date(a.vars.publishDate).valueOf())
+    .slice(0, 10)
+
+  const feedItems = await pMap(posts, async page => ({
+    datePublished: String(page.vars.publishDate),
+    title: String(page.vars.title),
+    urlPath: page.pageInfo.url,
+    contentHtml: String(await page.renderInnerPage()),
+  }), { concurrency: 4 })
+
+  return { feedItems }
+}
+
+export default globalData
+```
+
+```typescript
+// src/feeds.template.ts
 import jsonfeedToAtom from 'jsonfeed-to-atom'
-import type { TemplateAsyncIterator } from '@domstack/static/types.js'
+import type { DataDeps, TemplateAsyncIterator } from '@domstack/static/types.js'
+import type { FeedsTemplateData } from './global.data.js'
 
 interface TemplateVars {
   title: string;
@@ -2387,7 +2593,9 @@ interface TemplateVars {
   language: string;
 }
 
-const feedsTemplate: TemplateAsyncIterator<TemplateVars> = async function * ({
+export const dataDeps = ['feedItems'] satisfies DataDeps<FeedsTemplateData>
+
+const feedsTemplate: TemplateAsyncIterator<TemplateVars, FeedsTemplateData> = async function * ({
   vars: {
     siteName,
     siteDescription,
@@ -2397,13 +2605,8 @@ const feedsTemplate: TemplateAsyncIterator<TemplateVars> = async function * ({
     authorUrl,
     authorImgUrl,
   },
-  pages
+  data,
 }) {
-  const blogPosts = pages
-    .filter(page => page.pageInfo.path.startsWith('blog/') && page.vars['layout'] === 'blog')
-    .sort((a, b) => new Date(b.vars.publishDate) - new Date(a.vars.publishDate))
-    .slice(0, 10)
-
   const jsonFeed = {
     version: 'https://jsonfeed.org/version/1',
     title: siteName,
@@ -2415,15 +2618,15 @@ const feedsTemplate: TemplateAsyncIterator<TemplateVars> = async function * ({
       url: authorUrl,
       avatar: authorImgUrl
     },
-    items: await pMap(blogPosts, async (page) => {
+    items: data.feedItems.map(item => {
       return {
-        date_published: page.vars['publishDate'],
-        title: page.vars['title'],
-        url: `${homePageUrl}${page.pageInfo.url}`,
-        id: `${homePageUrl}${page.pageInfo.url}#${page.vars['publishDate']}`,
-        content_html: await page.renderInnerPage({ pages })
+        date_published: item.datePublished,
+        title: item.title,
+        url: `${homePageUrl}${item.urlPath}`,
+        id: `${homePageUrl}${item.urlPath}#${item.datePublished}`,
+        content_html: item.contentHtml,
       }
-    }, { concurrency: 4 })
+    }),
   }
 
   yield {
@@ -2468,7 +2671,11 @@ export interface GlobalData {
   blogIndexes: BlogIndex[]
 }
 
-function collectBlogPosts (pages: GlobalDataFunctionParams['pages']): BlogPost[] {
+export type BlogIndexesPagesData = Pick<GlobalData, 'blogIndexes'>
+
+type SourcePageVars = { layout?: string, title?: unknown, publishDate?: unknown }
+
+function collectBlogPosts (pages: GlobalDataFunctionParams<SourcePageVars>['pages']): BlogPost[] {
   return pages
     .filter(page => page.vars.layout === 'post')
     .map(page => {
@@ -2491,7 +2698,7 @@ function collectBlogPosts (pages: GlobalDataFunctionParams['pages']): BlogPost[]
     .sort((a, b) => b.publishDate.localeCompare(a.publishDate))
 }
 
-const globalData: AsyncGlobalDataFunction<GlobalData> = async ({ pages }) => {
+const globalData: AsyncGlobalDataFunction<GlobalData, SourcePageVars> = async ({ pages }) => {
   const postsByYear = new Map<number, BlogPost[]>()
 
   for (const post of collectBlogPosts(pages)) {
@@ -2509,12 +2716,12 @@ const globalData: AsyncGlobalDataFunction<GlobalData> = async ({ pages }) => {
 export default globalData
 ```
 
-Then consume `vars.blogIndexes` and create one `blog/<year>/index.html` page per group using the `year-index` layout:
+Then subscribe to `blogIndexes` and create one `blog/<year>/index.html` page per group using the `year-index` layout:
 
 ```typescript
 // src/blog-indexes.pages.ts
-import type { PagesFunction } from '@domstack/static/types.js'
-import type { BlogPost, GlobalData } from './global.data.js'
+import type { DataDeps, PagesFunction } from '@domstack/static/types.js'
+import type { BlogIndexesPagesData, BlogPost } from './global.data.js'
 
 type YearIndexPageVars = {
   layout: 'year-index'
@@ -2522,8 +2729,15 @@ type YearIndexPageVars = {
   posts: BlogPost[]
 }
 
-const blogIndexes: PagesFunction<YearIndexPageVars, string, GlobalData> = ({ vars }) =>
-  vars.blogIndexes.map(({ year, posts }) => ({
+export const dataDeps = ['blogIndexes'] satisfies DataDeps<BlogIndexesPagesData>
+
+const blogIndexes: PagesFunction<
+  YearIndexPageVars,
+  string,
+  Record<string, never>,
+  BlogIndexesPagesData
+> = ({ data }) =>
+  data.blogIndexes.map(({ year, posts }) => ({
     outputName: `blog/${year}/index.html`,
     vars: {
       layout: 'year-index',
@@ -2602,10 +2816,12 @@ function redirectOutputName (from) {
   return relativePath.endsWith('/') ? `${relativePath}index.html` : relativePath
 }
 
-export default function redirectsPages ({ vars }) {
+export const dataDeps = ['redirects']
+
+export default function redirectsPages ({ data }) {
   const pages = []
 
-  for (const { from, to } of vars.redirects) {
+  for (const { from, to } of data.redirects) {
     pages.push({
       outputName: redirectOutputName(from),
       vars: {
@@ -2649,10 +2865,12 @@ export default function redirectLayout ({ vars }) {
 // src/redirects-netlify.txt.template.ts
 // Generates a _redirects file for Netlify / Cloudflare Pages.
 
-export default function ({ vars }) {
+export const dataDeps = ['redirects']
+
+export default function ({ data }) {
   return {
     outputName: '_redirects',
-    content: vars.redirects.map(({ from, to }) => `${from}  ${to}  301`).join('\n'),
+    content: data.redirects.map(({ from, to }) => `${from}  ${to}  301`).join('\n'),
   }
 }
 ```
@@ -2808,7 +3026,7 @@ The `buildPages()` step processes pages in parallel with a concurrency limit:
                                  │
                                  ▼
                 ┌───────────────────────────────┐
-                │  Stamp data, render + write   │
+                │ Select data, render + write   │
                 │ (Concurrency: min(CPUs, 24))  │
                 └───────────────────────────────┘
 ```
@@ -2816,12 +3034,14 @@ The `buildPages()` step processes pages in parallel with a concurrency limit:
 Variable Resolution Layers, from lowest to highest precedence:
 - **Domstack defaults** - Internal defaults such as the default `layout: 'root'`.
 - **Global vars** - Site-wide variables from `global.vars.js` (resolved once).
-- **Global data** - Derived variables from `global.data.ts`, resolved from [source-backed pages](#pages) before generated-page factories run and available to every page at final render time.
-- **Layout vars** - Optional `export const vars` from the selected layout module.
+- **Layout vars** - Optional `export const vars` from the resolved layout chain, merged outermost to innermost.
 - **Page-specific vars** vary by type:
   - **MD pages**: `page.vars.js` plus builder vars from frontmatter.
   - **HTML pages**: `page.vars.js`.
   - **JS pages**: exported `vars` plus `page.vars.js`.
+
+Global data is not a variable-resolution layer.
+It is resolved separately and projected into each consumer's `data` argument according to `dataDeps`.
 
 ### Watch mode
 
@@ -2844,20 +3064,21 @@ DOMStack uses these rebuild scopes:
 - **Full page/template rebuild**: DOMStack renders every source-backed and generated page and every template without restarting esbuild.
 - **Full rebuild**: DOMStack rediscovers the source tree, restarts esbuild, renders all pages and templates, and refreshes its dependency maps.
 
-Like templates, generated-pages modules rebuild when their own source or imported dependencies change. Receiving the `pages` collection does not create an implicit watch dependency on every source-backed page.
+Like templates, generated-pages modules rebuild when their own source or imported dependencies change.
+When a targeted build recomputes global data, DOMStack compares top-level values with the previous successful build and adds only subscribers of changed keys to the rebuild set.
 
 #### What triggers what
 
 | Change | Rebuild scope |
 |---|---|
-| Existing `page.ts`, `page.html`, `page.md`, or adjacent `page.vars.ts` | That page |
-| A module imported by a TypeScript page or `page.vars.ts` | Pages that depend on it |
+| Existing `page.ts`, `page.html`, `page.md`, or adjacent `page.vars.ts` | That page, plus subscribers of any changed global-data keys |
+| A module imported by a TypeScript page or `page.vars.ts` | Pages that depend on it, plus subscribers of any changed global-data keys |
 | Existing `*.layout.ts` or a module it imports | Source-backed pages and generated-page owners using the affected layout |
 | Existing `*.template.ts` or a module it imports | Affected templates |
 | Existing `*.pages.ts` | Generated outputs owned by that file, then refresh dependency maps |
 | A module imported by `*.pages.ts` | Generated outputs owned by the importing files, then refresh dependency maps |
-| `markdown-it.settings.ts` | All source-backed Markdown pages, generated pages, and templates |
-| `global.data.ts` | All pages and templates |
+| `markdown-it.settings.ts` | All source-backed Markdown pages, plus subscribers of any changed global-data keys |
+| `global.data.ts` | Consumers subscribed to top-level keys whose values changed |
 | `global.vars.ts` or `esbuild.settings.ts` | Full rebuild |
 | `domstack-manifest.settings.ts` | No rebuild. The manifest pipeline is disabled in watch mode |
 | Existing client, style, Web Worker, or service-worker entry | esbuild only |

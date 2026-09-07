@@ -1,3 +1,8 @@
+/**
+ * @import { TestContext } from 'node:test'
+ * @import { Logger } from 'pino'
+ */
+
 import { test, mock } from 'node:test'
 import assert from 'node:assert'
 import { DomStack } from '../../index.js'
@@ -20,6 +25,36 @@ async function setupTempSite () {
 }
 
 /**
+ * Start a watched site from a small inline fixture and register its cleanup.
+ *
+ * @param {TestContext} t
+ * @param {object} options
+ * @param {string} options.prefix
+ * @param {Record<string, string>} options.files
+ * @param {Logger} [options.logger]
+ */
+async function setupTempWatch (t, { prefix, files, logger }) {
+  const tmp = await mkdtemp(path.join(import.meta.dirname, prefix))
+  const src = path.join(tmp, 'src')
+  const dest = path.join(tmp, 'public')
+  await mkdir(src, { recursive: true })
+  await Promise.all(Object.entries(files).map(async ([relname, content]) => {
+    const filepath = path.join(src, relname)
+    await mkdir(path.dirname(filepath), { recursive: true })
+    await writeFile(filepath, content)
+  }))
+
+  const domStack = new DomStack(src, dest, { logger })
+  t.after(async () => {
+    if (domStack.watching) await domStack.stopWatching()
+    await rm(tmp, { recursive: true, force: true })
+  })
+  await domStack.watch({ serve: false })
+
+  return { src, dest, domStack }
+}
+
+/**
  * Wait for chokidar to detect a change and the rebuild to settle.
  * @param {DomStack} domStack
  * @param {number} [ms=800]
@@ -28,6 +63,86 @@ async function settle (domStack, ms = 800) {
   await new Promise(resolve => setTimeout(resolve, ms))
   await domStack.settled()
 }
+
+test('global-data imports refresh subscribers and any direct consumers of the same helper', { timeout: 30_000 }, async t => {
+  for (const scenario of [
+    { helper: 'value.js', direct: false },
+    { helper: 'client.js', direct: false },
+    { helper: 'value.js', direct: true },
+    { helper: 'client.js', direct: true },
+  ]) {
+    const { helper, direct } = scenario
+    await t.test(`${helper}, ${direct ? 'with direct consumer' : 'global-data consumers only'}`, async t => {
+      const { src, dest, domStack } = await setupTempWatch(t, {
+        prefix: '.tmp-data-imports-',
+        files: {
+          'global.vars.js': "export default { layout: 'root' }",
+          'root.layout.js': 'export default ({ children }) => children',
+          [helper]: "export const value = 'first'",
+          'global.data.js': `import { value } from './${helper}'; export default { value }`,
+          'page.js': "export const vars = { dataDeps: ['value'] }; export default ({data}) => data.value",
+          ...(direct ? { 'direct/page.js': `import { value } from '../${helper}'; export default () => value` } : {}),
+          'unchanged/page.html': 'Unrelated',
+          'value.txt.template.js': "export const dataDeps = ['value']; export default ({data}) => data.value",
+          'value.pages.js': "export const dataDeps = ['value']; export default ({data}) => ({ outputName: 'generated.html', children: data.value })",
+        },
+      })
+      const unrelatedTime = (await stat(path.join(dest, 'unchanged/index.html'))).mtimeMs
+      const outputs = ['index.html', 'value.txt', 'generated.html', ...(direct ? ['direct/index.html'] : [])]
+      for (const name of outputs) assert.match(await readFile(path.join(dest, name), 'utf8'), /first/)
+      await writeFile(path.join(src, helper), "export const value = 'second'")
+      await settle(domStack)
+      for (const name of outputs) {
+        assert.match(await readFile(path.join(dest, name), 'utf8'), /second/)
+      }
+      if (helper === 'client.js') assert.match(await readFile(path.join(dest, helper), 'utf8'), /second/)
+      assert.equal((await stat(path.join(dest, 'unchanged/index.html'))).mtimeMs, unrelatedTime)
+    })
+  }
+})
+
+test('targeted factories reserve untouched owners outputs and recover after a collision', { timeout: 30_000 }, async t => {
+  /** @type {string[]} */
+  const logs = []
+  const { src, dest, domStack } = await setupTempWatch(t, {
+    prefix: '.tmp-owner-conflict-',
+    logger: createTestLogger(logs),
+    files: {
+      'global.vars.js': "export default { layout: 'root' }",
+      'root.layout.js': 'export default ({ children }) => children',
+      'a.pages.js': "export default { outputName: 'a.html', children: 'Owner A' }",
+      'b.pages.js': "export default { outputName: 'b.html', children: 'Owner B' }",
+    },
+  })
+  const retainedTime = (await stat(path.join(dest, 'b.html'))).mtimeMs
+  await writeFile(path.join(src, 'a.pages.js'), "export default { outputName: 'b.html', children: 'Collision' }")
+  await settle(domStack)
+  assert.ok(logs.some(line => line.includes('Output path conflict: b.html is produced by both b.pages.js and a.pages.js#0.')), 'both conflicting producers use source-relative names')
+  assert.match(await readFile(path.join(dest, 'b.html'), 'utf8'), /Owner B/)
+  assert.match(await readFile(path.join(dest, 'a.html'), 'utf8'), /Owner A/)
+  assert.equal((await stat(path.join(dest, 'b.html'))).mtimeMs, retainedTime)
+  await writeFile(path.join(src, 'a.pages.js'), "export default { outputName: 'c.html', children: 'Recovered' }")
+  await settle(domStack)
+  assert.match(await readFile(path.join(dest, 'c.html'), 'utf8'), /Recovered/)
+  await assert.rejects(stat(path.join(dest, 'a.html')), { code: 'ENOENT' })
+  assert.match(await readFile(path.join(dest, 'b.html'), 'utf8'), /Owner B/)
+})
+
+test('watch recovers from an initial layout subscription error before any routing state exists', { timeout: 30_000 }, async t => {
+  const { src, dest, domStack } = await setupTempWatch(t, {
+    prefix: '.tmp-data-recovery-',
+    logger: createTestLogger([]),
+    files: {
+      'global.vars.js': "export default { layout: 'root' }",
+      'global.data.js': "export default { value: 'Recovered' }",
+      'root.layout.js': "export const vars = { dataDeps: ['missing'] }; export default ({ children }) => children",
+      'page.html': 'Page',
+    },
+  })
+  await writeFile(path.join(src, 'root.layout.js'), "export const vars = { dataDeps: ['value'] }; export default ({data, children}) => data.value + children")
+  await settle(domStack)
+  assert.match(await readFile(path.join(dest, 'index.html'), 'utf8'), /Recovered/)
+})
 
 /**
  * Collect all console.log call arguments and logger chunks into a flat string array.
@@ -64,10 +179,91 @@ function createTestLogger (logs) {
     child () { return logger },
   }
 
-  return /** @type {import('pino').Logger} */ (/** @type {unknown} */ (logger))
+  return /** @type {Logger} */ (/** @type {unknown} */ (logger))
 }
 
 test.describe('watch', () => {
+  test('maps pages to the layout that actually rendered them', { timeout: 20_000 }, async (t) => {
+    const { src, dest, domStack } = await setupTempWatch(t, {
+      prefix: '.tmp-layout-report-',
+      files: {
+        'global.vars.js': "export default { layout: 'root' }\n",
+        'root.layout.js': "export const vars = { layout: 'shadowed' }; export default ({ children }) => 'root-v1:' + children\n",
+        'shadowed.layout.js': "export default ({ children }) => 'shadowed:' + children\n",
+        'page.js': "export default () => 'content'\n",
+      },
+    })
+    const rootLayout = path.join(src, 'root.layout.js')
+    const outputPath = path.join(dest, 'index.html')
+    assert.equal(await readFile(outputPath, 'utf8'), 'root-v1:content')
+
+    await writeFile(rootLayout, "export const vars = { layout: 'shadowed' }; export default ({ children }) => 'root-v2:' + children\n")
+    await settle(domStack)
+
+    assert.equal(await readFile(outputPath, 'utf8'), 'root-v2:content')
+  })
+
+  test('updates layout mapping after builder vars select a new layout', { timeout: 20_000 }, async (t) => {
+    const { src, dest, domStack } = await setupTempWatch(t, {
+      prefix: '.tmp-builder-layout-',
+      files: {
+        'global.vars.js': "export default { layout: 'root' }\n",
+        'root.layout.js': "export default ({ children }) => 'root:' + children\n",
+        'blog.layout.js': "export default ({ children }) => 'blog-v1:' + children\n",
+        'page.js': "export const vars = { layout: 'root' }; export default () => 'content'\n",
+      },
+    })
+    const pageFile = path.join(src, 'page.js')
+    const blogLayout = path.join(src, 'blog.layout.js')
+    const outputPath = path.join(dest, 'index.html')
+    assert.equal(await readFile(outputPath, 'utf8'), 'root:content')
+
+    await writeFile(pageFile, "export const vars = { layout: 'blog' }; export default () => 'content'\n")
+    await settle(domStack)
+    assert.equal(await readFile(outputPath, 'utf8'), 'blog-v1:content')
+
+    await writeFile(blogLayout, "export default ({ children }) => 'blog-v2:' + children\n")
+    await settle(domStack)
+    assert.equal(await readFile(outputPath, 'utf8'), 'blog-v2:content')
+  })
+
+  test('retries a failed build without discarding successful outputs, then resumes targeted layout routing', { timeout: 20_000 }, async (t) => {
+    const loggerLogs = /** @type {string[]} */ ([])
+    const { src, dest, domStack } = await setupTempWatch(t, {
+      prefix: '.tmp-failed-layout-',
+      logger: createTestLogger(loggerLogs),
+      files: {
+        'global.vars.js': "export default { layout: 'root' }\n",
+        'root.layout.js': "export default ({ children }) => 'root-v1:' + children\n",
+        'page.js': "export default () => 'content'\n",
+        'other.layout.js': 'export default ({children}) => children',
+        'other/page.js': "export const vars = {layout: 'other'}; export default () => 'Unrelated'",
+      },
+    })
+    const pageFile = path.join(src, 'page.js')
+    const rootLayout = path.join(src, 'root.layout.js')
+    await writeFile(pageFile, 'export default (\n')
+    await settle(domStack)
+
+    loggerLogs.length = 0
+    await writeFile(rootLayout, "export default ({ children }) => 'root-v2:' + children\n")
+    await settle(domStack)
+
+    assert.ok(loggerLogs.some(line => line.includes('retrying all pages after the previous build failure')))
+    assert.ok(!loggerLogs.some(line => line.includes('no pages use layout "root"')))
+    assert.equal(await readFile(path.join(dest, 'index.html'), 'utf8'), 'root-v1:content')
+    await writeFile(pageFile, "export default () => 'content'")
+    await settle(domStack)
+    assert.equal(await readFile(path.join(dest, 'index.html'), 'utf8'), 'root-v2:content')
+    const unrelatedTime = (await stat(path.join(dest, 'other/index.html'))).mtimeMs
+    loggerLogs.length = 0
+    await writeFile(rootLayout, "export default ({ children }) => 'root-v3:' + children")
+    await settle(domStack)
+    assert.equal(await readFile(path.join(dest, 'index.html'), 'utf8'), 'root-v3:content')
+    assert.equal((await stat(path.join(dest, 'other/index.html'))).mtimeMs, unrelatedTime, 'successful recovery resumes targeted routing')
+    assert.ok(loggerLogs.some(line => line.includes('"root.layout.js" changed:') && line.includes('index.html')))
+  })
+
   test('targets generated-page owners independently', { timeout: 30_000 }, async (t) => {
     const tmp = await mkdtemp(path.join(import.meta.dirname, '.tmp-generated-'))
     const src = path.join(tmp, 'src')
@@ -216,6 +412,36 @@ test.describe('watch', () => {
         !logs.some(l => l.includes('Triggering full rebuild')),
         'did not trigger a full rebuild'
       )
+    })
+
+    await t.test('layout change rebuilds pages that select it through frontmatter', async () => {
+      const layoutFile = path.join(src, 'layouts/blog.layout.js')
+      const pageOutput = path.join(dest, 'md-page/index.html')
+      const original = await readFile(layoutFile, 'utf8')
+      await writeFile(layoutFile, original.replace('article-layout h-entry', 'article-layout frontmatter-layout-updated h-entry'))
+
+      await settle(domStack)
+
+      const output = await readFile(pageOutput, 'utf8')
+      assert.match(output, /frontmatter-layout-updated/)
+    })
+
+    await t.test('changed global data keys rebuild consumers of those keys', async () => {
+      mockLog.mock.resetCalls()
+      loggerLogs.length = 0
+      const sourcePage = path.join(src, 'blog/2023/a-blog-post-from-2023/README.md')
+      const indexOutput = path.join(dest, 'index.html')
+      const original = await readFile(sourcePage, 'utf8')
+      assert.match(await readFile(indexOutput, 'utf8'), /A Blogpost from 2023/)
+      await writeFile(sourcePage, original.replace('A Blogpost from 2023', 'Updated collection title'))
+
+      await settle(domStack)
+
+      const output = await readFile(indexOutput, 'utf8')
+      assert.match(output, /Updated collection title/)
+      assert.doesNotMatch(output, /A Blogpost from 2023/)
+      const logs = getLogLines(mockLog, loggerLogs)
+      assert.ok(logs.some(line => line.includes('Pages built: 2')), 'only the changed page and global-data consumer rebuild')
     })
 
     // ── esbuild entry point change → no page rebuild ─────────────────
@@ -383,24 +609,30 @@ test.describe('watch', () => {
       )
     })
 
-    // ── global.data.js change → all pages rebuild ────────────────────
-    await t.test('global.data.js change rebuilds all pages', async () => {
+    // ── global.data.js change → only subscribers of changed keys rebuild ──
+    await t.test('global.data.js change rebuilds only affected subscribers', async () => {
       mockLog.mock.resetCalls()
       loggerLogs.length = 0
       const globalData = path.join(src, 'global.data.js')
       const original = await readFile(globalData, 'utf8')
-      await writeFile(globalData, original + '\n// touch')
+      const templateOutput = path.join(dest, 'feeds/feed.json')
+      assert.equal(JSON.parse(await readFile(templateOutput, 'utf8'))._globalDataSentinel, 'data-from-global-dot-data')
+      await writeFile(globalData, original.replace(
+        'data-from-global-dot-data',
+        'updated-global-data-sentinel'
+      ))
 
       await settle(domStack)
 
       const logs = getLogLines(mockLog, loggerLogs)
+      assert.equal(JSON.parse(await readFile(templateOutput, 'utf8'))._globalDataSentinel, 'updated-global-data-sentinel')
       assert.ok(
-        logs.some(l => l.includes('rebuilding all pages')),
-        'log shows all pages are being rebuilt'
+        logs.some(l => l.includes('rebuilding data subscribers')),
+        'log shows declared data subscribers are being considered'
       )
       assert.ok(
-        logs.some(l => l.includes('Build Success')),
-        'build succeeded'
+        logs.some(l => l.includes('Pages built: 0 Templates built: 1')),
+        'only the template subscribed to the changed key rebuilds'
       )
     })
 

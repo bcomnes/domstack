@@ -8,8 +8,9 @@
  * @import { BsInstance } from '@domstack/sync'
  * @import { Logger as PinoLogger } from 'pino'
  * @import { DomstackManifestRecord } from './lib/domstack-manifest/index.js'
+ * @import { WatchDependencyState } from './lib/build-pages/watch-dependencies.js'
  * @typedef {{ dispose: () => Promise<void> }} DisposableBuildContext
- * @typedef {{ pageFilePath: string, pagesFilePath?: string | undefined, layoutName?: string | undefined, outputs?: DomstackManifestRecord[] | undefined }} WatchedPageReport
+ * @typedef {{ pageFilePath: string, sourcePageFilePath?: string | undefined, pagesFilePath?: string | undefined, layoutNames: string[], outputs?: DomstackManifestRecord[] | undefined }} WatchedPageReport
  */
 import { once } from 'events'
 import assert from 'node:assert'
@@ -33,12 +34,8 @@ import { buildEsbuildWatch } from './lib/build-esbuild/index.js'
 import { buildPages } from './lib/build-pages/index.js'
 import {
   identifyPages,
-  layoutSuffixs,
   layoutStyleSuffix,
-  templateSuffixs,
-  pagesSuffixs,
   globalVarsNames,
-  globalDataNames,
   esbuildSettingsNames,
   markdownItSettingsNames,
   domstackManifestSettingsNames,
@@ -50,7 +47,6 @@ import {
   pageWorkerSuffixs,
   serviceWorkerNames,
 } from './lib/identify-pages.js'
-import { resolveVars } from './lib/build-pages/resolve-vars.js'
 import { ensureDest } from './lib/helpers/ensure-dest.js'
 import { DomStackAggregateError } from './lib/helpers/domstack-aggregate-error.js'
 import { createDomStackLogger } from './lib/logger.js'
@@ -93,6 +89,8 @@ export class DomStack {
   #layoutDepMap = new Map()
   /** @type {Map<string, Set<PageInfo>>} layoutName → Set<PageInfo> */
   #layoutPageMap = new Map()
+  /** @type {Map<string, string[]>} source filepath → last successfully rendered layout chain */
+  #pageLayoutNamesMap = new Map()
   /** @type {Map<string, PageInfo>} filepath → PageInfo */
   #pageFileMap = new Map()
   /** @type {Map<string, string>} filepath → layoutName */
@@ -103,6 +101,8 @@ export class DomStack {
   #templateDepMap = new Map()
   /** @type {Map<string, Set<PagesFileInfo>>} depFilepath → Set<PagesFileInfo> */
   #pagesFileDepMap = new Map()
+  /** @type {Set<string>} Imported inputs of global.data, including its entry file. */
+  #globalDataDepPaths = new Set()
   /** @type {Set<string>} absolute filepaths of esbuild entry points */
   #esbuildEntryPoints = new Set()
   /** @type {Set<string>} destination-relative outputs from the last successful page builds */
@@ -111,6 +111,10 @@ export class DomStack {
   #pagesFileOutputMap = new Map()
   /** @type {Map<string, Set<string>>} *.pages.* filepath → layouts used by its generated pages */
   #pagesFileLayoutMap = new Map()
+  /** @type {WatchDependencyState | null} subscriptions and fingerprints from the last successful page build */
+  #watchDependencies = null
+  /** @type {boolean} Failed builds may leave the previous routing state incomplete. */
+  #pageBuildFailed = false
 
   // Serialized lock so concurrent chokidar events don't pile up
   /** @type {Promise<void>} */
@@ -197,6 +201,7 @@ export class DomStack {
     try {
       const pageBuildResults = await buildPages(this.#src, this.#dest, siteData, {
         ...this.opts,
+        trackWatchDependencies: true,
       })
       if (pageBuildResults.errors.length > 0) {
         throw new DomStackAggregateError(pageBuildResults.errors, 'Page build finished but there were errors.', {
@@ -212,12 +217,18 @@ export class DomStack {
       this.#pageOutputRelnames = getPageOutputRelnames(pageBuildResults.outputs)
       this.#pagesFileOutputMap = getPagesFileOutputMap(pageBuildResults.report.pages)
       this.#pagesFileLayoutMap = getPagesFileLayoutMap(pageBuildResults.report.pages)
+      this.#updatePageLayoutNames(pageBuildResults.report.pages, true)
+      this.#pageBuildFailed = false
+      this.#watchDependencies = pageBuildResults.report.watchDependencies ?? null
+      delete pageBuildResults.report.watchDependencies
+      delete pageBuildResults.report.rebuiltPagesFilePaths
       buildLogger(report, this.#logger)
       this.#logger.info('Initial JS, CSS and Page Build Complete')
     } catch (err) {
-      errorLogger(err, this.#logger)
       if (!(err instanceof DomStackAggregateError)) throw new Error('Non-aggregate error thrown', { cause: err })
+      this.#pageBuildFailed = true
       report = err.results
+      errorLogger(err, this.#logger)
     }
 
     // Build watch maps after initial build
@@ -435,8 +446,7 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
   }
 
   /**
-   * Full page rebuild only: re-run all pages+templates with existing esbuild context.
-   * Used for global.data.*, markdown-it.settings.* (all md pages).
+   * Run a full or filtered page build with the existing esbuild context.
    *
    * @param {SiteData} siteData
    * @param {string[] | null} [pageFilterPaths]
@@ -444,12 +454,17 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
    * @param {string[] | null} [pagesFileFilterPaths]
    */
   async #runPageBuild (siteData, pageFilterPaths = null, templateFilterPaths = null, pagesFileFilterPaths = null) {
+    // Retry the complete page phase after a failure: neither subscriptions nor
+    // layout routing from a failed build can safely drive an incremental retry.
+    if (this.#pageBuildFailed) pageFilterPaths = templateFilterPaths = pagesFileFilterPaths = null
     try {
       const pageBuildResults = await buildPages(this.#src, this.#dest, siteData, {
         ...this.opts,
         ...(pageFilterPaths ? { pageFilterPaths } : {}),
         ...(templateFilterPaths ? { templateFilterPaths } : {}),
         ...(pagesFileFilterPaths ? { pagesFileFilterPaths } : {}),
+        previousWatchDependencies: this.#watchDependencies,
+        trackWatchDependencies: true,
       })
       if (pageBuildResults.errors.length > 0) {
         throw new DomStackAggregateError(pageBuildResults.errors, 'Page build finished but there were errors.', {
@@ -458,14 +473,20 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
         })
       }
       const isFiltered = pageFilterPaths !== null || templateFilterPaths !== null || pagesFileFilterPaths !== null
+      this.#updatePageLayoutNames(pageBuildResults.report.pages, !isFiltered)
       if (!isFiltered) {
         await this.#removeObsoletePageOutputs(pageBuildResults.outputs)
         this.#pagesFileOutputMap = getPagesFileOutputMap(pageBuildResults.report.pages)
         this.#pagesFileLayoutMap = getPagesFileLayoutMap(pageBuildResults.report.pages)
-      } else if (pagesFileFilterPaths !== null) {
-        await this.#removeObsoleteGeneratedPageOutputs(pagesFileFilterPaths, pageBuildResults.report.pages)
-        updatePagesFileLayoutMap(this.#pagesFileLayoutMap, pagesFileFilterPaths, pageBuildResults.report.pages)
+      } else if ((pageBuildResults.report.rebuiltPagesFilePaths?.length ?? 0) > 0) {
+        await this.#removeObsoleteGeneratedPageOutputs(pageBuildResults.report.rebuiltPagesFilePaths ?? [], pageBuildResults.report.pages)
+        updatePagesFileLayoutMap(this.#pagesFileLayoutMap, pageBuildResults.report.rebuiltPagesFilePaths ?? [], pageBuildResults.report.pages)
       }
+      this.#watchDependencies = pageBuildResults.report.watchDependencies ?? this.#watchDependencies
+      delete pageBuildResults.report.watchDependencies
+      delete pageBuildResults.report.rebuiltPagesFilePaths
+      await this.#rebuildMaps(siteData)
+      this.#pageBuildFailed = false
       buildLogger(
         isFiltered ? pageBuildResults : { warnings: pageBuildResults.warnings, siteData, pageBuildResults },
         this.#logger,
@@ -473,6 +494,7 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
       )
       return pageBuildResults
     } catch (err) {
+      this.#pageBuildFailed = true
       errorLogger(err, this.#logger)
     }
   }
@@ -536,20 +558,6 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
   }
 
   /**
-   * Rebuild generated outputs owned by selected pages files and refresh their
-   * dependency maps after a successful build.
-   *
-   * @param {SiteData} siteData
-   * @param {Set<PagesFileInfo>} pagesFiles
-   */
-  async #runTargetedPagesFileBuild (siteData, pagesFiles) {
-    const pagesFileFilterPaths = Array.from(pagesFiles, pagesFile => pagesFile.pagesFile.filepath)
-    const pageBuildResults = await this.#runPageBuild(siteData, [], [], pagesFileFilterPaths)
-    if (pageBuildResults) await this.#rebuildMaps(siteData)
-    return pageBuildResults
-  }
-
-  /**
    * Find generated-page owners whose last successful outputs used any affected layout.
    *
    * @param {Set<string>} layoutNames
@@ -579,7 +587,20 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
   }
 
   /**
-   * Build and maintain the six watch maps from siteData.
+   * Record source-page layout chains only after successful builds.
+   *
+   * @param {WatchedPageReport[]} reports
+   * @param {boolean} replace
+   */
+  #updatePageLayoutNames (reports, replace) {
+    if (replace) this.#pageLayoutNamesMap.clear()
+    for (const report of reports) {
+      if (report.sourcePageFilePath) this.#pageLayoutNamesMap.set(report.sourcePageFilePath, report.layoutNames)
+    }
+  }
+
+  /**
+   * Build and maintain the watch maps from siteData.
    * `find()` returns CWD-relative paths; we resolve them to absolute for map keys.
    *
    * @param {SiteData} siteData
@@ -592,6 +613,15 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
     const pageDepMap = /** @type {Map<string, Set<PageInfo>>} */ (new Map())
     const templateDepMap = /** @type {Map<string, Set<TemplateInfo>>} */ (new Map())
     const pagesFileDepMap = /** @type {Map<string, Set<PagesFileInfo>>} */ (new Map())
+    const globalDataDepPaths = new Set()
+    if (siteData.globalData) {
+      globalDataDepPaths.add(siteData.globalData.filepath)
+      try {
+        for (const dep of await find(siteData.globalData.filepath)) globalDataDepPaths.add(resolve(dep))
+      } catch {
+        // Static import analysis is best-effort, as for page and layout helpers.
+      }
+    }
 
     // layoutFileMap: layout filepath → layoutName
     for (const layout of Object.values(siteData.layouts)) {
@@ -612,29 +642,12 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
       }
     }
 
-    // layoutPageMap: layoutName → Set<PageInfo>
-    // Build by reading each page's vars file (lightweight, no full render)
-    const defaultVars = /** @type {{ layout?: string }} */ (await resolveVars({
-      varsPath: resolve(import.meta.dirname, 'lib/defaults/default.vars.js'),
-    }))
-    const bareGlobalVars = /** @type {{ layout?: string }} */ (await resolveVars({
-      varsPath: siteData?.globalVars?.filepath,
-    }))
-    const globalVars = { ...defaultVars, ...bareGlobalVars }
-    const defaultLayout = globalVars.layout ?? 'root'
-
+    // Use the worker's actual selection, including frontmatter and all ancestors.
     for (const pageInfo of siteData.pages) {
-      let layoutName = defaultLayout
-      if (pageInfo.pageVars) {
-        try {
-          const pageVars = /** @type {{ layout?: string }} */ (await resolveVars({ varsPath: pageInfo.pageVars.filepath }))
-          if (typeof pageVars.layout === 'string') layoutName = pageVars.layout
-        } catch {
-          // fall back to default
-        }
+      for (const layoutName of this.#pageLayoutNamesMap.get(pageInfo.pageFile.filepath) ?? []) {
+        if (!layoutPageMap.has(layoutName)) layoutPageMap.set(layoutName, new Set())
+        layoutPageMap.get(layoutName)?.add(pageInfo)
       }
-      if (!layoutPageMap.has(layoutName)) layoutPageMap.set(layoutName, new Set())
-      layoutPageMap.get(layoutName)?.add(pageInfo)
     }
 
     // pageFileMap: page filepath & page.vars filepath → PageInfo
@@ -714,6 +727,7 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
     this.#pageDepMap = pageDepMap
     this.#templateDepMap = templateDepMap
     this.#pagesFileDepMap = pagesFileDepMap
+    this.#globalDataDepPaths = globalDataDepPaths
     this.#esbuildEntryPoints = esbuildEntryPoints
   }
 
@@ -734,10 +748,10 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
       return this.#fullRebuild()
     }
 
-    // 3. global.data.* → full page rebuild (no esbuild restart)
-    if (globalDataNames.some(n => changedBasename === n)) {
-      this.#logger.info(`"${changedBasename}" changed, rebuilding all pages...`)
-      return this.#runPageBuild(siteData)
+    // 3. global.data.* → recompute data and rebuild only declared subscribers
+    const globalDataChanged = this.#globalDataDepPaths.has(changedPath)
+    if (globalDataChanged) {
+      this.#logger.info(`"${changedBasename}" changed, rebuilding data subscribers...`)
     }
 
     // 4. esbuild.settings.* → full rebuild
@@ -746,12 +760,12 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
       return this.#fullRebuild()
     }
 
-    // 5. markdown-it.settings.* → rebuild Markdown pages and all consumers that
-    // may render their content. Calls to renderInnerPage() cannot be inferred statically.
+    // 5. markdown-it.settings.* → rebuild Markdown pages and any data subscribers
+    // affected by global.data recomputation.
     if (markdownItSettingsNames.some(n => changedBasename === n)) {
       const mdPages = new Set(siteData.pages.filter(p => p.type === 'md'))
       logRebuildTree(changedBasename, this.#logger, mdPages)
-      return this.#runPageBuild(siteData, Array.from(mdPages).map(p => p.pageFile.filepath), null, null)
+      return this.#runPageBuild(siteData, Array.from(mdPages).map(p => p.pageFile.filepath), [], [])
     }
 
     // domstack-manifest.settings.* only affects one-shot domstack manifest generation.
@@ -761,102 +775,56 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
       return
     }
 
-    // 6. esbuild entry point (client.js, style.css, .layout.css, .layout.client.*, *.worker.*, global.client.*, global.css)
-    // esbuild's own watcher handles these. Stable filenames mean page HTML doesn't
-    // change, so no page rebuild is needed.
+    if (this.#pageBuildFailed) {
+      this.#logger.info(`"${changedBasename}" changed, retrying all pages after the previous build failure...`)
+      return this.#runPageBuild(siteData)
+    }
+
+    // A source can serve several roles at once: an imported parent layout may
+    // also be selected directly, and a helper may be shared by pages and templates.
+    // Union every matching consumer before scheduling one build.
+    const affectedLayouts = new Set(this.#layoutDepMap.get(changedPath))
+    const directLayout = this.#layoutFileMap.get(changedPath)
+    if (directLayout) affectedLayouts.add(directLayout)
+
+    const affectedPages = new Set(this.#pageDepMap.get(changedPath))
+    const directPage = this.#pageFileMap.get(changedPath)
+    if (directPage) affectedPages.add(directPage)
+    for (const name of affectedLayouts) {
+      for (const page of this.#layoutPageMap.get(name) ?? []) affectedPages.add(page)
+    }
+
+    const affectedTemplates = new Set(this.#templateDepMap.get(changedPath))
+    for (const template of siteData.templates) {
+      if (template.templateFile.filepath === changedPath) affectedTemplates.add(template)
+    }
+
+    const affectedOwners = new Set(this.#getPagesFilePathsUsingLayouts(affectedLayouts))
+    for (const pagesFile of this.#pagesFileDepMap.get(changedPath) ?? []) {
+      affectedOwners.add(pagesFile.pagesFile.filepath)
+    }
+    for (const pagesFile of siteData.pagesFiles ?? []) {
+      if (pagesFile.pagesFile.filepath === changedPath) affectedOwners.add(changedPath)
+    }
+
+    if (globalDataChanged || affectedPages.size || affectedTemplates.size || affectedOwners.size) {
+      logRebuildTree(changedBasename, this.#logger, affectedPages, affectedTemplates)
+      return this.#runPageBuild(
+        siteData,
+        Array.from(affectedPages, page => page.pageFile.filepath),
+        Array.from(affectedTemplates, template => template.templateFile.filepath),
+        [...affectedOwners]
+      )
+    }
+
+    // Browser entry points can also be imported by server-side consumers.
+    // Only skip the page phase once all those consumers have been considered.
     if (this.#esbuildEntryPoints.has(changedPath)) {
       this.#logger.info(`"${changedBasename}" changed, esbuild will handle rebundling.`)
       return
     }
 
-    // 7. Layout file itself → rebuild pages using that layout
-    if (layoutSuffixs.some(s => changedBasename.endsWith(s))) {
-      const layoutName = this.#layoutFileMap.get(changedPath)
-      if (layoutName) {
-        const affectedPages = this.#layoutPageMap.get(layoutName)
-        const pagesFileFilterPaths = this.#getPagesFilePathsUsingLayouts(new Set([layoutName]))
-        if ((affectedPages?.size ?? 0) > 0 || pagesFileFilterPaths.length > 0) {
-          logRebuildTree(changedBasename, this.#logger, affectedPages)
-          const pageFilterPaths = Array.from(affectedPages ?? []).map(p => p.pageFile.filepath)
-          return this.#runPageBuild(siteData, pageFilterPaths, [], pagesFileFilterPaths)
-        }
-        this.#logger.info(`"${changedBasename}" changed but no pages use layout "${layoutName}", skipping.`)
-        return
-      }
-      // Not a registered layout — fall through to dep checks
-    }
-
-    // 8. Dep of a layout
-    if (this.#layoutDepMap.has(changedPath)) {
-      const affectedLayoutNames = this.#layoutDepMap.get(changedPath) ?? new Set()
-      const affectedPages = new Set(/** @type {PageInfo[]} */ ([]))
-      for (const layoutName of affectedLayoutNames) {
-        const pages = this.#layoutPageMap.get(layoutName)
-        if (pages) for (const p of pages) affectedPages.add(p)
-      }
-      const pagesFileFilterPaths = this.#getPagesFilePathsUsingLayouts(affectedLayoutNames)
-      if (affectedPages.size > 0 || pagesFileFilterPaths.length > 0) {
-        logRebuildTree(changedBasename, this.#logger, affectedPages)
-        const pageFilterPaths = Array.from(affectedPages).map(p => p.pageFile.filepath)
-        return this.#runPageBuild(siteData, pageFilterPaths, [], pagesFileFilterPaths)
-      }
-    }
-
-    // 9. Page file or page.vars file
-    if (this.#pageFileMap.has(changedPath)) {
-      const affectedPage = this.#pageFileMap.get(changedPath)
-      if (affectedPage) {
-        logRebuildTree(changedBasename, this.#logger, new Set([affectedPage]))
-        return this.#runPageBuild(siteData, [affectedPage.pageFile.filepath], [], [])
-      }
-    }
-
-    // 10. Pages file itself → rebuild outputs owned by that file
-    if (pagesSuffixs.some(s => changedBasename.endsWith(s))) {
-      const pagesFile = siteData.pagesFiles?.find(p => p.pagesFile.filepath === changedPath)
-      if (pagesFile) {
-        this.#logger.info(`"${changedBasename}" changed, rebuilding its generated pages...`)
-        return this.#runTargetedPagesFileBuild(siteData, new Set([pagesFile]))
-      }
-    }
-
-    // 11. Template file itself
-    if (templateSuffixs.some(s => changedBasename.endsWith(s))) {
-      const templateInfo = siteData.templates.find(t => t.templateFile.filepath === changedPath)
-      if (templateInfo) {
-        logRebuildTree(changedBasename, this.#logger, undefined, new Set([templateInfo]))
-        return this.#runPageBuild(siteData, [], [templateInfo.templateFile.filepath], [])
-      }
-    }
-
-    // 12. Dep of a page.js or page.vars
-    if (this.#pageDepMap.has(changedPath)) {
-      const affectedPages = this.#pageDepMap.get(changedPath) ?? new Set()
-      if (affectedPages.size > 0) {
-        logRebuildTree(changedBasename, this.#logger, affectedPages)
-        const pageFilterPaths = Array.from(affectedPages).map(p => p.pageFile.filepath)
-        return this.#runPageBuild(siteData, pageFilterPaths, [], [])
-      }
-    }
-
-    // 13. Dep of a pages file → rebuild outputs owned by affected files
-    if (this.#pagesFileDepMap.has(changedPath)) {
-      const affectedPagesFiles = this.#pagesFileDepMap.get(changedPath) ?? new Set()
-      this.#logger.info(`"${changedBasename}" changed, rebuilding affected generated pages...`)
-      return this.#runTargetedPagesFileBuild(siteData, affectedPagesFiles)
-    }
-
-    // 14. Dep of a template file
-    if (this.#templateDepMap.has(changedPath)) {
-      const affectedTemplates = this.#templateDepMap.get(changedPath) ?? new Set()
-      if (affectedTemplates.size > 0) {
-        logRebuildTree(changedBasename, this.#logger, undefined, affectedTemplates)
-        const templateFilterPaths = Array.from(affectedTemplates).map(t => t.templateFile.filepath)
-        return this.#runPageBuild(siteData, [], templateFilterPaths, [])
-      }
-    }
-
-    // 15. No matching rule — skip.
+    // No matching rule — skip.
     this.#logger.info(`"${changedBasename}" changed but did not match any rebuild rule, skipping.`)
   }
 
@@ -926,9 +894,9 @@ function getPagesFileLayoutMap (pageReports) {
   const layoutsByOwner = new Map()
 
   for (const report of pageReports) {
-    if (!report.pagesFilePath || !report.layoutName) continue
+    if (!report.pagesFilePath) continue
     const layouts = layoutsByOwner.get(report.pagesFilePath) ?? new Set()
-    layouts.add(report.layoutName)
+    for (const name of report.layoutNames) layouts.add(name)
     layoutsByOwner.set(report.pagesFilePath, layouts)
   }
 

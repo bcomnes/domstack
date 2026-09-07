@@ -1,6 +1,17 @@
 import { html, render } from 'fragtml'
 import type { AsyncGlobalDataFunction, GlobalDataFunctionParams } from '@domstack/static/types.js'
 
+// Frontmatter is input, not yet a validated feed or archive record.
+type SourcePageVars = {
+  layout?: string
+  title?: unknown
+  publishDate?: unknown
+  description?: unknown
+  tags?: unknown
+  redirectFrom?: unknown
+}
+type SourcePages = GlobalDataFunctionParams<SourcePageVars, unknown>['pages']
+
 export interface BlogPost {
   path: string
   title: string
@@ -14,6 +25,10 @@ export interface BlogIndex {
   posts: BlogPost[]
 }
 
+export interface FeedItem extends BlogPost {
+  contentHtml: string
+}
+
 export interface PageRedirect {
   /** Old same-origin URL path that should redirect. */
   from: string
@@ -21,7 +36,7 @@ export interface PageRedirect {
   to: string
 }
 
-function collectRedirects (pages: GlobalDataFunctionParams['pages']): PageRedirect[] {
+function collectRedirects (pages: SourcePages): PageRedirect[] {
   const redirects: PageRedirect[] = []
   const redirectOwners = new Map<string, string>()
 
@@ -54,7 +69,7 @@ function collectRedirects (pages: GlobalDataFunctionParams['pages']): PageRedire
   return redirects
 }
 
-function collectBlogPosts (pages: GlobalDataFunctionParams['pages']): BlogPost[] {
+function collectBlogPosts (pages: SourcePages): BlogPost[] {
   const blogPosts: BlogPost[] = []
 
   for (const page of pages) {
@@ -69,7 +84,7 @@ function collectBlogPosts (pages: GlobalDataFunctionParams['pages']): BlogPost[]
       title: String(page.vars.title ?? 'Untitled'),
       publishDate: publishDate.toISOString(),
       description: String(page.vars.description ?? ''),
-      tags: Array.isArray(page.vars.tags) ? page.vars.tags as string[] : [],
+      tags: Array.isArray(page.vars.tags) ? page.vars.tags.filter((tag): tag is string => typeof tag === 'string') : [],
     })
   }
 
@@ -97,27 +112,41 @@ function collectBlogIndexes (blogPosts: BlogPost[]): BlogIndex[] {
 }
 
 export interface GlobalData {
-  /** All blog posts, sorted newest-first. Available to every page and template. */
+  /** All blog posts, sorted newest-first. */
   blogPosts: BlogPost[]
   /** Yearly post groups used to generate and render archive pages. */
   blogIndexes: BlogIndex[]
   /** The 5 most recent posts — used by the home page listing. */
   recentPosts: BlogPost[]
-  /** Pre-rendered HTML snippet of recent posts — drop into a page with {{{ vars.recentPostsHtml }}} */
+  /** Pre-rendered HTML snippet of recent posts. */
   recentPostsHtml: string
   /** tag → posts index, available for tag archive pages. */
   tagIndex: Record<string, BlogPost[]>
   /** Redirects collected from each destination page's redirectFrom metadata. */
   redirects: PageRedirect[]
+  /** Feed-ready records with rendered post content. */
+  feedItems: FeedItem[]
 }
 
-const buildGlobalData: AsyncGlobalDataFunction<GlobalData> = async ({ pages }) => {
+export type BlogPageData = Pick<GlobalData, 'blogIndexes' | 'blogPosts'>
+export type BlogIndexesPagesData = Pick<GlobalData, 'blogIndexes'>
+export type FeedsTemplateData = Pick<GlobalData, 'feedItems'>
+export type RedirectPagesData = Pick<GlobalData, 'redirects'>
+
+const buildGlobalData: AsyncGlobalDataFunction<GlobalData, SourcePageVars, unknown> = async ({ pages }) => {
   const blogPosts = collectBlogPosts(pages)
   const blogIndexes = collectBlogIndexes(blogPosts)
   const redirects = collectRedirects(pages)
   const recentPosts = blogPosts.slice(0, 5)
+  const feedItems = await Promise.all(blogPosts.slice(0, 20).map(async post => {
+    const page = pages.find(candidate => candidate.pageInfo.path === post.path)
+    return {
+      ...post,
+      contentHtml: page ? String(await page.renderInnerPage()) : '',
+    }
+  }))
 
-  // Pre-render an HTML snippet for use on the home page via handlebars {{{ vars.recentPostsHtml }}}
+  // Pre-render an HTML snippet for the home page's recentPostsHtml subscription.
   const recentPostsHtml = render(html`
     <ul class="post-list">
       ${recentPosts.map(post => {
@@ -141,7 +170,7 @@ const buildGlobalData: AsyncGlobalDataFunction<GlobalData> = async ({ pages }) =
   `)
 
   // Build a tag → posts index available to any page that wants it
-  const tagIndex: Record<string, BlogPost[]> = {}
+  const tagIndex: Record<string, BlogPost[]> = Object.create(null)
   for (const post of blogPosts) {
     for (const tag of post.tags) {
       if (!tagIndex[tag]) tagIndex[tag] = []
@@ -149,7 +178,7 @@ const buildGlobalData: AsyncGlobalDataFunction<GlobalData> = async ({ pages }) =
     }
   }
 
-  return { blogPosts, blogIndexes, recentPosts, recentPostsHtml, tagIndex, redirects }
+  return { blogPosts, blogIndexes, recentPosts, recentPostsHtml, tagIndex, redirects, feedItems }
 }
 
 export default buildGlobalData

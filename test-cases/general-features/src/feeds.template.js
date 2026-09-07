@@ -1,7 +1,6 @@
 /**
  * @import { TemplateAsyncIterator } from '#types'
  */
-import pMap from 'p-map'
 // @ts-ignore
 import jsonfeedToAtom from 'jsonfeed-to-atom'
 
@@ -16,10 +15,14 @@ import jsonfeedToAtom from 'jsonfeed-to-atom'
  * @property {string} authorImgUrl
  * @property {string} publishDate
  * @property {string} siteDescription
- * @property {string} globalDataSentinel
  */
 
-/** @type {TemplateAsyncIterator<FeedTemplateVars>} */
+export const dataDeps = ['feedItems', 'globalDataSentinel']
+
+/** @type {TemplateAsyncIterator<FeedTemplateVars, {
+ *   feedItems: Array<{ title: string, path: string, publishDate: string, contentHtml: string }>,
+ *   globalDataSentinel: string
+ * }>} */
 export default async function * feedsTemplate ({
   vars: {
     siteName,
@@ -28,39 +31,30 @@ export default async function * feedsTemplate ({
     authorUrl,
     authorImgUrl,
     siteDescription,
-    globalDataSentinel,
   },
-  pages,
+  data,
 }) {
-  const blogPosts = pages
-    // @ts-ignore
-    .filter(page => page.pageInfo.path.startsWith('blog/') && page.vars['layout'] === 'blog')
-    // @ts-ignore
-    .sort((a, b) => new Date(b.vars.publishDate) - new Date(a.vars.publishDate))
-    .slice(0, 10)
-
   const jsonFeed = {
     version: 'https://jsonfeed.org/version/1',
     title: siteName,
     home_page_url: homePageUrl,
     feed_url: `${homePageUrl}/feed.json`,
     description: siteDescription,
-    _globalDataSentinel: globalDataSentinel,
+    _globalDataSentinel: data.globalDataSentinel,
     author: {
       name: authorName,
       url: authorUrl,
       avatar: authorImgUrl,
     },
-    items: await pMap(blogPosts, async (page) => {
+    items: data.feedItems.map(item => {
       return {
-
-        date_published: page.vars['publishDate'],
-        title: page.vars['title'],
-        url: `${homePageUrl}/${page.pageInfo.path}/`,
-        id: `${homePageUrl}/${page.pageInfo.path}/#${page.vars['publishDate']}`,
-        content_html: await page.renderInnerPage({ pages }),
+        date_published: item.publishDate,
+        title: item.title,
+        url: `${homePageUrl}/${item.path}/`,
+        id: `${homePageUrl}/${item.path}/#${item.publishDate}`,
+        content_html: item.contentHtml,
       }
-    }, { concurrency: 4 }),
+    }),
   }
 
   yield {

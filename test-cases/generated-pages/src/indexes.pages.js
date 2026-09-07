@@ -24,16 +24,20 @@
  */
 
 /**
- * @typedef {object} CollectionVars
+ * @typedef {object} GlobalVars
  * @property {string} siteName
+ *
+ * @typedef {object} CollectionData
  * @property {BlogIndex[]} blogIndexes
  */
 
-/** @type {PagesFunction<IndexVars, string, CollectionVars>} */
-export default function indexesPages ({ vars }) {
+export const dataDeps = ['blogIndexes']
+
+/** @type {PagesFunction<IndexVars, string, GlobalVars, CollectionData>} */
+export default function indexesPages ({ vars, data }) {
   const indexes = []
 
-  for (const { year, posts } of vars.blogIndexes) {
+  for (const { year, posts } of data.blogIndexes) {
     indexes.push({
       outputName: `blog/${year}/index.html`,
       vars: {

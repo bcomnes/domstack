@@ -1,40 +1,30 @@
-import type { TemplateAsyncIterator } from '@domstack/static/types.js'
+import type { DataDeps, TemplateAsyncIterator } from '@domstack/static/types.js'
 import type { SiteVars } from './global.vars.js'
-import type { GlobalData, BlogPost } from './global.data.js'
+import type { FeedsTemplateData } from './global.data.js'
 
 type FeedVars = SiteVars
 
 /**
  * Generates JSON Feed and Atom feeds.
  *
- * blogPosts comes from global.data.ts and is stamped onto every page's vars.
- * Templates receive bare globalVars (pre-globalData) via `vars`, so we read
- * blogPosts from pages[0].vars instead — it's present on every page.
+ * Feed records come from an explicit global-data subscription.
  */
-const feedsTemplate: TemplateAsyncIterator<FeedVars> = async function * ({
+export const dataDeps = ['feedItems'] satisfies DataDeps<FeedsTemplateData>
+
+const feedsTemplate: TemplateAsyncIterator<FeedVars, FeedsTemplateData> = async function * ({
   vars,
-  pages,
+  data,
 }) {
   const { siteName, homePageUrl, siteDescription, authorName, authorUrl } = vars
-
-  // globalDataVars is stamped onto every page — grab blogPosts from the first page
-  const blogPosts: BlogPost[] = ((pages[0]?.vars as unknown as GlobalData)?.blogPosts) ?? []
-
-  // Render inner HTML for each post (used in feed content_html)
-  const feedItems = await Promise.all(
-    blogPosts.slice(0, 20).map(async post => {
-      const page = pages.find(p => p.pageInfo.path === post.path)
-      return {
-        id: `${homePageUrl}/${post.path}/`,
-        url: `${homePageUrl}/${post.path}/`,
-        title: post.title,
-        date_published: new Date(post.publishDate).toISOString(),
-        summary: post.description || undefined,
-        tags: post.tags.length > 0 ? post.tags : undefined,
-        content_html: page ? await page.renderInnerPage({ pages }) : '',
-      }
-    })
-  )
+  const feedItems = data.feedItems.map(post => ({
+    id: `${homePageUrl}/${post.path}/`,
+    url: `${homePageUrl}/${post.path}/`,
+    title: post.title,
+    date_published: new Date(post.publishDate).toISOString(),
+    summary: post.description || undefined,
+    tags: post.tags.length > 0 ? post.tags : undefined,
+    content_html: post.contentHtml,
+  }))
 
   // JSON Feed 1.1
   const jsonFeed = {
