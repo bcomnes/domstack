@@ -220,6 +220,7 @@ test('watch recovers from initial layout failures before any routing state exist
   const failures = {
     render: "export default () => { throw new Error('broken render') }",
     vars: "export const vars = () => { throw new Error('broken vars') }; export default ({children}) => children",
+    nonError: "export const vars = () => { throw 'broken vars' }; export default ({children}) => children",
     declaration: 'export const parentLayout = 42; export default ({children}) => children',
   }
   for (const [name, layout] of Object.entries(failures)) {
@@ -228,6 +229,12 @@ test('watch recovers from initial layout failures before any routing state exist
       await write('root.layout.js', layout)
       const results = await domstack.watch({ serve: false })
       assert.ok(results.pageBuildResults?.errors.length, 'startup reports the layout failure without stopping watch')
+      if (name === 'nonError') {
+        const error = results.pageBuildResults?.errors[0]
+        assert.ok(error instanceof Error, 'non-Error throws use the normal build error channel')
+        assert.equal(error.message, 'Non-error thrown during page build')
+        assert.equal(error.cause, 'broken vars', 'the original thrown value survives the worker boundary')
+      }
 
       await write('root.layout.js', rootLayout)
       await new Promise(resolve => setTimeout(resolve, 800))

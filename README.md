@@ -572,13 +572,8 @@ export default articleLayout
 For example, `'root'` resolves the discovered `root.layout.ts` or `root.layout.js`, wherever it lives under `src`, or DOMStack's bundled root when no custom root exists.
 Names are matched exactly, using the same filename-derived names as the page's `layout` variable.
 
-The declaration is a module-level string, shared by every page using that layout during a build.
-It is not a callback or variable provider and does not belong inside `vars`.
-Neither `vars.parentLayout` nor a layout's own `vars.layout` establishes a parent relationship.
 Omit `parentLayout` (or export `undefined`) when the layout has no parent; DOMStack does not automatically wrap a selected non-root layout in `root`.
-An empty or whitespace-only string, `null`, a function, or any other non-string value is invalid.
 
-Pages still select the innermost layout with `layout: 'article'` in frontmatter or page vars.
 DOMStack renders the page, passes its result to `article`, then passes that result to `root`: `root(article(page()))`.
 Each parent can declare another parent, forming a chain that ends at a layout without `parentLayout`.
 Missing parents and cycles, including a layout naming itself, fail the build.
