@@ -14,6 +14,10 @@ export interface BlogIndex {
   posts: BlogPost[]
 }
 
+export interface FeedItem extends BlogPost {
+  contentHtml: string
+}
+
 export interface PageRedirect {
   /** Old same-origin URL path that should redirect. */
   from: string
@@ -97,18 +101,20 @@ function collectBlogIndexes (blogPosts: BlogPost[]): BlogIndex[] {
 }
 
 export interface GlobalData {
-  /** All blog posts, sorted newest-first. Available to every page and template. */
+  /** All blog posts, sorted newest-first. */
   blogPosts: BlogPost[]
   /** Yearly post groups used to generate and render archive pages. */
   blogIndexes: BlogIndex[]
   /** The 5 most recent posts — used by the home page listing. */
   recentPosts: BlogPost[]
-  /** Pre-rendered HTML snippet of recent posts — drop into a page with {{{ vars.recentPostsHtml }}} */
+  /** Pre-rendered HTML snippet of recent posts. */
   recentPostsHtml: string
   /** tag → posts index, available for tag archive pages. */
   tagIndex: Record<string, BlogPost[]>
   /** Redirects collected from each destination page's redirectFrom metadata. */
   redirects: PageRedirect[]
+  /** Feed-ready records with rendered post content. */
+  feedItems: FeedItem[]
 }
 
 const buildGlobalData: AsyncGlobalDataFunction<GlobalData> = async ({ pages }) => {
@@ -116,8 +122,15 @@ const buildGlobalData: AsyncGlobalDataFunction<GlobalData> = async ({ pages }) =
   const blogIndexes = collectBlogIndexes(blogPosts)
   const redirects = collectRedirects(pages)
   const recentPosts = blogPosts.slice(0, 5)
+  const feedItems = await Promise.all(blogPosts.slice(0, 20).map(async post => {
+    const page = pages.find(candidate => candidate.pageInfo.path === post.path)
+    return {
+      ...post,
+      contentHtml: page ? String(await page.renderInnerPage()) : '',
+    }
+  }))
 
-  // Pre-render an HTML snippet for use on the home page via handlebars {{{ vars.recentPostsHtml }}}
+  // Pre-render an HTML snippet for the home page's recentPostsHtml subscription.
   const recentPostsHtml = render(html`
     <ul class="post-list">
       ${recentPosts.map(post => {
@@ -149,7 +162,7 @@ const buildGlobalData: AsyncGlobalDataFunction<GlobalData> = async ({ pages }) =
     }
   }
 
-  return { blogPosts, blogIndexes, recentPosts, recentPostsHtml, tagIndex, redirects }
+  return { blogPosts, blogIndexes, recentPosts, recentPostsHtml, tagIndex, redirects, feedItems }
 }
 
 export default buildGlobalData

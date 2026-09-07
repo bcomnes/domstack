@@ -12,15 +12,17 @@ const renderConcreteOnlyPage = ({ vars }) => html`
   <p id="concrete-count">${vars.concreteCount}</p>
 `
 
-/** @type {PagesFunction<ConcreteOnlyVars, HtmlResult>} */
-export default function concreteOnlyPages ({ pages }) {
+export const dataDependencies = ['sourcePageCount']
+
+/** @type {PagesFunction<ConcreteOnlyVars, HtmlResult, Record<string, any>, { sourcePageCount: number }>} */
+export default function concreteOnlyPages ({ data }) {
   return {
     outputName: 'generated-introspection/index.html',
     vars: {
       layout: 'root',
       title: 'Generated introspection',
-      sawGenerated: pages.some(page => Boolean(page.pageInfo.generated)),
-      concreteCount: pages.length,
+      sawGenerated: false,
+      concreteCount: data.sourcePageCount,
     },
     children: renderConcreteOnlyPage,
   }

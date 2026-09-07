@@ -20,7 +20,7 @@ export interface LayoutProps<T> {
   scripts?: string[];
   styles?: string[];
   children: string | VNode;
-  pages?: unknown[];
+  data: Record<string, unknown>;
   page?: unknown;
 }
 
@@ -42,7 +42,7 @@ export default function defaultRootLayout ({
   scripts,
   styles,
   children,
-  /* pages */
+  /* data */
   /* page */
 }: LayoutProps<PageVars>): string {
   return /* html */`

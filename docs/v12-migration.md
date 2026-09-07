@@ -107,7 +107,7 @@ export const vars = {
 Precedence is:
 
 ```txt
-page/frontmatter vars > page.vars.* > layout vars > global.data/global.vars > domstack defaults
+page/frontmatter vars > page.vars.* > layout vars > global.vars > domstack defaults
 ```
 
 Layout vars also let shared defaults, including manifest and service-worker policy values, participate in the normal variable cascade instead of being mixed into rendered output by each layout. If an existing layout manually merges defaults into the values it passes to a child layout or template, move those defaults to the layout's exported `vars` so generated-page definitions, page vars, and frontmatter can override them consistently.
@@ -334,15 +334,24 @@ Replacing `loader` without spreading `settings.loader` intentionally discards DO
 
 ---
 
-## Global data and page introspection additions
+## Global data subscriptions and page introspection additions
 
-Values returned by `global.data.ts` are now passed to templates as part of `vars`, in addition to pages and layouts. A key returned by `global.data.ts` takes precedence over the same key from `global.vars.ts`. Check templates for variable-name collisions when upgrading.
+`global.data.ts` is now the only public hook that receives the source-backed `PageData[]` collection.
+It returns named top-level values, and downstream pages, layouts, templates, and generated-page factories receive only values they explicitly declare through `dataDependencies`.
+Subscribed values arrive through a separate `data` argument and are not merged into `vars`.
+
+Pages declare `dataDependencies` in frontmatter, an adjacent `page.vars.ts`, or a TypeScript page's `vars` export.
+Layouts declare them in their `vars` export.
+Templates and `*.pages.ts` factories use a named `export const dataDependencies = [...]` because they do not have consumer vars.
+
+This replaces the earlier v12 prerelease behavior that passed `pages` broadly and stamped all global data into every consumer's vars.
+Update any prerelease-based code that reads global data from `vars` or accepts `pages` outside `global.data.ts`.
 
 `PageData` also has new helpers for collection processing:
 
 - `readMarkdownContent()` reads the Markdown source body without frontmatter
-- `renderInnerPage({ pages })` renders page content without its layout
-- `renderFullPage({ pages })` renders the complete page
+- `renderInnerPage()` renders page content without its layout
+- `renderFullPage()` renders the complete page
 
 The resolved `page.vars` object is cached and shallow-frozen. Treat it as read-only rather than mutating it during collection processing. See [Page data and introspection](../README.md#page-data-and-introspection) for examples and rendering guidance.
 
@@ -372,10 +381,12 @@ v12 adds `*.pages.ts` modules for creating normal layout-backed pages from data.
 import type { PagesFunction } from '@domstack/static/types.js'
 
 type ArchiveVars = { layout: string, year: number }
-type SiteVars = { archiveYears: number[] }
+type ArchiveData = { archiveYears: number[] }
 
-const archivePages: PagesFunction<ArchiveVars, string, SiteVars> = ({ vars }) => {
-  return vars.archiveYears.map(year => ({
+export const dataDependencies = ['archiveYears']
+
+const archivePages: PagesFunction<ArchiveVars, string, Record<string, never>, ArchiveData> = ({ data }) => {
+  return data.archiveYears.map(year => ({
     outputName: `archive/${year}/index.html`,
     vars: { layout: 'root', year },
     children: `<h1>${year}</h1>`,
@@ -385,9 +396,13 @@ const archivePages: PagesFunction<ArchiveVars, string, SiteVars> = ({ vars }) =>
 export default archivePages
 ```
 
-Generated pages use global and layout assets and participate in the final `pages` collection, output conflict detection, drafts, manifests, and progressive watch rebuilds. They do not have page-local `style.css`, `client.ts`, or `*.worker.ts` assets because they do not own a source page directory.
+Generated pages use global and layout assets and participate in output conflict detection, drafts, manifests, and progressive watch rebuilds.
+They do not have page-local `style.css`, `client.ts`, or `*.worker.ts` assets because they do not own a source page directory.
 
-Factories receive source-backed pages and global data. They do not receive pages created by the same or another `*.pages.ts` file. Likewise, `results.siteData.pages` remains source discovery data and does not include generated pages. See [Generated Pages](../README.md#generated-pages) for all export forms, types, and lifecycle details.
+Factories receive global vars, their declared global data, and metadata for their own `*.pages.ts` file.
+They do not receive raw source-backed or generated pages.
+Likewise, `results.siteData.pages` remains source discovery data and does not include generated pages.
+See [Generated Pages](../README.md#generated-pages) for all export forms, types, and lifecycle details.
 
 ---
 
@@ -553,9 +568,10 @@ This lets DOMStack inject the finalized `manifest.version` into `/service-worker
 - [ ] In ejected stylesheets, load light and dark syntax-highlighting themes with matching `prefers-color-scheme` behavior.
 - [ ] If installing mine.css directly, confirm the environment uses Node.js 22+ and npm 10+ and target browsers support native CSS nesting.
 - [ ] Visually check mine.css surfaces that the project directly customizes.
-- [ ] If templates consume `vars`, check for keys newly supplied by `global.data.ts`, which override matching `global.vars.ts` keys.
+- [ ] Move any global-data reads out of `vars`, declare the required top-level keys in `dataDependencies`, and read them from `data`.
+- [ ] Move any page-collection processing from pages, layouts, templates, or `*.pages.ts` factories into `global.data.ts`.
 - [ ] If you customize Markdown, use parser plugins, or snapshot rendered HTML, verify output with the v12 Markdown and YAML dependency versions.
 - [ ] If you use GitHub alert blocks, import alert styles or provide equivalent site styles.
 - [ ] Treat `PageData.vars` as read-only and use the new Markdown and rendering helpers when processing page collections.
-- [ ] If adopting `*.pages.ts`, verify output names, source-backed page assumptions, and the lack of page-local assets.
+- [ ] If adopting `*.pages.ts`, verify output names, declared data dependencies, and the lack of page-local assets.
 - [ ] If adopting the manifest preview, pin an exact DOMStack prerelease and test service-worker lifecycle behavior with `--serve`.

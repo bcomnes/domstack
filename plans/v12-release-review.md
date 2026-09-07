@@ -4,7 +4,7 @@ This document records the issues found while reviewing `12.0.0-beta.2` before th
 
 ## Release blockers
 
-### Watch builds can leave collection consumers stale
+### Resolved: watch builds can leave collection consumers stale
 
 A targeted source-page rebuild recalculates `global.data`, but it only writes the directly affected page.
 Other pages, templates, and generated pages may consume values derived from the changed page and remain stale.
@@ -12,7 +12,7 @@ Other pages, templates, and generated pages may consume values derived from the 
 This was reproduced with two Markdown pages and a `global.data.js` value derived from all page titles.
 After changing one title, that page received the new collection value while the other page retained the old value.
 
-The invalidation rule must account for these dependency paths:
+The prerelease API allowed these dependency paths:
 
 - A rendered page may consume values returned by `global.data`.
 - A template may consume source pages, generated pages, or global data.
@@ -20,8 +20,10 @@ The invalidation rule must account for these dependency paths:
 - A layout may inspect the complete page collection.
 - `readMarkdownContent()`, `renderInnerPage()`, and `renderFullPage()` create content dependencies between outputs.
 
+The resolved API removes raw page collections from ordinary consumers and routes intentional collection processing through `global.data.*`.
+
 Blanket rebuilding every consumer would be correct but would defeat the purpose of granular rebuilds.
-The proposed direction is described in [Output-level watch dependency tracking](#output-level-watch-dependency-tracking).
+The branch now resolves this through the explicit subscription model described in [Declarative global-data dependencies](#declarative-global-data-dependencies).
 
 ### Layout watch mapping ignores builder vars and Markdown frontmatter
 
@@ -72,61 +74,34 @@ The advisory concerns stack exhaustion while merging recursive object graphs, so
 There is no automatic npm fix.
 Replacing `write-package` or implementing the small package update directly would remove the known advisory from the production dependency graph.
 
-## Output-level watch dependency tracking
+## Declarative global-data dependencies
 
-The proposed watch design persists a dependency graph produced by successful renders.
+The original experimental implementation inferred output dependencies by wrapping page collections and vars in read-tracking proxies, then used async-local context to attribute reads during concurrent rendering.
+That was mechanically capable but preserved the wrong public boundary: every consumer still received the complete page graph and therefore remained a potential collection consumer.
 
-Every source page, generated-page owner, template, and rendered output receives a stable identity.
-The `pages` collection and page variable objects passed to user code are wrapped in read-tracking proxies.
-An async-local render context attributes observed reads to the active consumer even when builds run concurrently.
+The replacement design makes collection processing an explicit phase:
 
-The graph should represent dependencies such as:
+- Only `global.data.*` receives source-backed `PageData[]`.
+- `global.data.*` returns named top-level values for downstream use.
+- Pages and layouts declare required keys in `vars.dataDependencies`.
+- Templates and `*.pages.*` factories declare required keys with a named `dataDependencies` export.
+- Consumers receive those values through a separate `data` argument rather than the ordinary variable cascade.
+- Raw source or generated page collections are not passed to pages, layouts, templates, or generated-page factories.
 
-- A template read source page A's `vars.title`.
-- A generated-pages factory called source page B's `readMarkdownContent()`.
-- A rendered page read the `blogIndexes` value returned by `global.data`.
-- A layout iterated the page collection and therefore depends on collection membership and order.
+The worker fingerprints every top-level global-data value during a build.
+It compares those fingerprints with the previous successful watch state and invalidates only consumers subscribed to keys whose values changed.
+Subscriptions are explicit records keyed by source page, generated output, template, or pages-file owner, so no async attribution or property-read graph is required.
 
-The page worker returns dependency records with its normal successful build report.
-`DomStack` retains those records and replaces a consumer's records only after that consumer builds successfully.
+Page dependencies are the union of declarations from frontmatter or page vars and the selected layout's vars.
+The `dataDependencies` metadata is removed before ordinary vars are exposed to rendering code.
+Generated-page subscriptions retain their pages-file owner so changed factory data can rebuild the owner and reconcile obsolete outputs.
 
-`global.data` already runs during a targeted page build.
-The worker can fingerprint each top-level returned value and compare those fingerprints with the previous successful build.
-Only consumers that read changed keys need invalidation.
+This model intentionally tracks at top-level global-data key granularity.
+A consumer of `blogPosts` rebuilds when any part of that value changes, which is coarse enough to be dependable and narrow enough for the site-wide consumers that need collection data.
+JSON-safe values receive stable fingerprints, while opaque or cyclic values conservatively invalidate their subscribers on every page build.
+File imports remain covered by the existing static dependency maps, while untracked network, environment, or other external state must still cause its own source change or a broader rebuild.
 
-Page arrays need two levels of tracking.
-Iteration records a dependency on collection membership and order, while reads from an individual `PageData` record dependencies on that page.
-Adding or removing a page invalidates collection consumers, while an ordinary edit invalidates consumers that observed the changed page.
-
-Values that cannot be fingerprinted safely should use a conservative fallback.
-That fallback should rebuild the affected consumer class rather than every site output.
-
-User code may read files, network data, environment variables, or other state behind DOMStack's back.
-An explicit escape hatch such as `export const watchDependencies = 'all'` or a dependency callback should support those cases.
-
-### Experimental branch status
-
-The `fix/v12-watch-dependency-tracking` branch contains a first implementation of this design.
-
-The experiment currently:
-
-- Uses one `WatchDependencyTracker` instance per page-worker build.
-- Uses async-local context to attribute concurrent reads without sharing state between workers.
-- Sends plain dependency records through the existing worker result.
-- Persists the last successful records in the main `DomStack` instance.
-- Tracks individual page variable properties, page metadata, render-helper calls, and top-level global-data keys.
-- Tracks source-page and complete-page collection membership and order.
-- Fingerprints observed values and invalidates only consumers whose observed values changed.
-- Propagates generated-page value and collection changes to pages and templates that consume them.
-- Rebuilds generated-page owners that observed changed page values.
-- Removes obsolete generated outputs when dependency invalidation changes an owner's output names.
-- Uses successful page reports as the source of truth for page-to-layout mapping.
-- Keeps dependency proxies out of one-shot production builds.
-
-Render-helper calls are currently treated as opaque dependencies and invalidate conservatively when their source page changes.
-Generated-page additions, removals, reordering, and output renames are compared during incremental builds because their factories can change shape without a structural source-file event.
-File, network, environment, and other external reads remain untracked and still need an explicit invalidation API.
-Targeted template builds still use the existing template-output cleanup behavior and may need owner-based obsolete-output cleanup as a separate improvement.
+The branch also retains the independent watch fixes that use successful page reports as the source of truth for layout routing and reconcile obsolete generated outputs by owner.
 
 ## Validation completed during review
 

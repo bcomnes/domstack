@@ -3,8 +3,14 @@
  */
 
 import { html, render } from 'fragtml'
+import pMap from 'p-map'
 
-/** @type {AsyncGlobalDataFunction<{ blogPostsHtml: string, globalDataSentinel: string }>} */
+/** @type {AsyncGlobalDataFunction<{
+ *   blogPostsHtml: string,
+ *   blogYears: string[],
+ *   feedItems: Array<{ title: string, path: string, publishDate: unknown, contentHtml: string }>,
+ *   globalDataSentinel: string
+ * }>} */
 export default async function ({ pages }) {
   const blogPosts = pages
     .filter(page => page.vars?.layout === 'blog' && page.vars?.publishDate)
@@ -35,5 +41,22 @@ export default async function ({ pages }) {
     </ul>
   `)
 
-  return { blogPostsHtml, globalDataSentinel: 'data-from-global-dot-data' }
+  const blogYears = Array.from(new Set(
+    blogPosts
+      .map(page => page.pageInfo.path.split('/')[1])
+      .filter(year => year !== undefined)
+  ))
+  const feedItems = await pMap(blogPosts, async page => ({
+    title: String(page.vars.title),
+    path: page.pageInfo.path,
+    publishDate: page.vars.publishDate,
+    contentHtml: String(await page.renderInnerPage()),
+  }), { concurrency: 4 })
+
+  return {
+    blogPostsHtml,
+    blogYears,
+    feedItems,
+    globalDataSentinel: 'data-from-global-dot-data',
+  }
 }

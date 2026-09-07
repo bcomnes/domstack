@@ -6,6 +6,10 @@
 import { html } from 'fragtml'
 import rootLayout from './root.layout.js'
 
+export const vars = {
+  dataDependencies: ['sourcePageCount'],
+}
+
 /**
  * @typedef {object} BlogPost
  * @property {string} path
@@ -21,7 +25,7 @@ import rootLayout from './root.layout.js'
  * @property {number} [sourcePageCount]
  */
 
-/** @type {LayoutFunction<IndexVars, string | HtmlResult, string>} */
+/** @type {LayoutFunction<IndexVars, string | HtmlResult, string, { sourcePageCount: number }>} */
 export default function blogIndexLayout (args) {
   const { vars } = args
   const children = html`

@@ -19,11 +19,13 @@ function redirectOutputName (from) {
   return relativePath.endsWith('/') ? `${relativePath}index.html` : relativePath
 }
 
-/** @type {PagesFunction<Record<string, any>, any, { redirects: Redirect[] }>} */
-export default function redirectsPages ({ vars }) {
+export const dataDependencies = ['redirects']
+
+/** @type {PagesFunction<Record<string, any>, string, Record<string, any>, { redirects: Redirect[] }>} */
+export default function redirectsPages ({ data }) {
   const pages = []
 
-  for (const { from, to } of vars.redirects) {
+  for (const { from, to } of data.redirects) {
     pages.push({
       outputName: redirectOutputName(from),
       vars: {

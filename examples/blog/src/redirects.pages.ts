@@ -16,10 +16,17 @@ function redirectOutputName (from: string): string {
   return relativePath.endsWith('/') ? `${relativePath}index.html` : relativePath
 }
 
-const redirectPages: PagesFunction<RedirectPageVars, string, GlobalData> = ({ vars }) => {
+export const dataDependencies = ['redirects']
+
+const redirectPages: PagesFunction<
+  RedirectPageVars,
+  string,
+  Record<string, never>,
+  Pick<GlobalData, 'redirects'>
+> = ({ data }) => {
   const pages = []
 
-  for (const { from, to } of vars.redirects) {
+  for (const { from, to } of data.redirects) {
     pages.push({
       outputName: redirectOutputName(from),
       vars: {

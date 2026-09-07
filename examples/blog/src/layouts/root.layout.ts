@@ -2,9 +2,8 @@ import { html, raw, render } from 'fragtml'
 import type { HtmlResult } from 'fragtml/types.js'
 import type { LayoutFunction } from '@domstack/static/types.js'
 import type { SiteVars } from '../global.vars.js'
-import type { GlobalData } from '../global.data.js'
 
-export type RootVars = SiteVars & GlobalData & {
+export type RootVars = SiteVars & {
   title?: string
 }
 

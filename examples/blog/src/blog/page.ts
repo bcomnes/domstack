@@ -1,28 +1,16 @@
-import { basename, dirname } from 'node:path'
 import { html, render } from 'fragtml'
 import type { PageFunction } from '@domstack/static/types.js'
 import type { GlobalData } from '../global.data.js'
 import type { SiteVars } from '../global.vars.js'
 
-type Vars = SiteVars & GlobalData
+type Vars = SiteVars
 
 /**
  * Blog index page — lists all posts, newest first.
- * Post data comes entirely from global.data.ts via vars.blogPosts.
- * No postVars, no manual wiring needed here.
+ * Post data comes from explicit global-data subscriptions.
  */
-const blogIndex: PageFunction<Vars> = ({ vars, page, pages }) => {
-  const { blogPosts } = vars
-  const archivePages = []
-
-  for (const candidate of pages) {
-    if (dirname(candidate.pageInfo.path) === page.path && candidate.vars['layout'] === 'year-index') {
-      archivePages.push(candidate)
-    }
-  }
-
-  archivePages.sort((a, b) => b.pageInfo.path.localeCompare(a.pageInfo.path))
-
+const blogIndex: PageFunction<Vars, string, Pick<GlobalData, 'blogPosts' | 'blogIndexes'>> = ({ data }) => {
+  const { blogPosts, blogIndexes } = data
   if (blogPosts.length === 0) {
     return '<p>No posts yet.</p>'
   }
@@ -51,8 +39,8 @@ const blogIndex: PageFunction<Vars> = ({ vars, page, pages }) => {
       </ul>
       <h2>Archive</h2>
       <ul class="archive-list">
-        ${archivePages.map(archive => html`
-          <li><a href="${archive.pageInfo.url}">${basename(archive.pageInfo.path)}</a></li>
+        ${blogIndexes.map(index => html`
+          <li><a href="/blog/${index.year}/">${index.year}</a></li>
         `)}
       </ul>
     </div>
@@ -64,4 +52,5 @@ export default blogIndex
 export const vars = {
   title: 'Blog',
   layout: 'root',
+  dataDependencies: ['blogIndexes', 'blogPosts'],
 }

@@ -141,7 +141,7 @@ test.describe('generated pages', () => {
     )
   })
 
-  test('builds generated pages from global data and exposes the final page set to templates', async (t) => {
+  test('builds generated pages and templates from declared global data', async (t) => {
     const src = join(__dirname, './src')
     const build = await testBuild(src)
     const { results, readOutput } = build
@@ -167,7 +167,7 @@ test.describe('generated pages', () => {
       assert.match(redirectHtml, new RegExp(`<a href="${to}">${to}</a>`), `${from} links to its canonical destination`)
       const destinationHtml = await readOutput(destination)
       assert.match(destinationHtml, new RegExp(`<h1[^>]*>${heading}</h1>`), `${to} is backed by a concrete page`)
-      assert.match(destinationHtml, /<meta name="source-page-count" content="7">/, `${to} receives global data at final render time`)
+      assert.match(destinationHtml, /<meta name="source-page-count" content="7">/, `${to} receives its layout's subscribed global data`)
     }
 
     const blog2024IndexDoc = cheerio.load(await readOutput('blog/2024/index.html'))
@@ -192,7 +192,7 @@ test.describe('generated pages', () => {
 
     const introspectionHtml = await readOutput('generated-introspection/index.html')
     const introspectionDoc = cheerio.load(introspectionHtml)
-    assert.equal(introspectionDoc('#saw-generated').text(), 'false', 'pages files receive concrete pages only')
+    assert.equal(introspectionDoc('#saw-generated').text(), 'false', 'pages files do not receive the raw page collection')
     assert.equal(introspectionDoc('meta[name="source-page-count"]').attr('content'), '7', 'global.data sees source-backed pages before pages files run')
 
     const stylesheetHrefs = Array.from(introspectionDoc('link[rel="stylesheet"]')).map(link => introspectionDoc(link).attr('href') ?? '')
@@ -209,9 +209,8 @@ test.describe('generated pages', () => {
     assert.match(asyncHtml, /async generated page/, 'async iterable pages files are supported')
 
     const summary = JSON.parse(await readOutput('summary.json'))
-    assert.equal(summary.sourcePageCount, 7, 'template vars include global.data source page count')
-    assert.equal(summary.blogPostCount, 3, 'template vars include the collection used by pages files')
-    assert.equal(summary.generatedPagesInTemplate, 8, 'template pages include generated pages')
+    assert.equal(summary.sourcePageCount, 7, 'template data includes the subscribed source page count')
+    assert.equal(summary.blogPostCount, 3, 'template data includes the subscribed blog collection')
   })
 
   test('supports static object, static array, and async function exports', async () => {
@@ -261,21 +260,22 @@ test.describe('generated pages', () => {
     })
   })
 
-  test('returns copyable generated vars and keeps global-data PageData values inside the worker', async () => {
+  test('returns copyable generated vars derived from serializable global data', async () => {
     await withTempFixture({
       'root.layout.js': minimalRootLayout,
       'global.vars.js': minimalGlobalVars,
       'global.data.js': `export default function globalData ({ pages }) {
-  return { posts: pages }
+  return { posts: pages.map(page => ({ title: page.vars.title, url: page.pageInfo.url })) }
 }
 `,
       'README.md': '# Concrete page\n',
-      'indexes.pages.js': `export default function indexesPages ({ vars }) {
+      'indexes.pages.js': `export const dataDependencies = ['posts']
+export default function indexesPages ({ data }) {
   return {
     outputName: 'generated-index/index.html',
     vars: {
       title: 'Generated index',
-      posts: vars.posts,
+      posts: data.posts,
     },
     children: ({ vars }) => \`<p id="post-count">\${vars.posts.length}</p>\`,
   }
@@ -287,10 +287,10 @@ test.describe('generated pages', () => {
       const output = await readFile(join(dest, 'generated-index/index.html'), 'utf8')
       const outputRecord = results.pageBuildResults?.outputs.find(output => output.outputRelname === 'generated-index/index.html')
 
-      assert.match(output, /<p id="post-count">1<\/p>/, 'generated page renders with the PageData collection from global.data')
+      assert.match(output, /<p id="post-count">1<\/p>/, 'generated page renders with declared global data')
       assert.ok(outputRecord, 'generated page emits an output record')
       assert.equal(outputRecord.pageVars?.['title'], 'Generated index', 'copyable page vars are returned')
-      assert.equal(Object.hasOwn(outputRecord.pageVars ?? {}, 'posts'), false, 'PageData values stay inside the worker')
+      assert.equal(/** @type {unknown[]} */ (outputRecord.pageVars?.['posts']).length, 1, 'serializable derived data remains available in generated page vars')
     })
   })
 
@@ -554,25 +554,40 @@ test.describe('generated pages', () => {
     }
   })
 
-  test('rebuilds a generated-pages owner when an observed page var changes', { timeout: 15_000 }, async () => {
+  test('rebuilds declared subscribers when a global-data key changes', { timeout: 15_000 }, async () => {
     await withTempFixture({
       'root.layout.js': minimalRootLayout,
       'global.vars.js': minimalGlobalVars,
       'page.js': 'export default ({ vars }) => vars.title\n',
       'page.vars.js': "export default { title: 'First title' }\n",
-      'watch-indexes.pages.js': `export default function ({ pages }) {
-  const title = pages[0].vars.title
+      'global.data.js': `export default function ({ pages }) {
+  return { sourceTitle: pages[0].vars.title }
+}
+`,
+      'watch-indexes.pages.js': `export const dataDependencies = ['sourceTitle']
+export default function ({ data }) {
+  const title = data.sourceTitle
   const outputName = title === 'First title'
     ? 'watch-first/index.html'
     : 'watch-updated/index.html'
   return { outputName, vars: { title }, children: () => title }
 }
 `,
-      'summary.template.js': `export default function ({ pages }) {
-  return pages
-    .filter(page => page.pageInfo.generated)
-    .map(page => page.pageInfo.outputRelname + ':' + page.vars.title)
-    .join('\\n')
+      'summary.template.js': `export const dataDependencies = ['sourceTitle']
+export default function ({ data }) {
+  const outputName = data.sourceTitle === 'First title'
+    ? 'watch-first/index.html'
+    : 'watch-updated/index.html'
+  return outputName + ':' + data.sourceTitle
+}
+`,
+      'unrelated.pages.js': `import { existsSync } from 'node:fs'
+
+export default function unrelatedPages () {
+  if (existsSync(new URL('./unrelated-factory-must-not-run', import.meta.url))) {
+    throw new Error('Unrelated pages factory was executed')
+  }
+  return { outputName: 'unrelated/index.html', children: 'Unrelated' }
 }
 `,
     }, async ({ src, dest }) => {
@@ -584,6 +599,7 @@ test.describe('generated pages', () => {
         assert.match(await readFile(initialOutputPath, 'utf8'), /First title/)
         assert.equal(await readFile(join(dest, 'summary'), 'utf8'), 'watch-first/index.html:First title')
 
+        await writeFile(join(src, 'unrelated-factory-must-not-run'), '')
         await writeFile(join(src, 'page.vars.js'), "export default { title: 'Updated title' }\n")
         await new Promise(resolve => setTimeout(resolve, 800))
         await domstack.settled()
@@ -611,11 +627,15 @@ test.describe('generated pages', () => {
       'global.vars.js': minimalGlobalVars,
       'post.md': 'Rendered post\n',
       'markdown-it.settings.js': markdownSettings('first'),
-      'markdown-summary.pages.js': `export default async function ({ pages }) {
+      'global.data.js': `export default async function ({ pages }) {
   const post = pages.find(page => page.pageInfo.pageFile.relname === 'post.md')
   if (!post) throw new Error('Missing Markdown post')
-  const children = await post.renderInnerPage({ pages })
-  return { outputName: 'summary/index.html', children }
+  return { renderedPost: await post.renderInnerPage() }
+}
+`,
+      'markdown-summary.pages.js': `export const dataDependencies = ['renderedPost']
+export default function ({ data }) {
+  return { outputName: 'summary/index.html', children: data.renderedPost }
 }
 `,
     }, async ({ src, dest }) => {

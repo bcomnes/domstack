@@ -516,24 +516,27 @@ test.describe('watch', () => {
       )
     })
 
-    // ── global.data.js change → all pages rebuild ────────────────────
-    await t.test('global.data.js change rebuilds all pages', async () => {
+    // ── global.data.js change → only subscribers of changed keys rebuild ──
+    await t.test('global.data.js change rebuilds only affected subscribers', async () => {
       mockLog.mock.resetCalls()
       loggerLogs.length = 0
       const globalData = path.join(src, 'global.data.js')
       const original = await readFile(globalData, 'utf8')
-      await writeFile(globalData, original + '\n// touch')
+      await writeFile(globalData, original.replace(
+        'data-from-global-dot-data',
+        'updated-global-data-sentinel'
+      ))
 
       await settle(domStack)
 
       const logs = getLogLines(mockLog, loggerLogs)
       assert.ok(
-        logs.some(l => l.includes('rebuilding all pages')),
-        'log shows all pages are being rebuilt'
+        logs.some(l => l.includes('rebuilding data subscribers')),
+        'log shows declared data subscribers are being considered'
       )
       assert.ok(
-        logs.some(l => l.includes('Build Success')),
-        'build succeeded'
+        logs.some(l => l.includes('Pages built: 0 Templates built: 1')),
+        'only the template subscribed to the changed key rebuilds'
       )
     })
 

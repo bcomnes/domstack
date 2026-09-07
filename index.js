@@ -445,8 +445,7 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
   }
 
   /**
-   * Full page rebuild only: re-run all pages+templates with existing esbuild context.
-   * Used for global.data.*, markdown-it.settings.* (all md pages).
+   * Run a full or filtered page build with the existing esbuild context.
    *
    * @param {SiteData} siteData
    * @param {string[] | null} [pageFilterPaths]
@@ -738,10 +737,10 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
       return this.#fullRebuild()
     }
 
-    // 3. global.data.* → full page rebuild (no esbuild restart)
+    // 3. global.data.* → recompute data and rebuild only declared subscribers
     if (globalDataNames.some(n => changedBasename === n)) {
-      this.#logger.info(`"${changedBasename}" changed, rebuilding all pages...`)
-      return this.#runPageBuild(siteData)
+      this.#logger.info(`"${changedBasename}" changed, rebuilding data subscribers...`)
+      return this.#runPageBuild(siteData, [], [], [])
     }
 
     // 4. esbuild.settings.* → full rebuild
@@ -750,12 +749,12 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
       return this.#fullRebuild()
     }
 
-    // 5. markdown-it.settings.* → rebuild Markdown pages and all consumers that
-    // may render their content. Calls to renderInnerPage() cannot be inferred statically.
+    // 5. markdown-it.settings.* → rebuild Markdown pages and any data subscribers
+    // affected by global.data recomputation.
     if (markdownItSettingsNames.some(n => changedBasename === n)) {
       const mdPages = new Set(siteData.pages.filter(p => p.type === 'md'))
       logRebuildTree(changedBasename, this.#logger, mdPages)
-      return this.#runPageBuild(siteData, Array.from(mdPages).map(p => p.pageFile.filepath), null, null)
+      return this.#runPageBuild(siteData, Array.from(mdPages).map(p => p.pageFile.filepath), [], [])
     }
 
     // domstack-manifest.settings.* only affects one-shot domstack manifest generation.

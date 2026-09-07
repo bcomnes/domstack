@@ -11,10 +11,17 @@ type YearIndexPageVars = {
  * Turn the yearly groups prepared by global.data.ts into normal pages.
  * The year-index layout renders the posts already assigned to each archive.
  */
-const blogIndexes: PagesFunction<YearIndexPageVars, string, GlobalData> = ({ vars }) => {
+export const dataDependencies = ['blogIndexes']
+
+const blogIndexes: PagesFunction<
+  YearIndexPageVars,
+  string,
+  Record<string, never>,
+  Pick<GlobalData, 'blogIndexes'>
+> = ({ data }) => {
   const pages = []
 
-  for (const { year, posts } of vars.blogIndexes) {
+  for (const { year, posts } of data.blogIndexes) {
     pages.push({
       outputName: `blog/${year}/index.html`,
       vars: {

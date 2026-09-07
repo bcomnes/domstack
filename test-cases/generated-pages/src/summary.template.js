@@ -2,14 +2,15 @@
  * @import { TemplateFunction } from '#types'
  */
 
-/** @type {TemplateFunction<{ blogPosts: unknown[], sourcePageCount: number }>} */
-export default async function summaryTemplate ({ pages, vars }) {
+export const dataDependencies = ['blogPosts', 'sourcePageCount']
+
+/** @type {TemplateFunction<Record<string, any>, { blogPosts: unknown[], sourcePageCount: number }>} */
+export default async function summaryTemplate ({ data }) {
   return {
     outputName: 'summary.json',
     content: JSON.stringify({
-      sourcePageCount: vars.sourcePageCount,
-      blogPostCount: vars.blogPosts.length,
-      generatedPagesInTemplate: pages.filter(page => Boolean(page.pageInfo.generated)).length,
+      sourcePageCount: data.sourcePageCount,
+      blogPostCount: data.blogPosts.length,
     }, null, 2),
   }
 }

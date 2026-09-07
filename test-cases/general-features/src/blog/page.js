@@ -1,24 +1,21 @@
 /**
- * @import { AsyncLayoutFunction } from '#types'
+ * @import { AsyncPageFunction } from '#types'
  */
 import { html } from 'fragtml'
-import { dirname, basename } from 'node:path'
 
 /**
- * @type {AsyncLayoutFunction<{}>}
+ * @type {AsyncPageFunction<{}, string, { blogYears: string[] }>}
  */
 export default async function blogIndex ({
-  pages
+  data
 }) {
-  const yearPages = pages.filter(page => dirname(page.pageInfo.path) === 'blog')
-
   const children = html`
     <div>
       <ul>
-        ${yearPages.map(yearPage => html`
+        ${data.blogYears.map(year => html`
           <li>
-            <a href="${`/${yearPage.pageInfo.path}/`}">
-              ${basename(yearPage.pageInfo.path)}
+            <a href="${`/blog/${year}/`}">
+              ${year}
             </a>
           </li>
         `)}
@@ -32,4 +29,5 @@ export default async function blogIndex ({
 
 export const vars = {
   somePageScopled: 'vars',
+  dataDependencies: ['blogYears'],
 }
