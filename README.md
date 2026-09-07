@@ -1145,9 +1145,11 @@ It returns an object of named, top-level values that downstream consumers can ex
 import type { AsyncGlobalDataFunction } from '@domstack/static/types.js'
 import { html, render } from 'fragtml'
 
-type GlobalData = {
+export type GlobalData = {
   blogPostsHtml: string
 }
+
+export type ArchiveData = Pick<GlobalData, 'blogPostsHtml'>
 
 const buildGlobalData: AsyncGlobalDataFunction<GlobalData> = async ({ pages }) => {
   const blogPosts = pages
@@ -1201,13 +1203,10 @@ TypeScript pages and layouts can put the declaration in their `vars` export:
 
 ```typescript
 import type { PageFunction } from '@domstack/static/types.js'
-
-type ArchiveData = {
-  blogPostsHtml: string
-}
+import type { ArchiveData } from './global.data.js'
 
 export const vars = {
-  dataDependencies: ['blogPostsHtml'],
+  dataDependencies: ['blogPostsHtml'] satisfies Array<keyof ArchiveData>,
 }
 
 const archivePage: PageFunction<Record<string, never>, string, ArchiveData> = ({ data }) =>
@@ -1215,6 +1214,8 @@ const archivePage: PageFunction<Record<string, never>, string, ArchiveData> = ({
 
 export default archivePage
 ```
+
+Keep these focused consumer contracts beside the complete global-data type so pages and layouts can import a meaningful name instead of reconstructing a `Pick<GlobalData, ...>` selection.
 
 For `*.template.ts` and `*.pages.ts` files, export `dataDependencies` as a named module export because those files do not have consumer vars:
 
@@ -2479,6 +2480,8 @@ export interface GlobalData {
   feedItems: FeedItem[]
 }
 
+export type FeedsTemplateData = Pick<GlobalData, 'feedItems'>
+
 const globalData: AsyncGlobalDataFunction<GlobalData> = async ({ pages }) => {
   const posts = pages
     .filter(page => page.pageInfo.path.startsWith('blog/') && page.vars.layout === 'blog')
@@ -2502,7 +2505,7 @@ export default globalData
 // src/feeds.template.ts
 import jsonfeedToAtom from 'jsonfeed-to-atom'
 import type { TemplateAsyncIterator } from '@domstack/static/types.js'
-import type { GlobalData } from './global.data.js'
+import type { FeedsTemplateData } from './global.data.js'
 
 interface TemplateVars {
   title: string;
@@ -2516,9 +2519,9 @@ interface TemplateVars {
   language: string;
 }
 
-export const dataDependencies = ['feedItems']
+export const dataDependencies = ['feedItems'] satisfies Array<keyof FeedsTemplateData>
 
-const feedsTemplate: TemplateAsyncIterator<TemplateVars, Pick<GlobalData, 'feedItems'>> = async function * ({
+const feedsTemplate: TemplateAsyncIterator<TemplateVars, FeedsTemplateData> = async function * ({
   vars: {
     siteName,
     siteDescription,
@@ -2594,6 +2597,8 @@ export interface GlobalData {
   blogIndexes: BlogIndex[]
 }
 
+export type BlogIndexesPagesData = Pick<GlobalData, 'blogIndexes'>
+
 function collectBlogPosts (pages: GlobalDataFunctionParams['pages']): BlogPost[] {
   return pages
     .filter(page => page.vars.layout === 'post')
@@ -2640,7 +2645,7 @@ Then subscribe to `blogIndexes` and create one `blog/<year>/index.html` page per
 ```typescript
 // src/blog-indexes.pages.ts
 import type { PagesFunction } from '@domstack/static/types.js'
-import type { BlogPost, GlobalData } from './global.data.js'
+import type { BlogIndexesPagesData, BlogPost } from './global.data.js'
 
 type YearIndexPageVars = {
   layout: 'year-index'
@@ -2648,13 +2653,13 @@ type YearIndexPageVars = {
   posts: BlogPost[]
 }
 
-export const dataDependencies = ['blogIndexes']
+export const dataDependencies = ['blogIndexes'] satisfies Array<keyof BlogIndexesPagesData>
 
 const blogIndexes: PagesFunction<
   YearIndexPageVars,
   string,
   Record<string, never>,
-  Pick<GlobalData, 'blogIndexes'>
+  BlogIndexesPagesData
 > = ({ data }) =>
   data.blogIndexes.map(({ year, posts }) => ({
     outputName: `blog/${year}/index.html`,

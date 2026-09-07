@@ -1,23 +1,23 @@
 import type { PagesFunction } from '@domstack/static/types.js'
-import type { GlobalData } from './global.data.js'
+import type { BlogIndexesPagesData, BlogPost } from './global.data.js'
 
 type YearIndexPageVars = {
   layout: 'year-index'
   title: string
-  posts: GlobalData['blogPosts']
+  posts: BlogPost[]
 }
 
 /**
  * Turn the yearly groups prepared by global.data.ts into normal pages.
  * The year-index layout renders the posts already assigned to each archive.
  */
-export const dataDependencies = ['blogIndexes']
+export const dataDependencies = ['blogIndexes'] satisfies Array<keyof BlogIndexesPagesData>
 
 const blogIndexes: PagesFunction<
   YearIndexPageVars,
   string,
   Record<string, never>,
-  Pick<GlobalData, 'blogIndexes'>
+  BlogIndexesPagesData
 > = ({ data }) => {
   const pages = []
 

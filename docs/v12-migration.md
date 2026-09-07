@@ -343,6 +343,8 @@ Subscribed values arrive through a separate `data` argument and are not merged i
 Pages declare `dataDependencies` in frontmatter, an adjacent `page.vars.ts`, or a TypeScript page's `vars` export.
 Layouts declare them in their `vars` export.
 Templates and `*.pages.ts` factories use a named `export const dataDependencies = [...]` because they do not have consumer vars.
+Keep focused consumer data types beside the complete type returned by `global.data.ts`.
+Export those contracts for pages, layouts, templates, and factories instead of making each consumer reconstruct a `Pick<GlobalData, ...>` selection.
 
 This replaces the earlier v12 prerelease behavior that passed `pages` broadly and stamped all global data into every consumer's vars.
 Update any prerelease-based code that reads global data from `vars` or accepts `pages` outside `global.data.ts`.

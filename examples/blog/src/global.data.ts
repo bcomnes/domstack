@@ -117,6 +117,11 @@ export interface GlobalData {
   feedItems: FeedItem[]
 }
 
+export type BlogPageData = Pick<GlobalData, 'blogIndexes' | 'blogPosts'>
+export type BlogIndexesPagesData = Pick<GlobalData, 'blogIndexes'>
+export type FeedsTemplateData = Pick<GlobalData, 'feedItems'>
+export type RedirectPagesData = Pick<GlobalData, 'redirects'>
+
 const buildGlobalData: AsyncGlobalDataFunction<GlobalData> = async ({ pages }) => {
   const blogPosts = collectBlogPosts(pages)
   const blogIndexes = collectBlogIndexes(blogPosts)
