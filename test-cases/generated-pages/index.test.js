@@ -64,15 +64,15 @@ const minimalGlobalVars = `export default { layout: 'root', title: 'Test' }
 
 test('subscription errors preserve their subtype and metadata across the worker boundary', async t => {
   const cases = [
-    { name: 'page declaration', reason: 'INVALID_DECLARATION', files: { 'page.js': "export const vars = { dataDeps: 'value' }; export default () => ''" } },
-    { name: 'missing page key', reason: 'MISSING_KEY', files: { 'page.js': "export const vars = { dataDeps: ['missing'] }; export default () => ''" } },
-    { name: 'undeclared page access', reason: 'UNDECLARED_KEY', files: { 'page.js': 'export default ({data}) => data.value' } },
-    { name: 'undeclared layout access', reason: 'UNDECLARED_KEY', files: { 'page.html': 'Page', 'root.layout.js': 'export default ({data}) => data.value' } },
-    { name: 'undeclared template access', reason: 'UNDECLARED_KEY', files: { 'value.template.js': 'export default ({data}) => data.value' } },
-    { name: 'missing factory key', reason: 'MISSING_KEY', files: { 'value.pages.js': "export const dataDeps = ['missing']; export default () => []" } },
-    { name: 'generated declaration', reason: 'INVALID_DECLARATION', files: { 'value.pages.js': 'export default { vars: { dataDeps: false } }' } },
-    { name: 'data dependency cycle', reason: 'NOT_READY', files: { 'page.js': "export const vars = { dataDeps: ['value'] }; export default ({data}) => data.value", 'global.data.js': 'export default async ({pages}) => ({ value: await pages[0].renderInnerPage() })' } },
-    { name: 'global vars declaration', reason: 'INVALID_DECLARATION', files: { 'global.vars.js': "export default { layout: 'root', dataDeps: ['value'] }" } },
+    { name: 'page declaration', reason: 'INVALID_DECLARATION', consumer: 'Page "page.js"', files: { 'page.js': "export const vars = { dataDeps: 'value' }; export default () => ''" } },
+    { name: 'missing page key', reason: 'MISSING_KEY', consumer: 'Page "page.js"', key: 'missing', files: { 'page.js': "export const vars = { dataDeps: ['missing'] }; export default () => ''" } },
+    { name: 'undeclared page access', reason: 'UNDECLARED_KEY', consumer: 'Page "page.js"', key: 'value', files: { 'page.js': 'export default ({data}) => data.value' } },
+    { name: 'undeclared layout access', reason: 'UNDECLARED_KEY', consumer: 'Layout "root"', key: 'value', files: { 'page.html': 'Page', 'root.layout.js': 'export default ({data}) => data.value' } },
+    { name: 'undeclared template access', reason: 'UNDECLARED_KEY', consumer: 'Template "value.template.js"', key: 'value', files: { 'value.template.js': 'export default ({data}) => data.value' } },
+    { name: 'missing factory key', reason: 'MISSING_KEY', consumer: 'Pages file "value.pages.js"', key: 'missing', files: { 'value.pages.js': "export const dataDeps = ['missing']; export default () => []" } },
+    { name: 'generated declaration', reason: 'INVALID_DECLARATION', consumer: 'Page "value.pages.js#0"', files: { 'value.pages.js': 'export default { vars: { dataDeps: false } }' } },
+    { name: 'data dependency cycle', reason: 'NOT_READY', consumer: 'Page "page.js"', files: { 'page.js': "export const vars = { dataDeps: ['value'] }; export default ({data}) => data.value", 'global.data.js': 'export default async ({pages}) => ({ value: await pages[0].renderInnerPage() })' } },
+    { name: 'global vars declaration', reason: 'INVALID_DECLARATION', consumer: 'Global vars', files: { 'global.vars.js': "export default { layout: 'root', dataDeps: ['value'] }" } },
   ]
   for (const scenario of cases) {
     await t.test(scenario.name, async () => {
@@ -87,8 +87,11 @@ test('subscription errors preserve their subtype and metadata across the worker 
           const dataError = error.errors.find(err => err instanceof DomStackDataError)
           assert.ok(dataError, 'a DomStackDataError survives worker transport')
           assert.equal(dataError.code, 'DOM_STACK_ERROR_DATA')
-          assert.equal(dataError.dataDependency.reason, scenario.reason)
-          assert.ok(dataError.dataDependency.consumer)
+          assert.deepEqual(dataError.dataDependency, {
+            reason: scenario.reason,
+            consumer: scenario.consumer,
+            ...(scenario.key === undefined ? {} : { key: scenario.key }),
+          })
           return true
         })
       })
@@ -227,7 +230,8 @@ test.describe('generated pages', () => {
 
     const introspectionHtml = await readOutput('generated-introspection/index.html')
     const introspectionDoc = cheerio.load(introspectionHtml)
-    assert.equal(introspectionDoc('#saw-generated').text(), 'false', 'pages files do not receive the raw page collection')
+    assert.equal(introspectionDoc('#has-pages').text(), 'false', 'pages files do not receive the raw page collection')
+    assert.equal(introspectionDoc('#has-site-data').text(), 'false', 'pages files do not receive the discovery registry')
     assert.equal(introspectionDoc('meta[name="source-page-count"]').attr('content'), '7', 'global.data sees source-backed pages before pages files run')
 
     const stylesheetHrefs = Array.from(introspectionDoc('link[rel="stylesheet"]')).map(link => introspectionDoc(link).attr('href') ?? '')
@@ -616,12 +620,10 @@ export default function ({ data }) {
   return outputName + ':' + data.sourceTitle
 }
 `,
-      'unrelated.pages.js': `import { existsSync } from 'node:fs'
+      'unrelated.pages.js': `import { appendFileSync } from 'node:fs'
 
 export default function unrelatedPages () {
-  if (existsSync(new URL('./unrelated-factory-must-not-run', import.meta.url))) {
-    throw new Error('Unrelated pages factory was executed')
-  }
+  appendFileSync(new URL('../unrelated-factory-runs', import.meta.url), 'run\\n')
   return { outputName: 'unrelated/index.html', children: 'Unrelated' }
 }
 `,
@@ -633,8 +635,9 @@ export default function unrelatedPages () {
         const updatedOutputPath = join(dest, 'watch-updated/index.html')
         assert.match(await readFile(initialOutputPath, 'utf8'), /First title/)
         assert.equal(await readFile(join(dest, 'summary'), 'utf8'), 'watch-first/index.html:First title')
+        const factoryRuns = join(src, '../unrelated-factory-runs')
+        assert.equal(await readFile(factoryRuns, 'utf8'), 'run\n', 'the unrelated factory ran during the initial build')
 
-        await writeFile(join(src, 'unrelated-factory-must-not-run'), '')
         await writeFile(join(src, 'page.vars.js'), "export default { title: 'Updated title' }\n")
         await new Promise(resolve => setTimeout(resolve, 800))
         await domstack.settled()
@@ -643,7 +646,8 @@ export default function unrelatedPages () {
         assert.match(updatedOutput, /Updated title/)
         assert.doesNotMatch(updatedOutput, /First title/)
         assert.equal(await readFile(join(dest, 'summary'), 'utf8'), 'watch-updated/index.html:Updated title')
-        await assert.rejects(() => stat(initialOutputPath), 'obsolete dependency-driven output is removed')
+        await assert.rejects(() => stat(initialOutputPath), { code: 'ENOENT' }, 'obsolete dependency-driven output is removed')
+        assert.equal(await readFile(factoryRuns, 'utf8'), 'run\n', 'an unrelated factory is not executed during a subscriber rebuild')
       } finally {
         if (domstack.watching) await domstack.stopWatching()
       }

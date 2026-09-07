@@ -1,5 +1,4 @@
-import { test } from 'node:test'
-import assert from 'node:assert/strict'
+// Compile-time regressions exercised by npm run test:tsc, not the Node test runner.
 import type {
   DataDeps,
   GlobalDataFunction,
@@ -8,6 +7,8 @@ import type {
   PagesFunction,
   TemplateFunction,
 } from '#types'
+
+declare function expectType<T> (value: T): void
 
 type Vars = { title: string }
 type FactoryData = { slugs: string[] }
@@ -26,7 +27,7 @@ const asyncTemplate: TemplateFunction<Vars, PageData> = async ({ data }) => data
 
 const factory: PagesFunction<Vars & { dataDeps: typeof pageDeps }, { html: string }, Vars, FactoryData, PageData> = ({ data }) => {
   // @ts-expect-error - Factories do not receive their inline pages' data.
-  assert.equal(data.greeting, undefined)
+  expectType<undefined>(data.greeting)
   return data.slugs.map(slug => ({
     outputName: `${slug}.html`,
     vars: { title: slug, dataDeps: pageDeps },
@@ -40,16 +41,12 @@ const globalData: GlobalDataFunction<FactoryData, Vars, { html: string }> = asyn
   for (const source of pages) {
     const html: string = (await source.renderInnerPage()).html
     // @ts-expect-error - The source-page vars contract is explicit.
-    assert.equal(source.vars.missing, undefined)
-    assert.equal(typeof html, 'string')
+    expectType<undefined>(source.vars.missing)
+    expectType<string>(html)
+    // @ts-expect-error - The producer's source render type must not widen to any.
+    expectType<number>((await source.renderInnerPage()).html)
   }
   return { slugs: pages.map(source => source.vars.title) }
 }
 
-test('subscription types keep producer, factory, page, and layout contracts independent', () => {
-  assert.equal(factoryDeps[0], 'slugs')
-  for (const fn of [page, layout, template, asyncTemplate, factory, noPages, asyncNoPages, globalData]) {
-    assert.equal(typeof fn, 'function')
-  }
-  assert.ok(invalidDeps)
-})
+export { factoryDeps, invalidDeps, page, layout, template, asyncTemplate, factory, noPages, asyncNoPages, globalData }

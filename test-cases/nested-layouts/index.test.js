@@ -296,12 +296,19 @@ test('manual composition forwards declared data and rebuilds source and generate
   }`)
   await domstack.watch({ serve: false })
   const plainTime = (await stat(join(dest, 'plain/index.html'))).mtimeMs
-  await write('global.data.js', globalData.replace('nav-v1', 'manual-nav-v2').replace('message-v1', 'manual-message-v2'))
-  await new Promise(resolve => setTimeout(resolve, 800))
-  await domstack.settled()
-  for (const file of ['manual/index.html', 'manual-generated.html']) {
-    assert.match(await read(file), /manual-nav-v2/)
-    assert.match(await read(file), /<article>\s*<p>manual-message-v2<\/p>/)
+  let currentData = globalData
+  for (const [before, after, message] of /** @type {const} */ ([
+    ['nav-v1', 'manual-nav-v2', 'message-v1'],
+    ['message-v1', 'manual-message-v2', 'manual-message-v2'],
+  ])) {
+    currentData = currentData.replace(before, after)
+    await write('global.data.js', currentData)
+    await new Promise(resolve => setTimeout(resolve, 800))
+    await domstack.settled()
+    for (const file of ['manual/index.html', 'manual-generated.html']) {
+      assert.match(await read(file), /manual-nav-v2/)
+      assert.match(await read(file), new RegExp(`<article>\\s*<p>${message}</p>`))
+    }
   }
   assert.equal((await stat(join(dest, 'plain/index.html'))).mtimeMs, plainTime)
 })
@@ -375,6 +382,7 @@ test('watch subscribes outputs to the full layout chain and drops old ancestor s
     await domstack.settled()
   }
   const plainTime = await mtime('plain/index.html')
+  let currentData = globalData
   await write('source/page.md', '---\nlayout: post\n---\nChanged content')
   await settle()
   for (const file of ['markup/index.html', 'typed/index.html', 'archive.html']) {
@@ -383,12 +391,14 @@ test('watch subscribes outputs to the full layout chain and drops old ancestor s
   assert.equal(await mtime('plain/index.html'), plainTime)
 
   const archiveTime = await mtime('archive.html')
-  await write('global.data.js', globalData.replace('message-v1', 'message-v2'))
+  currentData = currentData.replace('message-v1', 'message-v2')
+  await write('global.data.js', currentData)
   await settle()
   assert.match(await read('typed/index.html'), /message-v2/)
   assert.equal(await mtime('archive.html'), archiveTime, 'page-only data does not invalidate layouts or other pages')
 
-  await write('global.data.js', globalData.replace('recent-v1', 'recent-v2'))
+  currentData = currentData.replace('recent-v1', 'recent-v2')
+  await write('global.data.js', currentData)
   await settle()
   assert.match(await read('archive.html'), /recent-v2/)
   assert.match(await read('markup/index.html'), /recent-v2/)
@@ -401,7 +411,8 @@ test('watch subscribes outputs to the full layout chain and drops old ancestor s
   await settle()
   assert.doesNotMatch(await read('archive.html'), /nav-v1|recent-v2/)
   const detachedTime = await mtime('archive.html')
-  await write('global.data.js', globalData.replace('navigation: \'nav-v1\'', 'navigation: \'nav-v2\''))
+  currentData = currentData.replace('nav-v1', 'nav-v2')
+  await write('global.data.js', currentData)
   await settle()
   assert.equal(await mtime('archive.html'), detachedTime, 'old ancestors no longer invalidate generated outputs')
   assert.equal(await mtime('plain/index.html'), plainTime)

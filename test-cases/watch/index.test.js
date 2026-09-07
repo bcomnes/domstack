@@ -65,8 +65,14 @@ async function settle (domStack, ms = 800) {
 }
 
 test('global-data imports refresh subscribers and any direct consumers of the same helper', { timeout: 30_000 }, async t => {
-  for (const helper of ['value.js', 'client.js']) {
-    await t.test(helper, async t => {
+  for (const scenario of [
+    { helper: 'value.js', direct: false },
+    { helper: 'client.js', direct: false },
+    { helper: 'value.js', direct: true },
+    { helper: 'client.js', direct: true },
+  ]) {
+    const { helper, direct } = scenario
+    await t.test(`${helper}, ${direct ? 'with direct consumer' : 'global-data consumers only'}`, async t => {
       const { src, dest, domStack } = await setupTempWatch(t, {
         prefix: '.tmp-data-imports-',
         files: {
@@ -75,16 +81,18 @@ test('global-data imports refresh subscribers and any direct consumers of the sa
           [helper]: "export const value = 'first'",
           'global.data.js': `import { value } from './${helper}'; export default { value }`,
           'page.js': "export const vars = { dataDeps: ['value'] }; export default ({data}) => data.value",
-          'direct/page.js': `import { value } from '../${helper}'; export default () => value`,
+          ...(direct ? { 'direct/page.js': `import { value } from '../${helper}'; export default () => value` } : {}),
           'unchanged/page.html': 'Unrelated',
           'value.txt.template.js': "export const dataDeps = ['value']; export default ({data}) => data.value",
           'value.pages.js': "export const dataDeps = ['value']; export default ({data}) => ({ outputName: 'generated.html', children: data.value })",
         },
       })
       const unrelatedTime = (await stat(path.join(dest, 'unchanged/index.html'))).mtimeMs
+      const outputs = ['index.html', 'value.txt', 'generated.html', ...(direct ? ['direct/index.html'] : [])]
+      for (const name of outputs) assert.match(await readFile(path.join(dest, name), 'utf8'), /first/)
       await writeFile(path.join(src, helper), "export const value = 'second'")
       await settle(domStack)
-      for (const name of ['index.html', 'direct/index.html', 'value.txt', 'generated.html']) {
+      for (const name of outputs) {
         assert.match(await readFile(path.join(dest, name), 'utf8'), /second/)
       }
       if (helper === 'client.js') assert.match(await readFile(path.join(dest, helper), 'utf8'), /second/)
@@ -228,6 +236,8 @@ test.describe('watch', () => {
         'global.vars.js': "export default { layout: 'root' }\n",
         'root.layout.js': "export default ({ children }) => 'root-v1:' + children\n",
         'page.js': "export default () => 'content'\n",
+        'other.layout.js': 'export default ({children}) => children',
+        'other/page.js': "export const vars = {layout: 'other'}; export default () => 'Unrelated'",
       },
     })
     const pageFile = path.join(src, 'page.js')
@@ -245,10 +255,12 @@ test.describe('watch', () => {
     await writeFile(pageFile, "export default () => 'content'")
     await settle(domStack)
     assert.equal(await readFile(path.join(dest, 'index.html'), 'utf8'), 'root-v2:content')
+    const unrelatedTime = (await stat(path.join(dest, 'other/index.html'))).mtimeMs
     loggerLogs.length = 0
     await writeFile(rootLayout, "export default ({ children }) => 'root-v3:' + children")
     await settle(domStack)
     assert.equal(await readFile(path.join(dest, 'index.html'), 'utf8'), 'root-v3:content')
+    assert.equal((await stat(path.join(dest, 'other/index.html'))).mtimeMs, unrelatedTime, 'successful recovery resumes targeted routing')
     assert.ok(loggerLogs.some(line => line.includes('"root.layout.js" changed:') && line.includes('index.html')))
   })
 
@@ -603,6 +615,8 @@ test.describe('watch', () => {
       loggerLogs.length = 0
       const globalData = path.join(src, 'global.data.js')
       const original = await readFile(globalData, 'utf8')
+      const templateOutput = path.join(dest, 'feeds/feed.json')
+      assert.equal(JSON.parse(await readFile(templateOutput, 'utf8'))._globalDataSentinel, 'data-from-global-dot-data')
       await writeFile(globalData, original.replace(
         'data-from-global-dot-data',
         'updated-global-data-sentinel'
@@ -611,6 +625,7 @@ test.describe('watch', () => {
       await settle(domStack)
 
       const logs = getLogLines(mockLog, loggerLogs)
+      assert.equal(JSON.parse(await readFile(templateOutput, 'utf8'))._globalDataSentinel, 'updated-global-data-sentinel')
       assert.ok(
         logs.some(l => l.includes('rebuilding data subscribers')),
         'log shows declared data subscribers are being considered'
