@@ -1,4 +1,4 @@
-import type { PagesFunction } from '@domstack/static/types.js'
+import type { DataDeps, PagesFunction } from '@domstack/static/types.js'
 import type { RedirectPagesData } from './global.data.js'
 
 type RedirectPageVars = {
@@ -16,7 +16,7 @@ function redirectOutputName (from: string): string {
   return relativePath.endsWith('/') ? `${relativePath}index.html` : relativePath
 }
 
-export const dataDeps = ['redirects'] satisfies Array<keyof RedirectPagesData>
+export const dataDeps = ['redirects'] satisfies DataDeps<RedirectPagesData>
 
 const redirectPages: PagesFunction<
   RedirectPageVars,

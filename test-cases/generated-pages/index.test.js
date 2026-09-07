@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path'
 import * as cheerio from 'cheerio'
 import { DomStack, testBuild } from '../../index.js'
 import globalData from './src/global.data.js'
+import { DomStackDataError } from '../../lib/helpers/domstack-error.js'
 
 const __dirname = import.meta.dirname
 const fixturePrefix = '.tmp-'
@@ -60,6 +61,40 @@ export default function rootLayout ({ vars, children }) {
 
 const minimalGlobalVars = `export default { layout: 'root', title: 'Test' }
 `
+
+test('subscription errors preserve their subtype and metadata across the worker boundary', async t => {
+  const cases = [
+    { name: 'page declaration', reason: 'INVALID_DECLARATION', files: { 'page.js': "export const vars = { dataDeps: 'value' }; export default () => ''" } },
+    { name: 'missing page key', reason: 'MISSING_KEY', files: { 'page.js': "export const vars = { dataDeps: ['missing'] }; export default () => ''" } },
+    { name: 'undeclared page access', reason: 'UNDECLARED_KEY', files: { 'page.js': 'export default ({data}) => data.value' } },
+    { name: 'undeclared layout access', reason: 'UNDECLARED_KEY', files: { 'page.html': 'Page', 'root.layout.js': 'export default ({data}) => data.value' } },
+    { name: 'undeclared template access', reason: 'UNDECLARED_KEY', files: { 'value.template.js': 'export default ({data}) => data.value' } },
+    { name: 'missing factory key', reason: 'MISSING_KEY', files: { 'value.pages.js': "export const dataDeps = ['missing']; export default () => []" } },
+    { name: 'generated declaration', reason: 'INVALID_DECLARATION', files: { 'value.pages.js': 'export default { vars: { dataDeps: false } }' } },
+    { name: 'data dependency cycle', reason: 'NOT_READY', files: { 'page.js': "export const vars = { dataDeps: ['value'] }; export default ({data}) => data.value", 'global.data.js': 'export default async ({pages}) => ({ value: await pages[0].renderInnerPage() })' } },
+    { name: 'global vars declaration', reason: 'INVALID_DECLARATION', files: { 'global.vars.js': "export default { layout: 'root', dataDeps: ['value'] }" } },
+  ]
+  for (const scenario of cases) {
+    await t.test(scenario.name, async () => {
+      await withTempFixture({
+        'root.layout.js': minimalRootLayout,
+        'global.vars.js': minimalGlobalVars,
+        'global.data.js': "export default { value: 'hello' }",
+        ...scenario.files,
+      }, async ({ src, dest }) => {
+        await assert.rejects(new DomStack(src, dest).build(), error => {
+          assert.ok(error instanceof AggregateError)
+          const dataError = error.errors.find(err => err instanceof DomStackDataError)
+          assert.ok(dataError, 'a DomStackDataError survives worker transport')
+          assert.equal(dataError.code, 'DOM_STACK_ERROR_DATA')
+          assert.equal(dataError.dataDependency.reason, scenario.reason)
+          assert.ok(dataError.dataDependency.consumer)
+          return true
+        })
+      })
+    })
+  }
+})
 
 const assetAwareRootLayout = `export default function rootLayout ({ styles = [], scripts = [], children }) {
   return '<!doctype html><html><head>' +

@@ -1,5 +1,5 @@
 /**
- * @import { TemplateFunction } from '#types'
+ * @import { AsyncTemplateFunction } from '#types'
  */
 
 /**
@@ -8,7 +8,7 @@
  * @property {string} testVar
  */
 
-/** @type {TemplateFunction<SimpleTemplateVars>} */
+/** @type {AsyncTemplateFunction<SimpleTemplateVars>} */
 export default async ({
   vars: {
     foo,

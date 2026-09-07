@@ -64,6 +64,73 @@ async function settle (domStack, ms = 800) {
   await domStack.settled()
 }
 
+test('global-data imports refresh subscribers and any direct consumers of the same helper', { timeout: 30_000 }, async t => {
+  const { src, dest, domStack } = await setupTempWatch(t, {
+    prefix: '.tmp-data-imports-',
+    files: {
+      'global.vars.js': "export default { layout: 'root' }",
+      'root.layout.js': 'export default ({ children }) => children',
+      'value.js': "export const value = 'first'",
+      'global.data.js': "import { value } from './value.js'; export default { value }",
+      'page.js': "export const vars = { dataDeps: ['value'] }; export default ({data}) => data.value",
+      'direct/page.js': "import { value } from '../value.js'; export default () => value",
+      'unchanged/page.html': 'Unrelated',
+      'value.txt.template.js': "export const dataDeps = ['value']; export default ({data}) => data.value",
+      'value.pages.js': "export const dataDeps = ['value']; export default ({data}) => ({ outputName: 'generated.html', children: data.value })",
+    },
+  })
+  const unrelatedTime = (await stat(path.join(dest, 'unchanged/index.html'))).mtimeMs
+  await writeFile(path.join(src, 'value.js'), "export const value = 'second'")
+  await settle(domStack)
+  for (const name of ['index.html', 'direct/index.html', 'value.txt', 'generated.html']) {
+    assert.match(await readFile(path.join(dest, name), 'utf8'), /second/)
+  }
+  assert.equal((await stat(path.join(dest, 'unchanged/index.html'))).mtimeMs, unrelatedTime)
+})
+
+test('targeted factories reserve untouched owners outputs and recover after a collision', { timeout: 30_000 }, async t => {
+  /** @type {string[]} */
+  const logs = []
+  const { src, dest, domStack } = await setupTempWatch(t, {
+    prefix: '.tmp-owner-conflict-',
+    logger: createTestLogger(logs),
+    files: {
+      'global.vars.js': "export default { layout: 'root' }",
+      'root.layout.js': 'export default ({ children }) => children',
+      'a.pages.js': "export default { outputName: 'a.html', children: 'Owner A' }",
+      'b.pages.js': "export default { outputName: 'b.html', children: 'Owner B' }",
+    },
+  })
+  const retainedTime = (await stat(path.join(dest, 'b.html'))).mtimeMs
+  await writeFile(path.join(src, 'a.pages.js'), "export default { outputName: 'b.html', children: 'Collision' }")
+  await settle(domStack)
+  assert.ok(logs.some(line => line.includes('Output path conflict')))
+  assert.match(await readFile(path.join(dest, 'b.html'), 'utf8'), /Owner B/)
+  assert.match(await readFile(path.join(dest, 'a.html'), 'utf8'), /Owner A/)
+  assert.equal((await stat(path.join(dest, 'b.html'))).mtimeMs, retainedTime)
+  await writeFile(path.join(src, 'a.pages.js'), "export default { outputName: 'c.html', children: 'Recovered' }")
+  await settle(domStack)
+  assert.match(await readFile(path.join(dest, 'c.html'), 'utf8'), /Recovered/)
+  await assert.rejects(stat(path.join(dest, 'a.html')), { code: 'ENOENT' })
+  assert.match(await readFile(path.join(dest, 'b.html'), 'utf8'), /Owner B/)
+})
+
+test('watch recovers from an initial layout subscription error before any routing state exists', { timeout: 30_000 }, async t => {
+  const { src, dest, domStack } = await setupTempWatch(t, {
+    prefix: '.tmp-data-recovery-',
+    logger: createTestLogger([]),
+    files: {
+      'global.vars.js': "export default { layout: 'root' }",
+      'global.data.js': "export default { value: 'Recovered' }",
+      'root.layout.js': "export const vars = { dataDeps: ['missing'] }; export default ({ children }) => children",
+      'page.html': 'Page',
+    },
+  })
+  await writeFile(path.join(src, 'root.layout.js'), "export const vars = { dataDeps: ['value'] }; export default ({data, children}) => data.value + children")
+  await settle(domStack)
+  assert.match(await readFile(path.join(dest, 'index.html'), 'utf8'), /Recovered/)
+})
+
 /**
  * Collect all console.log call arguments and logger chunks into a flat string array.
  * @param {ReturnType<typeof mock.method>} mockLog
@@ -147,9 +214,9 @@ test.describe('watch', () => {
     assert.equal(await readFile(outputPath, 'utf8'), 'blog-v2:content')
   })
 
-  test('retains the last successful layout mapping after a failed build', { timeout: 20_000 }, async (t) => {
+  test('retries a failed build without discarding successful outputs, then resumes targeted layout routing', { timeout: 20_000 }, async (t) => {
     const loggerLogs = /** @type {string[]} */ ([])
-    const { src, domStack } = await setupTempWatch(t, {
+    const { src, dest, domStack } = await setupTempWatch(t, {
       prefix: '.tmp-failed-layout-',
       logger: createTestLogger(loggerLogs),
       files: {
@@ -167,8 +234,17 @@ test.describe('watch', () => {
     await writeFile(rootLayout, "export default ({ children }) => 'root-v2:' + children\n")
     await settle(domStack)
 
-    assert.ok(loggerLogs.some(line => line.includes('"root.layout.js" changed:') && line.includes('index.html')))
+    assert.ok(loggerLogs.some(line => line.includes('retrying all pages after the previous build failure')))
     assert.ok(!loggerLogs.some(line => line.includes('no pages use layout "root"')))
+    assert.equal(await readFile(path.join(dest, 'index.html'), 'utf8'), 'root-v1:content')
+    await writeFile(pageFile, "export default () => 'content'")
+    await settle(domStack)
+    assert.equal(await readFile(path.join(dest, 'index.html'), 'utf8'), 'root-v2:content')
+    loggerLogs.length = 0
+    await writeFile(rootLayout, "export default ({ children }) => 'root-v3:' + children")
+    await settle(domStack)
+    assert.equal(await readFile(path.join(dest, 'index.html'), 'utf8'), 'root-v3:content')
+    assert.ok(loggerLogs.some(line => line.includes('"root.layout.js" changed:') && line.includes('index.html')))
   })
 
   test('targets generated-page owners independently', { timeout: 30_000 }, async (t) => {

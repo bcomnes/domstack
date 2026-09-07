@@ -278,6 +278,34 @@ export default async ({ pages }) => {
 }
 `
 
+test('manual composition forwards declared data and rebuilds source and generated subscribers', { timeout: 30_000 }, async t => {
+  const { domstack, src, dest, read, write } = await setupSubscriptions(t)
+  await mkdir(join(src, 'manual'))
+  await write('manual/page.ts', `
+    export const vars = { layout: 'manual', dataDeps: ['pageMessage'] }
+    export default ({ data }) => '<p>' + data.pageMessage + '</p>'
+  `)
+  await write('manual.layout.js', `
+    import root from './root.layout.js'
+    export const vars = { dataDeps: ['navigation', 'rendered'] }
+    export default args => root({ ...args, children: '<article>' + args.children + '</article>' })
+  `)
+  await write('manual.pages.js', `export default {
+    outputName: 'manual-generated.html', vars: { layout: 'manual', dataDeps: ['pageMessage'] },
+    children: ({ data }) => '<p>' + data.pageMessage + '</p>'
+  }`)
+  await domstack.watch({ serve: false })
+  const plainTime = (await stat(join(dest, 'plain/index.html'))).mtimeMs
+  await write('global.data.js', globalData.replace('nav-v1', 'manual-nav-v2').replace('message-v1', 'manual-message-v2'))
+  await new Promise(resolve => setTimeout(resolve, 800))
+  await domstack.settled()
+  for (const file of ['manual/index.html', 'manual-generated.html']) {
+    assert.match(await read(file), /manual-nav-v2/)
+    assert.match(await read(file), /<article>\s*<p>manual-message-v2<\/p>/)
+  }
+  assert.equal((await stat(join(dest, 'plain/index.html'))).mtimeMs, plainTime)
+})
+
 /** @param {TestContext} t */
 async function setupSubscriptions (t) {
   const site = await setup(t)

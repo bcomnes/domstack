@@ -25,16 +25,16 @@ The resolved API removes raw page collections from ordinary consumers and routes
 Blanket rebuilding every consumer would be correct but would defeat the purpose of granular rebuilds.
 The branch now resolves this through the explicit subscription model described in [Declarative global-data dependencies](#declarative-global-data-dependencies).
 
-### Layout watch mapping ignores builder vars and Markdown frontmatter
+### Resolved: layout watch mapping ignores builder vars and Markdown frontmatter
 
-The watcher's page-to-layout map currently resolves only default, global, and `page.vars.*` values.
+At the time of the review, the watcher's page-to-layout map resolved only default, global, and `page.vars.*` values.
 Actual page initialization also resolves builder variables, including Markdown frontmatter.
 
 This was reproduced with a Markdown page that selects `layout: blog` through frontmatter.
 Changing `blog.layout.js` did not rebuild that page, and its output remained byte-for-byte unchanged.
 
-Successful page build reports already include the fully resolved `layoutName`.
-The watcher should persist that result instead of independently approximating layout selection.
+The nested-layout prerequisite now reports each page's fully resolved `layoutNames` chain and persists those successful selections for watch routing.
+This covers frontmatter, builder vars, ancestors, and generated pages without independently approximating layout selection.
 
 ### Published declarations do not pass strict consumer validation
 
@@ -88,11 +88,12 @@ The replacement design makes collection processing an explicit phase:
 - Consumers receive those values through a separate `data` argument rather than the ordinary variable cascade.
 - Raw source or generated page collections are not passed to pages, layouts, templates, or generated-page factories.
 
-The worker fingerprints every top-level global-data value during a build.
+The worker fingerprints every top-level global-data value during watch page builds.
 It compares those fingerprints with the previous successful watch state and invalidates only consumers subscribed to keys whose values changed.
 Subscriptions are explicit records keyed by source page, generated output, template, or pages-file owner, so no async attribution or property-read graph is required.
 
-Page dependencies are the union of declarations from frontmatter or page vars and the selected layout's vars.
+Output dependencies are the union of declarations from frontmatter or page vars and every layout in the resolved `parentLayout` chain.
+Each renderer receives only its own projection of that data.
 The `dataDeps` metadata is removed before ordinary vars are exposed to rendering code.
 Generated-page subscriptions retain their pages-file owner so changed factory data can rebuild the owner and reconcile obsolete outputs.
 
@@ -101,7 +102,11 @@ A consumer of `blogPosts` rebuilds when any part of that value changes, which is
 JSON-safe values receive stable fingerprints, while opaque or cyclic values conservatively invalidate their subscribers on every page build.
 File imports remain covered by the existing static dependency maps, while untracked network, environment, or other external state must still cause its own source change or a broader rebuild.
 
-The branch also retains the independent watch fixes that use successful page reports as the source of truth for layout routing and reconcile obsolete generated outputs by owner.
+Manual composition remains supported and tested, including subscribed data and statically imported parents.
+Explicit `parentLayout` nesting is recommended because DOMStack can manage ancestor defaults, assets, subscriptions, and rebuilds automatically.
+Shared static helpers invalidate all matching consumer categories, including the global-data producer.
+Targeted generated-page builds reserve untouched owners' output paths before rendering.
+Subscription errors preserve their domain subtype and metadata across worker transport; after a failure, the next page build retries the full page phase.
 
 ## Validation completed during review
 

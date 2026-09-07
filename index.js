@@ -36,7 +36,6 @@ import {
   identifyPages,
   layoutStyleSuffix,
   globalVarsNames,
-  globalDataNames,
   esbuildSettingsNames,
   markdownItSettingsNames,
   domstackManifestSettingsNames,
@@ -102,6 +101,8 @@ export class DomStack {
   #templateDepMap = new Map()
   /** @type {Map<string, Set<PagesFileInfo>>} depFilepath → Set<PagesFileInfo> */
   #pagesFileDepMap = new Map()
+  /** @type {Set<string>} Imported inputs of global.data, including its entry file. */
+  #globalDataDepPaths = new Set()
   /** @type {Set<string>} absolute filepaths of esbuild entry points */
   #esbuildEntryPoints = new Set()
   /** @type {Set<string>} destination-relative outputs from the last successful page builds */
@@ -453,8 +454,8 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
    * @param {string[] | null} [pagesFileFilterPaths]
    */
   async #runPageBuild (siteData, pageFilterPaths = null, templateFilterPaths = null, pagesFileFilterPaths = null) {
-    // Retry the complete page phase after a failure: layout routing from a
-    // failed build cannot safely drive an incremental retry.
+    // Retry the complete page phase after a failure: neither subscriptions nor
+    // layout routing from a failed build can safely drive an incremental retry.
     if (this.#pageBuildFailed) pageFilterPaths = templateFilterPaths = pagesFileFilterPaths = null
     try {
       const pageBuildResults = await buildPages(this.#src, this.#dest, siteData, {
@@ -612,6 +613,15 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
     const pageDepMap = /** @type {Map<string, Set<PageInfo>>} */ (new Map())
     const templateDepMap = /** @type {Map<string, Set<TemplateInfo>>} */ (new Map())
     const pagesFileDepMap = /** @type {Map<string, Set<PagesFileInfo>>} */ (new Map())
+    const globalDataDepPaths = new Set()
+    if (siteData.globalData) {
+      globalDataDepPaths.add(siteData.globalData.filepath)
+      try {
+        for (const dep of await find(siteData.globalData.filepath)) globalDataDepPaths.add(resolve(dep))
+      } catch {
+        // Static import analysis is best-effort, as for page and layout helpers.
+      }
+    }
 
     // layoutFileMap: layout filepath → layoutName
     for (const layout of Object.values(siteData.layouts)) {
@@ -717,6 +727,7 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
     this.#pageDepMap = pageDepMap
     this.#templateDepMap = templateDepMap
     this.#pagesFileDepMap = pagesFileDepMap
+    this.#globalDataDepPaths = globalDataDepPaths
     this.#esbuildEntryPoints = esbuildEntryPoints
   }
 
@@ -738,9 +749,9 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
     }
 
     // 3. global.data.* → recompute data and rebuild only declared subscribers
-    if (globalDataNames.some(n => changedBasename === n)) {
+    const globalDataChanged = this.#globalDataDepPaths.has(changedPath)
+    if (globalDataChanged) {
       this.#logger.info(`"${changedBasename}" changed, rebuilding data subscribers...`)
-      return this.#runPageBuild(siteData, [], [], [])
     }
 
     // 4. esbuild.settings.* → full rebuild
@@ -796,7 +807,7 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
       if (pagesFile.pagesFile.filepath === changedPath) affectedOwners.add(changedPath)
     }
 
-    if (affectedPages.size || affectedTemplates.size || affectedOwners.size) {
+    if (globalDataChanged || affectedPages.size || affectedTemplates.size || affectedOwners.size) {
       logRebuildTree(changedBasename, this.#logger, affectedPages, affectedTemplates)
       return this.#runPageBuild(
         siteData,

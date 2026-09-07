@@ -1,5 +1,5 @@
 // Compile-time regressions exercised by npm run test:tsc, not the Node test runner.
-import type { LayoutFunction, PageData, PageFunction, PageFunctionParams, LayoutFunctionParams } from '#types'
+import type { LayoutFunction, PageData, PageFunction } from '#types'
 import type { ResolvedLayout } from '../../lib/build-pages/page-data.js'
 import { pageWriter } from '../../lib/build-pages/page-builders/page-writer.js'
 
@@ -13,23 +13,20 @@ const manual: LayoutFunction<Vars, string, string> = async args => parent({ ...a
 // The registry is heterogeneous: the parent consumes the child's output, not
 // the original page result. These assignments are checked by the TS suite.
 async function checkPageTypes (
-  page: PageData<Vars, string, Frame>,
+  page: PageData<Vars, string, Frame, { greeting: string }>,
   objectPage: PageData<Vars, Frame, string>,
-  root: ResolvedLayout<Vars, Frame, string>,
-  article: ResolvedLayout<Vars, string, Frame>
+  root: ResolvedLayout<Vars, Frame, string, { navigation: string }>,
+  article: ResolvedLayout<Vars, string, Frame, { recentPosts: string[] }>
 ) {
   await page.init({ layouts: { root, article } })
-  const pages = [page, objectPage]
-  const inner: string = await page.renderInnerPage({ pages })
-  const full: string = await page.renderFullPage({ pages })
-  const objectInner: Frame = await objectPage.renderInnerPage({ pages })
-  await pageWriter({ dest: 'unused', page, pages })
-  const pageParams: PageFunctionParams<Vars, string>['pages'] = pages
-  const layoutParams: LayoutFunctionParams<Vars, string, Frame>['pages'] = pages
+  const inner: string = await page.renderInnerPage()
+  const full: string = await page.renderFullPage()
+  const objectInner: Frame = await objectPage.renderInnerPage()
+  await pageWriter({ dest: 'unused', page })
   // Heterogeneous collections do not erase the individual page's render type.
   // @ts-expect-error A string-rendering page does not return a Frame.
-  const invalidInner: Frame = await page.renderInnerPage({ pages })
-  return { inner, full, objectInner, pageParams, layoutParams, invalidInner }
+  const invalidInner: Frame = await page.renderInnerPage()
+  return { inner, full, objectInner, invalidInner }
 }
 
 // Explicit renderer contracts still reject incompatible values at module boundaries.

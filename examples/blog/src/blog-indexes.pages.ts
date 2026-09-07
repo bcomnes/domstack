@@ -1,4 +1,4 @@
-import type { PagesFunction } from '@domstack/static/types.js'
+import type { DataDeps, PagesFunction } from '@domstack/static/types.js'
 import type { BlogIndexesPagesData, BlogPost } from './global.data.js'
 
 type YearIndexPageVars = {
@@ -11,7 +11,7 @@ type YearIndexPageVars = {
  * Turn the yearly groups prepared by global.data.ts into normal pages.
  * The year-index layout renders the posts already assigned to each archive.
  */
-export const dataDeps = ['blogIndexes'] satisfies Array<keyof BlogIndexesPagesData>
+export const dataDeps = ['blogIndexes'] satisfies DataDeps<BlogIndexesPagesData>
 
 const blogIndexes: PagesFunction<
   YearIndexPageVars,

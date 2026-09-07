@@ -1,4 +1,4 @@
-import type { TemplateAsyncIterator } from '@domstack/static/types.js'
+import type { DataDeps, TemplateAsyncIterator } from '@domstack/static/types.js'
 import type { SiteVars } from './global.vars.js'
 import type { FeedsTemplateData } from './global.data.js'
 
@@ -9,7 +9,7 @@ type FeedVars = SiteVars
  *
  * Feed records come from an explicit global-data subscription.
  */
-export const dataDeps = ['feedItems'] satisfies Array<keyof FeedsTemplateData>
+export const dataDeps = ['feedItems'] satisfies DataDeps<FeedsTemplateData>
 
 const feedsTemplate: TemplateAsyncIterator<FeedVars, FeedsTemplateData> = async function * ({
   vars,

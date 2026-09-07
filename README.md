@@ -1202,11 +1202,11 @@ export default {
 TypeScript pages and layouts can put the declaration in their `vars` export:
 
 ```typescript
-import type { PageFunction } from '@domstack/static/types.js'
+import type { DataDeps, PageFunction } from '@domstack/static/types.js'
 import type { ArchiveData } from './global.data.js'
 
 export const vars = {
-  dataDeps: ['blogPostsHtml'] satisfies Array<keyof ArchiveData>,
+  dataDeps: ['blogPostsHtml'] satisfies DataDeps<ArchiveData>,
 }
 
 const archivePage: PageFunction<Record<string, never>, string, ArchiveData> = ({ data }) =>
@@ -1216,6 +1216,8 @@ export default archivePage
 ```
 
 Keep these focused consumer contracts beside the complete global-data type so pages and layouts can import a meaningful name instead of reconstructing a `Pick<GlobalData, ...>` selection.
+`DataDeps<Contract>` checks declaration names against that contract and accepts readonly arrays, including `as const` tuples.
+The declaration is still required at runtime; a TypeScript type alone does not subscribe a renderer.
 
 For `*.template.ts` and `*.pages.ts` files, export `dataDeps` as a named module export because those files do not have consumer vars:
 
@@ -1243,12 +1245,19 @@ When one layout calls another layout function directly, the composing layout mus
 - Runs inside the worker process (same as all other dynamic imports) to avoid ESM caching issues.
 - Skipped entirely if no `global.data.*` file exists — zero overhead.
 - In watch mode, DOMStack fingerprints each top-level returned value and rebuilds only consumers subscribed to changed keys.
+- Editing `global.data.*` or one of its statically imported helpers recomputes data; a shared helper also rebuilds its direct page, layout, template, and factory consumers.
 - Values composed of JSON-safe primitives, arrays, and plain objects get stable fingerprints; opaque values such as functions, class instances, maps, sets, or cycles conservatively invalidate their subscribers on every page build.
 - A declaration naming a missing key fails the build, and access to an existing but undeclared key throws a focused error.
 
+Subscription failures use `DomStackDataError` with code `DOM_STACK_ERROR_DATA`.
+Its `dataDependency` metadata identifies the consumer, optional key, and reason: `INVALID_DECLARATION`, `MISSING_KEY`, `UNDECLARED_KEY`, or `NOT_READY`.
+The subtype and metadata survive worker transport inside the build's aggregate errors.
+After a failed watch build, the next page build retries the complete page phase before returning to incremental routing.
+
 ### Global data types
 
-Use `GlobalDataFunction<T>` for a synchronous function or `AsyncGlobalDataFunction<T>` for an async function. In both types, `T` describes the derived variables object returned by `global.data.ts`:
+`GlobalDataFunction<T>` accepts synchronous or asynchronous implementations; `AsyncGlobalDataFunction<T>` specifically requires a promise.
+In both types, `T` describes the named data returned by `global.data.ts`:
 
 ```typescript
 // src/global.data.ts
@@ -1270,6 +1279,8 @@ export default globalData
 ```
 
 Use `AsyncGlobalDataFunction<DerivedData>` instead when the implementation needs to await rendering, network requests, or other asynchronous work.
+For typed source input, use `GlobalDataFunction<Result, SourceVars, SourceContent>` or its async counterpart.
+Helpers can accept `GlobalDataFunctionParams<SourceVars, SourceContent>['pages']` without recovering types from the full global-data result.
 
 ### Global data caveats
 
@@ -1849,7 +1860,9 @@ import type {
 ```
 
 > [!NOTE]
-> Use `PageFunction`, `LayoutFunction`, and `GlobalDataFunction` for ordinary synchronous or asynchronous implementations. Their `Async*` variants are available when a type must specifically require a promise return value. `PagesFunction` supports normal functions, `async` functions, and async generators.
+> Use `PageFunction`, `LayoutFunction`, `TemplateFunction`, and `GlobalDataFunction` for ordinary synchronous or asynchronous implementations.
+> Their `Async*` variants are available when a type must specifically require a promise return value, including JSDoc annotations directly on async functions.
+> `PagesFunction` supports normal functions, `async` functions, and async generators.
 
 The function types are generic and accept variable shapes that you can develop and share between files.
 
@@ -1872,25 +1885,34 @@ function getPublishedPages({ pages }: GlobalDataFunctionParams): PageData[] {
 `PageFunction`, `LayoutFunction`, `TemplateFunction`, and `PagesFunction` support additional type parameters for precise input, data, and return type control:
 
 **PageFunction<T, U, D>**
+
 - `T` - The type of variables passed to the page (required)
 - `U` - The return type of the page function (optional, defaults to `any`)
 - `D` - The declared global-data shape (optional, defaults to `Record<string, unknown>`)
 
 **LayoutFunction<T, U, V, D>**
+
 - `T` - The type of variables passed to the layout (required)
 - `U` - The type of content received from pages as `children` (optional, defaults to `any`)
 - `V` - The return type of the layout function (optional, defaults to `string`)
 - `D` - The declared global-data shape (optional, defaults to `Record<string, unknown>`)
 
 **TemplateFunction<T, D>**
+
 - `T` - The global vars passed to the template (required)
 - `D` - The declared global-data shape (optional, defaults to `Record<string, unknown>`)
 
-**PagesFunction<T, U, V, D>**
+**PagesFunction<T, U, V, D, P>**
+
 - `T` - The vars added to generated pages (optional, defaults to `Record<string, any>`)
 - `U` - The static children or inline page-function return type (optional, defaults to `string`)
 - `V` - The default and global vars received by the pages factory (optional, defaults to `Record<string, any>`)
 - `D` - The factory's declared global-data shape (optional, defaults to `Record<string, unknown>`)
+- `P` - Inline pages' declared global-data shape (optional, defaults to `D` for convenience; set it independently when factory and page subscriptions differ)
+
+Each layout's input, output, and data types are independent of its parent and page.
+DOMStack resolves layout names at runtime, so it cannot statically prove that two separately declared layout modules have compatible content types.
+Manual function calls do receive normal TypeScript argument checking.
 
 This allows pages to return custom types (like VDOM or JSON), ensures layouts produce HTML strings, and keeps generated-page vars separate from the vars used to create them:
 
@@ -2434,20 +2456,22 @@ export type GlobalData = RootLayoutData & ArticleLayoutData
 
 ```typescript
 // root.layout.ts
+import type { DataDeps } from '@domstack/static/types.js'
 import type { RootLayoutData } from './global.data.ts'
 
 export const vars = {
-  dataDeps: ['navigation'] satisfies Array<keyof RootLayoutData>,
+  dataDeps: ['navigation'] satisfies DataDeps<RootLayoutData>,
 }
 ```
 
 ```typescript
 // article.layout.ts
+import type { DataDeps } from '@domstack/static/types.js'
 import type { ArticleLayoutData } from './global.data.ts'
 
 export const parentLayout = 'root'
 export const vars = {
-  dataDeps: ['recentPosts'] satisfies Array<keyof ArticleLayoutData>,
+  dataDeps: ['recentPosts'] satisfies DataDeps<ArticleLayoutData>,
 }
 ```
 
@@ -2474,15 +2498,18 @@ Prefer `parentLayout` for ordinary nesting: DOMStack can then manage the full ch
 A layout without `parentLayout` still runs once, and it may import and call other render functions itself.
 DOMStack does not infer a parent from those imports, merge the imported function's vars, or add its assets.
 Manual composition must forward the required arguments and explicitly import parent assets.
-On this advanced path, the composing layout must also declare every data key its manually called helpers need and forward `data` itself.
+The composing layout also declares every data key its manually called helpers need and forwards `data` itself.
 
 ```typescript
 // manual.layout.ts
 import rootLayout from './root.layout.ts'
-import type { LayoutFunction } from '@domstack/static/types.js'
+import type { DataDeps, LayoutFunction } from '@domstack/static/types.js'
 import type { RootLayoutVars } from './root.layout.ts'
+import type { RootLayoutData } from './global.data.ts'
 
-const manualLayout: LayoutFunction<RootLayoutVars, string, string> = args => {
+export const vars = { dataDeps: ['navigation'] satisfies DataDeps<RootLayoutData> }
+
+const manualLayout: LayoutFunction<RootLayoutVars, string, string, RootLayoutData> = args => {
   return rootLayout({ ...args, children: `<article>${args.children}</article>` })
 }
 
@@ -2490,6 +2517,7 @@ export default manualLayout
 ```
 
 Static import tracking still rebuilds these pages when an imported parent or helper changes.
+The composing layout's declared keys also trigger rebuilds when their global-data values change, for both source-backed and generated pages.
 If the parent has layout CSS or client code, import those files from the composing layout's corresponding asset entries.
 These manual responsibilities are why explicit `parentLayout` nesting is recommended, not a restriction on using ordinary functions.
 
@@ -2545,7 +2573,7 @@ export default globalData
 ```typescript
 // src/feeds.template.ts
 import jsonfeedToAtom from 'jsonfeed-to-atom'
-import type { TemplateAsyncIterator } from '@domstack/static/types.js'
+import type { DataDeps, TemplateAsyncIterator } from '@domstack/static/types.js'
 import type { FeedsTemplateData } from './global.data.js'
 
 interface TemplateVars {
@@ -2560,7 +2588,7 @@ interface TemplateVars {
   language: string;
 }
 
-export const dataDeps = ['feedItems'] satisfies Array<keyof FeedsTemplateData>
+export const dataDeps = ['feedItems'] satisfies DataDeps<FeedsTemplateData>
 
 const feedsTemplate: TemplateAsyncIterator<TemplateVars, FeedsTemplateData> = async function * ({
   vars: {
@@ -2640,7 +2668,9 @@ export interface GlobalData {
 
 export type BlogIndexesPagesData = Pick<GlobalData, 'blogIndexes'>
 
-function collectBlogPosts (pages: GlobalDataFunctionParams['pages']): BlogPost[] {
+type SourcePageVars = { layout?: string, title?: unknown, publishDate?: unknown }
+
+function collectBlogPosts (pages: GlobalDataFunctionParams<SourcePageVars>['pages']): BlogPost[] {
   return pages
     .filter(page => page.vars.layout === 'post')
     .map(page => {
@@ -2663,7 +2693,7 @@ function collectBlogPosts (pages: GlobalDataFunctionParams['pages']): BlogPost[]
     .sort((a, b) => b.publishDate.localeCompare(a.publishDate))
 }
 
-const globalData: AsyncGlobalDataFunction<GlobalData> = async ({ pages }) => {
+const globalData: AsyncGlobalDataFunction<GlobalData, SourcePageVars> = async ({ pages }) => {
   const postsByYear = new Map<number, BlogPost[]>()
 
   for (const post of collectBlogPosts(pages)) {
@@ -2685,7 +2715,7 @@ Then subscribe to `blogIndexes` and create one `blog/<year>/index.html` page per
 
 ```typescript
 // src/blog-indexes.pages.ts
-import type { PagesFunction } from '@domstack/static/types.js'
+import type { DataDeps, PagesFunction } from '@domstack/static/types.js'
 import type { BlogIndexesPagesData, BlogPost } from './global.data.js'
 
 type YearIndexPageVars = {
@@ -2694,7 +2724,7 @@ type YearIndexPageVars = {
   posts: BlogPost[]
 }
 
-export const dataDeps = ['blogIndexes'] satisfies Array<keyof BlogIndexesPagesData>
+export const dataDeps = ['blogIndexes'] satisfies DataDeps<BlogIndexesPagesData>
 
 const blogIndexes: PagesFunction<
   YearIndexPageVars,

@@ -349,6 +349,16 @@ While `global.data.ts` is resolving, `renderInnerPage()` can render a page witho
 `renderFullPage()` cannot run until data is ready if the page or any layout in its chain subscribes.
 Keep focused consumer data types beside the complete type returned by `global.data.ts`.
 Export those contracts for pages, layouts, templates, and factories instead of making each consumer reconstruct a `Pick<GlobalData, ...>` selection.
+Use `satisfies DataDeps<ConsumerData>` from `@domstack/static/types.js` to check declaration names; readonly arrays and `as const` tuples are supported.
+The factory's data type and its inline pages' data type can differ: `PagesFunction<PageVars, Content, FactoryVars, FactoryData, PageData>`.
+Source collation can also be typed explicitly with `GlobalDataFunction<Result, SourceVars, SourceContent>` and `GlobalDataFunctionParams<SourceVars, SourceContent>`.
+
+Manual composition remains supported: declare every key the called renderers need on the composing layout and forward its `data` argument.
+Prefer `parentLayout` so DOMStack discovers ancestor subscriptions and manages the complete layout chain automatically.
+Static imports still track manually called parents and helpers, and changes to imported `global.data.*` helpers recompute subscribed values.
+
+Invalid declarations, missing keys, undeclared reads, and premature data access fail with `DomStackDataError` (`DOM_STACK_ERROR_DATA`), preserved inside the build's aggregate errors.
+Watch mode retains the previous successful dependency state on failure and retries the full page phase on the next page build.
 
 This replaces the earlier v12 prerelease behavior that passed `pages` broadly and stamped all global data into every consumer's vars.
 Update any prerelease-based code that reads global data from `vars` or accepts `pages` outside `global.data.ts`.

@@ -1,5 +1,5 @@
 import { html, render } from 'fragtml'
-import type { PageFunction } from '@domstack/static/types.js'
+import type { DataDeps, PageFunction } from '@domstack/static/types.js'
 import type { BlogPageData } from '../global.data.js'
 import type { SiteVars } from '../global.vars.js'
 
@@ -52,5 +52,5 @@ export default blogIndex
 export const vars = {
   title: 'Blog',
   layout: 'root',
-  dataDeps: ['blogIndexes', 'blogPosts'] satisfies Array<keyof BlogPageData>,
+  dataDeps: ['blogIndexes', 'blogPosts'] satisfies DataDeps<BlogPageData>,
 }
