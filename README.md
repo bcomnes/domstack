@@ -589,6 +589,11 @@ All layouts receive the same final resolved page vars, metadata, and asset lists
 Layout defaults merge outermost-to-innermost before page overrides, and ancestor CSS/client entries are included automatically between global and page assets.
 Watch mode tracks the resolved chain and each layout's static imports for source-backed and generated pages, updating those relationships after successful rebuilds.
 
+Each layout can also declare its own global-data subscriptions through `vars.dataDeps`.
+DOMStack passes only those declared keys to that layout's `data` argument; a child does not receive its parent's data or need to repeat its declarations.
+For rebuilds, the page depends on the union of its own subscriptions and every layout's subscriptions in the declared chain.
+See [Data subscriptions in nested layouts](#data-subscriptions-in-nested-layouts) for typed declarations and examples.
+
 Manual function composition remains supported, but `parentLayout` is recommended so DOMStack manages the ancestor chain and its rebuild dependencies.
 Do not both declare a parent and call its render function manually, or the parent will render twice.
 See [Compose nested layouts](#compose-nested-layouts) for a complete example, asset guidance, and the manual-composition alternative.
