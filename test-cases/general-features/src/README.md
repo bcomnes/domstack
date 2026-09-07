@@ -1,6 +1,6 @@
 ---
 testVar: frontmatter var
-dataDependencies:
+dataDeps:
   - blogPostsHtml
 ---
 # Root Readme page

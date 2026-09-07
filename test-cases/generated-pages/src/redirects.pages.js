@@ -19,7 +19,7 @@ function redirectOutputName (from) {
   return relativePath.endsWith('/') ? `${relativePath}index.html` : relativePath
 }
 
-export const dataDependencies = ['redirects']
+export const dataDeps = ['redirects']
 
 /** @type {PagesFunction<Record<string, any>, string, Record<string, any>, { redirects: Redirect[] }>} */
 export default function redirectsPages ({ data }) {

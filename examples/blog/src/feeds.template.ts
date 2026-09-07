@@ -9,7 +9,7 @@ type FeedVars = SiteVars
  *
  * Feed records come from an explicit global-data subscription.
  */
-export const dataDependencies = ['feedItems'] satisfies Array<keyof FeedsTemplateData>
+export const dataDeps = ['feedItems'] satisfies Array<keyof FeedsTemplateData>
 
 const feedsTemplate: TemplateAsyncIterator<FeedVars, FeedsTemplateData> = async function * ({
   vars,

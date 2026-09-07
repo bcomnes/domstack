@@ -269,7 +269,7 @@ test.describe('generated pages', () => {
 }
 `,
       'README.md': '# Concrete page\n',
-      'indexes.pages.js': `export const dataDependencies = ['posts']
+      'indexes.pages.js': `export const dataDeps = ['posts']
 export default function indexesPages ({ data }) {
   return {
     outputName: 'generated-index/index.html',
@@ -564,7 +564,7 @@ export default function indexesPages ({ data }) {
   return { sourceTitle: pages[0].vars.title }
 }
 `,
-      'watch-indexes.pages.js': `export const dataDependencies = ['sourceTitle']
+      'watch-indexes.pages.js': `export const dataDeps = ['sourceTitle']
 export default function ({ data }) {
   const title = data.sourceTitle
   const outputName = title === 'First title'
@@ -573,7 +573,7 @@ export default function ({ data }) {
   return { outputName, vars: { title }, children: () => title }
 }
 `,
-      'summary.template.js': `export const dataDependencies = ['sourceTitle']
+      'summary.template.js': `export const dataDeps = ['sourceTitle']
 export default function ({ data }) {
   const outputName = data.sourceTitle === 'First title'
     ? 'watch-first/index.html'
@@ -633,7 +633,7 @@ export default function unrelatedPages () {
   return { renderedPost: await post.renderInnerPage() }
 }
 `,
-      'markdown-summary.pages.js': `export const dataDependencies = ['renderedPost']
+      'markdown-summary.pages.js': `export const dataDeps = ['renderedPost']
 export default function ({ data }) {
   return { outputName: 'summary/index.html', children: data.renderedPost }
 }

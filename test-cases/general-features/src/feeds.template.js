@@ -17,7 +17,7 @@ import jsonfeedToAtom from 'jsonfeed-to-atom'
  * @property {string} siteDescription
  */
 
-export const dataDependencies = ['feedItems', 'globalDataSentinel']
+export const dataDeps = ['feedItems', 'globalDataSentinel']
 
 /** @type {TemplateAsyncIterator<FeedTemplateVars, {
  *   feedItems: Array<{ title: string, path: string, publishDate: string, contentHtml: string }>,

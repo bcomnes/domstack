@@ -31,7 +31,7 @@
  * @property {BlogIndex[]} blogIndexes
  */
 
-export const dataDependencies = ['blogIndexes']
+export const dataDeps = ['blogIndexes']
 
 /** @type {PagesFunction<IndexVars, string, GlobalVars, CollectionData>} */
 export default function indexesPages ({ vars, data }) {

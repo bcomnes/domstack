@@ -7,7 +7,7 @@ import { html } from 'fragtml'
 import rootLayout from './root.layout.js'
 
 export const vars = {
-  dataDependencies: ['sourcePageCount'],
+  dataDeps: ['sourcePageCount'],
 }
 
 /**

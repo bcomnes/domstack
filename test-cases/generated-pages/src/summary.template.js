@@ -2,7 +2,7 @@
  * @import { TemplateFunction } from '#types'
  */
 
-export const dataDependencies = ['blogPosts', 'sourcePageCount']
+export const dataDeps = ['blogPosts', 'sourcePageCount']
 
 /** @type {TemplateFunction<Record<string, any>, { blogPosts: unknown[], sourcePageCount: number }>} */
 export default async function summaryTemplate ({ data }) {

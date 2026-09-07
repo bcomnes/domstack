@@ -16,7 +16,7 @@ function redirectOutputName (from: string): string {
   return relativePath.endsWith('/') ? `${relativePath}index.html` : relativePath
 }
 
-export const dataDependencies = ['redirects'] satisfies Array<keyof RedirectPagesData>
+export const dataDeps = ['redirects'] satisfies Array<keyof RedirectPagesData>
 
 const redirectPages: PagesFunction<
   RedirectPageVars,

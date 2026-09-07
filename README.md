@@ -331,7 +331,7 @@ type BlogData = {
 
 export const vars = {
   favoriteCake: 'Chocolate Cloud Cake',
-  dataDependencies: ['blogYears'],
+  dataDeps: ['blogYears'],
 }
 
 const blogIndex: PageFunction<BlogVars, HtmlResult, BlogData> = async ({
@@ -622,7 +622,7 @@ It is always passed a single object argument with the following entries.
 See [Page data and introspection](#page-data-and-introspection) for details about `page`, and [Global data](#global-data) for `data`:
 
 - `vars`: The resolved page variable cascade, including domstack defaults, global vars, layout vars, page vars, and page builder vars/frontmatter. Pages can customize layouts by overriding global or layout defaults.
-- `data`: Only the top-level global-data keys declared by this layout through `vars.dataDependencies`.
+- `data`: Only the top-level global-data keys declared by this layout through `vars.dataDeps`.
 - `scripts`: array of paths that should be included onto the page in a script tag src with type `module`.
 - `styles`: array of paths that should be included onto the page in a `link rel="stylesheet"` tag with the `href` pointing to the paths in the array.
 - `children`: The immediate child's render result: the page's content for the innermost layout, or the next inner layout's return value for a parent.
@@ -810,13 +810,13 @@ export default async function vars () {
 Pages and layouts receive an object with the following parameters:
 
 - `vars`: An object with the variables of `global.vars.ts`, `page.vars.ts`, layout vars, and any frontmatter or `vars` exports from the page merged together.
-- `data`: Only the top-level values selected from [`global.data.ts`](#global-data) by this renderer's own `dataDependencies` declarations.
+- `data`: Only the top-level values selected from [`global.data.ts`](#global-data) by this renderer's own `dataDeps` declarations.
 - `page`: The current page's [`PageInfo` metadata](#page-metadata).
 
 Template files receive a similar set of variables:
 
 - `vars`: An object with the variables from `global.vars.ts`.
-- `data`: Only the top-level values selected from [`global.data.ts`](#global-data) by the template's `dataDependencies` named export.
+- `data`: Only the top-level values selected from [`global.data.ts`](#global-data) by the template's `dataDeps` named export.
 - `template`: Information about the current template file.
 
 ## Static assets
@@ -1176,12 +1176,12 @@ export default buildGlobalData
 ```
 
 The returned object is not merged into `vars`.
-A page or layout declares the keys it needs through `dataDependencies`, then reads those keys from the separate `data` argument:
+A page or layout declares the keys it needs through `dataDeps`, then reads those keys from the separate `data` argument:
 
 ```md
 <!-- src/page.md -->
 ---
-dataDependencies:
+dataDeps:
   - blogPostsHtml
 ---
 
@@ -1195,7 +1195,7 @@ HTML pages declare the same field in an adjacent `page.vars.ts` file:
 ```typescript
 // src/archive/page.vars.ts
 export default {
-  dataDependencies: ['blogPostsHtml'],
+  dataDeps: ['blogPostsHtml'],
 }
 ```
 
@@ -1206,7 +1206,7 @@ import type { PageFunction } from '@domstack/static/types.js'
 import type { ArchiveData } from './global.data.js'
 
 export const vars = {
-  dataDependencies: ['blogPostsHtml'] satisfies Array<keyof ArchiveData>,
+  dataDeps: ['blogPostsHtml'] satisfies Array<keyof ArchiveData>,
 }
 
 const archivePage: PageFunction<Record<string, never>, string, ArchiveData> = ({ data }) =>
@@ -1217,19 +1217,19 @@ export default archivePage
 
 Keep these focused consumer contracts beside the complete global-data type so pages and layouts can import a meaningful name instead of reconstructing a `Pick<GlobalData, ...>` selection.
 
-For `*.template.ts` and `*.pages.ts` files, export `dataDependencies` as a named module export because those files do not have consumer vars:
+For `*.template.ts` and `*.pages.ts` files, export `dataDeps` as a named module export because those files do not have consumer vars:
 
 ```typescript
-export const dataDependencies = ['blogPostsHtml']
+export const dataDeps = ['blogPostsHtml']
 
 export default function archiveTemplate ({ data }) {
   return data.blogPostsHtml
 }
 ```
 
-`dataDependencies` is build metadata and is removed from the resolved `vars` object.
+`dataDeps` is build metadata and is removed from the resolved `vars` object.
 The page receives the union of its own frontmatter, page-vars, and builder declarations.
-Each layout receives only its own `vars.dataDependencies`, not its parent's or the page's data.
+Each layout receives only its own `vars.dataDeps`, not its parent's or the page's data.
 For output invalidation, DOMStack unions the page's declarations with those of every layout in its resolved `parentLayout` chain.
 Children do not repeat ancestor declarations, and a parent's subscriptions cannot be cleared by a child's empty declaration.
 When one layout calls another layout function directly, the composing layout must declare every global-data key the composed rendering needs.
@@ -1390,7 +1390,7 @@ Export a function when definitions depend on declared global data or shared vari
 
 ```ts
 // src/tag-indexes.pages.ts
-export const dataDependencies = ['tagIndex']
+export const dataDeps = ['tagIndex']
 
 export default function tagIndexes ({ data }) {
   return Object.entries(data.tagIndex).map(([tag, posts]) => ({
@@ -1428,7 +1428,7 @@ Export an async generator when pages should be yielded incrementally:
 
 ```ts
 // src/archive.pages.ts
-export const dataDependencies = ['blogYears']
+export const dataDeps = ['blogYears']
 
 export default async function * archivePages ({ data }) {
   for (const year of data.blogYears) {
@@ -1447,7 +1447,7 @@ Functions receive one object with:
 | Parameter | Contents |
 |---|---|
 | `vars` | Default and global vars. |
-| `data` | Only the top-level values named by the module's `dataDependencies` export. |
+| `data` | Only the top-level values named by the module's `dataDeps` export. |
 | `pagesFile` | Information about the current file. `name` is the filename without its `.pages.*` suffix, `path` is its source-relative directory, and `pagesFile` contains the underlying file information. |
 
 Factories do not receive raw source or generated `PageData` collections.
@@ -1502,7 +1502,7 @@ import type { PagesFunction } from '@domstack/static/types.js'
 type ArchiveVars = { layout: string, year: number }
 type ArchiveData = { blogYears: number[] }
 
-export const dataDependencies = ['blogYears']
+export const dataDeps = ['blogYears']
 
 const archivePages: PagesFunction<ArchiveVars, string, Record<string, never>, ArchiveData> = async function * ({ data }) {
   for (const year of data.blogYears) {
@@ -1747,7 +1747,7 @@ export default globalData
 ```
 
 Rendering performed inside `global.data.ts` cannot use the derived values that the same file is still computing.
-After `global.data.ts` returns, consumers receive only the values named by their `dataDependencies` declarations.
+After `global.data.ts` returns, consumers receive only the values named by their `dataDeps` declarations.
 
 
 ## TypeScript Support
@@ -2437,7 +2437,7 @@ export type GlobalData = RootLayoutData & ArticleLayoutData
 import type { RootLayoutData } from './global.data.ts'
 
 export const vars = {
-  dataDependencies: ['navigation'] satisfies Array<keyof RootLayoutData>,
+  dataDeps: ['navigation'] satisfies Array<keyof RootLayoutData>,
 }
 ```
 
@@ -2447,7 +2447,7 @@ import type { ArticleLayoutData } from './global.data.ts'
 
 export const parentLayout = 'root'
 export const vars = {
-  dataDependencies: ['recentPosts'] satisfies Array<keyof ArticleLayoutData>,
+  dataDeps: ['recentPosts'] satisfies Array<keyof ArticleLayoutData>,
 }
 ```
 
@@ -2560,7 +2560,7 @@ interface TemplateVars {
   language: string;
 }
 
-export const dataDependencies = ['feedItems'] satisfies Array<keyof FeedsTemplateData>
+export const dataDeps = ['feedItems'] satisfies Array<keyof FeedsTemplateData>
 
 const feedsTemplate: TemplateAsyncIterator<TemplateVars, FeedsTemplateData> = async function * ({
   vars: {
@@ -2694,7 +2694,7 @@ type YearIndexPageVars = {
   posts: BlogPost[]
 }
 
-export const dataDependencies = ['blogIndexes'] satisfies Array<keyof BlogIndexesPagesData>
+export const dataDeps = ['blogIndexes'] satisfies Array<keyof BlogIndexesPagesData>
 
 const blogIndexes: PagesFunction<
   YearIndexPageVars,
@@ -2781,7 +2781,7 @@ function redirectOutputName (from) {
   return relativePath.endsWith('/') ? `${relativePath}index.html` : relativePath
 }
 
-export const dataDependencies = ['redirects']
+export const dataDeps = ['redirects']
 
 export default function redirectsPages ({ data }) {
   const pages = []
@@ -2830,7 +2830,7 @@ export default function redirectLayout ({ vars }) {
 // src/redirects-netlify.txt.template.ts
 // Generates a _redirects file for Netlify / Cloudflare Pages.
 
-export const dataDependencies = ['redirects']
+export const dataDeps = ['redirects']
 
 export default function ({ data }) {
   return {
@@ -3006,7 +3006,7 @@ Variable Resolution Layers, from lowest to highest precedence:
   - **JS pages**: exported `vars` plus `page.vars.js`.
 
 Global data is not a variable-resolution layer.
-It is resolved separately and projected into each consumer's `data` argument according to `dataDependencies`.
+It is resolved separately and projected into each consumer's `data` argument according to `dataDeps`.
 
 ### Watch mode
 

@@ -83,8 +83,8 @@ The replacement design makes collection processing an explicit phase:
 
 - Only `global.data.*` receives source-backed `PageData[]`.
 - `global.data.*` returns named top-level values for downstream use.
-- Pages and layouts declare required keys in `vars.dataDependencies`.
-- Templates and `*.pages.*` factories declare required keys with a named `dataDependencies` export.
+- Pages and layouts declare required keys in `vars.dataDeps`.
+- Templates and `*.pages.*` factories declare required keys with a named `dataDeps` export.
 - Consumers receive those values through a separate `data` argument rather than the ordinary variable cascade.
 - Raw source or generated page collections are not passed to pages, layouts, templates, or generated-page factories.
 
@@ -93,7 +93,7 @@ It compares those fingerprints with the previous successful watch state and inva
 Subscriptions are explicit records keyed by source page, generated output, template, or pages-file owner, so no async attribution or property-read graph is required.
 
 Page dependencies are the union of declarations from frontmatter or page vars and the selected layout's vars.
-The `dataDependencies` metadata is removed before ordinary vars are exposed to rendering code.
+The `dataDeps` metadata is removed before ordinary vars are exposed to rendering code.
 Generated-page subscriptions retain their pages-file owner so changed factory data can rebuild the owner and reconcile obsolete outputs.
 
 This model intentionally tracks at top-level global-data key granularity.

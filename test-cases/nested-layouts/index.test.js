@@ -284,18 +284,18 @@ async function setupSubscriptions (t) {
   await site.write('global.data.js', globalData)
   await site.write('root.layout.js', `
     import assert from 'node:assert/strict'
-    export const vars = { dataDependencies: ['navigation', 'rendered'] }
+    export const vars = { dataDeps: ['navigation', 'rendered'] }
     export default ({ children, data, vars }) => {
       assert.deepEqual(Object.keys(data), ['navigation', 'rendered'])
       assert.throws(() => data.recentPosts, /undeclared global data key/)
-      assert.equal(vars.dataDependencies, undefined)
+      assert.equal(vars.dataDeps, undefined)
       return '<main>' + data.navigation + data.rendered + children + '</main>'
     }
   `)
   await site.write('article.layout.js', `
     import assert from 'node:assert/strict'
     export const parentLayout = 'root'
-    export const vars = { dataDependencies: ['recentPosts'] }
+    export const vars = { dataDeps: ['recentPosts'] }
     export default ({ children, data }) => {
       assert.deepEqual(Object.keys(data), ['recentPosts'])
       assert.throws(() => data.navigation, /undeclared global data key/)
@@ -305,7 +305,7 @@ async function setupSubscriptions (t) {
   await site.write('post.layout.js', `
     import assert from 'node:assert/strict'
     export const parentLayout = 'article'
-    export const vars = { dataDependencies: ['footer'] }
+    export const vars = { dataDeps: ['footer'] }
     export default ({ children, data }) => {
       assert.deepEqual(Object.keys(data), ['footer'])
       assert.throws(() => data.pageMessage, /undeclared global data key/)
@@ -314,7 +314,7 @@ async function setupSubscriptions (t) {
   `)
   await site.write('typed/page.ts', `
     import assert from 'node:assert/strict'
-    export const vars = { layout: 'post', dataDependencies: ['pageMessage'] }
+    export const vars = { layout: 'post', dataDeps: ['pageMessage'] }
     export default ({ data }) => {
       assert.deepEqual(Object.keys(data), ['pageMessage'])
       assert.throws(() => data.footer, /undeclared global data key/)
@@ -367,7 +367,7 @@ test('watch subscribes outputs to the full layout chain and drops old ancestor s
 
   await write('post.layout.js', `
     export const parentLayout = 'other'
-    export const vars = { dataDependencies: ['footer'] }
+    export const vars = { dataDeps: ['footer'] }
     export default ({ children, data }) => '<section>' + data.footer + children + '</section>'
   `)
   await settle()

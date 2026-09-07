@@ -12,7 +12,7 @@ const renderConcreteOnlyPage = ({ vars }) => html`
   <p id="concrete-count">${vars.concreteCount}</p>
 `
 
-export const dataDependencies = ['sourcePageCount']
+export const dataDeps = ['sourcePageCount']
 
 /** @type {PagesFunction<ConcreteOnlyVars, HtmlResult, Record<string, any>, { sourcePageCount: number }>} */
 export default function concreteOnlyPages ({ data }) {

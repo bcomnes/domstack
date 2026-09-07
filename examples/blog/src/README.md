@@ -1,6 +1,6 @@
 ---
 title: Home
-dataDependencies:
+dataDeps:
   - recentPostsHtml
 ---
 

@@ -52,5 +52,5 @@ export default blogIndex
 export const vars = {
   title: 'Blog',
   layout: 'root',
-  dataDependencies: ['blogIndexes', 'blogPosts'] satisfies Array<keyof BlogPageData>,
+  dataDeps: ['blogIndexes', 'blogPosts'] satisfies Array<keyof BlogPageData>,
 }

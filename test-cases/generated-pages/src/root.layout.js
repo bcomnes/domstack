@@ -6,7 +6,7 @@
 import { html, raw, render } from 'fragtml'
 
 export const vars = {
-  dataDependencies: ['sourcePageCount'],
+  dataDeps: ['sourcePageCount'],
 }
 
 /** @type {LayoutFunction<{ title: string }, string | HtmlResult, string, { sourcePageCount: number }>} */

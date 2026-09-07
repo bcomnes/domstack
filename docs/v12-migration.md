@@ -337,14 +337,14 @@ Replacing `loader` without spreading `settings.loader` intentionally discards DO
 ## Global data subscriptions and page introspection additions
 
 `global.data.ts` is now the only public hook that receives the source-backed `PageData[]` collection.
-It returns named top-level values, and downstream pages, layouts, templates, and generated-page factories receive only values they explicitly declare through `dataDependencies`.
+It returns named top-level values, and downstream pages, layouts, templates, and generated-page factories receive only values they explicitly declare through `dataDeps`.
 Subscribed values arrive through a separate `data` argument and are not merged into `vars`.
 
-Pages declare `dataDependencies` in frontmatter, an adjacent `page.vars.ts`, or a TypeScript page's `vars` export.
+Pages declare `dataDeps` in frontmatter, an adjacent `page.vars.ts`, or a TypeScript page's `vars` export.
 Layouts declare them in their `vars` export.
 Each layout receives only the keys it declares, independently of its parent and page.
 The output's watch subscriptions include the union from the page and every layout in its `parentLayout` chain, so children do not repeat ancestor declarations.
-Templates and `*.pages.ts` factories use a named `export const dataDependencies = [...]` because they do not have consumer vars.
+Templates and `*.pages.ts` factories use a named `export const dataDeps = [...]` because they do not have consumer vars.
 While `global.data.ts` is resolving, `renderInnerPage()` can render a page without its own subscriptions even if its layouts subscribe to derived data.
 `renderFullPage()` cannot run until data is ready if the page or any layout in its chain subscribes.
 Keep focused consumer data types beside the complete type returned by `global.data.ts`.
@@ -389,7 +389,7 @@ import type { PagesFunction } from '@domstack/static/types.js'
 type ArchiveVars = { layout: string, year: number }
 type ArchiveData = { archiveYears: number[] }
 
-export const dataDependencies = ['archiveYears']
+export const dataDeps = ['archiveYears']
 
 const archivePages: PagesFunction<ArchiveVars, string, Record<string, never>, ArchiveData> = ({ data }) => {
   return data.archiveYears.map(year => ({
@@ -574,7 +574,7 @@ This lets DOMStack inject the finalized `manifest.version` into `/service-worker
 - [ ] In ejected stylesheets, load light and dark syntax-highlighting themes with matching `prefers-color-scheme` behavior.
 - [ ] If installing mine.css directly, confirm the environment uses Node.js 22+ and npm 10+ and target browsers support native CSS nesting.
 - [ ] Visually check mine.css surfaces that the project directly customizes.
-- [ ] Move any global-data reads out of `vars`, declare the required top-level keys in `dataDependencies`, and read them from `data`.
+- [ ] Move any global-data reads out of `vars`, declare the required top-level keys in `dataDeps`, and read them from `data`.
 - [ ] Move any page-collection processing from pages, layouts, templates, or `*.pages.ts` factories into `global.data.ts`.
 - [ ] If you customize Markdown, use parser plugins, or snapshot rendered HTML, verify output with the v12 Markdown and YAML dependency versions.
 - [ ] If you use GitHub alert blocks, import alert styles or provide equivalent site styles.

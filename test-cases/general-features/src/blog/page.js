@@ -29,5 +29,5 @@ export default async function blogIndex ({
 
 export const vars = {
   somePageScopled: 'vars',
-  dataDependencies: ['blogYears'],
+  dataDeps: ['blogYears'],
 }
