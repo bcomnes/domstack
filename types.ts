@@ -1,3 +1,5 @@
+/// <reference path="./types/thread-stream.d.ts" preserve="true" />
+
 // Type-only public entry for `import type { ... } from '@domstack/static/types.js'`.
 // There is intentionally no runtime `types.js` today; this source emits `types.d.ts`,
 // and `types.js` is reserved for a future runtime/type companion entry if needed.

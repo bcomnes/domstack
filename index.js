@@ -1,3 +1,5 @@
+/// <reference path="./types/thread-stream.d.ts" preserve="true" />
+
 /**
  * @import { DomStackOpts, Results, SiteData } from './lib/builder.js'
  * @import { Stats } from 'node:fs'
