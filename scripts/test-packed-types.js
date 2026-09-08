@@ -6,7 +6,7 @@ import { promisify } from 'node:util'
 
 const execFileAsync = promisify(execFile)
 const projectPath = path.resolve(import.meta.dirname, '..')
-const { dependencies } = JSON.parse(await readFile(path.join(projectPath, 'package.json'), 'utf8'))
+const { dependencies, devDependencies } = JSON.parse(await readFile(path.join(projectPath, 'package.json'), 'utf8'))
 const temporaryPath = await mkdtemp(path.join(tmpdir(), 'domstack-packed-types-'))
 const consumerPath = path.join(temporaryPath, 'consumer')
 
@@ -34,9 +34,7 @@ try {
         '@domstack/static': `file:${tarballPath}`,
         '@types/node': '^26.0.1',
         pino: dependencies.pino,
-        'typescript-5': 'npm:typescript@~5.9.0',
-        'typescript-6': 'npm:typescript@~6.0.0',
-        'typescript-7': 'npm:typescript@~7.0.0',
+        typescript: devDependencies.typescript,
       },
     }, null, 2)}\n`),
     writeFile(path.join(consumerPath, 'index.ts'), `import { DomStack, PageData } from '@domstack/static'
@@ -113,15 +111,13 @@ void ({} as Results)
         consumerPath
       )
     }
-    for (const version of ['typescript-5', 'typescript-6', 'typescript-7']) {
-      for (const config of ['tsconfig.json', 'tsconfig-types.json']) {
-        console.log(`Checking ${version}, @types/node ${nodeVersion}, ${config}`)
-        await run(
-          process.execPath,
-          [path.join(consumerPath, 'node_modules', version, 'bin', 'tsc'), '--project', config],
-          consumerPath
-        )
-      }
+    for (const config of ['tsconfig.json', 'tsconfig-types.json']) {
+      console.log(`Checking TypeScript ${devDependencies.typescript}, @types/node ${nodeVersion}, ${config}`)
+      await run(
+        process.execPath,
+        [path.join(consumerPath, 'node_modules', 'typescript', 'bin', 'tsc'), '--project', config],
+        consumerPath
+      )
     }
   }
 } finally {
