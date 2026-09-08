@@ -1,3 +1,5 @@
+/// <reference path="./types/thread-stream.d.ts" preserve="true" />
+
 /**
  * @import { DomStackOpts, Results, SiteData } from './lib/builder.js'
  * @import { Stats } from 'node:fs'
@@ -137,7 +139,7 @@ export class DomStack {
 
     this.#src = src
     this.#dest = dest
-    this.#logger = /** @type {PinoLogger} */ (opts.logger ?? createDomStackLogger())
+    this.#logger = opts.logger ?? createDomStackLogger()
     this.opts = normalizeDomStackOpts(opts, dest)
 
     const copyDirs = this.opts.copy ?? []

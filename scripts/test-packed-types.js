@@ -1,11 +1,12 @@
 import { execFile, spawn } from 'node:child_process'
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
 
 const execFileAsync = promisify(execFile)
 const projectPath = path.resolve(import.meta.dirname, '..')
+const { dependencies } = JSON.parse(await readFile(path.join(projectPath, 'package.json'), 'utf8'))
 const temporaryPath = await mkdtemp(path.join(tmpdir(), 'domstack-packed-types-'))
 const consumerPath = path.join(temporaryPath, 'consumer')
 
@@ -32,34 +33,51 @@ try {
       dependencies: {
         '@domstack/static': `file:${tarballPath}`,
         '@types/node': '^26.0.1',
+        pino: dependencies.pino,
         'typescript-5': 'npm:typescript@~5.9.0',
         'typescript-6': 'npm:typescript@~6.0.0',
+        'typescript-7': 'npm:typescript@~7.0.0',
       },
     }, null, 2)}\n`),
     writeFile(path.join(consumerPath, 'index.ts'), `import { DomStack, PageData } from '@domstack/static'
+import pino from 'pino'
+
+const stack = new DomStack('src', 'public', { logger: pino({ level: 'silent' }) })
+void PageData
+void stack
+`),
+    writeFile(path.join(consumerPath, 'types.ts'), `import pino from 'pino'
+import type { WorkerOptions } from 'node:worker_threads'
 import type {
-  DomStackLogger,
   DomStackOpts,
   PageFunction,
   Results,
 } from '@domstack/static/types.js'
 
-const logger: DomStackLogger = {
-  trace () {},
-  debug () {},
-  info () {},
-  warn () {},
-  error () {},
-  fatal () {},
-  child () { return logger },
-}
+const logger = pino({ level: 'silent' })
 const options: DomStackOpts = { buildDrafts: true, logger }
 const render: PageFunction<Record<string, unknown>, string> = ({ vars }) => String(vars)
-const stack = new DomStack('src', 'public', options)
 
-void PageData
+// The logger option retains Pino's full contract.
+const configuredLogger: pino.Logger | undefined = options.logger
+const childOptions: DomStackOpts = { logger: logger.child({ component: 'consumer' }) }
+// @ts-expect-error A generic logging object is not a Pino logger.
+const invalidOptions: DomStackOpts = { logger: { info () {} } }
+
+// The compatibility alias preserves the transport's transfer-list type, not any.
+type TransferItem = NonNullable<Parameters<ReturnType<typeof pino.transport>['emit']>[2]>[number]
+declare const item: TransferItem
+const expected: NonNullable<WorkerOptions['transferList']>[number] = item
+const actual: TransferItem = expected
+// @ts-expect-error A primitive is not transferable.
+const invalidTransfer: TransferItem = 123
+
 void render
-void stack
+void configuredLogger
+void childOptions
+void invalidOptions
+void actual
+void invalidTransfer
 void ({} as Results)
 `),
     writeFile(path.join(consumerPath, 'tsconfig.json'), `${JSON.stringify({
@@ -74,6 +92,10 @@ void ({} as Results)
       },
       include: ['index.ts'],
     }, null, 2)}\n`),
+    writeFile(path.join(consumerPath, 'tsconfig-types.json'), `${JSON.stringify({
+      extends: './tsconfig.json',
+      include: ['types.ts'],
+    }, null, 2)}\n`),
   ])
 
   await run(
@@ -81,12 +103,26 @@ void ({} as Results)
     ['install', '--ignore-scripts', '--no-audit', '--no-fund', '--no-package-lock'],
     consumerPath
   )
-  for (const version of ['typescript-5', 'typescript-6']) {
-    await run(
-      process.execPath,
-      [path.join(consumerPath, 'node_modules', version, 'bin', 'tsc')],
-      consumerPath
-    )
+  // Node 26 exercises the missing alias; 24 and 22 guard against duplicate
+  // declarations on supported older releases. Check each entry in isolation.
+  for (const nodeVersion of [26, 24, 22]) {
+    if (nodeVersion !== 26) {
+      await run(
+        'npm',
+        ['install', `@types/node@^${nodeVersion}.0.0`, '--ignore-scripts', '--no-audit', '--no-fund', '--no-package-lock'],
+        consumerPath
+      )
+    }
+    for (const version of ['typescript-5', 'typescript-6', 'typescript-7']) {
+      for (const config of ['tsconfig.json', 'tsconfig-types.json']) {
+        console.log(`Checking ${version}, @types/node ${nodeVersion}, ${config}`)
+        await run(
+          process.execPath,
+          [path.join(consumerPath, 'node_modules', version, 'bin', 'tsc'), '--project', config],
+          consumerPath
+        )
+      }
+    }
   }
 } finally {
   await rm(temporaryPath, { recursive: true, force: true })

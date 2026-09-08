@@ -1,3 +1,5 @@
+/// <reference path="./types/thread-stream.d.ts" preserve="true" />
+
 // Type-only public entry for `import type { ... } from '@domstack/static/types.js'`.
 // There is intentionally no runtime `types.js` today; this source emits `types.d.ts`,
 // and `types.js` is reserved for a future runtime/type companion entry if needed.
@@ -6,7 +8,7 @@ import type { Results } from './lib/builder.js'
 export type { DataDeps } from './lib/build-pages/data-deps.js'
 
 export type { BuildOptions } from 'esbuild'
-export type { DomStackLogger, DomStackOpts, Results, SiteData } from './lib/builder.js'
+export type { DomStackOpts, Results, SiteData } from './lib/builder.js'
 export type {
   AsyncGlobalDataFunction,
   GeneratedPageDefinition,
