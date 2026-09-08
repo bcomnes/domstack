@@ -264,6 +264,31 @@ test.describe('watch', () => {
     assert.ok(loggerLogs.some(line => line.includes('"root.layout.js" changed:') && line.includes('index.html')))
   })
 
+  test('adding and removing a JSX client updates its page bundle', { timeout: 20_000 }, async (t) => {
+    const tmp = await mkdtemp(path.join(import.meta.dirname, '.tmp-jsx-client-'))
+    const src = path.join(tmp, 'src')
+    const dest = path.join(tmp, 'public')
+    await mkdir(src, { recursive: true })
+    await writeFile(path.join(src, 'page.md'), '# JSX client\n')
+    const domStack = new DomStack(src, dest)
+    t.after(async () => {
+      if (domStack.watching) await domStack.stopWatching()
+      await rm(tmp, { recursive: true, force: true })
+    })
+    await domStack.watch({ serve: false })
+
+    const output = path.join(dest, 'index.html')
+    assert.ok(!(await readFile(output, 'utf8')).includes('src="./client.js"'))
+
+    await writeFile(path.join(src, 'client.jsx'), 'console.log("JSX client entry")\n')
+    await settle(domStack)
+    assert.ok((await readFile(output, 'utf8')).includes('src="./client.js"'))
+    assert.ok((await readFile(path.join(dest, 'client.js'), 'utf8')).includes('JSX client entry'))
+
+    await unlink(path.join(src, 'client.jsx'))
+    await settle(domStack)
+    assert.ok(!(await readFile(output, 'utf8')).includes('src="./client.js"'))
+  })
   test('targets generated-page owners independently', { timeout: 30_000 }, async (t) => {
     const tmp = await mkdtemp(path.join(import.meta.dirname, '.tmp-generated-'))
     const src = path.join(tmp, 'src')

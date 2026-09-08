@@ -36,6 +36,7 @@ import { find } from '@11ty/dependency-tree-typescript'
 import { assertInsideDest } from './lib/helpers/path.js'
 import { getCopyGlob } from './lib/build-static/index.js'
 import { getCopyDirs } from './lib/build-copy/index.js'
+import { classifyFile, isProcessedFile, globalBundleAssets, pageBundleAssets, layoutBundleAssets } from './lib/file-conventions.js'
 import { builder } from './lib/builder.js'
 import { buildEsbuildWatch } from './lib/build-esbuild/index.js'
 import { buildPages } from './lib/build-pages/index.js'
@@ -46,12 +47,9 @@ import {
   esbuildSettingsNames,
   markdownItSettingsNames,
   domstackManifestSettingsNames,
-  pageClientNames,
   layoutClientSuffixs,
   globalClientNames,
   globalStyleNames,
-  pageStyleName,
-  pageWorkerSuffixs,
   serviceWorkerNames,
 } from './lib/identify-pages.js'
 import { ensureDest } from './lib/helpers/ensure-dest.js'
@@ -347,7 +345,7 @@ export class DomStack {
       ignored: (filePath, stats) => {
         return (
           anymatch(filePath) ||
-          Boolean((stats?.isFile() && !/\.(js|mjs|cjs|ts|mts|cts|css|html|md)$/.test(filePath)))
+          Boolean((stats?.isFile() && !isProcessedFile(filePath)))
         )
       },
       persistent: true,
@@ -456,16 +454,7 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
     const changedDir = relative(this.#src, dirname(changedPath))
 
     // Check if this is an esbuild entry point by basename pattern
-    const isEsbuildEntry = (
-      pageClientNames.includes(changedBasename) ||
-      layoutClientSuffixs.some(s => changedBasename.endsWith(s)) ||
-      changedBasename.endsWith(layoutStyleSuffix) ||
-      pageWorkerSuffixs.some(s => changedBasename.endsWith(s)) ||
-      serviceWorkerNames.includes(changedBasename) ||
-      globalClientNames.includes(changedBasename) ||
-      globalStyleNames.includes(changedBasename) ||
-      changedBasename === pageStyleName
-    )
+    const isEsbuildEntry = classifyFile(changedBasename)?.bundleScope
 
     if (isEsbuildEntry) {
       this.#logger.info(`"${changedBasename}" ${event}, restarting esbuild...`)
@@ -798,19 +787,13 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
 
     // esbuildEntryPoints: absolute filepaths of all esbuild entry points
     const esbuildEntryPoints = /** @type {Set<string>} */ (new Set())
-    if (siteData.globalClient) esbuildEntryPoints.add(resolve(siteData.globalClient.filepath))
-    if (siteData.globalStyle) esbuildEntryPoints.add(resolve(siteData.globalStyle.filepath))
+    for (const asset of globalBundleAssets(siteData)) esbuildEntryPoints.add(resolve(asset.filepath))
     if (siteData.serviceWorker) esbuildEntryPoints.add(resolve(siteData.serviceWorker.filepath))
     for (const page of siteData.pages) {
-      if (page.clientBundle) esbuildEntryPoints.add(resolve(page.clientBundle.filepath))
-      if (page.pageStyle) esbuildEntryPoints.add(resolve(page.pageStyle.filepath))
-      if (page.workers) {
-        for (const w of Object.values(page.workers)) esbuildEntryPoints.add(resolve(w.filepath))
-      }
+      for (const asset of pageBundleAssets(page)) esbuildEntryPoints.add(resolve(asset.filepath))
     }
     for (const layout of Object.values(siteData.layouts)) {
-      if (layout.layoutClient) esbuildEntryPoints.add(resolve(layout.layoutClient.filepath))
-      if (layout.layoutStyle) esbuildEntryPoints.add(resolve(layout.layoutStyle.filepath))
+      for (const asset of layoutBundleAssets(layout)) esbuildEntryPoints.add(resolve(asset.filepath))
     }
 
     this.#layoutDepMap = layoutDepMap
