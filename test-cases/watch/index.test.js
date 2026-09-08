@@ -318,10 +318,6 @@ test.describe('watch', () => {
   test('progressive rebuilds', { timeout: 60_000 }, async (t) => {
     const { src, dest, tmp } = await setupTempSite()
 
-    t.after(async () => {
-      await rm(tmp, { recursive: true, force: true })
-    })
-
     const mockLog = mock.method(console, 'log')
     const loggerLogs = /** @type {string[]} */ ([])
     const logger = createTestLogger(loggerLogs)
@@ -330,6 +326,7 @@ test.describe('watch', () => {
     t.after(async () => {
       if (domStack.watching) await domStack.stopWatching()
       mockLog.mock.restore()
+      await rm(tmp, { recursive: true, force: true })
     })
 
     // ── Initial build ────────────────────────────────────────────────

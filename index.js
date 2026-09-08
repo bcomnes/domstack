@@ -13,6 +13,11 @@
  * @import { WatchDependencyState } from './lib/build-pages/watch-dependencies.js'
  * @typedef {{ dispose: () => Promise<void> }} DisposableBuildContext
  * @typedef {{ pageFilePath: string, sourcePageFilePath?: string | undefined, pagesFilePath?: string | undefined, layoutNames: string[], outputs?: DomstackManifestRecord[] | undefined }} WatchedPageReport
+ * @typedef {object} WatchSession
+ * @property {'starting' | 'watching' | 'stopping'} state
+ * @property {AbortController} cancellation - Cancels event waits, not resource acquisition.
+ * @property {Promise<unknown>} startupWork - The current resource-acquiring startup phase; never the user callback.
+ * @property {Promise<void> | null} shutdown - Shared by explicit stops and startup failure cleanup.
  */
 import { once } from 'events'
 import assert from 'node:assert'
@@ -80,7 +85,7 @@ export class DomStack {
   /** @type {string} */ #dest = ''
   /** @type {Readonly<DomStackOpts>} */ opts
   /** @type {FSWatcher?} */ #watcher = null
-  /** @type {any[]?} */ #cpxWatchers = null
+  /** @type {ReturnType<typeof cpxWatch>[]} */ #cpxWatchers = []
   /** @type {BsInstance?} */ #syncServer = null
   /** @type {DisposableBuildContext?} */ #esbuildContext = null
   /** @type {SiteData?} */ #siteData = null
@@ -117,6 +122,12 @@ export class DomStack {
   #watchDependencies = null
   /** @type {boolean} Failed builds may leave the previous routing state incomplete. */
   #pageBuildFailed = false
+
+  // One session owns the resources above until shutdown finishes.
+  // Normal path: absent → starting → watching → stopping → absent.
+  // Startup failure or cancellation: starting → stopping → absent.
+  /** @type {WatchSession | null} */
+  #watchSession = null
 
   // Serialized lock so concurrent chokidar events don't pile up
   /** @type {Promise<void>} */
@@ -155,8 +166,9 @@ export class DomStack {
     }
   }
 
+  /** True from the start of watch() until shutdown completes, including startup. */
   get watching () {
-    return Boolean(this.#watcher)
+    return this.#watchSession !== null
   }
 
   build () {
@@ -165,6 +177,10 @@ export class DomStack {
 
   /**
    * Build and watch a domstack build
+   *
+   * Stopping during startup still returns the initial build report, but does not
+   * activate watch events. Await stopWatching() for completed resource cleanup.
+   *
    * @param  {object} [params]
    * @param  {boolean} params.serve
    * @param  {(results: Results) => void | Promise<void>} [params.onInitialBuild]
@@ -177,7 +193,77 @@ export class DomStack {
     serve: true,
   }) {
     if (this.watching) throw new Error('Already watching.')
+    /** @type {WatchSession} */
+    const session = {
+      state: 'starting',
+      cancellation: new AbortController(),
+      startupWork: Promise.resolve(),
+      shutdown: null,
+    }
+    this.#watchSession = session
+    try {
+      return await this.#startWatch(session, { serve, onInitialBuild })
+    } catch (error) {
+      try {
+        await this.#stopWatchSession(session)
+      } catch (cleanupError) {
+        // The callback may already be propagating this same shutdown failure.
+        if (error === cleanupError) throw error
+        throw new AggregateError([error, cleanupError], 'Watch startup and cleanup failed')
+      }
+      throw error
+    }
+  }
 
+  /**
+   * Resource acquisition must finish before shutdown can release its results.
+   * Readiness waits, on the other hand, must be cancelled when watchers close.
+   * The user callback is outside the acquisition phases so it can await a stop.
+   *
+   * @param {WatchSession} session
+   * @param {{ serve: boolean, onInitialBuild: ((results: Results) => void | Promise<void>) | undefined }} params
+   */
+  async #startWatch (session, { serve, onInitialBuild }) {
+    const { signal } = session.cancellation
+    const preparation = this.#prepareWatch(signal)
+    session.startupWork = preparation
+    const { report, watcher, ready } = await preparation
+
+    await ready
+    if (signal.aborted) return report
+
+    await onInitialBuild?.(report)
+    if (signal.aborted) return report
+
+    if (serve) {
+      session.startupWork = this.#startWatchServer()
+      await session.startupWork
+      if (signal.aborted) return report
+    }
+
+    session.state = 'watching'
+    const enqueue = (/** @type {() => Promise<unknown>} */ fn) => {
+      this.#enqueueBuild(session, fn)
+    }
+
+    watcher.on('add', path => {
+      enqueue(() => this.#handleAddUnlink(path, 'added'))
+    })
+    watcher.on('change', path => {
+      assert(this.#src)
+      assert(this.#dest)
+      enqueue(() => this.#handleChange(path))
+    })
+    watcher.on('unlink', path => {
+      enqueue(() => this.#handleAddUnlink(path, 'removed'))
+    })
+    watcher.on('error', err => errorLogger(err, this.#logger))
+
+    return report
+  }
+
+  /** @param {AbortSignal} signal */
+  async #prepareWatch (signal) {
     // ── Initial build (inline, not via builder()) ────────────────────────
     const siteData = await identifyPages(this.#src, this.opts)
 
@@ -236,30 +322,14 @@ export class DomStack {
     // Build watch maps after initial build
     await this.#rebuildMaps(siteData)
 
-    // ── Copy watchers & dev server ───────────────────────────────────────
+    // Copy readiness is cancellable: cpx2 invalidates pending scans on close.
     const copyDirs = getCopyDirs(this.opts.copy ?? [])
-
-    this.#cpxWatchers = [
-      cpxWatch(getCopyGlob(this.#src), this.#dest, { ignore: this.opts.ignore ?? [] }),
-      ...copyDirs.map(copyDir => cpxWatch(copyDir, this.#dest))
-    ]
-
-    const copyWatchersReady = this.#cpxWatchers.map(async w => {
-      w.on('copy', (/** @type{{ srcPath: string, dstPath: string }} */e) => {
-        this.#logger.info(`Copy ${e.srcPath} to ${e.dstPath}`)
-      })
-
-      w.on('remove', (/** @type{{ path: string }} */e) => {
-        this.#logger.info(`Remove ${e.path}`)
-      })
-
-      w.on('watch-error', (/** @type{Error} */err) => {
-        this.#logger.error(`Copy error: ${err.message}`)
-      })
-
-      await once(w, 'watch-ready')
-      this.#logger.info('Copy watcher ready')
-    })
+    const copyStartup = await Promise.allSettled([
+      this.#startCopyWatcher(getCopyGlob(this.#src), signal, this.opts.ignore ?? []),
+      ...copyDirs.map(copyDir => this.#startCopyWatcher(copyDir, signal)),
+    ])
+    const copyErrors = copyStartup.filter(result => result.status === 'rejected').map(result => result.reason)
+    if (copyErrors.length) throw new AggregateError(copyErrors, 'Copy watch startup failed')
 
     // ── Chokidar watcher ─────────────────────────────────────────────────
     const ig = ignore().add(this.opts.ignore ?? [])
@@ -288,41 +358,59 @@ export class DomStack {
     })
 
     this.#watcher = watcher
+    // Attach the listener before returning; the watcher can become ready before
+    // the caller resumes. Cancellation settles this wait even without a ready event.
+    const ready = once(watcher, 'ready', { signal }).catch(error => {
+      if (!signal.aborted || error.name !== 'AbortError') throw error
+    })
 
-    await Promise.all([
-      ...copyWatchersReady,
-      once(watcher, 'ready'),
-    ])
+    return { report, watcher, ready }
+  }
 
-    await onInitialBuild?.(report)
+  /**
+   * @param {string} source
+   * @param {AbortSignal} signal
+   * @param {string[]} [ignores]
+   */
+  async #startCopyWatcher (source, signal, ignores = []) {
+    const watcher = cpxWatch(source, this.#dest, { ignore: ignores })
+    this.#cpxWatchers.push(watcher)
+    watcher.on('copy', (/** @type{{ srcPath: string, dstPath: string }} */e) => {
+      this.#logger.info(`Copy ${e.srcPath} to ${e.dstPath}`)
+    })
+    watcher.on('remove', (/** @type{{ path: string }} */e) => {
+      this.#logger.info(`Remove ${e.path}`)
+    })
+    watcher.on('watch-error', (/** @type{Error} */err) => {
+      this.#logger.error(`Copy error: ${err.message}`)
+    })
 
-    if (serve) {
-      this.#syncServer = await createServer({
-        server: this.#dest,
-        files: basename(this.#dest),
-        ignore: ['**/domstack-esbuild-meta.json'],
-        logger: this.#logger.child({ component: 'sync', logPrefix: '[domstack-sync]' }),
-      })
+    // cpx2 reports startup failure as "watch-error", not EventEmitter's "error".
+    // A closed session may never emit readiness, so cancellation must also settle
+    // this wait. This does not drain file operations already started by cpx2.
+    const { promise, resolve, reject } = Promise.withResolvers()
+    const onAbort = () => resolve(undefined)
+    watcher.once('watch-ready', resolve)
+    watcher.once('watch-error', reject)
+    signal.addEventListener('abort', onAbort, { once: true })
+    try {
+      if (signal.aborted) return
+      await promise
+      if (!signal.aborted) this.#logger.info('Copy watcher ready')
+    } finally {
+      watcher.off('watch-ready', resolve)
+      watcher.off('watch-error', reject)
+      signal.removeEventListener('abort', onAbort)
     }
+  }
 
-    const enqueue = (/** @type {() => Promise<unknown>} */ fn) => {
-      this.#enqueueBuild(fn)
-    }
-
-    watcher.on('add', path => {
-      enqueue(() => this.#handleAddUnlink(path, 'added'))
+  async #startWatchServer () {
+    this.#syncServer = await createServer({
+      server: this.#dest,
+      files: basename(this.#dest),
+      ignore: ['**/domstack-esbuild-meta.json'],
+      logger: this.#logger.child({ component: 'sync', logPrefix: '[domstack-sync]' }),
     })
-    watcher.on('change', path => {
-      assert(this.#src)
-      assert(this.#dest)
-      enqueue(() => this.#handleChange(path))
-    })
-    watcher.on('unlink', path => {
-      enqueue(() => this.#handleAddUnlink(path, 'removed'))
-    })
-    watcher.on('error', err => errorLogger(err, this.#logger))
-
-    return report
   }
 
   /**
@@ -576,10 +664,13 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
   }
 
   /**
+   * @param {WatchSession} session
    * @param {() => Promise<unknown>} fn
    */
-  #enqueueBuild (fn) {
+  #enqueueBuild (session, fn) {
+    if (session.state !== 'watching') return
     this.#buildLock = this.#buildLock.then(async () => {
+      if (session.state !== 'watching') return
       try {
         await fn()
       } catch (err) {
@@ -830,20 +921,58 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
     this.#logger.info(`"${changedBasename}" changed but did not match any rebuild rule, skipping.`)
   }
 
+  /**
+   * Cancel startup/event waits, drain owned work, and release the session.
+   * The user callback is not drained: it may itself be awaiting this stop.
+   * Concurrent stops share cleanup; a new watch may start once cleanup settles.
+   */
   async stopWatching () {
-    if ((!this.watching || !this.#cpxWatchers)) throw new Error('Not watching')
-    if (this.#watcher) this.#watcher.close()
-    this.#cpxWatchers.forEach(w => {
-      w.close()
-    })
+    if (!this.#watchSession) throw new Error('Not watching')
+    return this.#stopWatchSession(this.#watchSession)
+  }
+
+  /** @param {WatchSession} session */
+  #stopWatchSession (session) {
+    // Retain this promise on the session even after cleanup. An old callback may
+    // finish or throw after a new session starts; it must not clean up that session.
+    if (session.shutdown) return session.shutdown
+    session.state = 'stopping'
+    session.cancellation.abort()
+    session.shutdown = this.#disposeWatchResources(session)
+    return session.shutdown
+  }
+
+  /** @param {WatchSession} session */
+  async #disposeWatchResources (session) {
+    // 1. Drain resource acquisition. No new startup phase may begin after a stop.
+    //    watch() reports startup errors; shutdown still releases partial resources.
+    await session.startupWork.catch(() => {})
+
+    // 2. Stop filesystem producers. The session state already rejects new and
+    //    queued rebuilds, including callbacks retained by a previous watch session.
+    const closures = [
+      () => this.#watcher?.close(),
+      ...this.#cpxWatchers.map(w => () => w.close()),
+    ]
+    const results = await Promise.allSettled(closures.map(close => Promise.resolve().then(close)))
+
+    // 3. Drain the active rebuild before releasing the esbuild context it may replace.
+    results.push(...await Promise.allSettled([this.#buildLock]))
+
+    // 4. Release the final contexts and server, even if another cleanup step failed.
+    results.push(...await Promise.allSettled([
+      Promise.resolve().then(() => this.#esbuildContext?.dispose()),
+      Promise.resolve().then(() => this.#syncServer?.exit()),
+    ]))
     this.#watcher = null
-    this.#cpxWatchers = null
-    if (this.#esbuildContext) {
-      await this.#esbuildContext.dispose()
-      this.#esbuildContext = null
-    }
-    await this.#syncServer?.exit()
+    this.#cpxWatchers = []
+    this.#esbuildContext = null
     this.#syncServer = null
+    this.#siteData = null
+    this.#buildLock = Promise.resolve()
+    this.#watchSession = null
+    const errors = results.filter(result => result.status === 'rejected').map(result => result.reason)
+    if (errors.length > 0) throw new AggregateError(errors, 'Watch cleanup failed')
   }
 
   /**
