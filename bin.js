@@ -18,10 +18,9 @@ import tree from 'pretty-tree'
 import { inspect } from 'util'
 import { createServer } from '@domstack/sync'
 import { packageDirectory } from 'package-directory'
-import { readPackage } from 'read-pkg'
-import { addPackageDependencies } from 'write-package'
 
 import { copyFile } from './lib/helpers/copy-file.js'
+import { addPackageDependencies } from './lib/helpers/add-package-dependencies.js'
 import { DomStack } from './index.js'
 import { DomStackAggregateError } from './lib/helpers/domstack-aggregate-error.js'
 import { generateTreeData } from './lib/helpers/generate-tree-data.js'
@@ -30,9 +29,10 @@ import { createDomStackLogger } from './lib/logger.js'
 
 const __dirname = import.meta.dirname
 
-async function getPkg () {
-  const pkgPath = resolve(__dirname, './package.json')
-  const pkg = JSON.parse(await readFile(pkgPath, 'utf8'))
+/** @param {string} [pkgPath] */
+async function getPkg (pkgPath = resolve(__dirname, './package.json')) {
+  const source = await readFile(pkgPath, 'utf8')
+  const pkg = JSON.parse(source.replace(/^\uFEFF/, ''))
   return pkg
 }
 
@@ -152,7 +152,7 @@ async function run () {
     }
 
     const localPkgJson = join(localPkg, 'package.json')
-    const localPkgJsonContents = await readPackage({ cwd: localPkg })
+    const localPkgJsonContents = await getPkg(localPkgJson)
     const targetIsModule = localPkgJsonContents.type === 'module'
 
     const relativeSrc = relative(process.cwd(), src)
@@ -162,7 +162,7 @@ async function run () {
     const targetGlobalStylePath = 'globals/global.css'
     const targetGlobalClientPath = `globals/global.client.${targetIsModule ? 'js' : 'mjs'}`
 
-    const tbPkgContents = await readPackage({ cwd: __dirname })
+    const tbPkgContents = await getPkg()
     const mineVersion = tbPkgContents?.['dependencies']?.['mine.css']
     const fragtmlVersion = tbPkgContents?.['dependencies']?.['fragtml']
     const highlightVersion = tbPkgContents?.['dependencies']?.['highlight.js']
@@ -200,11 +200,9 @@ domstack eject actions:
     await addPackageDependencies(
       localPkgJson,
       {
-        dependencies: {
-          'mine.css': mineVersion,
-          fragtml: fragtmlVersion,
-          'highlight.js': highlightVersion,
-        },
+        'mine.css': mineVersion,
+        fragtml: fragtmlVersion,
+        'highlight.js': highlightVersion,
       })
 
     console.log('Done ejecting files!')
