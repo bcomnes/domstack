@@ -16,7 +16,7 @@ uhtml-isomorphic is a lightweight library that provides the same API for both se
 
 ### Prerequisites
 
-- Node.js 22.x or higher
+- Node.js 22.18+ within the 22.x release line, or Node.js 24 or newer
 
 ### Installation
 

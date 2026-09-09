@@ -45,11 +45,11 @@
     "url": "https://github.com/bcomnes/domstack/issues"
   },
   "engines": {
-    "node": "^22.0.0 || >=24.0.0"
+    "node": "^22.18.0 || >=24.0.0"
   },
   "dependencies": {
     "@11ty/dependency-tree-typescript": "^1.0.0",
-    "@domstack/sync": "^0.0.7",
+    "@domstack/sync": "^0.0.8",
     "argsclopts": "^1.0.4",
     "async-folder-walker": "^3.0.5",
     "chokidar": "^5.0.0",

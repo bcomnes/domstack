@@ -17,17 +17,19 @@ Then apply the v12 changes below.
 
 ## Runtime requirements
 
-DOMStack v12 supports Node.js 22 and Node.js 24 or newer:
+DOMStack v12 supports Node.js 22.18+ within the 22.x release line, and Node.js 24 or newer:
 
 ```json
 {
   "engines": {
-    "node": "^22.0.0 || >=24.0.0"
+    "node": "^22.18.0 || >=24.0.0"
   }
 }
 ```
 
-Node.js 23 satisfied v11's `>=22` engine range but is not supported by v12. Move development, CI, and deployment environments to Node.js 22 LTS or Node.js 24+ before upgrading.
+Node.js 23 satisfied v11's `>=22` engine range but is not supported by v12.
+Move development, CI, and deployment environments to Node.js 22.18+ within the 22.x release line, or Node.js 24+ before upgrading.
+The minimum matches `@domstack/sync` and enables native TypeScript type stripping without an experimental flag.
 
 ---
 
@@ -572,7 +574,7 @@ This lets DOMStack inject the finalized `manifest.version` into `/service-worker
 
 ## Migration checklist
 
-- [ ] Run development, CI, and deployment builds on Node.js 22 LTS or Node.js 24+. Do not use Node.js 23.
+- [ ] Run development, CI, and deployment builds on Node.js 22.18+ within the 22.x release line, or Node.js 24+. Do not use Node.js 23.
 - [ ] If you import public types from `@domstack/static`, update those imports to `@domstack/static/types.js`.
 - [ ] If you rely on BrowserSync-specific dev-server behavior, test watch mode with `@domstack/sync`.
 - [ ] If you use the new `--serve` preview, keep it separate from watch modes and use `--port` only with `--serve`.

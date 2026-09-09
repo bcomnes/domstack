@@ -13,7 +13,7 @@ Use the rendering libraries you like, including TypeScript and JSX where support
 
 ## Getting started
 
-Use Node.js 22 or Node.js 24 or newer.
+Use Node.js 22.18+ within the 22.x release line, or Node.js 24 or newer.
 The v12 prerelease is published under the `beta` npm tag.
 
 In a new project directory:
