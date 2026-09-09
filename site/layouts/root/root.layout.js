@@ -5,6 +5,10 @@
 import { html, raw, render } from 'fragtml'
 import { navigationHref } from '../docs/navigation.js'
 
+function year () {
+  return new Date().getFullYear()
+}
+
 /**
  * The website owns its document shell; the docs layout owns the sidebar and
  * main landmark. Other pages get a simple main landmark here instead.
@@ -55,7 +59,7 @@ export default function rootLayout ({ children, vars, page, scripts, styles }) {
         </div>
         <footer class="site-footer">
           <div class="site-footer-inner">
-            <p><a class="site-brand" href="${home}">domstack</a></p>
+            <p class="site-copyright">© ${year()} <a class="site-brand" href="${home}">domstack</a></p>
             <nav class="site-links" aria-label="Footer">
               <a href="${docs}">Docs</a>
               <a href="https://www.npmjs.com/package/@domstack/static">npm</a>

@@ -35,3 +35,19 @@ test('site shell preserves children, escapes metadata, and creates exactly one m
     assert.equal($('header nav a').first().attr('href'), '../')
   }
 })
+
+test('footer copyright uses the current year on every render', async t => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.UTC(2030, 5, 1) })
+  for (const year of [2030, 2031]) {
+    t.mock.timers.setTime(Date.UTC(year, 5, 1))
+    const output = await rootLayout({
+      children: '',
+      vars: {},
+      page: /** @type {any} */ ({ url: '/docs/' }),
+      data: {},
+    })
+    const $ = load(output)
+    assert.equal($('.site-copyright').text(), `© ${year} domstack`)
+    assert.equal($('.site-copyright .site-brand').attr('href'), '../')
+  }
+})

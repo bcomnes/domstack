@@ -150,10 +150,7 @@
     padding-block: 2rem;
   }
 
-  .site-footer p {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
+  .site-copyright {
     margin: 0;
   }
 
