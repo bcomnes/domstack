@@ -3,7 +3,12 @@ layout: docs
 handlebars: false
 ---
 
-# About DOMStack
+<a id="about-domstack"></a>
+
+# About
+
+DOMStack is a static site builder centered on ordinary files, standard web technologies, and a small set of conventions.
+These design goals explain its approach and the tradeoffs behind its features.
 
 ## Table of Contents
 

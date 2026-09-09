@@ -3,7 +3,12 @@ layout: docs
 handlebars: false
 ---
 
-# Content generation reference
+<a id="content-generation-reference"></a>
+
+# Content
+
+Build indexes, archives, feeds, and other derived content from your source pages.
+Global data collects shared values, generated-page factories create additional pages, and templates write other output files.
 
 ## Table of Contents
 

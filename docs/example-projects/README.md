@@ -3,13 +3,18 @@ layout: docs
 handlebars: false
 ---
 
-# Example projects
+<a id="example-projects"></a>
+
+# Examples
+
+These projects show how DOMStack's file conventions work in complete sites.
+Start with the basic example for a tour, or choose a project that demonstrates the feature you need.
 
 ## Table of Contents
 
 [[toc]]
 
-## Examples
+## Bundled examples
 
 A collection of examples can be found in the [`./examples`](https://github.com/bcomnes/domstack/tree/master/examples) folder:
 
@@ -41,7 +46,7 @@ $ npm i
 $ npm --workspace @domstack/basic-example run build
 ```
 
-### External examples
+## External examples
 
 Here are some additional external examples of larger domstack projects.
 If you have a project that uses domstack and could act as a nice example, please PR it to the list!

@@ -121,20 +121,20 @@ The following sections document each convention in detail.
 
 ## Documentation
 
-- [Pages, layouts, and variables](docs/pages/)
-- [Assets, browser bundles, and settings](docs/assets/)
-- [Global data, generated pages, templates, and introspection](docs/content/)
-- [TypeScript and public types](docs/typescript/)
-- [Workers, service workers, and the build manifest](docs/workers/)
-- [Rendering integrations](docs/renderers/) and [recipes](docs/cookbook/)
-- [CLI options and ejecting defaults](docs/cli/)
-- [Programmatic test builds](docs/api/)
-- [Build internals and watch behavior](docs/implementation/)
-- [Design goals, FAQ, and project status](docs/about/)
+- [Pages](docs/pages/)
+- [Assets](docs/assets/)
+- [Content](docs/content/)
+- [TypeScript](docs/typescript/)
+- [Workers](docs/workers/)
+- [Renderers](docs/renderers/) and [Recipes](docs/cookbook/)
+- [CLI](docs/cli/)
+- [API](docs/api/)
+- [Implementation](docs/implementation/)
+- [About](docs/about/)
 
 ## Links
 
-- [Example projects](docs/example-projects/)
+- [Examples](docs/example-projects/)
 - [Changelog](CHANGELOG.md)
 - [Contributing](CONTRIBUTING.md)
 - [Dependency graph](dependencygraph.svg)

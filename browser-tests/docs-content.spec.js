@@ -32,6 +32,19 @@ test('page-by-page documentation audit preserves content, whitespace, and local 
       const content = actual('.docs-content')
       expect.soft(content.length, `${source}: one content region`).toBe(1)
 
+      const title = content.find('h1')
+      expect.soft(title.length, `${source}: one page title`).toBe(1)
+      expect.soft(title.next().is('p') && title.next().text().trim().length > 0, `${source}: introductory paragraph`).toBe(true)
+      const headings = content.find('h1, h2, h3, h4, h5, h6').toArray()
+      const titleText = title.text().trim().toLowerCase()
+      let previousLevel = 0
+      for (const heading of headings) {
+        const level = Number(heading.tagName.slice(1))
+        expect.soft(level, `${source}: no skipped heading level at ${actual(heading).text()}`).toBeLessThanOrEqual(previousLevel + 1)
+        if (level === 2) expect.soft(actual(heading).text().trim().toLowerCase(), `${source}: no repeated page title`).not.toBe(titleText)
+        previousLevel = level
+      }
+
       const expectedPre = expected('pre').map((_, el) => expected(el).text()).get()
       const actualPre = content.find('pre').map((_, el) => actual(el).text()).get()
       expect.soft(actualPre.length, `${source}: pre count`).toBe(expectedPre.length)

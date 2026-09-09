@@ -3,7 +3,12 @@ layout: docs
 handlebars: false
 ---
 
-# Assets and settings reference
+<a id="assets-and-settings-reference"></a>
+
+# Assets
+
+DOMStack copies ordinary files and bundles browser JavaScript and CSS alongside your pages.
+Use global assets to share code and styles across the site, and settings modules to customize the build tools.
 
 ## Table of Contents
 

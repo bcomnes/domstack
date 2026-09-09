@@ -3,13 +3,20 @@ layout: docs
 handlebars: false
 ---
 
-# Programmatic API
+<a id="programmatic-api"></a>
+
+# API
+
+Import `DomStack` from `@domstack/static` to build sites from your own Node.js scripts.
+For automated tests, `testBuild()` provides a temporary output directory and a cleanup helper.
 
 ## Table of Contents
 
 [[toc]]
 
-### Programmatic test builds
+<a id="programmatic-test-builds"></a>
+
+## Test builds
 
 Use the top-level `testBuild` helper to build into a temporary directory from tests without managing setup and cleanup yourself.
 

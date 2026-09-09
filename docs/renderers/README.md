@@ -3,17 +3,19 @@ layout: docs
 handlebars: false
 ---
 
-# Rendering integrations
+<a id="rendering-integrations"></a>
+<a id="advanced"></a>
+
+# Renderers
+
+DOMStack's default layout uses fragtml, but your pages and layouts can use other rendering libraries.
+Choose a renderer that accepts your page content and produces the HTML you want to serve.
 
 ## Table of Contents
 
 [[toc]]
 
-## Advanced
-
-These features customize DOMStack’s rendering pipeline or coordinate generated assets with browser runtimes.
-
-### Custom layout renderers
+## Custom layout renderers
 
 DOMStack's bundled default layout uses [`fragtml`][fragtml] because the default template only needs safe string manipulation.
 You can eject or replace that layout with any Node-compatible renderer that returns an HTML string.

@@ -3,13 +3,18 @@ layout: docs
 handlebars: false
 ---
 
-# Workers and manifest reference
+<a id="workers-and-manifest-reference"></a>
+
+# Workers
+
+Use page-scoped web workers to move work off the browser's main thread, and a site service worker to control requests and caching.
+The DOMStack manifest provides an inventory of built files for service-worker policies and other tooling.
 
 ## Table of Contents
 
 [[toc]]
 
-### Web workers
+## Web workers
 
 You can easily write [web workers](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Using_web_workers) for a page by adding a file called `${name}.worker.ts` or `${name}.worker.js` where `name` becomes the name of the worker filename in the `workers.json` file.
 DOMStack will build these similarly to page `client.ts` bundles, and will even bundle split their contents with the rest of your site.
@@ -51,7 +56,7 @@ const worker = await initializeWorkers();
 
 See the [Web Workers Example](https://github.com/bcomnes/domstack/tree/master/examples/worker-example) for a complete implementation.
 
-### Service workers
+## Service workers
 
 DOMStack has full native support for [service workers](https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API).
 Put one site service worker source file anywhere under `src` and domstack will build it to a stable
@@ -109,7 +114,7 @@ if (serviceWorkerUrl && serviceWorkerScope && 'serviceWorker' in navigator) {
 DOMStack does not inject this into the default layout.
 Registration timing, update prompts, development opt-outs, and recovery behavior are application policy, so keep that logic in your global client or an imported client module.
 
-#### Registration and Web App Manifests
+### Registration and Web App Manifests
 
 Browsers allow service-worker registration only in a [secure context](https://developer.mozilla.org/en-US/docs/Web/Security/Secure_Contexts), normally HTTPS in production or localhost during development.
 The service-worker script must be served from the same origin as the page.
@@ -135,7 +140,7 @@ See these complete examples:
 > DOMStack does not clean `dest` before building.
 Clean the destination before deployment, especially after removing or renaming a service worker, so an old `/service-worker.js` cannot remain publicly available.
 
-### DOMStack manifest
+## DOMStack manifest
 
 The DOMStack manifest is build metadata for service workers, deployment tools, and other build-time integrations.
 It is not a [Web App Manifest](../../docs/workers/#registration-and-web-app-manifests). (A Web App Manifest such as `site.webmanifest` can be generated independently with a [template](../../docs/content/#templates).)
@@ -193,7 +198,7 @@ The manifest lifecycle is:
 The site service worker is omitted from manifest entries.
 This allows the finalized manifest version to be embedded in `/service-worker.js` without creating a circular content hash.
 
-#### Enable the manifest
+### Enable the manifest
 
 The manifest pipeline is disabled by default.
 Enable it with one of these configuration surfaces:
@@ -214,7 +219,7 @@ Type checking is supported in both file types.
 See [Supported file types](../../docs/typescript/#supported-file-types) for all available extensions.
 
 
-#### Configure entries and policy
+### Configure entries and policy
 
 Create one `domstack-manifest.settings.ts` file anywhere under `src`.
 It can default-export an options object or a synchronous or asynchronous function that returns one.
@@ -274,7 +279,7 @@ The resulting manifest contains:
 Useful entry fields include `url`, `revision`, `kind`, `bytes`, `contentType`, `integrity`, `urlRevisioned`, `static`, `role`, and explicitly selected `manifestVars`.
 Import `DomstackManifest` and `DomstackManifestEntry` from `@domstack/static/types.js` when consuming these objects directly.
 
-#### Manifest built hooks
+### Manifest built hooks
 
 `hooks.manifestBuilt` runs after entries, policy, and version are finalized but before `/service-worker.js` is bundled.
 Each hook receives:
@@ -287,7 +292,7 @@ Each hook receives:
 Files written by a hook are not added back to the already-finalized manifest.
 Prefer an injected constant when only the service worker needs the generated data.
 
-#### Service worker integration
+### Service worker integration
 
 A manifest hook can turn the normalized entries into a small application-specific cache policy:
 
@@ -373,7 +378,7 @@ See the complete examples for production-oriented cache lifecycle behavior:
 - [`static-mpa-offline`](https://github.com/bcomnes/domstack/tree/master/examples/static-mpa-offline/) injects DOMStack manifest entries into a custom service worker.
 - [`static-mpa-workbox-offline`](https://github.com/bcomnes/domstack/tree/master/examples/static-mpa-workbox-offline/) converts the finalized entries into Workbox precaching and routing policy.
 
-#### Programmatic configuration
+### Programmatic configuration
 
 Configure the manifest through the `DomStack` constructor when coordinating it with another build tool or script:
 

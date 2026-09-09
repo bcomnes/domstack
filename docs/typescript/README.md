@@ -3,25 +3,29 @@ layout: docs
 handlebars: false
 ---
 
-# TypeScript reference
+<a id="typescript-reference"></a>
+
+# TypeScript
+
+Use TypeScript for pages, layouts, data modules, and browser code without adding a separate compilation step.
+Node.js strips types from server-side modules, esbuild handles browser bundles, and `tsc` checks types separately.
 
 ## Table of Contents
 
 [[toc]]
 
-## TypeScript Support
+<a id="typescript-support"></a>
 
-`domstack` supports **TypeScript** via native type-stripping in Node.js.
-It helps you write better Javascript and with type stripping, has very little overhead.
-It's recommended that you use it!
+## Runtime requirements
 
-- **Requires Node.js ≥23** *(built-in)* or **Node.js 22** with the `NODE_OPTIONS="--experimental-strip-types" domstack` env variable.
+- Use Node.js 22 or Node.js 24 and newer, as required by DOMStack v12.
+  Older Node.js 22 releases may need `NODE_OPTIONS="--experimental-strip-types" domstack` to enable type stripping.
 - Seamlessly mix `.ts`, `.mts`, `.cts` files alongside `.js`, `.mjs`, `.cjs`.
 - No explicit compilation step needed—Node.js handles type stripping at runtime.
 - Fully compatible with existing `domstack` file naming conventions.
 - Anywhere DOMStack loads JS files, it can now load TS files.
 
-### Supported File Types
+## Supported file types
 
 Anywhere you can use a `.js`, `.mjs`, or `.cjs` file in DOMStack, you can use the corresponding `.ts`, `.mts`, or `.cts` extension.
 
@@ -35,7 +39,7 @@ Type stripping provides 0 type checking, so be sure to set up `tsc` and `tsconfi
 
 <a id="recommended-tsconfigjson"></a>
 
-### Recommended `tsconfig.json`
+## Recommended `tsconfig.json`
 
 Install [@voxpelli/tsconfig](https://ghub.io/@voxpelli/tsconfig), which enables type checking in `.js` and `.ts` files and configures TypeScript for `--noEmit`.
 Extend its Node.js 22 baseline with DOMStack's type-stripping and client-TSX settings:
@@ -61,7 +65,7 @@ Extend its Node.js 22 baseline with DOMStack's type-stripping and client-TSX set
 }
 ```
 
-### Using TypeScript with domstack Types
+## Using TypeScript with DOMStack types
 
 You can use `domstack`'s built-in types to strongly type your layout, page, and template functions.
 Runtime values are imported from `@domstack/static`; types are imported from the dedicated `@domstack/static/types.js` entry.
@@ -134,7 +138,7 @@ function getPublishedPages({ pages }: GlobalDataFunctionParams): PageData[] {
 }
 ```
 
-#### Advanced type parameters
+### Advanced type parameters
 
 `PageFunction`, `LayoutFunction`, `TemplateFunction`, and `PagesFunction` support additional type parameters for precise input, data, and return type control:
 

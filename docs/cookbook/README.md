@@ -3,17 +3,18 @@ layout: docs
 handlebars: false
 ---
 
+<a id="cookbook"></a>
+
 # Recipes
+
+These recipes combine DOMStack features to solve common site-building tasks.
+Use them as starting points for nested layouts, feeds, archive pages, and redirects.
 
 ## Table of Contents
 
 [[toc]]
 
-## Cookbook
-
-Applied examples that combine multiple DOMStack features.
-
-### Compose nested layouts
+## Compose nested layouts
 
 This recipe uses the [explicit `parentLayout` declaration](../../docs/pages/#declaring-nested-layouts) described in the layout API.
 Pages select their innermost layout with `vars.layout`.
@@ -52,7 +53,7 @@ Layout `vars.layout` does not select a parent; only the named `parentLayout` exp
 Async layouts are awaited at every step, and intermediate values pass through unchanged until the final result is serialized.
 Each parent must accept the kind of children its immediate child returns.
 
-#### Data subscriptions in nested layouts
+### Data subscriptions in nested layouts
 
 Each layout declares only the data it reads.
 Keep focused consumer types beside their producer in `global.data.ts`:
@@ -90,7 +91,7 @@ The root receives `data.navigation`, and the article receives `data.recentPosts`
 A page using `article` rebuilds when either key changes, but it receives neither key unless it declares its own subscription.
 Only put a subscription in a shared root when every descendant genuinely uses that data through the root.
 
-#### Nested layout client bundles and styles
+### Nested layout client bundles and styles
 
 DOMStack includes each ancestor's own style and client entry automatically.
 The order is defaults → globals → outer layouts → inner layouts → page assets.
@@ -101,7 +102,7 @@ Watch mode uses the resolved chain for source-backed and generated pages.
 Changing a parent layout or one of its imported helpers rebuilds descendant pages, and changing the chain updates those relationships after a successful build.
 Existing asset edits use esbuild's watcher; adding or removing a layout asset updates the affected pages' asset lists.
 
-#### Manual composition
+### Manual composition
 
 Manual function composition is supported and tested for source-backed and generated pages.
 Prefer `parentLayout` for ordinary nesting: DOMStack can then manage the full chain's defaults, assets, dependencies, and rebuilds for you.
@@ -135,7 +136,7 @@ To migrate, replace the parent function call with a `parentLayout` export and re
 Move shared defaults into exported layout `vars`, and remove child imports of the parent's layout CSS and client.
 Do not keep the manual parent call when adding `parentLayout`, or the parent will render twice.
 
-### Generate RSS and JSON feeds
+## Generate RSS and JSON feeds
 
 Use `global.data.ts` to inspect and render source pages, then let a feed template subscribe to the prepared records.
 
@@ -248,7 +249,7 @@ const feedsTemplate: TemplateAsyncIterator<TemplateVars, FeedsTemplateData> = as
 export default feedsTemplate
 ```
 
-### Generate yearly blog index pages
+## Generate yearly blog index pages
 
 Global data centralizes collection and grouping once, then generated pages turn those records into pages.
 See the working [blog example directory](https://github.com/bcomnes/domstack/tree/master/examples/blog/), [`global.data.ts`](https://github.com/bcomnes/domstack/blob/master/examples/blog/src/global.data.ts), [`blog-indexes.pages.ts`](https://github.com/bcomnes/domstack/blob/master/examples/blog/src/blog-indexes.pages.ts), and [`year-index.layout.ts`](https://github.com/bcomnes/domstack/blob/master/examples/blog/src/layouts/year-index.layout.ts).
@@ -355,7 +356,7 @@ const blogIndexes: PagesFunction<
 export default blogIndexes
 ```
 
-### Generate redirect pages from page metadata
+## Generate redirect pages from page metadata
 
 See the working [blog example directory](https://github.com/bcomnes/domstack/tree/master/examples/blog/), [`redirects.pages.ts`](https://github.com/bcomnes/domstack/blob/master/examples/blog/src/redirects.pages.ts), and [`redirect.layout.ts`](https://github.com/bcomnes/domstack/blob/master/examples/blog/src/layouts/redirect.layout.ts).
 

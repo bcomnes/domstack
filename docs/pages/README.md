@@ -3,13 +3,18 @@ layout: docs
 handlebars: false
 ---
 
-# Page authoring reference
+<a id="page-authoring-reference"></a>
+
+# Pages
+
+A page combines source content with a layout, variables, and optional browser assets.
+This guide explains how to arrange those files and how DOMStack turns them into HTML at matching URLs.
 
 ## Table of Contents
 
 [[toc]]
 
-## Pages
+## Page files
 
 Pages are named directories inside `src` with **one of** the following page files:
 

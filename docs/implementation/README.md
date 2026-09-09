@@ -3,13 +3,18 @@ layout: docs
 handlebars: false
 ---
 
-# Build internals
+<a id="build-internals"></a>
+
+# Implementation
+
+DOMStack coordinates page rendering, asset bundling, and file copying in a staged build.
+This guide explains the tools involved, the order of each phase, and how watch mode decides what to rebuild.
 
 ## Table of Contents
 
 [[toc]]
 
-## Implementation
+## Build tools
 
 `domstack` bundles the best tools for every technology in the stack:
 
@@ -22,7 +27,7 @@ handlebars: false
 These tools are treated as implementation details, but they may be exposed more in the future.
 The idea is that they can be swapped out for better tools in the future if they don't make it.
 
-### Build Process Flow
+## Build process flow
 
 The one-shot builder discovers inputs using the shared file conventions, then records outputs from each build phase.
 The service worker is built last so manifest hooks can provide its build-time constants.
@@ -62,7 +67,7 @@ The diagrams show successful execution; discovery and build errors stop later ph
 
 <a id="buildpages-detail"></a>
 
-#### buildPages() Detail
+### buildPages() detail
 
 Each `buildPages()` call starts a fresh worker so server-side modules can be reloaded between watch builds.
 Within that worker, source-backed pages are initialized before global data is computed.
@@ -99,7 +104,7 @@ Variable Resolution Layers, from lowest to highest precedence:
 Global data is not a variable-resolution layer.
 It is resolved separately and projected into each consumer's `data` argument according to `dataDeps`.
 
-### Watch mode
+## Watch mode
 
 Running `domstack --watch` or `domstack -w` performs an initial build, watches the source inputs, and serves `dest` with live reload.
 Use `domstack --watch-only` when another process serves the output.
@@ -154,7 +159,7 @@ DOMStack uses these rebuild scopes:
 Like templates, generated-pages modules rebuild when their own source or imported dependencies change.
 When a targeted build recomputes global data, DOMStack compares top-level values with the previous successful build and adds only subscribers of changed keys to the rebuild set.
 
-#### What triggers what
+### What triggers what
 
 | Change | Rebuild scope |
 |---|---|
@@ -183,7 +188,7 @@ Adding or removing a file changes the set of discovered build inputs:
 
 When a full page/template rebuild or targeted generated-pages rebuild no longer claims an output from the previous successful build, DOMStack removes that obsolete page or template output from `dest` without touching outputs owned by unaffected files.
 
-#### Dependency tracking
+### Dependency tracking
 
 DOMStack uses [`@11ty/dependency-tree-typescript`](https://github.com/11ty/dependency-tree-typescript) to statically analyze ESM imports.
 It maintains maps for:
@@ -203,7 +208,7 @@ esbuild tracks browser-entry dependencies independently.
 Changing a module imported only by `client.ts` rebundles that entry without rendering page HTML.
 When a module has both browser and server-side consumers, the planner unions the server-side consumers rather than skipping the page phase.
 
-#### Stable entry filenames
+### Stable entry filenames
 
 Watch mode uses stable filenames for esbuild entry outputs:
 
@@ -225,7 +230,7 @@ chunks/[ext]/[name]-[hash]
 
 Page HTML points to stable entry files during watch mode. esbuild can update an entry and its chunk imports without requiring DOMStack to render the page again.
 
-#### Manifest behavior
+### Manifest behavior
 
 Watch mode builds and rebundles the site service worker, but it does not finalize, return, or write the [DOMStack manifest](../../docs/workers/#domstack-manifest).
 Changes to `domstack-manifest.settings.ts` therefore do not trigger a watch rebuild.
@@ -234,7 +239,7 @@ Use `domstack --serve` when testing manifest-driven cache behavior.
 It runs a one-shot build and serves the result without watch-mode filenames or live-reload HTML injection.
 Add `--domstackManifest` only when the service worker or test needs the public `domstack-manifest.json` file.
 
-#### Build serialization
+### Build serialization
 
 Chokidar events are serialized through a promise chain.
 Each page rebuild or esbuild restart completes before the next queued filesystem event is processed, preventing overlapping DOMStack rebuilds during rapid saves.

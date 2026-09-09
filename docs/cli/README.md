@@ -3,7 +3,12 @@ layout: docs
 handlebars: false
 ---
 
-# Command-line reference
+<a id="command-line-reference"></a>
+
+# CLI
+
+Use `domstack` (or its shorter alias, `dom`) to build a site, watch for changes, or preview production output.
+The options below control source and destination directories, asset copying, and the development server.
 
 ## Table of Contents
 
