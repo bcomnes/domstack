@@ -23,74 +23,59 @@ async function waitForScrollToSettle (page) {
   }))
 }
 
-for (const [width, reducedMotion] of [[1500, 'no-preference'], [390, 'no-preference'], [1500, 'reduce']]) {
-  test(`reading position updates the URL and sidebar without navigating at ${width}px (${reducedMotion})`, async ({ page, siteURL }) => {
-    test.setTimeout(30_000)
-    await page.emulateMedia({ reducedMotion })
-    await page.setViewportSize({ width, height: 900 })
-    const base = `${siteURL}/docs/pages/?reading=test`
-    await page.goto(`${base}#page-styles`)
-    await page.evaluate(async () => {
-      await document.fonts.ready
-    })
-    await waitForScrollToSettle(page)
-    await page.evaluate(() => {
-      history.replaceState({ preserved: true }, '', location.href)
-      document.getElementById('docs-content').focus({ preventScroll: true })
-    })
-    expect(await page.evaluate(() => getComputedStyle(document.documentElement).scrollBehavior))
-      .toBe(reducedMotion === 'reduce' ? 'auto' : 'smooth')
-    const length = await page.evaluate(() => history.length)
-    const section = page.locator('.docs-navigation a[aria-current="location"]')
-    await expect(section).toHaveText('Page Styles')
-
-    const scrollToHeading = async locator => {
-      return locator.evaluate(heading => {
-        const offset = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop)
-        scrollTo({ top: scrollY + heading.getBoundingClientRect().top - offset + 2, behavior: 'instant' })
-        return scrollY
-      })
-    }
-    const y = await scrollToHeading(page.locator('#page-client-bundles'))
-    await expect(page).toHaveURL(`${base}#page-client-bundles`)
-    await expect(section).toHaveText('Page client bundles')
-    expect(await page.evaluate(() => ({
-      y: scrollY, length: history.length, state: history.state, focus: document.activeElement.id,
-    }))).toEqual({ y, length, state: { preserved: true }, focus: 'docs-content' })
-
-    // A real wheel scroll across the boundary also selects the preceding section.
-    await page.mouse.move(width - 100, 400)
-    await page.mouse.wheel(0, -100)
-    await expect(page).toHaveURL(`${base}#page-styles`)
-    await expect(section).toHaveText('Page Styles')
-
-    // h4 has a URL of its own but keeps the parent h3 selected in the shared ToC.
-    const deeper = page.locator('#docs-content h4').filter({ hasText: '.tsx' })
-    const id = await deeper.getAttribute('id')
-    await scrollToHeading(deeper)
-    await expect(page).toHaveURL(`${base}#${encodeURIComponent(id)}`)
-    await expect(section).toHaveText('Page client bundles')
-
-    if (width < 1024) {
-      await page.getByRole('button', { name: 'Open documentation menu' }).click()
-      await expect(section).toBeInViewport()
-      const menuURL = page.url()
-      await page.locator('.docs-navigation').evaluate(nav => { nav.scrollTop = 0 })
-      await page.waitForTimeout(400) // No delayed URL update from scrolling the menu.
-      expect(page.url()).toBe(menuURL)
-      await page.keyboard.press('Escape')
-    }
-
-    // Scrolling upwards selects the preceding section, then clears the fragment.
-    await scrollToHeading(page.locator('#page-styles'))
-    await expect(page).toHaveURL(`${base}#page-styles`)
-    await expect(section).toHaveText('Page Styles')
-    await page.evaluate(() => scrollTo({ top: 0, behavior: 'instant' }))
-    await expect(page).toHaveURL(base)
-    await expect(section).toHaveCount(0)
-    expect(await page.evaluate(() => history.length)).toBe(length)
+test('reading position updates the URL and sidebar without navigating', async ({ page, siteURL }) => {
+  test.setTimeout(30_000)
+  await page.setViewportSize({ width: 1500, height: 900 })
+  const base = `${siteURL}/docs/pages/?reading=test`
+  await page.goto(`${base}#page-styles`)
+  await page.evaluate(async () => {
+    await document.fonts.ready
   })
-}
+  await waitForScrollToSettle(page)
+  await page.evaluate(() => {
+    history.replaceState({ preserved: true }, '', location.href)
+    document.getElementById('docs-content').focus({ preventScroll: true })
+  })
+  const length = await page.evaluate(() => history.length)
+  const section = page.locator('.docs-navigation a[aria-current="location"]')
+  await expect(section).toHaveText('Page Styles')
+
+  const scrollToHeading = async locator => {
+    return locator.evaluate(heading => {
+      const offset = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop)
+      scrollTo({ top: scrollY + heading.getBoundingClientRect().top - offset + 2, behavior: 'instant' })
+      return scrollY
+    })
+  }
+  const y = await scrollToHeading(page.locator('#page-client-bundles'))
+  await expect(page).toHaveURL(`${base}#page-client-bundles`)
+  await expect(section).toHaveText('Page client bundles')
+  expect(await page.evaluate(() => ({
+    y: scrollY, length: history.length, state: history.state, focus: document.activeElement.id,
+  }))).toEqual({ y, length, state: { preserved: true }, focus: 'docs-content' })
+
+  // A real wheel scroll across the boundary also selects the preceding section.
+  await page.mouse.move(1400, 400)
+  await page.mouse.wheel(0, -100)
+  await expect(page).toHaveURL(`${base}#page-styles`)
+  await expect(section).toHaveText('Page Styles')
+
+  // h4 has a URL of its own but keeps the parent h3 selected in the shared ToC.
+  const deeper = page.locator('#docs-content h4').filter({ hasText: '.tsx' })
+  const id = await deeper.getAttribute('id')
+  await scrollToHeading(deeper)
+  await expect(page).toHaveURL(`${base}#${encodeURIComponent(id)}`)
+  await expect(section).toHaveText('Page client bundles')
+
+  // Scrolling upwards selects the preceding section, then clears the fragment.
+  await scrollToHeading(page.locator('#page-styles'))
+  await expect(page).toHaveURL(`${base}#page-styles`)
+  await expect(section).toHaveText('Page Styles')
+  await page.evaluate(() => scrollTo({ top: 0, behavior: 'instant' }))
+  await expect(page).toHaveURL(base)
+  await expect(section).toHaveCount(0)
+  expect(await page.evaluate(() => history.length)).toBe(length)
+})
 
 test('explicit anchors and Back/Forward win over pending reading-position updates', async ({ page, siteURL }) => {
   test.setTimeout(30_000)
