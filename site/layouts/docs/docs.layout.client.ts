@@ -73,18 +73,25 @@ function updateLocation (reveal: boolean): void {
 function trackReadingPosition (): void {
   let pending: ReturnType<typeof setTimeout> | undefined
   let lastScrollY = scrollY
+  let navigating = false
   const cancel = (): void => {
     clearTimeout(pending)
     pending = undefined
   }
-  const navigationFinished = (): void => {
+  const finishNavigation = (): void => {
     cancel()
-    // History traversal restores scroll after popstate. Remember that position
-    // on the next frame so restoration itself cannot rewrite the chosen URL.
-    requestAnimationFrame(() => {
-      lastScrollY = scrollY
-      cancel()
-    })
+    lastScrollY = scrollY
+    navigating = false
+  }
+  const waitForNavigation = (): void => {
+    cancel()
+    // Also handles browsers without scrollend, and links that don't move the
+    // page. Each animation frame's scroll event postpones this idle fallback.
+    pending = setTimeout(finishNavigation, 150)
+  }
+  const beginNavigation = (): void => {
+    navigating = true
+    waitForNavigation()
   }
   const update = (): void => {
     pending = undefined
@@ -102,17 +109,20 @@ function trackReadingPosition (): void {
     history.replaceState(history.state, '', `${location.pathname}${location.search}${hash}`)
     updateLocation(true) // replaceState does not emit hashchange.
   }
-  addEventListener('hashchange', navigationFinished)
-  addEventListener('popstate', navigationFinished)
-  // Let the browser finish its initial deep-link scroll before tracking.
+  addEventListener('hashchange', beginNavigation)
+  addEventListener('popstate', beginNavigation)
+  addEventListener('scrollend', () => {
+    if (navigating) finishNavigation()
+  })
+  // Initial deep links, anchor animations, and history restoration choose their
+  // own URL. Resume reading-position tracking only after that scroll settles.
   const start = (): void => {
-    requestAnimationFrame(() => {
-      lastScrollY = scrollY
-      addEventListener('scroll', () => {
-        // Throttle, not debounce: keep the URL current during continuous reading.
-        pending ??= setTimeout(update, 300)
-      }, { passive: true })
-    })
+    beginNavigation()
+    addEventListener('scroll', () => {
+      if (navigating) waitForNavigation()
+      // Throttle, not debounce: keep the URL current during continuous reading.
+      else pending ??= setTimeout(update, 300)
+    }, { passive: true })
   }
   if (document.readyState === 'complete') start()
   else addEventListener('load', start, { once: true })
