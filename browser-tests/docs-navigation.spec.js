@@ -12,6 +12,15 @@ test('complete index links reach real headings and sidebar follows the current p
   page.on('pageerror', error => errors.push(error.message))
   await page.setViewportSize({ width: 1500, height: 900 })
   await page.goto(`${siteURL}/docs/`)
+  // Nested globals and layouts must still be discovered, bundled, and loaded.
+  await expect(page.locator('link[rel="stylesheet"][href*="/site/globals/global-"]')).toHaveCount(1)
+  await expect(page.locator('script[src*="/site/globals/global.client-"]')).toHaveCount(1)
+  await expect(page.locator('link[rel="stylesheet"][href*="/site/layouts/docs/docs.layout-"]')).toHaveCount(1)
+  await expect(page.locator('script[src*="/site/layouts/docs/docs.layout.client-"]')).toHaveCount(1)
+  expect(await page.evaluate(async () => {
+    const fonts = await document.fonts.load('16px "DSWeiss-Gotisch"')
+    return fonts.length > 0 && fonts.every(font => font.status === 'loaded')
+  })).toBe(true)
   const links = page.locator('.docs-index a')
   expect(await links.count()).toBeGreaterThan(100)
   const broken = await page.evaluate(async () => {

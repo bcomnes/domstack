@@ -13,8 +13,7 @@
     "types/**/*",
     "lib/**/*",
     "test-cases/**/*",
-    "global.data.ts",
-    "layouts/**/*",
+    "site/**/*",
     "index.js",
     "bin.js",
     "types.ts"

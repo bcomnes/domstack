@@ -1,5 +1,5 @@
-import type { GlobalDataFunctionParams } from './types.ts'
-import { collectDocsNavigation } from './layouts/docs/navigation.js'
+import type { GlobalDataFunctionParams } from '../../types.ts'
+import { collectDocsNavigation } from '../layouts/docs/navigation.js'
 
 // Only the layout subscribes to this data. Source Markdown can therefore be
 // rendered here without depending on the navigation it is helping to produce.

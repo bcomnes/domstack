@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { load } from 'cheerio'
 import { render } from 'fragtml'
-import { renderMd } from '../../lib/build-pages/page-builders/md/get-md.js'
+import { renderMd } from '../../../lib/build-pages/page-builders/md/get-md.js'
 import { collectDocsNavigation, navigationHref } from './navigation.js'
 import { documentationContent, navigation } from './docs.layout.js'
 

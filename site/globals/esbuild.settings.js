@@ -1,5 +1,5 @@
 /**
- * @import { BuildOptions } from '.'
+ * @import { BuildOptions } from '#types'
  */
 
 /**

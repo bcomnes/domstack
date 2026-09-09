@@ -13,7 +13,7 @@
 
   @font-face {
     font-family: 'DSWeiss-Gotisch';
-    src: url('./fonts/ds-weiss-gotisch/DSWeiss-Gotisch.ttf') format('truetype');
+    src: url('../../fonts/ds-weiss-gotisch/DSWeiss-Gotisch.ttf') format('truetype');
   }
 
   body {

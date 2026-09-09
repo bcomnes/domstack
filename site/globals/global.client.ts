@@ -7,7 +7,7 @@ function followMovedReference (): void {
   } catch {
     return
   }
-  const destination = (document.getElementById(location.hash.slice(1)) ?? document.getElementById(id))?.dataset.referenceUrl
+  const destination = (document.getElementById(location.hash.slice(1)) ?? document.getElementById(id))?.dataset['referenceUrl']
   if (destination) location.replace(new URL(destination, location.href))
 }
 

@@ -22,7 +22,7 @@
     "bin.d.ts",
     "bin.d.ts.map",
     "docs/**/*.md",
-    "global.css",
+    "site/globals/global.css",
     "index.js",
     "index.d.ts",
     "index.d.ts.map",
