@@ -9,5 +9,7 @@
   "exclude": [
     "**/*.test.js",
     "test-cases/**/*",
+    "global.data.ts",
+    "layouts/**/*",
   ]
 }

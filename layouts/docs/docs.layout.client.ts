@@ -17,10 +17,15 @@ function decodedHash (hash: string): string {
 }
 
 function updateLocation (reveal: boolean): void {
+  // The browser accepts both literal and decoded fragments. Markdown heading
+  // IDs can themselves contain percent escapes. Resolve the same target before
+  // the browser's initial fragment scroll (when :target may not yet be set).
+  const hash = location.hash.slice(1)
+  const targetId = (document.getElementById(hash) ?? document.getElementById(decodedHash(hash)))?.id
   let active: HTMLAnchorElement | undefined
   for (const link of links) {
     const samePage = link.pathname === location.pathname
-    const sameSection = samePage && link.hash !== '' && decodedHash(link.hash) === decodedHash(location.hash)
+    const sameSection = samePage && link.hash !== '' && decodedHash(link.hash).slice(1) === targetId
     if (sameSection || (samePage && !link.hash)) {
       link.setAttribute('aria-current', sameSection ? 'location' : 'page')
     } else {
