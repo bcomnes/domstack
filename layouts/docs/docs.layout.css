@@ -1,4 +1,82 @@
 @layer domstack.layout {
+  .docs-shell {
+    min-inline-size: 0;
+  }
+
+  .docs-content {
+    min-inline-size: 0;
+  }
+
+  .docs-navigation {
+    margin-block: 1rem;
+    overflow-wrap: anywhere;
+
+    summary {
+      cursor: pointer;
+    }
+
+    nav > a {
+      display: inline-block;
+      margin-block: 0.75rem;
+    }
+
+    ul {
+      padding-inline-start: 1.25rem;
+    }
+
+    nav > ul {
+      padding: 0;
+      margin: 0;
+      list-style: none;
+    }
+
+    li {
+      margin-block: 0.4rem;
+    }
+
+    a[aria-current] {
+      font-weight: bold;
+      text-decoration-thickness: 0.15em;
+    }
+  }
+
+  .docs-skip-link:not(:focus) {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  @media (min-width: 82rem) {
+    .app-main:has(> .docs-shell) {
+      max-inline-size: calc(16rem + 4rem + 56em + 2em);
+    }
+
+    .docs-shell {
+      display: grid;
+      grid-template-columns: 16rem minmax(0, 56em);
+      column-gap: 4rem;
+      align-items: start;
+    }
+
+    .docs-skip-link:focus {
+      grid-column: 1 / -1;
+    }
+
+    .docs-navigation {
+      position: sticky;
+      inset-block-start: 1rem;
+      max-block-size: calc(100dvh - 2rem);
+      overflow-y: auto;
+      scrollbar-gutter: stable;
+
+      > summary {
+        font-weight: bold;
+      }
+    }
+  }
+
   .docs-breadcrumb {
     margin-block: 1em;
 

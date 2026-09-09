@@ -2,6 +2,12 @@
 @import 'markdown-it-github-alerts/styles/github-colors-light.css' layer(domstack.global);
 @import 'markdown-it-github-alerts/styles/github-colors-dark-media.css' layer(domstack.global);
 
+/* Reference links should land directly on their sections. Disable mine.css's
+   cross-document fades, which can also abort during legacy-anchor redirects. */
+@view-transition {
+  navigation: none;
+}
+
 @layer domstack.global {
   /* Global styles applied to every page */
 

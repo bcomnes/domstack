@@ -20,6 +20,7 @@ for (const { url, labels, links } of [
 
     for (const basePath of ['', '/domstack']) {
       const base = `https://example.com${basePath}${url}`
+      assert.ok(links[0])
       assert.equal(new URL(links[0], base).pathname, `${basePath}/`)
       if (links[1]) assert.equal(new URL(links[1], base).pathname, `${basePath}/docs/`)
     }

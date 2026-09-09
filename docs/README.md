@@ -7,6 +7,9 @@ layout: docs
 [DOMStack](../) builds websites from ordinary HTML, Markdown, CSS, and JavaScript files.
 Start with the [quick start](../#getting-started), then use these references as your project grows.
 
+<!-- This list defines the shared navigation's page order. The docs layout adds each page's headings. -->
+<div class="docs-index">
+
 - [Command-line reference](cli/)
 - [Example projects](example-projects/)
 - [Page authoring reference](pages/)
@@ -24,3 +27,5 @@ Start with the [quick start](../#getting-started), then use these references as 
 
 - [v12 migration guide](v12-migration.md)
 - [v11 migration guide](v11-migration.md)
+
+</div>

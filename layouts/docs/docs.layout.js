@@ -1,10 +1,14 @@
 /**
  * @import { LayoutFunction } from '#types'
  * @import { HtmlResult } from 'fragtml/types.js'
+ * @import { NavigationEntry } from './navigation.js'
  */
-import { html, raw } from 'fragtml'
+import { html, raw, render } from 'fragtml'
+import { load } from 'cheerio'
+import { docsIndexUrl, navigationHref, sectionLinks } from './navigation.js'
 
 export const parentLayout = 'root'
+export const vars = { dataDeps: ['docsNavigation'] }
 
 /** @param {string} url The canonical page URL, without a deployment base path. */
 export function breadcrumb (url) {
@@ -29,11 +33,68 @@ export function breadcrumb (url) {
     </nav>`
 }
 
-/** @type {LayoutFunction<Record<string, never>, string | HtmlResult, HtmlResult>} */
-export default function docsLayout ({ children, page }) {
+/** @param {NavigationEntry[]} entries @param {string} pageUrl */
+export function navigation (entries, pageUrl) {
   return html`
-    ${breadcrumb(page.url)}
-    ${typeof children === 'string' ? raw(children) : children}
-    ${breadcrumb(page.url)}
+    <details class="docs-navigation" id="table-of-contents" open>
+      <summary>Documentation contents</summary>
+      <nav aria-label="Documentation">
+        <a href="${navigationHref(pageUrl, docsIndexUrl)}"
+          ${pageUrl === docsIndexUrl ? raw('aria-current="page"') : ''}>All documentation</a>
+        <ul>
+          ${entries.map(entry => html`
+            <li>
+              <details ${entry.url === pageUrl ? raw('open') : ''}>
+                <summary>
+                  <a href="${navigationHref(pageUrl, entry.url)}"
+                    ${entry.url === pageUrl ? raw('aria-current="page"') : ''}>${entry.title}</a>
+                </summary>
+                ${sectionLinks(entry.sections, pageUrl)}
+              </details>
+            </li>
+          `)}
+        </ul>
+      </nav>
+    </details>
+  `
+}
+
+/**
+ * Keep Markdown's local ToCs useful on GitHub, but replace them on the website.
+ * Parsing only inner content also keeps the shared navigation out of itself.
+ * @param {string} content
+ * @param {NavigationEntry[]} entries
+ * @param {string} pageUrl
+ */
+export function documentationContent (content, entries, pageUrl) {
+  const $ = load(content, {}, false)
+  $('.table-of-contents').each((_, toc) => {
+    const heading = $(toc).prev()
+    if (heading.is('h2, h3') && heading.text().trim().toLowerCase() === 'table of contents') heading.remove()
+    $(toc).remove()
+  })
+  if (pageUrl === docsIndexUrl) {
+    const entriesByUrl = new Map(entries.map(entry => [entry.url, entry]))
+    $('.docs-index li > a').each((_, link) => {
+      const url = new URL($(link).attr('href') ?? '', `https://docs.invalid${pageUrl}`)
+      const entry = entriesByUrl.get(url.pathname)
+      if (entry?.sections.length) $(link).after(render(sectionLinks(entry.sections, pageUrl)))
+    })
+  }
+  return raw($.html())
+}
+
+/** @type {LayoutFunction<Record<string, never>, string | HtmlResult, HtmlResult, { docsNavigation: NavigationEntry[] }>} */
+export default function docsLayout ({ children, page, data }) {
+  return html`
+    <div class="docs-shell">
+      <a class="docs-skip-link" href="#docs-content">Skip to content</a>
+      ${navigation(data.docsNavigation, page.url)}
+      <div class="docs-content" id="docs-content" tabindex="-1">
+        ${breadcrumb(page.url)}
+        ${documentationContent(typeof children === 'string' ? children : render(children), data.docsNavigation, page.url)}
+        ${breadcrumb(page.url)}
+      </div>
+    </div>
   `
 }

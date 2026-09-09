@@ -1,0 +1,47 @@
+/// <reference lib="dom" />
+
+const navigation = document.querySelector<HTMLDetailsElement>('.docs-navigation')
+const links = Array.from(navigation?.querySelectorAll<HTMLAnchorElement>('a[href]') ?? [])
+const desktop = matchMedia('(min-width: 82rem)')
+
+function updateDisclosure (): void {
+  if (navigation) navigation.open = desktop.matches
+}
+
+function decodedHash (hash: string): string {
+  try {
+    return decodeURIComponent(hash)
+  } catch {
+    return hash
+  }
+}
+
+function updateLocation (reveal: boolean): void {
+  let active: HTMLAnchorElement | undefined
+  for (const link of links) {
+    const samePage = link.pathname === location.pathname
+    const sameSection = samePage && link.hash !== '' && decodedHash(link.hash) === decodedHash(location.hash)
+    if (sameSection || (samePage && !link.hash)) {
+      link.setAttribute('aria-current', sameSection ? 'location' : 'page')
+    } else {
+      link.removeAttribute('aria-current')
+    }
+    if (sameSection) active = link
+  }
+  if (!active) return
+  const section = active.closest('details')
+  if (section) section.open = true
+  if (reveal && desktop.matches && navigation) {
+    // Scroll only the sidebar, never the document away from its anchor.
+    const bounds = navigation.getBoundingClientRect()
+    const linkBounds = active.getBoundingClientRect()
+    if (linkBounds.top < bounds.top || linkBounds.bottom > bounds.bottom) {
+      navigation.scrollTop += linkBounds.top - bounds.top
+    }
+  }
+}
+
+updateDisclosure()
+updateLocation(true)
+desktop.addEventListener('change', updateDisclosure)
+addEventListener('hashchange', () => updateLocation(true))
