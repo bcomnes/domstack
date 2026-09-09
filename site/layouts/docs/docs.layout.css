@@ -1,4 +1,9 @@
 @layer domstack.layout {
+  :root:has(.docs-shell) {
+    /* Override the base theme's smooth scrolling: anchors navigate instantly. */
+    scroll-behavior: auto;
+  }
+
   .docs-shell {
     min-inline-size: 0;
     max-inline-size: 90rem;

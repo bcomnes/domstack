@@ -2,6 +2,7 @@
 
 const navigation = document.querySelector<HTMLDetailsElement>('.docs-navigation')
 const links = Array.from(navigation?.querySelectorAll<HTMLAnchorElement>('a[href]') ?? [])
+const headings = Array.from(document.querySelectorAll<HTMLElement>('#docs-content h2[id], #docs-content h3[id], #docs-content h4[id]'))
 // Keep this breakpoint in sync with docs.layout.css.
 const desktop = matchMedia('(min-width: 64rem)')
 
@@ -13,16 +14,36 @@ function decodedHash (hash: string): string {
   }
 }
 
+function fragmentTarget (hash: string): HTMLElement | null {
+  const id = hash.slice(1)
+  return document.getElementById(id) ?? document.getElementById(decodedHash(id))
+}
+
+function sectionLink (target: HTMLElement | null): HTMLAnchorElement | undefined {
+  const findLink = (id: string): HTMLAnchorElement | undefined =>
+    links.find(link => link.pathname === location.pathname && link.hash !== '' && fragmentTarget(link.hash)?.id === id)
+  if (!target) return
+  const exact = findLink(target.id)
+  if (exact) return exact
+  // The shared ToC includes h2/h3. Deeper headings belong to the nearest
+  // preceding section that is represented there.
+  const index = headings.indexOf(target)
+  if (index < 0) return
+  for (const heading of headings.slice(0, index).reverse()) {
+    const link = findLink(heading.id)
+    if (link) return link
+  }
+}
+
 function updateLocation (reveal: boolean): void {
   // The browser accepts both literal and decoded fragments. Markdown heading
   // IDs can themselves contain percent escapes. Resolve the same target before
   // the browser's initial fragment scroll (when :target may not yet be set).
-  const hash = location.hash.slice(1)
-  const targetId = (document.getElementById(hash) ?? document.getElementById(decodedHash(hash)))?.id
+  const currentSection = sectionLink(fragmentTarget(location.hash))
   let active: HTMLAnchorElement | undefined
   for (const link of links) {
     const samePage = link.pathname === location.pathname
-    const sameSection = samePage && link.hash !== '' && decodedHash(link.hash).slice(1) === targetId
+    const sameSection = link === currentSection
     if (sameSection || (samePage && !link.hash)) {
       link.setAttribute('aria-current', sameSection ? 'location' : 'page')
     } else {
@@ -42,6 +63,59 @@ function updateLocation (reveal: boolean): void {
       navigation.scrollTop += linkBounds.top - bounds.top
     }
   }
+}
+
+/**
+ * Scrolling describes the reading position; it must never navigate or focus.
+ * Replace the current history entry, preserving its state and query string.
+ * Native fragment navigation wins over a pending scroll update.
+ */
+function trackReadingPosition (): void {
+  let pending: ReturnType<typeof setTimeout> | undefined
+  let lastScrollY = scrollY
+  const cancel = (): void => {
+    clearTimeout(pending)
+    pending = undefined
+  }
+  const navigationFinished = (): void => {
+    cancel()
+    // History traversal restores scroll after popstate. Remember that position
+    // on the next frame so restoration itself cannot rewrite the chosen URL.
+    requestAnimationFrame(() => {
+      lastScrollY = scrollY
+      cancel()
+    })
+  }
+  const update = (): void => {
+    pending = undefined
+    if (scrollY === lastScrollY || document.querySelector('.docs-menu[open]')) return
+    lastScrollY = scrollY
+    const threshold = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0
+    let current: HTMLElement | undefined
+    for (const heading of headings) {
+      if (!heading.getClientRects().length) continue // Ignore closed disclosures.
+      if (heading.getBoundingClientRect().top > threshold + 1) break
+      current = heading
+    }
+    const hash = current ? `#${encodeURIComponent(current.id)}` : ''
+    if (fragmentTarget(location.hash) === current || location.hash === hash) return
+    history.replaceState(history.state, '', `${location.pathname}${location.search}${hash}`)
+    updateLocation(true) // replaceState does not emit hashchange.
+  }
+  addEventListener('hashchange', navigationFinished)
+  addEventListener('popstate', navigationFinished)
+  // Let the browser finish its initial deep-link scroll before tracking.
+  const start = (): void => {
+    requestAnimationFrame(() => {
+      lastScrollY = scrollY
+      addEventListener('scroll', () => {
+        // Throttle, not debounce: keep the URL current during continuous reading.
+        pending ??= setTimeout(update, 300)
+      }, { passive: true })
+    })
+  }
+  if (document.readyState === 'complete') start()
+  else addEventListener('load', start, { once: true })
 }
 
 /**
@@ -98,8 +172,7 @@ function enhanceMenu (): void {
     const sameDocument = link.origin === location.origin && link.pathname === location.pathname && link.search === location.search
     if (!sameDocument) return // A cross-page navigation unloads the document.
     dialog.close()
-    const id = link.hash.slice(1)
-    const target = document.getElementById(id) ?? document.getElementById(decodedHash(id)) ?? content
+    const target = fragmentTarget(link.hash) ?? content
     const hadTabindex = target.hasAttribute('tabindex')
     if (!hadTabindex) target.setAttribute('tabindex', '-1')
     target.focus({ preventScroll: true })
@@ -113,3 +186,4 @@ function enhanceMenu (): void {
 enhanceMenu()
 updateLocation(true)
 addEventListener('hashchange', () => updateLocation(true))
+trackReadingPosition()
