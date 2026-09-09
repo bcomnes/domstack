@@ -3,6 +3,8 @@
     --site-header-height: 4.5rem;
     --site-border: color-mix(in srgb, var(--text) 16%, var(--background));
     --site-muted: color-mix(in srgb, var(--text) 70%, var(--background));
+    --site-glass-background: var(--background);
+    --site-glass-filter: none;
     scrollbar-gutter: stable;
     scroll-padding-block-start: calc(var(--site-header-height) + 1rem);
   }
@@ -30,8 +32,26 @@
     position: sticky;
     inset-block-start: 0;
     z-index: 20;
-    background: var(--background);
+    background: var(--site-glass-background);
+    -webkit-backdrop-filter: var(--site-glass-filter);
+    backdrop-filter: var(--site-glass-filter);
     border-block-end: 1px solid var(--site-border);
+  }
+
+  /* The header and mobile menu share a theme-aware glass surface, with a
+     solid fallback for unsupported browsers and reduced transparency. */
+  @supports (backdrop-filter: blur(12px)) or (-webkit-backdrop-filter: blur(12px)) {
+    :root {
+      --site-glass-background: color-mix(in srgb, var(--background) 80%, transparent);
+      --site-glass-filter: blur(12px);
+    }
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    :root {
+      --site-glass-background: var(--background);
+      --site-glass-filter: none;
+    }
   }
 
   .site-header-inner,
@@ -116,6 +136,11 @@
 
   .site-footer {
     border-block-start: 1px solid var(--site-border);
+    color: var(--site-muted);
+  }
+
+  .site-footer .site-brand {
+    font-size: 1.25rem;
     color: var(--site-muted);
   }
 

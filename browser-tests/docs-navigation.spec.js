@@ -134,7 +134,10 @@ test('mobile section links close the menu, focus content, and clear the sticky h
   await menu.getByRole('button', { name: 'Close documentation menu' }).click()
   await expect(toggle).toBeFocused()
   await toggle.click()
+  // The full-width overlay has no outside click target; unused space stays open.
   await page.mouse.click(385, 400)
+  await expect(menu).toBeVisible()
+  await page.keyboard.press('Escape')
   await expect(menu).toBeHidden()
   await expect(toggle).toBeFocused()
 })

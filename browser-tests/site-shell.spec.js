@@ -26,9 +26,38 @@ for (const colorScheme of ['light', 'dark']) {
           expect(await page.locator('html').evaluate(el =>
             getComputedStyle(el).getPropertyValue('--background').trim()
           )).not.toBe('')
+          const headerBrand = page.locator('.site-header .site-brand')
+          const footerBrand = page.locator('.site-footer .site-brand')
+          expect(await footerBrand.evaluate(el => parseFloat(getComputedStyle(el).fontSize)))
+            .toBeLessThan(await headerBrand.evaluate(el => parseFloat(getComputedStyle(el).fontSize)))
+          expect(await footerBrand.evaluate(el => getComputedStyle(el).color))
+            .toBe(await page.locator('.site-footer').evaluate(el => getComputedStyle(el).color))
+          await expect(page.getByRole('banner')).toHaveCSS('backdrop-filter', 'blur(12px)')
+          const translucent = await page.getByRole('banner').evaluate(el => {
+            // Canvas normalizes color-mix() into a pixel, independent of CSS
+            // color serialization differences between browser versions.
+            const context = document.createElement('canvas').getContext('2d')
+            context.fillStyle = getComputedStyle(el).backgroundColor
+            context.fillRect(0, 0, 1, 1)
+            return context.getImageData(0, 0, 1, 1).data[3]
+          })
+          expect(translucent).toBeGreaterThan(0)
+          expect(translucent).toBeLessThan(255)
           const toggle = page.getByRole('button', { name: 'Open documentation menu' })
           if (path.startsWith('/docs/') && width < 1024) {
             await expect(toggle).toBeVisible()
+            await toggle.click()
+            const menu = page.getByRole('dialog')
+            await expect(menu).toBeVisible()
+            const bounds = await menu.boundingBox()
+            expect(bounds.x).toBe(0)
+            expect(bounds.width).toBe(await page.evaluate(() => document.documentElement.clientWidth))
+            expect(bounds.height).toBe(900)
+            expect(await page.locator('#docs-menu-title').evaluate(el => getComputedStyle(el).fontFamily))
+              .toBe(await headerBrand.evaluate(el => getComputedStyle(el).fontFamily))
+            expect(await menu.evaluate(el => getComputedStyle(el, '::backdrop').backdropFilter)).toBe('blur(12px)')
+            await page.keyboard.press('Escape')
+            await expect(toggle).toBeFocused()
           } else {
             await expect(toggle).toBeHidden()
           }

@@ -124,15 +124,15 @@
   }
 
   .docs-menu {
-    inline-size: min(22rem, calc(100% - 2rem));
+    inline-size: 100%;
     max-inline-size: none;
     block-size: 100dvh;
     max-block-size: none;
     margin: 0;
     padding: 0;
     border: 0;
-    border-inline-end: 1px solid var(--site-border);
-    background: var(--background);
+    /* The full-viewport backdrop supplies the glass behind the menu content. */
+    background: transparent;
     color: var(--text);
     overflow: hidden;
   }
@@ -143,7 +143,9 @@
   }
 
   .docs-menu::backdrop {
-    background: rgb(0 0 0 / 45%);
+    background: var(--site-glass-background);
+    -webkit-backdrop-filter: var(--site-glass-filter);
+    backdrop-filter: var(--site-glass-filter);
   }
 
   .docs-menu-header {
@@ -167,6 +169,10 @@
       font: inherit;
       box-shadow: none;
     }
+  }
+
+  #docs-menu-title {
+    font: 400 1.8rem / 1.2 'DSWeiss-Gotisch', serif;
   }
 
   .docs-menu .docs-navigation {

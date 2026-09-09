@@ -170,12 +170,6 @@ function enhanceMenu (): void {
   })
   dialog.addEventListener('close', updateMenuState)
   // Native dialog handles Escape, focus containment, and return to the opener.
-  // Close on backdrop clicks too, without treating clicks inside as dismissals.
-  dialog.addEventListener('click', event => {
-    if (event.target !== dialog) return
-    const rect = dialog.getBoundingClientRect()
-    if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) dialog.close()
-  })
   nav.addEventListener('click', event => {
     const link = (event.target as Element).closest<HTMLAnchorElement>('a[href]')
     if (!link || !dialog.open || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
