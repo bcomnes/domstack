@@ -2891,19 +2891,24 @@ These tools are treated as implementation details, but they may be exposed more 
 
 ### Build Process Flow
 
-The following diagram illustrates the DomStack build process:
+The one-shot builder discovers inputs using the shared file conventions, then records outputs from each build phase.
+The service worker is built last so manifest hooks can provide its build-time constants.
 
 <pre class="mermaid">
 flowchart TD
-  START([START]) --> IDENTIFY["identifyPages(): find pages, layouts, templates, globals, and settings"]
-  IDENTIFY --> ESBUILD["buildEsbuild(): bundle JavaScript and CSS, then record outputs"]
-  IDENTIFY --> STATIC["buildStatic(): copy and record static files"]
-  IDENTIFY --> COPY["buildCopy(): copy and record extra directories"]
-  ESBUILD --> PAGES["buildPages(): process HTML, Markdown, and JavaScript; apply layouts; record outputs"]
+  IDENTIFY["identifyPages(): discover source inputs"] --> PREPARE["Prepare destination and resolve manifest options"]
+  PREPARE --> ESBUILD["Bundle browser assets, excluding the service worker"]
+  PREPARE --> STATIC["Copy static assets when enabled"]
+  PREPARE --> COPY["Copy additional directories"]
+  ESBUILD --> PAGES["buildPages(): render pages and templates in a fresh worker"]
   STATIC --> PAGES
   COPY --> PAGES
-  PAGES --> MANIFEST["Reconcile output manifest"]
-  MANIFEST --> RESULTS["Return site data, build results, manifest, and warnings"]
+  PAGES --> ENABLED{"Manifest pipeline enabled?"}
+  ENABLED -->|Yes| MANIFEST["Reconcile output records, hash contents, and compute manifest version"]
+  MANIFEST --> HOOKS["Run manifest hooks and collect service-worker defines"]
+  ENABLED -->|No| WORKER["Build the service worker if present"]
+  HOOKS --> WORKER
+  WORKER --> RESULTS["Write manifest JSON if requested; return build results"]
 </pre>
 
 The build process follows these key steps:
@@ -2914,29 +2919,38 @@ The build process follows these key steps:
    - JavaScript and CSS bundling via esbuild
    - Static file copying (when enabled)
    - Additional directory copying (from `--copy` options)
-4. **Page building** - Processes pages and normal templates, applying layouts and recording outputs
-5. **Manifest reconciliation** - Normalizes recorded outputs, hashes file contents, filters entries, and computes a stable manifest version
-6. **Return results** - Writes the manifest when enabled and returns all build results
+4. **Page building** - Initializes source-backed pages, derives global data, generates pages, and renders pages and templates with their declared data subscriptions
+5. **Manifest reconciliation** - When enabled, normalizes recorded outputs, hashes file contents, filters entries, computes a stable manifest version, and runs manifest hooks
+6. **Service-worker building** - Bundles the site service worker using any defines returned by manifest hooks; this output is not included in the already reconciled manifest
+7. **Return results** - Writes manifest JSON only when requested and returns the build results
 
 This architecture allows for efficient parallel processing of independent tasks while maintaining the correct build order dependencies.
+The diagrams show successful execution; discovery and build errors stop later phases.
 
 #### buildPages() Detail
 
-The `buildPages()` step processes pages in parallel with a concurrency limit:
+Each `buildPages()` call starts a fresh worker so server-side modules can be reloaded between watch builds.
+Within that worker, source-backed pages are initialized before global data is computed.
+Generated pages are downstream consumers of that data, not inputs to its producer.
 
 <pre class="mermaid">
 flowchart TD
-  BUILD["buildPages()"] --> RESOLVE["Resolve global variables and all layouts once"]
-  RESOLVE --> INIT["Initialize pages in parallel with min(CPUs, 24) concurrency"]
-  INIT --> MD["Markdown page: parse frontmatter, resolve variables, combine builder and page.vars.js"]
-  INIT --> HTML["HTML page: read file, then resolve page.vars.js"]
-  INIT --> JS["JavaScript page: import module, then combine exports and page.vars.js"]
-  MD --> DATA["Run global.data.ts with source PageData[]"]
-  HTML --> DATA
-  JS --> DATA
-  DATA --> GENERATED["Generate pages from *.pages.* using derived data"]
-  GENERATED --> RENDER["Select data, render, and write with min(CPUs, 24) concurrency"]
+  BUILD["Start page worker"] --> RESOLVE["Resolve defaults, global vars, and layouts; validate layout chains"]
+  RESOLVE --> INIT["Initialize all source pages: vars, selected layout chains, assets, and dataDeps"]
+  INIT --> DATA["Run global.data with initialized source pages"]
+  DATA --> FILTERS["In watch mode, compare data keys and expand filters to affected subscribers"]
+  FILTERS --> GENERATED["Run selected pages-file factories with their declared data"]
+  GENERATED --> GENERATED_INIT["Initialize generated pages and their layout chains"]
+  GENERATED_INIT --> PAGE_RENDER["Render selected source and generated pages; wrap layouts inner to outer"]
+  GENERATED_INIT --> TEMPLATE_RENDER["Render selected templates with their declared data"]
+  PAGE_RENDER --> REPORT["Return outputs, errors, and layout reports; include subscriptions in watch mode"]
+  TEMPLATE_RENDER --> REPORT
 </pre>
+
+Each page, layout, template, and pages-file factory receives only the global-data keys it declares through `dataDeps`.
+Layout subscriptions contribute to page invalidation, but each layout still receives its own data projection while rendering.
+Page initialization uses a concurrency limit of `min(CPUs, 24)`.
+The final page and template rendering queues run in parallel, splitting that concurrency budget between them.
 
 Variable Resolution Layers, from lowest to highest precedence:
 - **Domstack defaults** - Internal defaults such as the default `layout: 'root'`.
@@ -2959,6 +2973,33 @@ Watch mode coordinates three independent watchers:
 - **esbuild** uses `context.watch()` for global, layout, and page client bundles, styles, page-scoped Web Workers, and the site service worker.
 - **chokidar** watches page, layout, template, generated-pages, variable, and settings modules. DOMStack uses the changed file and its dependency maps to choose a rebuild scope.
 - **cpx2** watches static assets under `src` and directories supplied with `--copy`, copying or removing their destination files directly.
+
+Chokidar events pass through a pure planner before any rebuild executes.
+The planner reads an explicit snapshot of discovery, dependency maps, and the previous page-build outcome; it does not perform I/O or mutate that state.
+`DomStack` owns the watch session, serializes events, executes plans, and releases its watchers, esbuild context, and server on shutdown.
+
+<pre class="mermaid">
+flowchart TD
+  EVENT["Chokidar event"] --> QUEUE["Serialize within the active watch session"]
+  QUEUE --> CLASSIFY["Classify using shared file conventions"]
+  CLASSIFY --> PLAN["planWatchEvent(): inspect the watch snapshot"]
+  PLAN --> EXECUTE{"DomStack executes the plan"}
+  EXECUTE -->|Skip| SKIP["No page rebuild"]
+  EXECUTE -->|Full| FULL["Rediscover inputs and restart esbuild"]
+  EXECUTE -->|Restart| RESTART["Rediscover bundle entries and restart esbuild"]
+  RESTART --> BUNDLE["planBundleChange(): use refreshed discovery and last successful layout routing"]
+  BUNDLE --> EXECUTE
+  EXECUTE -->|Pages| PAGES["Run full or filtered page phase"]
+  FULL --> PAGES
+  PAGES --> SUCCESS{"Page build succeeded?"}
+  SUCCESS -->|Yes| SAVE["Reconcile owned outputs and refresh routing and subscription state"]
+  SUCCESS -->|No| RETAIN["Retain successful ownership and routing reports; mark full page retry"]
+</pre>
+
+Bundle replanning returns only a page plan or a skip; it does not restart esbuild again.
+After a page-build failure, the next page-producing plan retries the complete page phase rather than trusting incremental filters.
+Manifest-settings changes and service-worker entry additions or removals retain their intentional page-phase skips.
+The one-shot manifest pipeline is not part of watch execution.
 
 > [!NOTE]
 > The filenames below use `.ts` by default. You can also use `.js`, and TypeScript client bundles can use `.tsx`. See [Supported file types](#supported-file-types) for all available extensions.
@@ -2988,7 +3029,7 @@ When a targeted build recomputes global data, DOMStack compares top-level values
 | `global.data.ts` | Consumers subscribed to top-level keys whose values changed |
 | `global.vars.ts` or `esbuild.settings.ts` | Full rebuild |
 | `domstack-manifest.settings.ts` | No rebuild. The manifest pipeline is disabled in watch mode |
-| Existing client, style, Web Worker, or service-worker entry | esbuild only |
+| Existing client, style, Web Worker, or service-worker entry | esbuild only, unless the same module also has server-side consumers |
 | Static asset under `src` or a file under a `--copy` directory | cpx2 copies or removes the output directly |
 
 Adding or removing a file changes the set of discovered build inputs:
@@ -3013,9 +3054,14 @@ DOMStack uses [`@11ty/dependency-tree-typescript`](https://github.com/11ty/depen
 - Generated-pages module dependencies
 - Current esbuild entry points
 
-The maps are created after the initial build and refreshed after structural or generated-pages rebuilds. Dependency analysis is best-effort. When DOMStack cannot safely determine a targeted scope, it falls back to a broader rebuild or skips an unrelated changed module.
+The maps are created after the initial build and refreshed after successful page builds and structural rediscovery.
+Layout routing and generated-output ownership use reports from successful page builds.
+Dependency analysis is best-effort.
+When DOMStack cannot safely determine a targeted scope, it falls back to a broader rebuild or skips an unrelated changed module.
 
-esbuild tracks browser-entry dependencies independently. Changing a module imported by `client.ts` rebundles that entry without rendering page HTML.
+esbuild tracks browser-entry dependencies independently.
+Changing a module imported only by `client.ts` rebundles that entry without rendering page HTML.
+When a module has both browser and server-side consumers, the planner unions the server-side consumers rather than skipping the page phase.
 
 #### Stable entry filenames
 
