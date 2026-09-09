@@ -49,7 +49,7 @@ export default function rootLayout ({ children, vars, page, scripts, styles }) {
             <nav class="site-links" aria-label="Site">
               <a href="${docs}" ${isDocs ? raw('aria-current="true"') : ''}>Docs</a>
               <a class="site-examples-link" href="${examples}">Examples</a>
-              <a href="https://github.com/bcomnes/domstack">GitHub <span aria-hidden="true">↗</span></a>
+              <a href="https://github.com/bcomnes/domstack">GitHub</a>
             </nav>
             ${isDocs ? menuToggle : ''}
           </div>

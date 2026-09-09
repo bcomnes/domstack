@@ -26,6 +26,17 @@
     font-family: 'DSWeiss-Gotisch', serif;
   }
 
+  /* Site navigation uses relative URLs; absolute web links point off-site.
+     Empty alternative text keeps this visual marker out of accessible names.
+     Image links (including badges) already supply their own presentation. */
+  a:is([href^='https://' i], [href^='http://' i], [href^='//']):not(:has(img, svg))::after {
+    content: '↗' / '';
+    display: inline-block;
+    margin-inline-start: 0.2em;
+    font-family: var(--system-sans, system-ui, sans-serif);
+    font-size: 0.8em;
+  }
+
   /* Generated Markdown table of contents */
   @media (min-width: 82rem) {
     .app-main.has-sidebar-toc {
