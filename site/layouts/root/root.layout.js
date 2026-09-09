@@ -59,7 +59,7 @@ export default function rootLayout ({ children, vars, page, scripts, styles }) {
         </div>
         <footer class="site-footer">
           <div class="site-footer-inner">
-            <p class="site-copyright">© ${year()} <a class="site-brand" href="${home}">domstack</a></p>
+            <p class="site-copyright"><a class="site-brand" href="${home}">domstack</a> © ${year()}</p>
             <nav class="site-links" aria-label="Footer">
               <a href="${docs}">Docs</a>
               <a href="https://www.npmjs.com/package/@domstack/static">npm</a>
