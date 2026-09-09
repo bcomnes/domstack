@@ -277,7 +277,7 @@ domstack eject actions:
         }
       }
       if ('results' in err) delete err.results
-      logger.error(inspect(err, { depth: 999, colors: true }))
+      logger.error(formatDiagnostic(err, Boolean(process.stdout.isTTY)))
       logger.error('\nBuild Failed!\n\n')
       process.exit(1)
     }
@@ -315,12 +315,29 @@ function logWarnings (logger, warnings) {
     if ('message' in warning) {
       logger.warn(`  ${warning.message}`)
     } else {
-      logger.warn(inspect(warning, { depth: 999, colors: true }))
+      logger.warn(formatDiagnostic(warning, Boolean(process.stdout.isTTY)))
     }
   }
 }
 
+/**
+ * Keep nested causes, locations, and every diagnostic visible in CLI output.
+ * @param {unknown} value
+ * @param {boolean} colors
+ */
+function formatDiagnostic (value, colors) {
+  return inspect(value, {
+    depth: null,
+    maxArrayLength: null,
+    maxStringLength: null,
+    colors,
+  })
+}
+
 run().catch(err => {
-  console.error(new Error('Unhandled domstack error', { cause: err }))
+  console.error(formatDiagnostic(
+    new Error('Unhandled domstack error', { cause: err }),
+    Boolean(process.stderr.isTTY)
+  ))
   process.exit(1)
 })
