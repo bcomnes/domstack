@@ -31,22 +31,43 @@ The idea is that they can be swapped out for better tools in the future if they 
 
 The one-shot builder discovers inputs using the shared file conventions, then records outputs from each build phase.
 The service worker is built last so manifest hooks can provide its build-time constants.
+Side-by-side blocks run in parallel; their arrows join before the next phase starts.
+On narrow screens, scroll a diagram horizontally to keep its labels readable.
 
-<pre class="mermaid">
-flowchart TD;
-  IDENTIFY["identifyPages(): discover source inputs"] --> PREPARE["Prepare destination and resolve manifest options"];
-  PREPARE --> ESBUILD["Bundle browser assets, excluding the service worker"];
-  PREPARE --> STATIC["Copy static assets when enabled"];
-  PREPARE --> COPY["Copy additional directories"];
-  ESBUILD --> PAGES["buildPages(): render pages and templates in a fresh worker"];
-  STATIC --> PAGES;
-  COPY --> PAGES;
-  PAGES --> ENABLED{"Manifest pipeline enabled?"};
-  ENABLED -->|Yes| MANIFEST["Reconcile output records, hash contents, and compute manifest version"];
-  MANIFEST --> HOOKS["Run manifest hooks and collect service-worker defines"];
-  ENABLED -->|No| WORKER["Build the service worker if present"];
-  HOOKS --> WORKER;
-  WORKER --> RESULTS["Write manifest JSON if requested; return build results"];
+<pre class="mermaid" tabindex="0" role="region" aria-label="Build process diagram">
+flowchart TD
+  accTitle: One-shot build
+  accDescr: Discover inputs, run three asset tasks in parallel, build pages, then finalize the manifest and service worker before returning results.
+  IDENTIFY["`**identifyPages()**
+Find pages, layouts, templates
+Find globals and settings`"]
+  PREPARE["`**Prepare destination**
+Resolve manifest options
+Start parallel asset tasks`"]
+  ESBUILD["`**buildEsbuild()**
+Bundle browser JS and CSS
+Record outputs`"]
+  STATIC["`**buildStatic()**
+Copy static files if enabled
+Record outputs`"]
+  COPY["`**buildCopy()**
+Copy extra directories
+Record outputs`"]
+  PAGES["`**buildPages()**
+Start a fresh page worker
+Render pages and templates
+Apply layouts; record outputs`"]
+  FINALIZE["`**Finalize build**
+Reconcile manifest if enabled
+Run hooks; build service worker`"]
+  RESULTS["`**Return results**
+Discovery and build reports
+Manifest and warnings
+Write manifest JSON if requested`"]
+  IDENTIFY --> PREPARE
+  PREPARE --> ESBUILD & STATIC & COPY
+  ESBUILD & STATIC & COPY --> PAGES
+  PAGES --> FINALIZE --> RESULTS
 </pre>
 
 The build process follows these key steps:
@@ -72,21 +93,77 @@ The diagrams show successful execution; discovery and build errors stop later ph
 Each `buildPages()` call starts a fresh worker so server-side modules can be reloaded between watch builds.
 Within that worker, source-backed pages are initialized before global data is computed.
 Generated pages are downstream consumers of that data, not inputs to its producer.
+The three source-page lanes show the work performed for each page type, not three separate concurrency pools.
 
-<pre class="mermaid">
-flowchart TD;
-  BUILD["Start page worker"] --> RESOLVE["Resolve defaults, global vars, and layouts; validate layout chains"];
-  RESOLVE --> INIT["Initialize all source pages: vars, selected layout chains, assets, and dataDeps"];
-  INIT --> DATA["Run global.data with initialized source pages"];
-  DATA --> FILTERS["In watch mode, compare data keys and expand filters to affected subscribers"];
-  FILTERS --> GENERATED["Run selected pages-file factories with their declared data"];
-  GENERATED --> GENERATED_INIT["Initialize generated pages and their layout chains"];
-  GENERATED_INIT --> PAGE_RENDER["Render selected source and generated pages; wrap layouts inner to outer"];
-  GENERATED_INIT --> TEMPLATE_RENDER["Render selected templates with their declared data"];
-  PAGE_RENDER --> REPORT["Return outputs, errors, and layout reports; include subscriptions in watch mode"];
-  TEMPLATE_RENDER --> REPORT;
+<pre class="mermaid" tabindex="0" role="region" aria-label="Page building diagram">
+flowchart TD
+  accTitle: Page worker stages
+  accDescr: Initialize Markdown, HTML, and JS or TS source pages in parallel. Derive global data from those pages, generate additional pages, then render pages and templates in parallel.
+  RESOLVE["`**Resolve once**
+Defaults and global vars
+Layouts and parent chains`"]
+  INIT["`**Parallel source-page init**
+Concurrency: min(CPUs, 24)`"]
+  subgraph MD["Markdown page task"]
+    direction TB
+    MD_VARS["Resolve page.vars"]
+    MD_READ["`**mdBuilder()**
+Read Markdown
+Title and frontmatter`"]
+    MD_VARS --> MD_READ
+  end
+  subgraph HTML["HTML page task"]
+    direction TB
+    HTML_VARS["Resolve page.vars"]
+    HTML_READ["`**htmlBuilder()**
+Read HTML source`"]
+    HTML_VARS --> HTML_READ
+  end
+  subgraph JS["JS / TS page task"]
+    direction TB
+    JS_VARS["Resolve page.vars"]
+    JS_READ["`**jsBuilder()**
+Import page module
+Read exported vars`"]
+    JS_VARS --> JS_READ
+  end
+  BIND["`**Finish each page init**
+Merge vars and bind layouts
+Collect assets and dataDeps`"]
+  DATA["`**global.data**
+Receive initialized source PageData[]
+Derive shared data`"]
+  SUBSCRIBE["`**Select declared data**
+Project dataDeps for consumers
+In watch: expand invalidated filters`"]
+  GENERATE["`**Run pages-file factories**
+Consume declared data
+Define generated pages`"]
+  GENERATED_INIT["`**Initialize generated pages**
+Resolve vars, layouts, and assets
+Bind declared data`"]
+  subgraph RENDER["Parallel rendering · shared concurrency budget"]
+    direction TB
+    PAGE_RENDER["`**pageWriter()**
+Render source and generated pages
+Wrap layouts inner to outer
+Write outputs`"]
+    TEMPLATE_RENDER["`**templateBuilder()**
+Render selected templates
+Use declared data
+Write outputs`"]
+  end
+  REPORT["`**Return page-build results**
+Outputs, errors, and layout reports
+Subscriptions in watch mode`"]
+  RESOLVE --> INIT
+  INIT --> MD & HTML & JS
+  MD & HTML & JS --> BIND
+  BIND --> DATA --> SUBSCRIBE --> GENERATE --> GENERATED_INIT
+  GENERATED_INIT --> RENDER --> REPORT
 </pre>
 
+Selected `*.pages.*` factories produce definitions that go through the same page initialization as source-backed pages.
 Each page, layout, template, and pages-file factory receives only the global-data keys it declares through `dataDeps`.
 Layout subscriptions contribute to page invalidation, but each layout still receives its own data projection while rendering.
 Page initialization uses a concurrency limit of `min(CPUs, 24)`.
@@ -120,22 +197,37 @@ Chokidar events pass through a pure planner before any rebuild executes.
 The planner reads an explicit snapshot of discovery, dependency maps, and the previous page-build outcome; it does not perform I/O or mutate that state.
 `DomStack` owns the watch session, serializes events, executes plans, and releases its watchers, esbuild context, and server on shutdown.
 
-<pre class="mermaid">
-flowchart TD;
-  EVENT["Chokidar event"] --> QUEUE["Serialize within the active watch session"];
-  QUEUE --> CLASSIFY["Classify using shared file conventions"];
-  CLASSIFY --> PLAN["planWatchEvent(): inspect the watch snapshot"];
-  PLAN --> EXECUTE{"DomStack executes the plan"};
-  EXECUTE -->|Skip| SKIP["No page rebuild"];
-  EXECUTE -->|Full| FULL["Rediscover inputs and restart esbuild"];
-  EXECUTE -->|Restart| RESTART["Rediscover bundle entries and restart esbuild"];
-  RESTART --> BUNDLE["planBundleChange(): use refreshed discovery and last successful layout routing"];
-  BUNDLE --> EXECUTE;
-  EXECUTE -->|Pages| PAGES["Run full or filtered page phase"];
-  FULL --> PAGES;
-  PAGES --> SUCCESS{"Page build succeeded?"};
-  SUCCESS -->|Yes| SAVE["Reconcile owned outputs and refresh routing and subscription state"];
-  SUCCESS -->|No| RETAIN["Retain successful ownership and routing reports; mark full page retry"];
+<pre class="mermaid" tabindex="0" role="region" aria-label="Watch planning diagram">
+flowchart TD
+  accTitle: Watch planning and execution
+  accDescr: Serialized Chokidar events produce a pure watch plan. DOMStack executes it, replans after bundle discovery when needed, and retains the last successful routing after page-build errors.
+  EVENT["Chokidar event"] --> QUEUE["Serialize in the watch session"]
+  subgraph PLANNING["Pure planning · no I/O"]
+    direction TB
+    CLASSIFY["Shared file conventions"]
+    PLAN["`**planWatchEvent()**
+Inspect watch snapshot`"]
+    CLASSIFY --> PLAN
+  end
+  QUEUE --> PLANNING
+  PLANNING --> EXECUTE{"Execute plan"}
+  EXECUTE -->|Skip| SKIP["No page rebuild"]
+  EXECUTE -->|Full| FULL["`Rediscover inputs
+Restart esbuild`"]
+  EXECUTE -->|Restart| RESTART["`Rediscover bundle entries
+Restart esbuild`"]
+  RESTART --> BUNDLE["`**planBundleChange()**
+Use refreshed discovery
+Keep successful layout routing`"]
+  BUNDLE --> EXECUTE
+  EXECUTE -->|Pages| PAGES["`**buildPages()**
+Full or filtered page phase`"]
+  FULL --> PAGES
+  PAGES --> SUCCESS{"Page build succeeded?"}
+  SUCCESS -->|Yes| SAVE["`Reconcile owned outputs
+Refresh routing and subscriptions`"]
+  SUCCESS -->|No| RETAIN["`Keep successful ownership and routing
+Require a full page retry`"]
 </pre>
 
 Bundle replanning returns only a page plan or a skip; it does not restart esbuild again.
