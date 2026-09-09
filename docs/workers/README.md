@@ -83,7 +83,7 @@ See [Supported file types](../../docs/typescript/#supported-file-types) for all 
 Only one site service worker source is allowed.
 If multiple `service-worker.*` sources are present,
 domstack fails with `DOM_STACK_ERROR_DUPLICATE_SERVICE_WORKER`.
-Service workers are bundled using the project’s [`esbuild.settings.ts`](../../docs/assets/#esbuildsettingsts) configuration, so imports work the same way they do for client bundles and page-scoped web workers.
+Service workers are bundled using the project’s [`esbuild.settings.ts`](../settings/#esbuildsettingsts) configuration, so imports work the same way they do for client bundles and page-scoped web workers.
 The
 entry filename is intentionally not content-hashed because browser service-worker update checks need
 a stable URL.
@@ -143,7 +143,8 @@ Clean the destination before deployment, especially after removing or renaming a
 ## DOMStack manifest
 
 The DOMStack manifest is build metadata for service workers, deployment tools, and other build-time integrations.
-It is not a [Web App Manifest](../../docs/workers/#registration-and-web-app-manifests). (A Web App Manifest such as `site.webmanifest` can be generated independently with a [template](../../docs/content/#templates).)
+It is not a [Web App Manifest](../../docs/workers/#registration-and-web-app-manifests).
+A Web App Manifest such as `site.webmanifest` can be generated independently with a [template](../generation/#templates).
 
 A generated manifest resembles:
 

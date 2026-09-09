@@ -23,6 +23,11 @@ test('complete index links reach real headings and sidebar follows the current p
   })).toBe(true)
   const links = page.locator('.docs-index a')
   expect(await links.count()).toBeGreaterThan(100)
+  await expect(page.locator('.docs-index > ul > li > a')).toHaveText([
+    'CLI', 'Examples', 'Pages', 'Layouts', 'Assets', 'Settings', 'Data',
+    'Generation', 'TypeScript', 'Workers', 'API', 'Recipes', 'Implementation',
+    'About', 'v12 migration', 'v11 migration',
+  ])
   const broken = await page.evaluate(async () => {
     const documents = new Map()
     const broken = []
@@ -42,14 +47,14 @@ test('complete index links reach real headings and sidebar follows the current p
     return broken
   })
   expect(broken).toEqual([])
-  await page.locator('.docs-index a[href="pages/#layouts"]').click()
-  await expect(page).toHaveURL(`${siteURL}/docs/pages/#layouts`)
+  await page.locator('.docs-index a[href="layouts/#declaring-nested-layouts"]').click()
+  await expect(page).toHaveURL(`${siteURL}/docs/layouts/#declaring-nested-layouts`)
   const nav = page.getByRole('navigation', { name: 'Documentation', exact: true })
-  await expect(nav.locator('a[aria-current="page"]')).toHaveText('Pages')
-  await expect(nav.locator('a[aria-current="location"]')).toHaveText('Layouts')
+  await expect(nav.locator('a[aria-current="page"]')).toHaveText('Layouts')
+  await expect(nav.locator('a[aria-current="location"]')).toHaveText('Declaring nested layouts')
   await expect(page.locator('.table-of-contents')).toHaveCount(0)
   await expect(nav.locator('details[open]')).toHaveCount(1)
-  await expect(nav.locator('a[href="./#layouts"]')).toBeInViewport()
+  await expect(nav.locator('a[href="./#declaring-nested-layouts"]')).toBeInViewport()
   // Same hash on a different page must not be marked current.
   await expect(nav.locator('a[aria-current="location"]')).toHaveCount(1)
   const layout = await page.locator('.docs-shell').evaluate(element => {
@@ -84,10 +89,10 @@ test.describe('without JavaScript', () => {
   test('navigation and the expanded documentation index are server-rendered', async ({ page, siteURL }) => {
     test.setTimeout(30_000)
     await page.goto(`${siteURL}/docs/`)
-    await page.locator('.docs-index a[href="pages/#layouts"]').click()
-    await expect(page).toHaveURL(`${siteURL}/docs/pages/#layouts`)
+    await page.locator('.docs-index a[href="layouts/#declaring-nested-layouts"]').click()
+    await expect(page).toHaveURL(`${siteURL}/docs/layouts/#declaring-nested-layouts`)
     const nav = page.getByRole('navigation', { name: 'Documentation', exact: true })
-    await expect(nav.locator('a[aria-current="page"]')).toHaveText('Pages')
+    await expect(nav.locator('a[aria-current="page"]')).toHaveText('Layouts')
     await nav.getByRole('link', { name: 'CLI', exact: true }).focus()
     await page.keyboard.press('Enter')
     await expect(page).toHaveURL(`${siteURL}/docs/cli/`)

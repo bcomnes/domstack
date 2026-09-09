@@ -16,7 +16,7 @@ Use them as starting points for nested layouts, feeds, archive pages, and redire
 
 ## Compose nested layouts
 
-This recipe uses the [explicit `parentLayout` declaration](../../docs/pages/#declaring-nested-layouts) described in the layout API.
+This recipe uses the [explicit `parentLayout` declaration](../layouts/#declaring-nested-layouts) described in the layout API.
 Pages select their innermost layout with `vars.layout`.
 A layout can export a static `parentLayout` name to let DOMStack wrap it in another layout.
 
@@ -141,7 +141,7 @@ Do not keep the manual parent call when adding `parentLayout`, or the parent wil
 Use `global.data.ts` to inspect and render source pages, then let a feed template subscribe to the prepared records.
 
 The following example generates an [RSS](https://www.rssboard.org) and [JSON Feed](https://www.jsonfeed.org) from the 10 most recent date-sorted pages using the `blog` layout and the AsyncIterator template type.
-It uses [`renderInnerPage()`](../../docs/content/#rendering-page-content) while global data is computed, so the template never receives the page graph.
+It uses [`renderInnerPage()`](../data/#rendering-page-content) while global data is computed, so the template never receives the page graph.
 See the [blog example's `global.data.ts`](https://github.com/bcomnes/domstack/blob/master/examples/blog/src/global.data.ts) and [`feeds.template.ts`](https://github.com/bcomnes/domstack/blob/master/examples/blog/src/feeds.template.ts) for a working implementation.
 
 ```typescript

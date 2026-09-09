@@ -122,11 +122,14 @@ The following sections document each convention in detail.
 ## Documentation
 
 - [Pages](docs/pages/)
+- [Layouts](docs/layouts/)
 - [Assets](docs/assets/)
-- [Content](docs/content/)
+- [Settings](docs/settings/)
+- [Data](docs/data/)
+- [Generation](docs/generation/)
 - [TypeScript](docs/typescript/)
 - [Workers](docs/workers/)
-- [Renderers](docs/renderers/) and [Recipes](docs/cookbook/)
+- [Recipes](docs/cookbook/)
 - [CLI](docs/cli/)
 - [API](docs/api/)
 - [Implementation](docs/implementation/)
@@ -182,25 +185,25 @@ On GitHub, follow the corresponding link below.
 
 <a id="draft-pages" data-reference-url="docs/pages/#draft-pages" href="docs/pages/#draft-pages">draft-pages</a>
 
-<a id="layouts" data-reference-url="docs/pages/#layouts" href="docs/pages/#layouts">layouts</a>
+<a id="layouts" data-reference-url="docs/layouts/" href="docs/layouts/">layouts</a>
 
-<a id="layout-module-exports" data-reference-url="docs/pages/#layout-module-exports" href="docs/pages/#layout-module-exports">layout-module-exports</a>
+<a id="layout-module-exports" data-reference-url="docs/layouts/#layout-module-exports" href="docs/layouts/#layout-module-exports">layout-module-exports</a>
 
-<a id="declaring-nested-layouts" data-reference-url="docs/pages/#declaring-nested-layouts" href="docs/pages/#declaring-nested-layouts">declaring-nested-layouts</a>
+<a id="declaring-nested-layouts" data-reference-url="docs/layouts/#declaring-nested-layouts" href="docs/layouts/#declaring-nested-layouts">declaring-nested-layouts</a>
 
-<a id="layout-variables" data-reference-url="docs/pages/#layout-variables" href="docs/pages/#layout-variables">layout-variables</a>
+<a id="layout-variables" data-reference-url="docs/layouts/#layout-variables" href="docs/layouts/#layout-variables">layout-variables</a>
 
-<a id="layout-render-function" data-reference-url="docs/pages/#layout-render-function" href="docs/pages/#layout-render-function">layout-render-function</a>
+<a id="layout-render-function" data-reference-url="docs/layouts/#layout-render-function" href="docs/layouts/#layout-render-function">layout-render-function</a>
 
-<a id="the-default-root.layout.ts" data-reference-url="docs/pages/#the-default-rootlayoutts" href="docs/pages/#the-default-rootlayoutts">the-default-root.layout.ts</a>
+<a id="the-default-root.layout.ts" data-reference-url="docs/layouts/#the-default-rootlayoutts" href="docs/layouts/#the-default-rootlayoutts">the-default-root.layout.ts</a>
 
-<a id="the-default-rootlayoutts" data-reference-url="docs/pages/#the-default-rootlayoutts" href="docs/pages/#the-default-rootlayoutts">the-default-rootlayoutts</a>
+<a id="the-default-rootlayoutts" data-reference-url="docs/layouts/#the-default-rootlayoutts" href="docs/layouts/#the-default-rootlayoutts">the-default-rootlayoutts</a>
 
-<a id="layout-styles" data-reference-url="docs/pages/#layout-styles" href="docs/pages/#layout-styles">layout-styles</a>
+<a id="layout-styles" data-reference-url="docs/layouts/#layout-styles" href="docs/layouts/#layout-styles">layout-styles</a>
 
-<a id="layout-client-bundles" data-reference-url="docs/pages/#layout-client-bundles" href="docs/pages/#layout-client-bundles">layout-client-bundles</a>
+<a id="layout-client-bundles" data-reference-url="docs/layouts/#layout-client-bundles" href="docs/layouts/#layout-client-bundles">layout-client-bundles</a>
 
-<a id="layout-types" data-reference-url="docs/pages/#layout-types" href="docs/pages/#layout-types">layout-types</a>
+<a id="layout-types" data-reference-url="docs/layouts/#layout-types" href="docs/layouts/#layout-types">layout-types</a>
 
 <a id="variables" data-reference-url="docs/pages/#variables" href="docs/pages/#variables">variables</a>
 
@@ -212,11 +215,11 @@ On GitHub, follow the corresponding link below.
 
 <a id="global-assets" data-reference-url="docs/assets/#global-assets" href="docs/assets/#global-assets">global-assets</a>
 
-<a id="global.vars.ts" data-reference-url="docs/assets/#globalvarsts" href="docs/assets/#globalvarsts">global.vars.ts</a>
+<a id="global.vars.ts" data-reference-url="docs/settings/#globalvarsts" href="docs/settings/#globalvarsts">global.vars.ts</a>
 
-<a id="globalvarsts" data-reference-url="docs/assets/#globalvarsts" href="docs/assets/#globalvarsts">globalvarsts</a>
+<a id="globalvarsts" data-reference-url="docs/settings/#globalvarsts" href="docs/settings/#globalvarsts">globalvarsts</a>
 
-<a id="browser-variable" data-reference-url="docs/assets/#browser-variable" href="docs/assets/#browser-variable">browser-variable</a>
+<a id="browser-variable" data-reference-url="docs/settings/#browser-variable" href="docs/settings/#browser-variable">browser-variable</a>
 
 <a id="global.client.ts" data-reference-url="docs/assets/#globalclientts" href="docs/assets/#globalclientts">global.client.ts</a>
 
@@ -228,61 +231,61 @@ On GitHub, follow the corresponding link below.
 
 <a id="optional-cascade-layers" data-reference-url="docs/assets/#optional-cascade-layers" href="docs/assets/#optional-cascade-layers">optional-cascade-layers</a>
 
-<a id="esbuild.settings.ts" data-reference-url="docs/assets/#esbuildsettingsts" href="docs/assets/#esbuildsettingsts">esbuild.settings.ts</a>
+<a id="esbuild.settings.ts" data-reference-url="docs/settings/#esbuildsettingsts" href="docs/settings/#esbuildsettingsts">esbuild.settings.ts</a>
 
-<a id="esbuildsettingsts" data-reference-url="docs/assets/#esbuildsettingsts" href="docs/assets/#esbuildsettingsts">esbuildsettingsts</a>
+<a id="esbuildsettingsts" data-reference-url="docs/settings/#esbuildsettingsts" href="docs/settings/#esbuildsettingsts">esbuildsettingsts</a>
 
-<a id="default-build-behavior" data-reference-url="docs/assets/#default-build-behavior" href="docs/assets/#default-build-behavior">default-build-behavior</a>
+<a id="default-build-behavior" data-reference-url="docs/settings/#default-build-behavior" href="docs/settings/#default-build-behavior">default-build-behavior</a>
 
-<a id="markdown-it.settings.ts" data-reference-url="docs/assets/#markdown-itsettingsts" href="docs/assets/#markdown-itsettingsts">markdown-it.settings.ts</a>
+<a id="markdown-it.settings.ts" data-reference-url="docs/settings/#markdown-itsettingsts" href="docs/settings/#markdown-itsettingsts">markdown-it.settings.ts</a>
 
-<a id="markdown-itsettingsts" data-reference-url="docs/assets/#markdown-itsettingsts" href="docs/assets/#markdown-itsettingsts">markdown-itsettingsts</a>
+<a id="markdown-itsettingsts" data-reference-url="docs/settings/#markdown-itsettingsts" href="docs/settings/#markdown-itsettingsts">markdown-itsettingsts</a>
 
-<a id="global-data" data-reference-url="docs/content/#global-data" href="docs/content/#global-data">global-data</a>
+<a id="global-data" data-reference-url="docs/data/#global-data" href="docs/data/#global-data">global-data</a>
 
-<a id="global-data-types" data-reference-url="docs/content/#global-data-types" href="docs/content/#global-data-types">global-data-types</a>
+<a id="global-data-types" data-reference-url="docs/data/#global-data-types" href="docs/data/#global-data-types">global-data-types</a>
 
-<a id="global-data-caveats" data-reference-url="docs/content/#global-data-caveats" href="docs/content/#global-data-caveats">global-data-caveats</a>
+<a id="global-data-caveats" data-reference-url="docs/data/#global-data-caveats" href="docs/data/#global-data-caveats">global-data-caveats</a>
 
-<a id="generated-pages" data-reference-url="docs/content/#generated-pages" href="docs/content/#generated-pages">generated-pages</a>
+<a id="generated-pages" data-reference-url="docs/generation/#generated-pages" href="docs/generation/#generated-pages">generated-pages</a>
 
-<a id="generated-pages-exports" data-reference-url="docs/content/#generated-pages-exports" href="docs/content/#generated-pages-exports">generated-pages-exports</a>
+<a id="generated-pages-exports" data-reference-url="docs/generation/#generated-pages-exports" href="docs/generation/#generated-pages-exports">generated-pages-exports</a>
 
-<a id="one-page-definition" data-reference-url="docs/content/#one-page-definition" href="docs/content/#one-page-definition">one-page-definition</a>
+<a id="one-page-definition" data-reference-url="docs/generation/#one-page-definition" href="docs/generation/#one-page-definition">one-page-definition</a>
 
-<a id="page-definition-array" data-reference-url="docs/content/#page-definition-array" href="docs/content/#page-definition-array">page-definition-array</a>
+<a id="page-definition-array" data-reference-url="docs/generation/#page-definition-array" href="docs/generation/#page-definition-array">page-definition-array</a>
 
-<a id="synchronous-factory" data-reference-url="docs/content/#synchronous-factory" href="docs/content/#synchronous-factory">synchronous-factory</a>
+<a id="synchronous-factory" data-reference-url="docs/generation/#synchronous-factory" href="docs/generation/#synchronous-factory">synchronous-factory</a>
 
-<a id="asynchronous-factory" data-reference-url="docs/content/#asynchronous-factory" href="docs/content/#asynchronous-factory">asynchronous-factory</a>
+<a id="asynchronous-factory" data-reference-url="docs/generation/#asynchronous-factory" href="docs/generation/#asynchronous-factory">asynchronous-factory</a>
 
-<a id="async-iterable" data-reference-url="docs/content/#async-iterable" href="docs/content/#async-iterable">async-iterable</a>
+<a id="async-iterable" data-reference-url="docs/generation/#async-iterable" href="docs/generation/#async-iterable">async-iterable</a>
 
-<a id="generated-pages-factory-parameters" data-reference-url="docs/content/#generated-pages-factory-parameters" href="docs/content/#generated-pages-factory-parameters">generated-pages-factory-parameters</a>
+<a id="generated-pages-factory-parameters" data-reference-url="docs/generation/#generated-pages-factory-parameters" href="docs/generation/#generated-pages-factory-parameters">generated-pages-factory-parameters</a>
 
-<a id="generated-page-definitions" data-reference-url="docs/content/#generated-page-definitions" href="docs/content/#generated-page-definitions">generated-page-definitions</a>
+<a id="generated-page-definitions" data-reference-url="docs/generation/#generated-page-definitions" href="docs/generation/#generated-page-definitions">generated-page-definitions</a>
 
-<a id="generated-pages-types" data-reference-url="docs/content/#generated-pages-types" href="docs/content/#generated-pages-types">generated-pages-types</a>
+<a id="generated-pages-types" data-reference-url="docs/generation/#generated-pages-types" href="docs/generation/#generated-pages-types">generated-pages-types</a>
 
-<a id="templates" data-reference-url="docs/content/#templates" href="docs/content/#templates">templates</a>
+<a id="templates" data-reference-url="docs/generation/#templates" href="docs/generation/#templates">templates</a>
 
-<a id="simple-string-template" data-reference-url="docs/content/#simple-string-template" href="docs/content/#simple-string-template">simple-string-template</a>
+<a id="simple-string-template" data-reference-url="docs/generation/#simple-string-template" href="docs/generation/#simple-string-template">simple-string-template</a>
 
-<a id="object-template" data-reference-url="docs/content/#object-template" href="docs/content/#object-template">object-template</a>
+<a id="object-template" data-reference-url="docs/generation/#object-template" href="docs/generation/#object-template">object-template</a>
 
-<a id="object-array-template" data-reference-url="docs/content/#object-array-template" href="docs/content/#object-array-template">object-array-template</a>
+<a id="object-array-template" data-reference-url="docs/generation/#object-array-template" href="docs/generation/#object-array-template">object-array-template</a>
 
-<a id="asynciterator-template" data-reference-url="docs/content/#asynciterator-template" href="docs/content/#asynciterator-template">asynciterator-template</a>
+<a id="asynciterator-template" data-reference-url="docs/generation/#asynciterator-template" href="docs/generation/#asynciterator-template">asynciterator-template</a>
 
-<a id="choosing-a-template-return-type" data-reference-url="docs/content/#choosing-a-template-return-type" href="docs/content/#choosing-a-template-return-type">choosing-a-template-return-type</a>
+<a id="choosing-a-template-return-type" data-reference-url="docs/generation/#choosing-a-template-return-type" href="docs/generation/#choosing-a-template-return-type">choosing-a-template-return-type</a>
 
-<a id="page-data-and-introspection" data-reference-url="docs/content/#page-data-and-introspection" href="docs/content/#page-data-and-introspection">page-data-and-introspection</a>
+<a id="page-data-and-introspection" data-reference-url="docs/data/#page-data-and-introspection" href="docs/data/#page-data-and-introspection">page-data-and-introspection</a>
 
-<a id="page-metadata" data-reference-url="docs/content/#page-metadata" href="docs/content/#page-metadata">page-metadata</a>
+<a id="page-metadata" data-reference-url="docs/data/#page-metadata" href="docs/data/#page-metadata">page-metadata</a>
 
-<a id="rendering-page-content" data-reference-url="docs/content/#rendering-page-content" href="docs/content/#rendering-page-content">rendering-page-content</a>
+<a id="rendering-page-content" data-reference-url="docs/data/#rendering-page-content" href="docs/data/#rendering-page-content">rendering-page-content</a>
 
-<a id="rendering-many-pages" data-reference-url="docs/content/#rendering-many-pages" href="docs/content/#rendering-many-pages">rendering-many-pages</a>
+<a id="rendering-many-pages" data-reference-url="docs/data/#rendering-many-pages" href="docs/data/#rendering-many-pages">rendering-many-pages</a>
 
 <a id="typescript-support" data-reference-url="docs/typescript/#typescript-support" href="docs/typescript/#typescript-support">typescript-support</a>
 
@@ -296,9 +299,9 @@ On GitHub, follow the corresponding link below.
 
 <a id="advanced-type-parameters" data-reference-url="docs/typescript/#advanced-type-parameters" href="docs/typescript/#advanced-type-parameters">advanced-type-parameters</a>
 
-<a id="advanced" data-reference-url="docs/renderers/#advanced" href="docs/renderers/#advanced">advanced</a>
+<a id="advanced" data-reference-url="docs/layouts/#custom-layout-renderers" href="docs/layouts/#custom-layout-renderers">advanced</a>
 
-<a id="custom-layout-renderers" data-reference-url="docs/renderers/#custom-layout-renderers" href="docs/renderers/#custom-layout-renderers">custom-layout-renderers</a>
+<a id="custom-layout-renderers" data-reference-url="docs/layouts/#custom-layout-renderers" href="docs/layouts/#custom-layout-renderers">custom-layout-renderers</a>
 
 <a id="web-workers" data-reference-url="docs/workers/#web-workers" href="docs/workers/#web-workers">web-workers</a>
 

@@ -24,14 +24,14 @@ Pages are named directories inside `src` with **one of** the following page file
 
 > [!NOTE]
 > A **source-backed page** is discovered directly from a page file in `src`, rather than created by a `*.pages.ts` module.
-Source-backed pages exist before `global.data.ts` and [Generated Pages](../../docs/content/#generated-pages) run.
+Source-backed pages exist before `global.data.ts` and [Generated pages](../generation/#generated-pages) run.
 
 Variables are available in all pages.
 `md` and `html` pages support variable access via [handlebars][hb] template blocks.
 `ts` pages receive variables as part of the argument passed to them.
 See the [Variables](../../docs/pages/#variables) section for more info.
 
-Pages can define a special variable called [`layout`](../../docs/pages/#layouts) that determines which layout the page is rendered into.
+Pages can define a special variable called [`layout`](../layouts/#selecting-a-layout) that determines which layout the page is rendered into.
 
 Because pages are just directories, they nest and structure naturally as a filesystem router.
 Directories in the `src` folder that lack one of these special page files can exist alongside page directories and can be used to store co-located code or static assets without conflict.
@@ -349,282 +349,11 @@ It is a good idea to display something indicating the page is a draft in your te
 
 Draft pages let you work on pages before they are ready and easily omit them from a build when deploying pages that are ready.
 
-## Layouts
-
-Layouts are "outer page templates" that pages get rendered into.
-You can define as many as you want, and they can live anywhere in the `src` directory.
-
-Layouts are named `${layout-name}.layout.ts` where `${layout-name}` becomes the name of the layout.
-Layouts should have a unique name, and layouts with duplicate names result in a build error.
-
-> [!NOTE]
-> Wherever you see `.layout.ts` being used, you can also use `.layout.js`.
-Type checking is supported in both file types.
-See [Supported file types](../../docs/typescript/#supported-file-types) for all available extensions.
-
-Example layout file names:
-
-```bash
-src/layouts/root.layout.ts # this layout is referenced as 'root'
-src/other-layouts/article.layout.ts # this layout is referenced as 'article'
-```
-
-At a minimum, your site requires a `root` layout (a file named `root.layout.ts`), though `domstack` ships a default `root` layout so defining one in your `src` directory is optional, though recommended.
-Owning your own root layout will make DOMStack updates easier, and give you more control over your site.
-
-All pages have a `layout` variable that defaults to `root`.
-If you set the `layout` variable to a different name, pages will build with a layout matching the name you set to that variable.
-
-The following markdown page would be rendered using the `article` layout.
-
-```md
----
-layout: 'article'
-title: 'My Article Title'
----
-
-Thanks for reading my article
-```
-
-A page referencing a layout name that doesn't have a matching layout file will result in a build error.
-Filenames determine layout names, but nesting is an explicit module declaration, not a directory or import convention.
-
-### Layout module exports
-
-DOMStack recognizes these exports from a layout module:
-
-| Export | Required | Contract |
-| --- | --- | --- |
-| `default` | Yes | A synchronous or asynchronous [layout render function](../../docs/pages/#layout-render-function). |
-| `vars` | No | An object, or a sync/async function returning an object, providing [layout defaults](../../docs/pages/#layout-variables). |
-| `parentLayout` | No | A non-empty string naming the immediate outer layout; see [Declaring nested layouts](../../docs/pages/#declaring-nested-layouts). |
-
-### Declaring nested layouts
-
-Declare a parent with a named `parentLayout` export in the child layout module:
-
-```ts
-// src/layouts/article.layout.ts
-import type { LayoutFunction } from '@domstack/static/types.js'
-
-export const parentLayout = 'root'
-
-const articleLayout: LayoutFunction<Record<string, never>, string, string> = ({ children }) => {
-  return `<article>${children}</article>`
-}
-
-export default articleLayout
-```
-
-`parentLayout` is a layout name, not a file path or imported function.
-For example, `'root'` resolves the discovered `root.layout.ts` or `root.layout.js`, wherever it lives under `src`, or DOMStack's bundled root when no custom root exists.
-Names are matched exactly, using the same filename-derived names as the page's `layout` variable.
-
-Omit `parentLayout` (or export `undefined`) when the layout has no parent; DOMStack does not automatically wrap a selected non-root layout in `root`.
-
-DOMStack renders the page, passes its result to `article`, then passes that result to `root`: `root(article(page()))`.
-Each parent can declare another parent, forming a chain that ends at a layout without `parentLayout`.
-Missing parents and cycles, including a layout naming itself, fail the build.
-
-Every render step is awaited, and each parent receives its immediate child's return value as `children` without intermediate string conversion.
-The outermost result is converted to a string for HTML output.
-All layouts receive the same final resolved page vars, metadata, and asset lists.
-Layout defaults merge outermost-to-innermost before page overrides, and ancestor CSS/client entries are included automatically between global and page assets.
-Watch mode tracks the resolved chain and each layout's static imports for source-backed and generated pages, updating those relationships after successful rebuilds.
-
-Each layout can also declare its own global-data subscriptions through `vars.dataDeps`.
-DOMStack passes only those declared keys to that layout's `data` argument; a child does not receive its parent's data or need to repeat its declarations.
-For rebuilds, the page depends on the union of its own subscriptions and every layout's subscriptions in the declared chain.
-See [Data subscriptions in nested layouts](../../docs/cookbook/#data-subscriptions-in-nested-layouts) for typed declarations and examples.
-
-Manual function composition remains supported, but `parentLayout` is recommended so DOMStack manages the ancestor chain and its rebuild dependencies.
-Do not both declare a parent and call its render function manually, or the parent will render twice.
-See [Compose nested layouts](../../docs/cookbook/#compose-nested-layouts) for a complete example, asset guidance, and the manual-composition alternative.
-
-### Layout variables
-
-Layouts may also export an optional [`vars` variable provider](../../docs/pages/#variable-providers) containing defaults for pages that use the layout:
-
-```ts
-export const vars = {
-  showSidebar: true,
-  pageType: 'article',
-}
-```
-
-Layout vars are merged into the resolved variable cascade for pages using that layout.
-Precedence is:
-
-```txt
-page/frontmatter vars > page.vars.* > inner layout vars > outer layout vars > global.vars > domstack defaults
-```
-
-This makes layout vars useful for section-wide defaults while still letting individual pages override them.
-
-### Layout render function
-
-A layout's default export is an async or sync function that wraps its `children` in an outer template.
-With nested layouts, `children` is the result of the immediately inner layout, or the page itself for the innermost layout.
-
-It is always passed a single object argument with the following entries.
-See [Page data and introspection](../../docs/content/#page-data-and-introspection) for details about `page`, and [Global data](../../docs/content/#global-data) for `data`:
-
-- `vars`: The resolved page variable cascade, including domstack defaults, global vars, layout vars, page vars, and page builder vars/frontmatter.
-  Pages can customize layouts by overriding global or layout defaults.
-- `data`: Only the top-level global-data keys declared by this layout through `vars.dataDeps`.
-- `scripts`: array of paths that should be included onto the page in a script tag src with type `module`.
-- `styles`: array of paths that should be included onto the page in a `link rel="stylesheet"` tag with the `href` pointing to the paths in the array.
-- `children`: The immediate child's render result: the page's content for the innermost layout, or the next inner layout's return value for a parent.
-Markdown and HTML pages return strings; TypeScript pages and nested layouts may return other values.
-- `page`: An object with metadata and other facts about the current page being rendered into the template.
-
-<a id="the-default-rootlayoutts"></a>
-
-### The default `root.layout.ts`
-
-The default `root.layout.ts` is featured below, and is implemented with [`fragtml`][fragtml], though it could just be done with a template literal or any other template system that runs in Node.js.
-See the [`fragtml` docs][fragtml-docs] for escaping, raw HTML, rendering, and fragment usage.
-
-`root.layout.ts` can live anywhere in the `src` directory.
-
-```typescript
-import { html, raw, render } from 'fragtml'
-import type { HtmlResult } from 'fragtml/types.js'
-import type { LayoutFunction } from '@domstack/static/types.js'
-
-type RootLayoutVars = {
-  title: string,
-  siteName: string,
-  defaultStyle: boolean,
-  basePath?: string
-}
-
-export const vars = {
-  defaultStyle: true,
-}
-
-const defaultRootLayout: LayoutFunction<RootLayoutVars, string | HtmlResult, string> = ({
-  vars: {
-    title,
-    siteName = 'Domstack',
-    basePath,
-    /* defaultStyle = true  Set this to false in global or page vars to disable the default style in the default layout */
-  },
-  scripts,
-  styles,
-  children,
-  data,
-  page,
-}) => {
-  return render(html`
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="utf-8" />
-        <title>${title ? `${title}` : ''}${title && siteName ? ' | ' : ''}${siteName}</title>
-        <meta name="viewport" content="width=device-width, user-scalable=no" />
-        <meta name="color-scheme" content="light dark" />
-        ${scripts
-          ? scripts.map(script => html`<script type="module" src="${script.startsWith('/') ? `${basePath ?? ''}${script}` : script}"></script>`)
-          : null}
-        ${styles
-          ? styles.map(style => html`<link rel="stylesheet" href="${style.startsWith('/') ? `${basePath ?? ''}${style}` : style}" />`)
-          : null}
-      </head>
-      <body class="safe-area-inset">
-        <main class="mine-layout app-main">${typeof children === 'string' ? raw(children) : children}</main>
-      </body>
-    </html>
-  `)
-}
-
-export default defaultRootLayout
-```
-
-If your `src` folder doesn't have a `root.layout.ts` file somewhere in it, `domstack` will use the default [`default.root.layout.js`](https://github.com/bcomnes/domstack/blob/master/lib/defaults/default.root.layout.js) file it ships.
-The default `root` layout includes a special boolean variable called `defaultStyle` that lets you disable a default page style (provided by [mine.css](http://github.com/bcomnes/mine.css)) that it ships with.
-
-### Layout styles
-
-You can create a `${layout-name}.layout.css` next to any layout file.
-While the layout file can live anywhere in `src`, the layout style must live next to the associated layout file.
-
-```css
-/* /layouts/article.layout.css */
-.layout-specific-class {
-  color: blue;
-
-  & .button {
-    color: purple;
-  }
-}
-
-/* This layout style is included in every page rendered with the 'article' layout */
-```
-Layout styles are loaded on all pages that use that layout directly or through a `parentLayout` chain.
-Layout styles are bundled with [`esbuild`][esbuild] and can bundle relative and `npm` css using css `@import` statements.
-DOMStack loads stylesheets in this order: optional defaults, global, outermost-to-innermost layouts, then page.
-Under the normal [CSS cascade](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_cascade/Cascade), later styles take precedence when origin, importance, cascade layer, and specificity are otherwise equal.
-This lets page styles override layout styles, and inner layout styles override outer layout styles.
-
-
-### Layout client bundles
-
-You can create a `${layout-name}.layout.client.ts` next to any layout file.
-While the layout file can live anywhere in `src`, the layout client bundles must live next to the associated layout file.
-
-> [!NOTE]
-> Use `${layout-name}.layout.client.tsx` when a layout client bundle contains JSX.
-You can also use `.jsx`.
-See [Supported file types](../../docs/typescript/#supported-file-types) for all available extensions and [`.tsx` client bundles](../../docs/pages/#tsx) for JSX configuration.
-
-```typescript
-/* /layouts/article.layout.client.ts */
-
-console.log('I run on every page rendered with the \'article\' layout')
-
-/* This layout client is included in every page rendered with the 'article' layout */
-```
-
-Layout client bundles are loaded on all pages that use that layout directly or through a `parentLayout` chain.
-Layout client bundles are built with [`esbuild`][esbuild] and can bundle relative and `npm` modules using ESM `import` statements.
-
-### Layout types
-
-Layouts can be typed using `LayoutFunction<T, U, V, D>` where:
-
-- `T` is the variables type
-- `U` is the immediate child's render result, from a page or nested layout (defaults to `any`)
-- `V` is the layout's return type (defaults to `string` for HTML output)
-- `D` is the declared global-data shape (defaults to `Record<string, unknown>`)
-
-```typescript
-import type { LayoutFunction } from '@domstack/static/types.js'
-import type { HtmlResult } from 'fragtml/types.js'
-import { html, raw, render } from 'fragtml'
-
-type ArticleLayoutVars = {
-  title: string
-  showSidebar: boolean
-}
-
-const articleLayout: LayoutFunction<ArticleLayoutVars, string | HtmlResult, string> = ({
-  vars,
-  children,
-}) => {
-  return render(html`
-    <article>
-      <h1>${vars.title}</h1>
-      ${typeof children === 'string' ? raw(children) : children}
-      ${vars.showSidebar ? html`<aside>Related articles</aside>` : null}
-    </article>
-  `)
-}
-
-export default articleLayout
-```
-
 ## Variables
+
+Variables combine site-wide defaults with layout and page overrides.
+The precedence is page/frontmatter vars, page variable files, inner-to-outer layout vars, global vars, then DOMStack defaults.
+See [Settings](../settings/#globalvarsts) for global defaults and [Layouts](../layouts/#layout-variables) for layout defaults.
 
 ### Variable providers
 
@@ -665,14 +394,31 @@ export default async function vars () {
 Pages and layouts receive an object with the following parameters:
 
 - `vars`: An object with the variables of `global.vars.ts`, `page.vars.ts`, layout vars, and any frontmatter or `vars` exports from the page merged together.
-- `data`: Only the top-level values selected from [`global.data.ts`](../../docs/content/#global-data) by this renderer's own `dataDeps` declarations.
-- `page`: The current page's [`PageInfo` metadata](../../docs/content/#page-metadata).
+- `data`: Only the top-level values selected from [`global.data.ts`](../data/#global-data) by this renderer's own `dataDeps` declarations.
+- `page`: The current page's [`PageInfo` metadata](../data/#page-metadata).
 
 Template files receive a similar set of variables:
 
 - `vars`: An object with the variables from `global.vars.ts`.
-- `data`: Only the top-level values selected from [`global.data.ts`](../../docs/content/#global-data) by the template's `dataDeps` named export.
+- `data`: Only the top-level values selected from [`global.data.ts`](../data/#global-data) by the template's `dataDeps` named export.
 - `template`: Information about the current template file.
+
+<!-- Preserve bookmarks for the layout reference that previously lived here. -->
+<details class="moved-references">
+<summary>Moved to Layouts</summary>
+<ul>
+<li><a id="layouts" data-reference-url="../layouts/" href="../layouts/">Layouts</a></li>
+<li><a id="layout-module-exports" data-reference-url="../layouts/#layout-module-exports" href="../layouts/#layout-module-exports">Layout module exports</a></li>
+<li><a id="declaring-nested-layouts" data-reference-url="../layouts/#declaring-nested-layouts" href="../layouts/#declaring-nested-layouts">Declaring nested layouts</a></li>
+<li><a id="layout-variables" data-reference-url="../layouts/#layout-variables" href="../layouts/#layout-variables">Layout variables</a></li>
+<li><a id="layout-render-function" data-reference-url="../layouts/#layout-render-function" href="../layouts/#layout-render-function">Layout render function</a></li>
+<li><a id="the-default-rootlayoutts" data-reference-url="../layouts/#the-default-rootlayoutts" href="../layouts/#the-default-rootlayoutts">The default root layout</a></li>
+<li><a id="the-default-root.layout.ts" data-reference-url="../layouts/#the-default-root.layout.ts" href="../layouts/#the-default-root.layout.ts">root.layout.ts</a></li>
+<li><a id="layout-styles" data-reference-url="../layouts/#layout-styles" href="../layouts/#layout-styles">Layout styles</a></li>
+<li><a id="layout-client-bundles" data-reference-url="../layouts/#layout-client-bundles" href="../layouts/#layout-client-bundles">Layout client bundles</a></li>
+<li><a id="layout-types" data-reference-url="../layouts/#layout-types" href="../layouts/#layout-types">Layout types</a></li>
+</ul>
+</details>
 
 [htm]: https://github.com/developit/htm
 [fragtml]: https://www.npmjs.com/package/fragtml
