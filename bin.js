@@ -83,6 +83,10 @@ const options = {
     type: 'boolean',
     help: 'watch and build the src folder without serving',
   },
+  verbose: {
+    type: 'boolean',
+    help: 'show debug logs, including the build tree and individual copy operations',
+  },
   serve: {
     type: 'boolean',
     help: 'build once and serve the destination directory without watching',
@@ -222,7 +226,7 @@ domstack eject actions:
     opts.copy = copyPaths.map(p => resolve(cwd, p))
   }
 
-  const logger = createDomStackLogger()
+  const logger = createDomStackLogger(argv['verbose'] ? 'debug' : 'info')
   opts.logger = logger
   const domStack = new DomStack(src, dest, opts)
   /** @type {BsInstance | null} */
@@ -256,8 +260,9 @@ domstack eject actions:
   if (!argv['watch'] && !argv['watch-only']) {
     try {
       const results = await domStack.build()
-      logger.info(tree(generateTreeData(cwd, src, dest, results)))
+      logger.debug(tree(generateTreeData(cwd, src, dest, results)))
       logWarnings(logger, results?.warnings)
+      logger.info(`Built ${relative(cwd, src) || '.'} → ${relative(cwd, dest) || '.'}`)
       logger.info('\nBuild Success!\n\n')
       if (argv['serve']) {
         buildServer = await createServer({
@@ -285,7 +290,7 @@ domstack eject actions:
     await domStack.watch({
       serve: !argv['watch-only'],
       onInitialBuild: (initialResults) => {
-        logger.info(tree(generateTreeData(cwd, src, dest, initialResults)))
+        logger.debug(tree(generateTreeData(cwd, src, dest, initialResults)))
         logWarnings(logger, initialResults?.warnings)
       },
     })

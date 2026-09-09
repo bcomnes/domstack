@@ -265,7 +265,7 @@ export class DomStack {
     // Start esbuild in watch mode (stable filenames, no hash)
     let esbuildContext
     try {
-      const { context } = await buildEsbuildWatch(this.#src, this.#dest, siteData, this.opts)
+      const { context } = await buildEsbuildWatch(this.#src, this.#dest, siteData, this.opts, { logger: this.#logger })
       esbuildContext = context
     } catch (err) {
       throw new Error('Error starting esbuild watch context', { cause: err })
@@ -300,7 +300,7 @@ export class DomStack {
       delete pageBuildResults.report.watchDependencies
       delete pageBuildResults.report.rebuiltPagesFilePaths
       buildLogger(report, this.#logger)
-      this.#logger.info('Initial JS, CSS and Page Build Complete')
+      this.#logger.debug('Initial JS, CSS and Page Build Complete')
     } catch (err) {
       if (!(err instanceof DomStackAggregateError)) throw new Error('Non-aggregate error thrown', { cause: err })
       this.#pageBuildFailed = true
@@ -364,8 +364,12 @@ export class DomStack {
   async #startCopyWatcher (source, signal, ignores = []) {
     const watcher = cpxWatch(source, this.#dest, { ignore: ignores })
     this.#cpxWatchers.push(watcher)
+    let ready = false
+    let initialCopies = 0
     watcher.on('copy', (/** @type{{ srcPath: string, dstPath: string }} */e) => {
-      this.#logger.info(`Copy ${e.srcPath} to ${e.dstPath}`)
+      if (!ready) initialCopies++
+      this.#logger.debug(`Copy ${e.srcPath} to ${e.dstPath}`)
+      if (ready) this.#logger.info(`Static asset updated: ${e.srcPath}`)
     })
     watcher.on('remove', (/** @type{{ path: string }} */e) => {
       this.#logger.info(`Remove ${e.path}`)
@@ -385,7 +389,8 @@ export class DomStack {
     try {
       if (signal.aborted) return
       await promise
-      if (!signal.aborted) this.#logger.info('Copy watcher ready')
+      ready = true
+      if (!signal.aborted) this.#logger.info(`Static asset watcher ready (${initialCopies} initial copy operations)`)
     } finally {
       watcher.off('watch-ready', resolve)
       watcher.off('watch-error', reject)
@@ -424,7 +429,7 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
 
     await ensureDest(this.#dest, siteData)
 
-    const { context } = await buildEsbuildWatch(this.#src, this.#dest, siteData, this.opts)
+    const { context } = await buildEsbuildWatch(this.#src, this.#dest, siteData, this.opts, { logger: this.#logger })
     this.#esbuildContext = context
     this.#siteData = siteData
 
@@ -498,7 +503,7 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
       await this.#esbuildContext.dispose()
       this.#esbuildContext = null
     }
-    const { context } = await buildEsbuildWatch(this.#src, this.#dest, siteData, this.opts)
+    const { context } = await buildEsbuildWatch(this.#src, this.#dest, siteData, this.opts, { logger: this.#logger })
     this.#esbuildContext = context
     this.#siteData = siteData
     const snapshot = this.#watchSnapshot()

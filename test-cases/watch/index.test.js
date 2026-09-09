@@ -170,6 +170,7 @@ function createTestLogger (logs) {
 
   const logger = {
     level: 'info',
+    debug () {},
     /** @param {...unknown} args */
     info (...args) { write(args) },
     /** @param {...unknown} args */

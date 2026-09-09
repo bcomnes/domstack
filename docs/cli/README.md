@@ -29,6 +29,7 @@ Usage: domstack [options]
     --eject, -e           eject the DOMStack default layout, style and client into the src flag directory
     --watch, -w           build, watch and serve the site build
     --watch-only          watch and build the src folder without serving
+    --verbose             show debug logs, including the build tree and individual copy operations
     --serve               build once and serve the destination directory without watching
     --port                port for --serve (default: 3000)
     --copy                path to directories to copy into dist; can be used multiple times
@@ -38,6 +39,10 @@ domstack (v12.0.0)
 ```
 
 `domstack` builds a `src` directory into a `dest` directory (default: `public`).
+
+Normal output summarizes builds, static asset startup, and server URLs.
+Use `--verbose` to include the build tree and individual copy operations.
+Build failures retain their full diagnostics at either verbosity level.
 
 - Running `domstack` will result in a `build` by default.
 - Running `domstack --watch` or `domstack -w` will build the site and start an auto-reloading development web-server that watches for changes (provided by [`@domstack/sync`][domstack-sync]).
