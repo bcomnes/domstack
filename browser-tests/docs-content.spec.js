@@ -3,12 +3,21 @@ import { join, resolve } from 'node:path'
 import { load } from 'cheerio'
 import { renderMd } from '../lib/build-pages/page-builders/md/get-md.js'
 import { parseMdFileContents } from '../lib/build-pages/page-builders/md/parse-md.js'
-import { expect, test } from './support.js'
+import { expect, test, websiteOptions } from './support.js'
 
 const root = resolve(import.meta.dirname, '..')
 test.use({
   siteSrc: root,
-  siteOptions: { ignore: ['examples', 'test-cases', 'coverage', '*.tsconfig.json', 'fonts'] },
+  siteOptions: websiteOptions,
+})
+
+test('website publishes linked resources but excludes repository-only content', async ({ request, siteURL }) => {
+  for (const path of ['/plans/generated-pages.html', '/lib/domstack-manifest/schema.json', '/tsconfig.json', '/agents.html', '/AGENTS.html']) {
+    expect((await request.get(siteURL + path)).status(), path).toBe(404)
+  }
+  for (const path of ['/', '/docs/', '/CHANGELOG.html', '/CONTRIBUTING.html', '/LICENSE', '/dependencygraph.svg']) {
+    expect((await request.get(siteURL + path)).status(), path).toBe(200)
+  }
 })
 
 test('page-by-page documentation audit preserves content, whitespace, and local link targets', async ({ page, siteURL }) => {

@@ -1,9 +1,9 @@
 import { resolve } from 'node:path'
-import { expect, test } from './support.js'
+import { expect, test, websiteOptions } from './support.js'
 
 test.use({
   siteSrc: resolve(import.meta.dirname, '..'),
-  siteOptions: { ignore: ['examples', 'test-cases', 'coverage', '*.tsconfig.json', 'fonts'] },
+  siteOptions: websiteOptions,
 })
 
 // Wait for native smooth scrolling as well as browsers that restore instantly.
