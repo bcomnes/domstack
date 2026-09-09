@@ -47,7 +47,7 @@ test('footer copyright uses the current year on every render', async t => {
       data: {},
     })
     const $ = load(output)
-    assert.equal($('.site-copyright').text(), `© ${year} domstack`)
+    assert.equal($('.site-copyright').text(), `domstack © ${year}`)
     assert.equal($('.site-copyright .site-brand').attr('href'), '../')
   }
 })
