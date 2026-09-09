@@ -98,6 +98,7 @@
     "cheerio": "^1.0.0-rc.10",
     "installed-check": "^11.0.0",
     "jsonfeed-to-atom": "^1.2.5",
+    "mermaid": "^11.17.2",
     "neostandard": "^0.13.0",
     "npm-run-all2": "^9.0.2",
     "preact": "^10.29.6",

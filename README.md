@@ -2893,66 +2893,18 @@ These tools are treated as implementation details, but they may be exposed more 
 
 The following diagram illustrates the DomStack build process:
 
-```
-                    ┌─────────────┐
-                    │    START    │
-                    └──────┬──────┘
-                           │
-                           ▼
-                 ┌──────────────────┐
-                 │ identifyPages()  │
-                 │                  │
-                 │ • Find pages     │
-                 │ • Find layouts   │
-                 │ • Find templates │
-                 │ • Find globals   │
-                 │ • Find settings  │
-                 └────────┬─────────┘
-                          │
-                          │
-      ┌───────────────────┼───────────────────┐
-      │                   │                   │
-      ▼                   ▼                   ▼
-┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
-│ buildEsbuild()  │ │ buildStatic()   │ │  buildCopy()    │
-│                 │ │                 │ │                 │
-│ • Bundle JS/CSS │ │ • Copy static   │ │ • Copy extra    │
-│ • Generate      │ │   files         │ │   directories   │
-│   records       │ │ • Record files  │ │ • Record files  │
-└────────┬────────┘ └────────┬────────┘ └────────┬────────┘
-         │                   │                   │
-         └───────────────────┼───────────────────┘
-                             │
-                             ▼
-                    ┌──────────────────┐
-                    │  buildPages()    │
-                    │                  │
-                    │ • Process HTML   │
-                    │ • Process MD     │
-                    │ • Process JS     │
-                    │ • Apply layouts  │
-                    │ • Record outputs │
-                    └────────┬─────────┘
-                             │
-                             ▼
-                    ┌──────────────────┐
-                    │ Reconcile        │
-                    │ Output Manifest  │
-                    └────────┬─────────┘
-                             │
-                             ▼
-                  ┌──────────────────────┐
-                  │    Return Results    │
-                  │                      │
-                  │ • siteData           │
-                  │ • esbuildResults     │
-                  │ • staticResults      │
-                  │ • copyResults        │
-                  │ • pageBuildResults   │
-                  │ • domstackManifest   │
-                  │ • warnings           │
-                  └──────────────────────┘
-```
+<pre class="mermaid">
+flowchart TD
+  START([START]) --> IDENTIFY["identifyPages(): find pages, layouts, templates, globals, and settings"]
+  IDENTIFY --> ESBUILD["buildEsbuild(): bundle JavaScript and CSS, then record outputs"]
+  IDENTIFY --> STATIC["buildStatic(): copy and record static files"]
+  IDENTIFY --> COPY["buildCopy(): copy and record extra directories"]
+  ESBUILD --> PAGES["buildPages(): process HTML, Markdown, and JavaScript; apply layouts; record outputs"]
+  STATIC --> PAGES
+  COPY --> PAGES
+  PAGES --> MANIFEST["Reconcile output manifest"]
+  MANIFEST --> RESULTS["Return site data, build results, manifest, and warnings"]
+</pre>
 
 The build process follows these key steps:
 
@@ -2972,64 +2924,19 @@ This architecture allows for efficient parallel processing of independent tasks 
 
 The `buildPages()` step processes pages in parallel with a concurrency limit:
 
-```
-                    ┌──────────────────┐
-                    │  buildPages()    │
-                    └────────┬─────────┘
-                             │
-                    ┌────────▼─────────┐
-                    │ Resolve Once:    │
-                    │ • Global vars    │
-                    │ • All layouts    │
-                    └────────┬─────────┘
-                             │
-                ┌────────────▼───────────────┐
-                │  Parallel Page Init        │
-                │(Concurrency: min(CPUs, 24))│
-                └────────────┬───────────────┘
-                             │
-        ┌────────────────────┼────────────────────┐
-        │                    │                    │
-        ▼                    ▼                    ▼
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│  MD Page Task   │    │ HTML Page Task  │    │  JS Page Task   │
-├─────────────────┤    ├─────────────────┤    ├─────────────────┤
-│ ┌─────────────┐ │    │ ┌─────────────┐ │    │ ┌─────────────┐ │
-│ │1. Parse MD  │ │    │ │1. Read .html│ │    │ │1. Import .js│ │
-│ │ frontmatter │ │    │ │   file      │ │    │ │   module    │ │
-│ └──────┬──────┘ │    │ └──────┬──────┘ │    │ └──────┬──────┘ │
-│        ▼        │    │        ▼        │    │        ▼        │
-│ ┌─────────────┐ │    │ ┌─────────────┐ │    │ ┌─────────────┐ │
-│ │2. Variable  │ │    │ │2. Variable  │ │    │ │2. Variable  │ │
-│ │  Resolution │ │    │ │  Resolution │ │    │ │  Resolution │ │
-│ └──────┬──────┘ │    │ └──────┬──────┘ │    │ └──────┬──────┘ │
-│        ▼        │    │        ▼        │    │        ▼        │
-│ ┌─────────────┐ │    │ ┌─────────────┐ │    │ ┌─────────────┐ │
-│ │ builder +   │ │    │ │page.vars.js │ │    │ │  Exported   │ │
-│ │ page.vars.js│ │    │ │             │ │    │ │  + page.vars│ │
-│ └─────────────┘ │    │ └─────────────┘ │    │ └─────────────┘ │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                      │                      │
-         └──────────────────────┼──────────────────────┘
-                                │
-                                ▼
-                  ┌─────────────────────────────┐
-                  │     global.data.ts runs     │
-                  │ (receives source PageData[])│
-                  └──────────────┬──────────────┘
-                                 │
-                                 ▼
-                  ┌─────────────────────────────┐
-                  │ *.pages.* generates pages   │
-                  │   using the derived data    │
-                  └──────────────┬──────────────┘
-                                 │
-                                 ▼
-                ┌───────────────────────────────┐
-                │ Select data, render + write   │
-                │ (Concurrency: min(CPUs, 24))  │
-                └───────────────────────────────┘
-```
+<pre class="mermaid">
+flowchart TD
+  BUILD["buildPages()"] --> RESOLVE["Resolve global variables and all layouts once"]
+  RESOLVE --> INIT["Initialize pages in parallel with min(CPUs, 24) concurrency"]
+  INIT --> MD["Markdown page: parse frontmatter, resolve variables, combine builder and page.vars.js"]
+  INIT --> HTML["HTML page: read file, then resolve page.vars.js"]
+  INIT --> JS["JavaScript page: import module, then combine exports and page.vars.js"]
+  MD --> DATA["Run global.data.ts with source PageData[]"]
+  HTML --> DATA
+  JS --> DATA
+  DATA --> GENERATED["Generate pages from *.pages.* using derived data"]
+  GENERATED --> RENDER["Select data, render, and write with min(CPUs, 24) concurrency"]
+</pre>
 
 Variable Resolution Layers, from lowest to highest precedence:
 - **Domstack defaults** - Internal defaults such as the default `layout: 'root'`.
