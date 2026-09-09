@@ -13,8 +13,10 @@ const contentTypes = new Map([
 ])
 
 export const test = base.extend({
-  siteURL: async ({ context }, use) => {
-    const build = await testBuild(fixtureSrc)
+  siteSrc: [fixtureSrc, { option: true }],
+  siteOptions: [{}, { option: true }],
+  siteURL: async ({ context, siteSrc, siteOptions }, use) => {
+    const build = await testBuild(siteSrc, siteOptions)
     const publicDir = build.dest
     const server = createServer(async (request, response) => {
       try {

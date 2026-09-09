@@ -28,20 +28,20 @@ The one-shot builder discovers inputs using the shared file conventions, then re
 The service worker is built last so manifest hooks can provide its build-time constants.
 
 <pre class="mermaid">
-flowchart TD
-  IDENTIFY["identifyPages(): discover source inputs"] --> PREPARE["Prepare destination and resolve manifest options"]
-  PREPARE --> ESBUILD["Bundle browser assets, excluding the service worker"]
-  PREPARE --> STATIC["Copy static assets when enabled"]
-  PREPARE --> COPY["Copy additional directories"]
-  ESBUILD --> PAGES["buildPages(): render pages and templates in a fresh worker"]
-  STATIC --> PAGES
-  COPY --> PAGES
-  PAGES --> ENABLED{"Manifest pipeline enabled?"}
-  ENABLED -->|Yes| MANIFEST["Reconcile output records, hash contents, and compute manifest version"]
-  MANIFEST --> HOOKS["Run manifest hooks and collect service-worker defines"]
-  ENABLED -->|No| WORKER["Build the service worker if present"]
-  HOOKS --> WORKER
-  WORKER --> RESULTS["Write manifest JSON if requested; return build results"]
+flowchart TD;
+  IDENTIFY["identifyPages(): discover source inputs"] --> PREPARE["Prepare destination and resolve manifest options"];
+  PREPARE --> ESBUILD["Bundle browser assets, excluding the service worker"];
+  PREPARE --> STATIC["Copy static assets when enabled"];
+  PREPARE --> COPY["Copy additional directories"];
+  ESBUILD --> PAGES["buildPages(): render pages and templates in a fresh worker"];
+  STATIC --> PAGES;
+  COPY --> PAGES;
+  PAGES --> ENABLED{"Manifest pipeline enabled?"};
+  ENABLED -->|Yes| MANIFEST["Reconcile output records, hash contents, and compute manifest version"];
+  MANIFEST --> HOOKS["Run manifest hooks and collect service-worker defines"];
+  ENABLED -->|No| WORKER["Build the service worker if present"];
+  HOOKS --> WORKER;
+  WORKER --> RESULTS["Write manifest JSON if requested; return build results"];
 </pre>
 
 The build process follows these key steps:
@@ -69,17 +69,17 @@ Within that worker, source-backed pages are initialized before global data is co
 Generated pages are downstream consumers of that data, not inputs to its producer.
 
 <pre class="mermaid">
-flowchart TD
-  BUILD["Start page worker"] --> RESOLVE["Resolve defaults, global vars, and layouts; validate layout chains"]
-  RESOLVE --> INIT["Initialize all source pages: vars, selected layout chains, assets, and dataDeps"]
-  INIT --> DATA["Run global.data with initialized source pages"]
-  DATA --> FILTERS["In watch mode, compare data keys and expand filters to affected subscribers"]
-  FILTERS --> GENERATED["Run selected pages-file factories with their declared data"]
-  GENERATED --> GENERATED_INIT["Initialize generated pages and their layout chains"]
-  GENERATED_INIT --> PAGE_RENDER["Render selected source and generated pages; wrap layouts inner to outer"]
-  GENERATED_INIT --> TEMPLATE_RENDER["Render selected templates with their declared data"]
-  PAGE_RENDER --> REPORT["Return outputs, errors, and layout reports; include subscriptions in watch mode"]
-  TEMPLATE_RENDER --> REPORT
+flowchart TD;
+  BUILD["Start page worker"] --> RESOLVE["Resolve defaults, global vars, and layouts; validate layout chains"];
+  RESOLVE --> INIT["Initialize all source pages: vars, selected layout chains, assets, and dataDeps"];
+  INIT --> DATA["Run global.data with initialized source pages"];
+  DATA --> FILTERS["In watch mode, compare data keys and expand filters to affected subscribers"];
+  FILTERS --> GENERATED["Run selected pages-file factories with their declared data"];
+  GENERATED --> GENERATED_INIT["Initialize generated pages and their layout chains"];
+  GENERATED_INIT --> PAGE_RENDER["Render selected source and generated pages; wrap layouts inner to outer"];
+  GENERATED_INIT --> TEMPLATE_RENDER["Render selected templates with their declared data"];
+  PAGE_RENDER --> REPORT["Return outputs, errors, and layout reports; include subscriptions in watch mode"];
+  TEMPLATE_RENDER --> REPORT;
 </pre>
 
 Each page, layout, template, and pages-file factory receives only the global-data keys it declares through `dataDeps`.
@@ -116,21 +116,21 @@ The planner reads an explicit snapshot of discovery, dependency maps, and the pr
 `DomStack` owns the watch session, serializes events, executes plans, and releases its watchers, esbuild context, and server on shutdown.
 
 <pre class="mermaid">
-flowchart TD
-  EVENT["Chokidar event"] --> QUEUE["Serialize within the active watch session"]
-  QUEUE --> CLASSIFY["Classify using shared file conventions"]
-  CLASSIFY --> PLAN["planWatchEvent(): inspect the watch snapshot"]
-  PLAN --> EXECUTE{"DomStack executes the plan"}
-  EXECUTE -->|Skip| SKIP["No page rebuild"]
-  EXECUTE -->|Full| FULL["Rediscover inputs and restart esbuild"]
-  EXECUTE -->|Restart| RESTART["Rediscover bundle entries and restart esbuild"]
-  RESTART --> BUNDLE["planBundleChange(): use refreshed discovery and last successful layout routing"]
-  BUNDLE --> EXECUTE
-  EXECUTE -->|Pages| PAGES["Run full or filtered page phase"]
-  FULL --> PAGES
-  PAGES --> SUCCESS{"Page build succeeded?"}
-  SUCCESS -->|Yes| SAVE["Reconcile owned outputs and refresh routing and subscription state"]
-  SUCCESS -->|No| RETAIN["Retain successful ownership and routing reports; mark full page retry"]
+flowchart TD;
+  EVENT["Chokidar event"] --> QUEUE["Serialize within the active watch session"];
+  QUEUE --> CLASSIFY["Classify using shared file conventions"];
+  CLASSIFY --> PLAN["planWatchEvent(): inspect the watch snapshot"];
+  PLAN --> EXECUTE{"DomStack executes the plan"};
+  EXECUTE -->|Skip| SKIP["No page rebuild"];
+  EXECUTE -->|Full| FULL["Rediscover inputs and restart esbuild"];
+  EXECUTE -->|Restart| RESTART["Rediscover bundle entries and restart esbuild"];
+  RESTART --> BUNDLE["planBundleChange(): use refreshed discovery and last successful layout routing"];
+  BUNDLE --> EXECUTE;
+  EXECUTE -->|Pages| PAGES["Run full or filtered page phase"];
+  FULL --> PAGES;
+  PAGES --> SUCCESS{"Page build succeeded?"};
+  SUCCESS -->|Yes| SAVE["Reconcile owned outputs and refresh routing and subscription state"];
+  SUCCESS -->|No| RETAIN["Retain successful ownership and routing reports; mark full page retry"];
 </pre>
 
 Bundle replanning returns only a page plan or a skip; it does not restart esbuild again.
