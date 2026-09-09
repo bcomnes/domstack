@@ -1,3 +1,5 @@
+/* A custom root layout opts into DOMStack's shared base styles explicitly. */
+@import '../../lib/defaults/default.style.css';
 @import 'markdown-it-github-alerts/styles/github-base.css' layer(domstack.global);
 @import 'markdown-it-github-alerts/styles/github-colors-light.css' layer(domstack.global);
 @import 'markdown-it-github-alerts/styles/github-colors-dark-media.css' layer(domstack.global);
@@ -33,7 +35,7 @@
       max-inline-size: calc(16rem + 4rem + 56em + 2em);
     }
 
-    .docs-content {
+    .app-main.has-sidebar-toc > .docs-content {
       grid-column: 2;
       min-inline-size: 0;
     }

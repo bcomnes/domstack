@@ -16,7 +16,12 @@ test('heading and index changes refresh shared navigation; body edits leave othe
     if (domstack.watching) await domstack.stopWatching()
     await rm(temp, { recursive: true, force: true })
   })
-  for (const file of ['site/globals/global.data.ts', 'site/layouts/docs/navigation.js', 'site/layouts/docs/docs.layout.js']) {
+  for (const file of [
+    'site/globals/global.data.ts',
+    'site/layouts/docs/navigation.js',
+    'site/layouts/docs/docs.layout.js',
+    'site/layouts/root/root.layout.js',
+  ]) {
     await mkdir(dirname(join(src, file)), { recursive: true })
     await cp(join(root, file), join(src, file))
   }

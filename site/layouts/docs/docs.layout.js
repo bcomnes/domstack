@@ -88,13 +88,17 @@ export function documentationContent (content, entries, pageUrl) {
 export default function docsLayout ({ children, page, data }) {
   return html`
     <div class="docs-shell">
-      <a class="docs-skip-link" href="#docs-content">Skip to content</a>
       ${navigation(data.docsNavigation, page.url)}
-      <div class="docs-content" id="docs-content" tabindex="-1">
+      <main class="docs-content" id="docs-content" tabindex="-1">
         ${breadcrumb(page.url)}
         ${documentationContent(typeof children === 'string' ? children : render(children), data.docsNavigation, page.url)}
-        ${breadcrumb(page.url)}
-      </div>
+      </main>
+      <dialog class="docs-menu" id="docs-menu" aria-labelledby="docs-menu-title">
+        <div class="docs-menu-header">
+          <span id="docs-menu-title">Documentation</span>
+          <form method="dialog"><button type="submit" autofocus aria-label="Close documentation menu">Close <span aria-hidden="true">×</span></button></form>
+        </div>
+      </dialog>
     </div>
   `
 }

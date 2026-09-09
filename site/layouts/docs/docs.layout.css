@@ -1,84 +1,225 @@
 @layer domstack.layout {
   .docs-shell {
     min-inline-size: 0;
+    max-inline-size: 90rem;
+    margin-inline: auto;
   }
 
   .docs-content {
     min-inline-size: 0;
+    max-inline-size: 56rem;
+    padding: 1.5rem max(1.25rem, env(safe-area-inset-right)) 4rem;
+    overflow-wrap: anywhere;
+  }
+
+  .docs-content > h1 {
+    margin-block-start: 2rem;
+    font-size: 2.5rem;
+  }
+
+  .docs-content h2 {
+    font-size: 1.9rem;
+  }
+
+  .docs-content h3 {
+    font-size: 1.5rem;
+  }
+
+  .docs-content h4 {
+    font-size: 1.25rem;
   }
 
   .docs-navigation {
-    margin-block: 1rem;
+    padding: 1.25rem;
     overflow-wrap: anywhere;
+    font-family: var(--system-sans, system-ui, sans-serif);
+    font-size: 0.85rem;
+    line-height: 1.5;
+    border-block-end: 1px solid var(--site-border);
 
     summary {
       cursor: pointer;
     }
 
+    > summary {
+      font-weight: 600;
+    }
+
+    nav > a,
+    summary a {
+      display: block;
+      padding: 0.65rem 0.75rem;
+      color: var(--text);
+      border-radius: 0.35rem;
+    }
+
     nav > a {
-      display: inline-block;
-      margin-block: 0.75rem;
+      margin-block-end: 0.5rem;
+    }
+
+    nav summary {
+      display: flex;
+      align-items: center;
+      list-style: none;
+      border-radius: 0.35rem;
+    }
+
+    nav summary::-webkit-details-marker {
+      display: none;
+    }
+
+    nav summary::after {
+      content: '›';
+      margin-inline-start: auto;
+      padding-inline: 0.75rem;
+    }
+
+    nav details[open] > summary::after {
+      transform: rotate(90deg);
+    }
+
+    nav summary a {
+      flex: 1;
     }
 
     ul {
-      padding-inline-start: 1.25rem;
+      list-style: none;
+      margin: 0;
+      padding-inline-start: 1rem;
+    }
+
+    details > ul {
+      margin: 0.3rem 0 0.75rem 0.75rem;
+      border-inline-start: 1px solid var(--site-border);
+    }
+
+    li > a {
+      display: block;
+      padding-block: 0.4rem;
     }
 
     nav > ul {
       padding: 0;
-      margin: 0;
-      list-style: none;
     }
 
-    li {
-      margin-block: 0.4rem;
+    a {
+      color: var(--site-muted);
+      text-decoration: none;
+      box-shadow: none;
     }
 
     a[aria-current] {
-      font-weight: bold;
-      text-decoration-thickness: 0.15em;
+      color: var(--link-text);
+      font-weight: 600;
+    }
+
+    a[aria-current='page'] {
+      background: color-mix(in srgb, var(--link-text) 10%, var(--background));
+    }
+
+    a:hover {
+      color: var(--link-text);
+      text-decoration: underline;
     }
   }
 
-  .docs-skip-link:not(:focus) {
-    position: absolute;
-    inline-size: 1px;
-    block-size: 1px;
+  .docs-menu {
+    inline-size: min(22rem, calc(100% - 2rem));
+    max-inline-size: none;
+    block-size: 100dvh;
+    max-block-size: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-inline-end: 1px solid var(--site-border);
+    background: var(--background);
+    color: var(--text);
     overflow: hidden;
-    clip-path: inset(50%);
   }
 
-  @media (min-width: 82rem) {
-    .app-main:has(> .docs-shell) {
-      max-inline-size: calc(16rem + 4rem + 56em + 2em);
+  .docs-menu[open] {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .docs-menu::backdrop {
+    background: rgb(0 0 0 / 45%);
+  }
+
+  .docs-menu-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex: none;
+    min-block-size: var(--site-header-height);
+    padding: 0.75rem 1.25rem;
+    border-block-end: 1px solid var(--site-border);
+    font: 600 0.9rem var(--system-sans, system-ui, sans-serif);
+
+    form {
+      margin: 0;
     }
 
+    button {
+      min-block-size: 2.75rem;
+      padding: 0.5rem 0.75rem;
+      font: inherit;
+      box-shadow: none;
+    }
+  }
+
+  .docs-menu .docs-navigation {
+    min-block-size: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-block-end: max(2rem, env(safe-area-inset-bottom));
+    border: 0;
+  }
+
+  .docs-shell[data-navigation-enhanced] .docs-navigation > summary {
+    display: none;
+  }
+
+  html:has(.docs-menu[open]) {
+    overflow: hidden;
+  }
+
+  /* Keep this breakpoint in sync with docs.layout.client.ts. */
+  @media (min-width: 64rem) {
     .docs-shell {
       display: grid;
-      grid-template-columns: 16rem minmax(0, 56em);
-      column-gap: 4rem;
-      align-items: start;
+      grid-template-columns: 17rem minmax(0, 1fr);
+      min-block-size: calc(100dvh - var(--site-header-height));
     }
 
-    .docs-skip-link:focus {
-      grid-column: 1 / -1;
+    .docs-content {
+      grid-column: 2;
+      padding: 2rem clamp(2rem, 4vw, 4rem) 5rem;
+      border-inline-start: 1px solid var(--site-border);
     }
 
-    .docs-navigation {
+    .docs-shell > .docs-navigation {
       position: sticky;
-      inset-block-start: 1rem;
-      max-block-size: calc(100dvh - 2rem);
+      inset-block-start: var(--site-header-height);
+      align-self: start;
+      max-block-size: calc(100dvh - var(--site-header-height));
       overflow-y: auto;
       scrollbar-gutter: stable;
+      border: 0;
 
       > summary {
-        font-weight: bold;
+        display: none;
       }
     }
   }
 
   .docs-breadcrumb {
-    margin-block: 1em;
+    margin-block-end: 1.5rem;
+    padding-block-end: 1.25rem;
+    border-block-end: 1px solid var(--site-border);
+    font: 0.8rem / 1.5 var(--system-sans, system-ui, sans-serif);
+    color: var(--site-muted);
 
     ol {
       display: flex;
@@ -90,11 +231,11 @@
 
     li + li::before {
       margin-inline: 0.5em;
-      content: '/';
+      content: '›';
     }
 
     [aria-current='page'] {
-      font-weight: bold;
+      color: var(--text);
     }
   }
 }
