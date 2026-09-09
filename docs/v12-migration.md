@@ -2,8 +2,6 @@
 layout: docs
 ---
 
-<a id="migration-guide%3A-domstack-v12"></a>
-
 # v12 migration
 
 This guide covers breaking and notable changes when moving from domstack v11 to v12.
@@ -394,7 +392,7 @@ Most Markdown pages require no source changes. Sites should compare rendered out
 
 The alert plugin provides markup, not site-specific presentation.
 Import its styles or provide equivalent rules if you use alert blocks.
-See [Markdown settings](settings/#markdown-itsettingsts) for DOMStack's default plugin list and override API.
+See [Markdown settings](settings/#markdown-it.settings.ts) for DOMStack's default plugin list and override API.
 
 ---
 
@@ -456,7 +454,7 @@ test('builds the home page', async () => {
 
 This is additive.
 Existing tests that construct `DomStack` directly can continue to do so.
-See [Programmatic test builds](api/#programmatic-test-builds) for the complete return shape and repository examples.
+See [Programmatic test builds](api/#test-builds) for the complete return shape and repository examples.
 
 ---
 

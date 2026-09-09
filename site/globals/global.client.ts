@@ -1,19 +1,5 @@
 /// <reference lib="dom" />
 
-function followMovedReference (): void {
-  let id: string
-  try {
-    id = decodeURIComponent(location.hash.slice(1))
-  } catch {
-    return
-  }
-  const destination = (document.getElementById(location.hash.slice(1)) ?? document.getElementById(id))?.dataset['referenceUrl']
-  if (destination) location.replace(new URL(destination, location.href))
-}
-
-followMovedReference()
-addEventListener('hashchange', followMovedReference)
-
 const toc = document.querySelector<HTMLElement>('.table-of-contents')
 const tocLinks = Array.from(toc?.querySelectorAll<HTMLAnchorElement>('a[href^="#"]') ?? [])
 const main = toc?.closest<HTMLElement>('.app-main')

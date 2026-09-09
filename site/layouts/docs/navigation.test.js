@@ -69,6 +69,21 @@ test('invalid and duplicate index links fail with an actionable build error', as
   ]), /Duplicate documentation index page/)
 })
 
+test('page-only index links omit sections and render without empty disclosures', async () => {
+  const index = page('/docs/', '<div class="docs-index">\n\n- <a href="guide/" data-navigation="page-only">Guide</a>\n\n</div>')
+  const entries = await collectDocsNavigation([
+    index,
+    page('/docs/guide/', '# Migration guide\n\n## First step\n\n### Details'),
+  ])
+  assert.deepEqual(entries, [{ title: 'Migration guide', url: '/docs/guide/', sections: [] }])
+  const sidebar = load(render(navigation(entries, '/docs/guide/')))
+  assert.equal(sidebar('nav details').length, 0)
+  assert.equal(sidebar('nav > ul > li > a[aria-current="page"]').text(), 'Migration guide')
+  const landing = load(render(documentationContent(await index.renderInnerPage(), entries, '/docs/')))
+  assert.equal(landing('.docs-index a').length, 1)
+  assert.equal(landing('.docs-index a').attr('href'), 'guide/')
+})
+
 test('navigation links preserve deployment prefixes for directory and flat pages', () => {
   for (const base of ['', '/domstack']) {
     for (const from of ['/docs/', '/docs/pages/', '/docs/v12-migration.html']) {
@@ -88,5 +103,5 @@ test('website content replaces only the local ToC and escapes navigation labels'
   assert.equal($('pre code').text().trim(), '<script>example</script>')
   const nav = load(render(navigation([{ title: '<script>unsafe</script>', url: '/docs/page/', sections: [] }], '/docs/')))
   assert.equal(nav('script').length, 0)
-  assert.equal(nav('summary a').text(), '<script>unsafe</script>')
+  assert.equal(nav('nav > ul > li > a').text(), '<script>unsafe</script>')
 })

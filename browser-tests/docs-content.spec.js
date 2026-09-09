@@ -31,6 +31,7 @@ test('page-by-page documentation audit preserves content, whitespace, and local 
       const actual = load(await response.text())
       const content = actual('.docs-content')
       expect.soft(content.length, `${source}: one content region`).toBe(1)
+      expect.soft(content.find('a[id], [data-reference-url], .moved-references').length, `${source}: no legacy anchor aliases`).toBe(0)
 
       const title = content.find('h1')
       expect.soft(title.length, `${source}: one page title`).toBe(1)
@@ -104,5 +105,6 @@ test('the v11 migration cross-reference lands on section 7', async ({ page, site
   await page.goto(`${siteURL}/docs/v11-migration.html`)
   await page.locator('.docs-content').getByRole('link', { name: 'section 7', exact: true }).click()
   await expect(page.locator(':target')).toHaveAttribute('id', '7.-postvars-removed-%E2%86%92-global.data.js')
-  await expect(page.locator('.docs-navigation a[aria-current="location"]')).toHaveText('7. postVars Removed → global.data.js')
+  await expect(page.locator('.docs-navigation a[aria-current="location"]')).toHaveCount(0)
+  await expect(page.locator('.docs-navigation a[aria-current="page"]')).toHaveText('v11 migration')
 })

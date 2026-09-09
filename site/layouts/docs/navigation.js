@@ -14,7 +14,7 @@ export const docsIndexUrl = '/docs/'
 const siteOrigin = 'https://docs.invalid'
 
 /**
- * The index's explicit page list controls membership and order; rendered
+ * The index's explicit page list controls membership, order, and page-only links; rendered
  * Markdown supplies titles and real anchor IDs, including custom/duplicate IDs.
  *
  * @param {{ pageInfo: { url: string, type: string }, renderInnerPage: () => Promise<unknown> }[]} pages
@@ -44,7 +44,8 @@ export async function collectDocsNavigation (pages) {
     const sections = []
     /** @type {NavigationEntry | undefined} */
     let parent
-    document('h2[id], h3[id]').each((_, heading) => {
+    const headings = $(link).attr('data-navigation') === 'page-only' ? document([]) : document('h2[id], h3[id]')
+    headings.each((_, heading) => {
       const title = document(heading).text().trim()
       if (title.toLowerCase() === 'table of contents') return
       const section = {

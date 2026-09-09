@@ -3,8 +3,6 @@ layout: docs
 handlebars: false
 ---
 
-<a id="command-line-reference"></a>
-
 # CLI
 
 Use `domstack` (or its shorter alias, `dom`) to build a site, watch for changes, or preview production output.

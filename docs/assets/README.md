@@ -3,8 +3,6 @@ layout: docs
 handlebars: false
 ---
 
-<a id="assets-and-settings-reference"></a>
-
 # Assets
 
 DOMStack copies ordinary files and bundles browser JavaScript and CSS alongside your pages.
@@ -89,8 +87,6 @@ Define each global file once rather than relying on discovery order.
 Type checking is supported in both file types.
 See [Supported file types](../typescript/#supported-file-types) for all available extensions.
 
-<a id="globalclientts"></a>
-
 ### `global.client.ts`
 
 This is a script bundle that is included on every page.
@@ -100,13 +96,11 @@ Try to minimize what you put in here.
 > [!NOTE]
 > Use `global.client.tsx` when the global client bundle contains JSX.
 You can also use `global.client.jsx`.
-See [Supported file types](../typescript/#supported-file-types) for all available extensions and [`.tsx` client bundles](../pages/#tsx) for JSX configuration.
+See [Supported file types](../typescript/#supported-file-types) for all available extensions and [`.tsx` client bundles](../pages/#.tsx) for JSX configuration.
 
 ```typescript
 console.log('I run on every page in the site!')
 ```
-
-<a id="globalcss"></a>
 
 ### `global.css`
 
@@ -145,18 +139,3 @@ For projects that prefer explicit layers, each stylesheet can declare only its o
 DOMStack loads default, global, layout, and page stylesheets in that order, which gives these layers the same low-to-high precedence when they are used.
 A global stylesheet does not need to enumerate the layout or page layers.
 This is a recommended organization pattern, not a requirement.
-
-<!-- Preserve bookmarks for settings that previously lived on this page. -->
-<details class="moved-references">
-<summary>Moved to Settings</summary>
-<ul>
-<li><a id="globalvarsts" data-reference-url="../settings/#globalvarsts" href="../settings/#globalvarsts">Global variables</a></li>
-<li><a id="global.vars.ts" data-reference-url="../settings/#global.vars.ts" href="../settings/#global.vars.ts">global.vars.ts</a></li>
-<li><a id="browser-variable" data-reference-url="../settings/#browser-variable" href="../settings/#browser-variable">Browser constants</a></li>
-<li><a id="esbuildsettingsts" data-reference-url="../settings/#esbuildsettingsts" href="../settings/#esbuildsettingsts">esbuild settings</a></li>
-<li><a id="esbuild.settings.ts" data-reference-url="../settings/#esbuild.settings.ts" href="../settings/#esbuild.settings.ts">esbuild.settings.ts</a></li>
-<li><a id="default-build-behavior" data-reference-url="../settings/#default-build-behavior" href="../settings/#default-build-behavior">Default build behavior</a></li>
-<li><a id="markdown-itsettingsts" data-reference-url="../settings/#markdown-itsettingsts" href="../settings/#markdown-itsettingsts">Markdown settings</a></li>
-<li><a id="markdown-it.settings.ts" data-reference-url="../settings/#markdown-it.settings.ts" href="../settings/#markdown-it.settings.ts">markdown-it.settings.ts</a></li>
-</ul>
-</details>

@@ -7,7 +7,7 @@ handlebars: false
 
 Collect shared values from source pages in `global.data.ts`, then let each page, layout, or generator subscribe to exactly the values it needs.
 This pipeline powers indexes, navigation, feeds, and other derived content without giving every renderer access to the entire page collection.
-For output definitions, see [Generation](../generation/); for ordinary configuration defaults, see [Settings](../settings/#globalvarsts).
+For output definitions, see [Generation](../generation/); for ordinary configuration defaults, see [Settings](../settings/#global.vars.ts).
 
 ## Table of Contents
 

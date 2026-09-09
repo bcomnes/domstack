@@ -3,8 +3,6 @@ layout: docs
 handlebars: false
 ---
 
-<a id="example-projects"></a>
-
 # Examples
 
 These projects show how DOMStack's file conventions work in complete sites.

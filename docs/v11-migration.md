@@ -2,8 +2,6 @@
 layout: docs
 ---
 
-<a id="migration-guide%3A-top-bun-%E2%86%92-domstack"></a>
-
 # v11 migration
 
 Migrate a `top-bun` project to DOMStack v11 (`@domstack/static`) using this historical guide.

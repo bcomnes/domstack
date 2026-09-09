@@ -3,8 +3,6 @@ layout: docs
 handlebars: false
 ---
 
-<a id="workers-and-manifest-reference"></a>
-
 # Workers
 
 Use page-scoped web workers to move work off the browser's main thread, and a site service worker to control requests and caching.
@@ -83,7 +81,7 @@ See [Supported file types](../../docs/typescript/#supported-file-types) for all 
 Only one site service worker source is allowed.
 If multiple `service-worker.*` sources are present,
 domstack fails with `DOM_STACK_ERROR_DUPLICATE_SERVICE_WORKER`.
-Service workers are bundled using the project’s [`esbuild.settings.ts`](../settings/#esbuildsettingsts) configuration, so imports work the same way they do for client bundles and page-scoped web workers.
+Service workers are bundled using the project’s [`esbuild.settings.ts`](../settings/#esbuild.settings.ts) configuration, so imports work the same way they do for client bundles and page-scoped web workers.
 The
 entry filename is intentionally not content-hashed because browser service-worker update checks need
 a stable URL.

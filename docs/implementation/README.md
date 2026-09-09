@@ -3,8 +3,6 @@ layout: docs
 handlebars: false
 ---
 
-<a id="build-internals"></a>
-
 # Implementation
 
 DOMStack coordinates page rendering, asset bundling, and file copying in a staged build.
@@ -85,8 +83,6 @@ The build process follows these key steps:
 
 This architecture allows for efficient parallel processing of independent tasks while maintaining the correct build order dependencies.
 The diagrams show successful execution; discovery and build errors stop later phases.
-
-<a id="buildpages-detail"></a>
 
 ### buildPages() detail
 

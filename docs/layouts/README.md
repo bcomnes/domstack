@@ -142,8 +142,6 @@ See [Page data and introspection](../data/#page-data-and-introspection) for deta
 Markdown and HTML pages return strings; TypeScript pages and nested layouts may return other values.
 - `page`: An object with metadata and other facts about the current page being rendered into the template.
 
-<a id="the-default-rootlayoutts"></a>
-
 ## The default `root.layout.ts`
 
 The default `root.layout.ts` is featured below, and is implemented with [`fragtml`][fragtml], though it could just be done with a template literal or any other template system that runs in Node.js.
@@ -241,7 +239,7 @@ While the layout file can live anywhere in `src`, the layout client bundles must
 > [!NOTE]
 > Use `${layout-name}.layout.client.tsx` when a layout client bundle contains JSX.
 You can also use `.jsx`.
-See [Supported file types](../typescript/#supported-file-types) for all available extensions and [`.tsx` client bundles](../pages/#tsx) for JSX configuration.
+See [Supported file types](../typescript/#supported-file-types) for all available extensions and [`.tsx` client bundles](../pages/#.tsx) for JSX configuration.
 
 ```typescript
 /* /layouts/article.layout.client.ts */
@@ -295,7 +293,7 @@ DOMStack's bundled default layout uses [`fragtml`][fragtml] because the default 
 You can eject or replace that layout with any Node-compatible renderer that returns an HTML string.
 The previous incumbent for this job was `htm/preact` with [`preact-render-to-string`](https://github.com/preactjs/preact-render-to-string).
 That is still a good fit when your Node-side pages or layouts produce Preact VNodes, or when you want the same component model on the server and in browser bundles.
-If you also want Preact or React in browser JSX/TSX bundles, configure that separately as described in [`.tsx`](../pages/#tsx).
+If you also want Preact or React in browser JSX/TSX bundles, configure that separately as described in [`.tsx`](../pages/#.tsx).
 
 ```console
 npm install htm preact preact-render-to-string

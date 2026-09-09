@@ -3,8 +3,6 @@ layout: docs
 handlebars: false
 ---
 
-<a id="programmatic-api"></a>
-
 # API
 
 Import `DomStack` from `@domstack/static` to build sites from your own Node.js scripts.
@@ -13,8 +11,6 @@ For automated tests, `testBuild()` provides a temporary output directory and a c
 ## Table of Contents
 
 [[toc]]
-
-<a id="programmatic-test-builds"></a>
 
 ## Test builds
 

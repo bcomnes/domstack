@@ -3,8 +3,6 @@ layout: docs
 handlebars: false
 ---
 
-<a id="cookbook"></a>
-
 # Recipes
 
 These recipes combine DOMStack features to solve common site-building tasks.

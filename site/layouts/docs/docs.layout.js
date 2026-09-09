@@ -42,17 +42,20 @@ export function navigation (entries, pageUrl) {
         <a href="${navigationHref(pageUrl, docsIndexUrl)}"
           ${pageUrl === docsIndexUrl ? raw('aria-current="page"') : ''}>All documentation</a>
         <ul>
-          ${entries.map(entry => html`
-            <li>
-              <details ${entry.url === pageUrl ? raw('open') : ''}>
-                <summary>
-                  <a href="${navigationHref(pageUrl, entry.url)}"
-                    ${entry.url === pageUrl ? raw('aria-current="page"') : ''}>${entry.title}</a>
-                </summary>
-                ${sectionLinks(entry.sections, pageUrl)}
-              </details>
-            </li>
-          `)}
+          ${entries.map(entry => {
+            const current = entry.url === pageUrl
+            const link = html`<a href="${navigationHref(pageUrl, entry.url)}"
+              ${current ? raw('aria-current="page"') : ''}>${entry.title}</a>`
+            if (!entry.sections.length) return html`<li>${link}</li>`
+            return html`
+              <li>
+                <details ${current ? raw('open') : ''}>
+                  <summary>${link}</summary>
+                  ${sectionLinks(entry.sections, pageUrl)}
+                </details>
+              </li>
+            `
+          })}
         </ul>
       </nav>
     </details>

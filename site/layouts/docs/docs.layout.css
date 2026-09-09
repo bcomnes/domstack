@@ -46,6 +46,7 @@
     }
 
     nav > a,
+    nav > ul > li > a,
     summary a {
       display: block;
       padding: 0.65rem 0.75rem;
@@ -95,7 +96,8 @@
 
     li > a {
       display: block;
-      padding-block: 0.4rem;
+      padding: 0.4rem 0.75rem;
+      border-radius: 0.35rem;
     }
 
     nav > ul {

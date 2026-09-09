@@ -4,8 +4,7 @@
 @import 'markdown-it-github-alerts/styles/github-colors-light.css' layer(domstack.global);
 @import 'markdown-it-github-alerts/styles/github-colors-dark-media.css' layer(domstack.global);
 
-/* Reference links should land directly on their sections. Disable mine.css's
-   cross-document fades, which can also abort during legacy-anchor redirects. */
+/* Keep same-origin document navigation immediate rather than fading pages. */
 @view-transition {
   navigation: none;
 }

@@ -3,8 +3,6 @@ layout: docs
 handlebars: false
 ---
 
-<a id="typescript-reference"></a>
-
 # TypeScript
 
 Use TypeScript for pages, layouts, data modules, and browser code without adding a separate compilation step.
@@ -13,8 +11,6 @@ Node.js strips types from server-side modules, esbuild handles browser bundles, 
 ## Table of Contents
 
 [[toc]]
-
-<a id="typescript-support"></a>
 
 ## Runtime requirements
 
@@ -36,8 +32,6 @@ Use the module-format escape-hatch extensions only when an individual file must 
 When running in a Node.js context, [type-stripping](https://nodejs.org/api/typescript.html#type-stripping) is used.
 When running in a web client context, [esbuild](https://esbuild.github.io/content-types/#typescript) type stripping is used.
 Type stripping provides 0 type checking, so be sure to set up `tsc` and `tsconfig.json` so you can catch type errors while editing or in CI.
-
-<a id="recommended-tsconfigjson"></a>
 
 ## Recommended `tsconfig.json`
 

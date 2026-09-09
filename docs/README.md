@@ -7,7 +7,7 @@ layout: docs
 [DOMStack](../) builds websites from ordinary HTML, Markdown, CSS, and JavaScript files.
 Start with the [quick start](../#getting-started), then use these references as your project grows.
 
-<!-- This list defines the shared navigation's page order. The docs layout adds each page's headings. -->
+<!-- This list defines shared navigation order. Use data-navigation="page-only" to omit a page's sections. -->
 <div class="docs-index">
 
 - [CLI](cli/)
@@ -27,7 +27,7 @@ Start with the [quick start](../#getting-started), then use these references as 
 
 ## Migration guides
 
-- [v12 migration](v12-migration.md)
-- [v11 migration](v11-migration.md)
+- <a href="v12-migration.md" data-navigation="page-only">v12 migration</a>
+- <a href="v11-migration.md" data-navigation="page-only">v11 migration</a>
 
 </div>

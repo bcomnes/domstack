@@ -3,8 +3,6 @@ layout: docs
 handlebars: false
 ---
 
-<a id="page-authoring-reference"></a>
-
 # Pages
 
 A page combines source content with a layout, variables, and optional browser assets.
@@ -233,8 +231,6 @@ await someHelper()
 await funnyLibrary()
 ```
 
-<a id="tsx"></a>
-
 #### `.tsx`
 
 Client bundles support [`.tsx`](https://www.typescriptlang.org/docs/handbook/jsx.html) through [esbuild's JSX transform](https://esbuild.github.io/content-types/#jsx).
@@ -353,7 +349,7 @@ Draft pages let you work on pages before they are ready and easily omit them fro
 
 Variables combine site-wide defaults with layout and page overrides.
 The precedence is page/frontmatter vars, page variable files, inner-to-outer layout vars, global vars, then DOMStack defaults.
-See [Settings](../settings/#globalvarsts) for global defaults and [Layouts](../layouts/#layout-variables) for layout defaults.
+See [Settings](../settings/#global.vars.ts) for global defaults and [Layouts](../layouts/#layout-variables) for layout defaults.
 
 ### Variable providers
 
@@ -402,23 +398,6 @@ Template files receive a similar set of variables:
 - `vars`: An object with the variables from `global.vars.ts`.
 - `data`: Only the top-level values selected from [`global.data.ts`](../data/#global-data) by the template's `dataDeps` named export.
 - `template`: Information about the current template file.
-
-<!-- Preserve bookmarks for the layout reference that previously lived here. -->
-<details class="moved-references">
-<summary>Moved to Layouts</summary>
-<ul>
-<li><a id="layouts" data-reference-url="../layouts/" href="../layouts/">Layouts</a></li>
-<li><a id="layout-module-exports" data-reference-url="../layouts/#layout-module-exports" href="../layouts/#layout-module-exports">Layout module exports</a></li>
-<li><a id="declaring-nested-layouts" data-reference-url="../layouts/#declaring-nested-layouts" href="../layouts/#declaring-nested-layouts">Declaring nested layouts</a></li>
-<li><a id="layout-variables" data-reference-url="../layouts/#layout-variables" href="../layouts/#layout-variables">Layout variables</a></li>
-<li><a id="layout-render-function" data-reference-url="../layouts/#layout-render-function" href="../layouts/#layout-render-function">Layout render function</a></li>
-<li><a id="the-default-rootlayoutts" data-reference-url="../layouts/#the-default-rootlayoutts" href="../layouts/#the-default-rootlayoutts">The default root layout</a></li>
-<li><a id="the-default-root.layout.ts" data-reference-url="../layouts/#the-default-root.layout.ts" href="../layouts/#the-default-root.layout.ts">root.layout.ts</a></li>
-<li><a id="layout-styles" data-reference-url="../layouts/#layout-styles" href="../layouts/#layout-styles">Layout styles</a></li>
-<li><a id="layout-client-bundles" data-reference-url="../layouts/#layout-client-bundles" href="../layouts/#layout-client-bundles">Layout client bundles</a></li>
-<li><a id="layout-types" data-reference-url="../layouts/#layout-types" href="../layouts/#layout-types">Layout types</a></li>
-</ul>
-</details>
 
 [htm]: https://github.com/developit/htm
 [fragtml]: https://www.npmjs.com/package/fragtml

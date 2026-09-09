@@ -20,8 +20,6 @@ See [Supported file types](../typescript/#supported-file-types) for all availabl
 
 [[toc]]
 
-<a id="globalvarsts"></a>
-
 ## `global.vars.ts`
 
 The `global.vars.ts` file should default-export a [variable provider](../pages/#variable-providers).
@@ -53,10 +51,8 @@ Domstack also reserves `process.env.DOMSTACK_MANIFEST_URL`,
 `process.env.DOMSTACK_SERVICE_WORKER_URL`, and `process.env.DOMSTACK_SERVICE_WORKER_SCOPE` for generated build facts.
 
 > [!WARNING]
-> Setting `define` in [`esbuild.settings.ts`](#esbuildsettingsts) while also using the `browser` export will throw an error.
+> Setting `define` in [`esbuild.settings.ts`](#esbuild.settings.ts) while also using the `browser` export will throw an error.
 Use one or the other.
-
-<a id="esbuildsettingsts"></a>
 
 ## `esbuild.settings.ts`
 
@@ -161,8 +157,6 @@ const esbuildSettingsOverride = async (esbuildSettings: BuildOptions): Promise<B
 
 export default esbuildSettingsOverride
 ```
-
-<a id="markdown-itsettingsts"></a>
 
 ## `markdown-it.settings.ts`
 

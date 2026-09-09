@@ -7,7 +7,7 @@ test.use({
 })
 
 for (const colorScheme of ['light', 'dark']) {
-  test(`renders documentation diagrams and bookmark redirects in ${colorScheme} mode`, async ({ page, siteURL }) => {
+  test(`renders documentation diagrams and direct section links in ${colorScheme} mode`, async ({ page, siteURL }) => {
     test.setTimeout(30_000)
     const errors = []
     page.on('pageerror', error => errors.push(error.message))
@@ -99,7 +99,7 @@ for (const colorScheme of ['light', 'dark']) {
         }
       }
     }
-    await page.goto(`${siteURL}/#build-process-flow`)
+    await page.goto(`${siteURL}/docs/implementation/#build-process-flow`)
     await expect(page).toHaveURL(`${siteURL}/docs/implementation/#build-process-flow`)
     await expectDiagrams()
     expect(errors).toEqual([])

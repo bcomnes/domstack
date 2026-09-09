@@ -21,6 +21,7 @@ for (const colorScheme of ['light', 'dark']) {
           await expect(page.getByRole('main')).toHaveCount(1)
           await expect(page.getByRole('contentinfo')).toHaveCount(1)
           await expect(page.locator('main main, main header, main footer')).toHaveCount(0)
+          await expect(page.locator('[data-reference-url], .moved-references')).toHaveCount(0)
           expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
           // Owning a root layout must not silently drop the shared base styles.
           expect(await page.locator('html').evaluate(el =>
