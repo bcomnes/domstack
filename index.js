@@ -990,7 +990,7 @@ function errorLogger (err, logger) {
   if (!(err instanceof Error || err instanceof AggregateError)) throw new Error('Non-error thrown', { cause: err })
   if ('results' in err) delete err.results
   logger.error(inspect(err, { depth: 999, colors: true }))
-  logger.error('\nBuild Failed!\n\n')
+  logger.error('Build Failed!')
 }
 
 /**
@@ -1001,7 +1001,7 @@ function errorLogger (err, logger) {
  */
 function buildLogger (results, logger, dest) {
   if ((results?.warnings?.length ?? 0) > 0) {
-    logger.warn('\nThere were build warnings:\n')
+    logger.warn('There were build warnings:')
   }
   for (const warning of results?.warnings ?? []) {
     if ('message' in warning) {
@@ -1033,7 +1033,7 @@ function buildLogger (results, logger, dest) {
     const summary = summarizePageDomstackManifests(outputs)
     logger.info(`Pages built: ${summary.pages} Templates built: ${summary.templates}`)
   }
-  logger.info('\nBuild Success!\n\n')
+  logger.info('Build Success!')
 }
 
 /**

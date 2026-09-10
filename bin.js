@@ -263,7 +263,7 @@ domstack eject actions:
       logger.debug(tree(generateTreeData(cwd, src, dest, results)))
       logWarnings(logger, results?.warnings)
       logger.info(`Built ${relative(cwd, src) || '.'} → ${relative(cwd, dest) || '.'}`)
-      logger.info('\nBuild Success!\n\n')
+      logger.info('Build Success!')
       if (argv['serve']) {
         buildServer = await createServer({
           server: dest,
@@ -283,7 +283,7 @@ domstack eject actions:
       }
       if ('results' in err) delete err.results
       logger.error(formatDiagnostic(err, Boolean(process.stdout.isTTY)))
-      logger.error('\nBuild Failed!\n\n')
+      logger.error('Build Failed!')
       process.exit(1)
     }
   } else {
@@ -315,7 +315,7 @@ function parsePort (value) {
 function logWarnings (logger, warnings) {
   if ((warnings?.length ?? 0) === 0) return
 
-  logger.warn('\nThere were build warnings:\n')
+  logger.warn('There were build warnings:')
   for (const warning of warnings ?? []) {
     if ('message' in warning) {
       logger.warn(`  ${warning.message}`)
