@@ -1,8 +1,13 @@
 ---
 layout: docs
+docsOrder: 20
+docsParent: /docs/migrations/
+docsPageOnly: true
 ---
 
 # v11 migration
+
+[All migrations](./)
 
 Migrate a `top-bun` project to DOMStack v11 (`@domstack/static`) using this historical guide.
 It covers the package rename and the accompanying changes to commands, types, and file conventions.

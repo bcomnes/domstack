@@ -1,56 +1,69 @@
-/** @import { HtmlResult } from 'fragtml/types.js' */
+/**
+ * @import { PageData, PageInfo } from '#types'
+ * @import { HtmlResult } from 'fragtml/types.js'
+ */
 import { posix } from 'node:path'
 import { load } from 'cheerio'
-import { html } from 'fragtml'
+import { html, raw } from 'fragtml'
+
+/**
+ * @typedef {object} DocsPageVars
+ * @property {number} [docsOrder] Navigation order; unordered pages follow ordered pages.
+ * @property {string} [docsGroup] Optional index group.
+ * @property {string} [docsParent] Canonical ancestor page URL to nest beneath.
+ * @property {boolean} [docsPageOnly] Omit section links for this page.
+ * @property {string} [title]
+ */
+
+/**
+ * @typedef {Pick<PageData<DocsPageVars>, 'vars' | 'renderInnerPage'> & {
+ *   pageInfo: Pick<PageInfo, 'url' | 'type'>
+ * }} NavigationPage
+ */
 
 /**
  * @typedef {object} NavigationEntry
  * @property {string} title
  * @property {string} url Canonical page URL, including a fragment for headings.
  * @property {NavigationEntry[]} sections
+ * @property {string} [group]
  */
 
 export const docsIndexUrl = '/docs/'
 const siteOrigin = 'https://docs.invalid'
 
 /**
- * The index's explicit page list controls membership, order, and page-only links; rendered
- * Markdown supplies titles and real anchor IDs, including custom/duplicate IDs.
+ * Discover source Markdown pages without rendering the index that consumes this data.
+ * Page vars control ordering and grouping; rendered Markdown supplies titles and real anchor IDs.
  *
- * @param {{ pageInfo: { url: string, type: string }, renderInnerPage: () => Promise<unknown> }[]} pages
+ * @param {NavigationPage[]} pages
  * @returns {Promise<NavigationEntry[]>}
  */
 export async function collectDocsNavigation (pages) {
-  const docs = new Map(pages
-    .filter(page => page.pageInfo.type === 'md' && page.pageInfo.url.startsWith(docsIndexUrl))
-    .map(page => [page.pageInfo.url, page]))
-  const index = docs.get(docsIndexUrl)
-  if (!index) throw new Error('Documentation navigation requires /docs/')
-  const $ = load(String(await index.renderInnerPage()))
-  const links = $('.docs-index li > a').toArray()
-  if (!links.length) throw new Error('Documentation navigation requires a page list in .docs-index')
-  const seen = new Set()
+  const docs = pages
+    .filter(page => page.pageInfo.type === 'md' && page.pageInfo.url.startsWith(docsIndexUrl) && page.pageInfo.url !== docsIndexUrl)
+    .sort((a, b) => {
+      const group = (a.vars.docsGroup ?? '').localeCompare(b.vars.docsGroup ?? '')
+      if (group) return group
+      const order = (a.vars.docsOrder ?? Infinity) - (b.vars.docsOrder ?? Infinity)
+      return order || a.pageInfo.url.localeCompare(b.pageInfo.url)
+    })
 
-  return Promise.all(links.map(async link => {
-    const url = new URL($(link).attr('href') ?? '', siteOrigin + docsIndexUrl)
-    const page = docs.get(url.pathname)
-    if (url.origin !== siteOrigin || url.hash || url.search || !page || page === index) {
-      throw new Error(`Invalid documentation index page: ${url.href}`)
-    }
-    if (seen.has(url.pathname)) throw new Error(`Duplicate documentation index page: ${url.pathname}`)
-    seen.add(url.pathname)
+  /** @type {NavigationEntry[]} */
+  const entries = await Promise.all(docs.map(async page => {
+    const url = page.pageInfo.url
     const document = load(String(await page.renderInnerPage()))
     /** @type {NavigationEntry[]} */
     const sections = []
     /** @type {NavigationEntry | undefined} */
     let parent
-    const headings = $(link).attr('data-navigation') === 'page-only' ? document([]) : document('h2[id], h3[id]')
+    const headings = page.vars.docsPageOnly ? document([]) : document('h2[id], h3[id]')
     headings.each((_, heading) => {
       const title = document(heading).text().trim()
       if (title.toLowerCase() === 'table of contents') return
       const section = {
         title,
-        url: `${url.pathname}#${encodeURIComponent(document(heading).attr('id') ?? '')}`,
+        url: `${url}#${encodeURIComponent(document(heading).attr('id') ?? '')}`,
         sections: [],
       }
       if (heading.tagName === 'h3' && parent) {
@@ -61,16 +74,55 @@ export async function collectDocsNavigation (pages) {
       if (heading.tagName === 'h2') parent = section
     })
     return {
-      title: document('h1').first().text().trim() || $(link).text().trim(),
-      url: url.pathname,
+      title: document('h1').first().text().trim() || page.vars.title || url,
+      url,
       sections,
+      ...(page.vars.docsGroup ? { group: page.vars.docsGroup } : {}),
     }
   }))
+
+  const entriesByUrl = new Map(entries.map(entry => [entry.url, entry]))
+  const parentsByUrl = new Map(docs.map(page => [page.pageInfo.url, page.vars.docsParent]))
+  /** @type {NavigationEntry[]} */
+  const roots = []
+  for (const entry of entries) {
+    const parentUrl = parentsByUrl.get(entry.url)
+    if (!parentUrl) {
+      roots.push(entry)
+      continue
+    }
+    const parent = entriesByUrl.get(parentUrl)
+    if (!parent || !parentUrl.endsWith('/') || entry.url === parentUrl || !entry.url.startsWith(parentUrl)) {
+      throw new Error(`Invalid documentation parent for ${entry.url}: ${parentUrl}`)
+    }
+    parent.sections.push(entry)
+  }
+  return roots
+}
+
+/** @param {NavigationEntry[]} entries @returns {HtmlResult} */
+export function docsIndex (entries) {
+  /** @type {Map<string, NavigationEntry[]>} */
+  const groups = new Map()
+  for (const entry of entries) {
+    const name = entry.group ?? ''
+    const group = groups.get(name)
+    if (group) group.push(entry)
+    else groups.set(name, [entry])
+  }
+  return html`
+    <div class="docs-index">
+      ${Array.from(groups, ([name, pages]) => html`
+        ${name ? html`<h2 id="${name.toLowerCase().replace(/\s+/g, '-')}">${name}</h2>` : ''}
+        ${sectionLinks(pages, docsIndexUrl)}
+      `)}
+    </div>
+  `
 }
 
 /**
  * Relative links preserve deployment prefixes without needing a configured
- * base URL. This also handles flat pages such as /docs/v12-migration.html.
+ * base URL. This also handles flat pages such as /docs/migrations/v12-migration.html.
  * @param {string} from Canonical current page URL.
  * @param {string} to Canonical target URL, optionally with a fragment.
  */
@@ -88,7 +140,8 @@ export function sectionLinks (entries, pageUrl) {
     <ul>
       ${entries.map(entry => html`
         <li>
-          <a href="${navigationHref(pageUrl, entry.url)}">${entry.title}</a>
+          <a href="${navigationHref(pageUrl, entry.url)}"
+            ${entry.url === pageUrl ? raw('aria-current="page"') : ''}>${entry.title}</a>
           ${entry.sections.length ? sectionLinks(entry.sections, pageUrl) : ''}
         </li>
       `)}

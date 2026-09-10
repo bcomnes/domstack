@@ -1,5 +1,6 @@
 ---
 layout: docs
+docsOrder: 100
 handlebars: false
 ---
 
@@ -190,11 +191,3 @@ const layout: LayoutFunction<{site: string}, VDOMNode, string> = ({ children }) 
   return `<html><body>${html}</body></html>`
 }
 ```
-
-[htm]: https://github.com/developit/htm
-[fragtml]: https://www.npmjs.com/package/fragtml
-[fragtml-docs]: https://github.com/bcomnes/fragtml#readme
-[preact]: https://preactjs.com/
-[domstack-sync]: https://www.npmjs.com/package/@domstack/sync
-[hb]: https://handlebarsjs.com
-[esbuild]: http://esbuild.github.io

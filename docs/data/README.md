@@ -1,5 +1,6 @@
 ---
 layout: docs
+docsOrder: 80
 handlebars: false
 ---
 
@@ -39,20 +40,28 @@ export type GlobalData = {
 export type ArchiveData = Pick<GlobalData, 'blogPostsHtml'>
 
 const buildGlobalData: AsyncGlobalDataFunction<GlobalData> = async ({ pages }) => {
-  const blogPosts = pages
-    .filter(p => p.vars?.layout === 'blog' && p.vars?.publishDate)
-    .sort((a, b) => new Date(b.vars.publishDate) - new Date(a.vars.publishDate))
-    .slice(0, 5)
+  const blogPosts: typeof pages = []
+  for (const page of pages) {
+    if (page.vars.layout === 'blog' && page.vars.publishDate) {
+      blogPosts.push(page)
+    }
+  }
+  blogPosts.sort((a, b) => new Date(b.vars.publishDate).valueOf() - new Date(a.vars.publishDate).valueOf())
+
+  const entries = []
+  for (const page of blogPosts.slice(0, 5)) {
+    entries.push(html`
+      <li class="blog-entry h-entry">
+        <a class="blog-entry-link u-url u-uid p-name" href="${page.pageInfo.url}">
+          ${page.vars.title}
+        </a>
+      </li>
+    `)
+  }
 
   const blogPostsHtml = render(html`
     <ul class="blog-index-list">
-      ${blogPosts.map(p => html`
-        <li class="blog-entry h-entry">
-          <a class="blog-entry-link u-url u-uid p-name" href="${p.pageInfo.url}">
-            ${p.vars?.title}
-          </a>
-        </li>
-      `)}
+      ${entries}
     </ul>
   `)
 
@@ -268,12 +277,12 @@ The current `page` is a `PageInfo` object with the following properties:
 
 Each `PageData` entry supplied to `global.data.ts` exposes this object as `page.pageInfo`.
 Combine `page.pageInfo.url` with a `siteUrl` from `global.vars.ts` to build an absolute URL: `` `${vars.siteUrl}${page.pageInfo.url}` ``.
-The [RSS and JSON feed recipe](../cookbook/#generate-rss-and-json-feeds) uses this pattern for feed item URLs.
+The [RSS and JSON feed recipe](../cookbook/feeds/) uses this pattern for feed item URLs.
 
 ### Rendering page content
 
 Each `PageData` instance passed to `global.data.ts` exposes two methods for accessing rendered output.
-This is useful when derived data needs to embed a page's content, such as the [`global.data.ts`](https://github.com/bcomnes/domstack/blob/master/examples/blog/src/global.data.ts) implementation used by the [RSS and JSON feed recipe](../cookbook/#generate-rss-and-json-feeds).
+This is useful when derived data needs to embed a page's content, such as the [`global.data.ts`](https://github.com/bcomnes/domstack/blob/master/examples/blog/src/global.data.ts) implementation used by the [RSS and JSON feed recipe](../cookbook/feeds/).
 
 - `await page.renderInnerPage()` returns the page's inner render output as produced by its builder, without a layout wrapper applied.
   This is often an HTML string, such as Markdown rendered to HTML, but the type depends on the page builder.

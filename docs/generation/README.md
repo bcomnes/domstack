@@ -1,5 +1,6 @@
 ---
 layout: docs
+docsOrder: 90
 handlebars: false
 ---
 
@@ -97,7 +98,7 @@ export default function tagIndexes ({ data }) {
 }
 ```
 
-For a complete two-stage factory example, see [Generate yearly blog index pages](../cookbook/#generate-yearly-blog-index-pages).
+For a complete two-stage factory example, see [Generate yearly blog index pages](../cookbook/yearly-blog-indexes/).
 
 #### Asynchronous factory
 
@@ -160,7 +161,7 @@ This keeps factories downstream of source discovery without exposing generation 
 | `children` | Optional static child content or inline `PageFunction` rendered before the layout. |
 | `draft` | When `true`, the page is omitted unless the CLI uses `--drafts` or a programmatic build uses `buildDrafts: true`. |
 
-Generated pages use [global assets](../assets/#global-assets) and [layout assets](../layouts/#layout-styles).
+Generated pages use [global bundles](../global-bundles/) and [layout assets](../layouts/#layout-styles).
 They do not have page-local `style.css`, `client.js`, or worker entries because they do not have their own source-page directory.
 
 ### Generated-pages types
@@ -214,13 +215,13 @@ const archivePages: PagesFunction<ArchiveVars, string, Record<string, never>, Ar
 export default archivePages
 ```
 
-For metadata-driven redirects, see the cookbook recipe [Generate redirect pages from page metadata](../cookbook/#generate-redirect-pages-from-page-metadata).
+For metadata-driven redirects, see the cookbook recipe [Generate redirect pages from page metadata](../cookbook/redirect-pages/).
 
 ## Templates
 
 Template files let you write any kind of file type to the `dest` folder while customizing the contents with global vars and explicitly subscribed global data.
 Template files can be located anywhere in the `src` directory.
-For a complete feed-generation recipe, see [Generate RSS and JSON feeds](../cookbook/#generate-rss-and-json-feeds).
+For a complete feed-generation recipe, see [Generate RSS and JSON feeds](../cookbook/feeds/).
 
 Template files look like:
 

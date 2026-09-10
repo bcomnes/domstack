@@ -1,5 +1,6 @@
 ---
 layout: docs
+docsOrder: 140
 handlebars: false
 ---
 
@@ -331,11 +332,3 @@ Add `--domstackManifest` only when the service worker or test needs the public `
 
 Chokidar events are serialized through a promise chain.
 Each page rebuild or esbuild restart completes before the next queued filesystem event is processed, preventing overlapping DOMStack rebuilds during rapid saves.
-
-[htm]: https://github.com/developit/htm
-[fragtml]: https://www.npmjs.com/package/fragtml
-[fragtml-docs]: https://github.com/bcomnes/fragtml#readme
-[preact]: https://preactjs.com/
-[domstack-sync]: https://www.npmjs.com/package/@domstack/sync
-[hb]: https://handlebarsjs.com
-[esbuild]: http://esbuild.github.io

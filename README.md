@@ -5,46 +5,43 @@
 [![Actions Status](https://github.com/bcomnes/domstack/workflows/tests/badge.svg)](https://github.com/bcomnes/domstack/actions)
 [![Coverage Status](https://coveralls.io/repos/github/bcomnes/domstack/badge.svg?branch=master)](https://coveralls.io/github/bcomnes/domstack?branch=master)
 
-DOMStack builds static websites and multi-page apps from HTML, Markdown, CSS, and JavaScript.
-A few file conventions connect Node.js and esbuild: directories define URLs, layouts wrap pages, and colocated styles and client code become browser bundles.
-Use the rendering libraries you like, including TypeScript and JSX where supported.
+DOMStack builds static websites and multi-page apps from [HTML](https://developer.mozilla.org/en-US/docs/Web/HTML), [Markdown](https://commonmark.org/), [CSS](https://developer.mozilla.org/en-US/docs/Web/CSS), and [JavaScript](https://developer.mozilla.org/en-US/docs/Web/JavaScript).
+No special syntax to learn.
+No editor plugins to install.
+No complex configuration files to learn.
+Just create pages in a directory, and DOMStack builds your site.
+It's built around [Node.js](https://nodejs.org/) and [esbuild](https://esbuild.github.io/), with a bunch of features that are there when you need them and stay out of the way when you don't.
 
-[Documentation](docs/) · [Examples](docs/example-projects/) · [v12 migration guide](docs/v12-migration.md) · [Discord](https://discord.gg/AVTsPRGeR9)
+[Documentation](docs/) · [Examples](docs/example-projects/) · [v12 migration guide](docs/migrations/v12-migration.md) · [Discord](https://discord.gg/AVTsPRGeR9)
 
-## Getting started
+`domstack` supports:
 
-Use Node.js 22.18+ within the 22.x release line, or Node.js 24 or newer.
-The v12 prerelease is published under the `beta` npm tag.
+- A natural [filesystem-based router](docs/pages/#page-files)
+- Reusable and composable [layouts](docs/layouts/) with fully customizable [templating systems](docs/layouts/#custom-layout-renderers)
+- [Markdown pages with frontmatter](docs/pages/#md-pages)
+- [HTML pages](docs/pages/#html-pages) (with template support)
+- [TS/JS pages](docs/pages/#ts-pages) (pages generated with anything you want)
+- A comprehensive [variable cascade system](docs/pages/#variables) (global, layout, and page variables)
+- [Static asset management](docs/assets/#static-assets)
+- A [live-reloading development server](docs/cli/#usage) (with cross-device sync and debugging tools)
+- Fast builds
+- Faster [incremental rebuilds](docs/implementation/#watch-mode)
+- [esbuild](docs/settings/#esbuildsettingsts)-based [page](docs/pages/#page-client-bundles), [layout](docs/layouts/#layout-client-bundles), and [global client bundling](docs/global-bundles/#global-client-bundles) ([TSX/JSX supported](docs/pages/#tsx))
+- [esbuild](docs/settings/#esbuildsettingsts)-based [page](docs/pages/#page-styles), [layout](docs/layouts/#layout-styles), and [global CSS bundling](docs/global-bundles/#global-styles)
+- A [global data introspection and collection pipeline](docs/data/)
+- Expressive (optional) [TypeScript support](docs/typescript/)
+- A comprehensive [build manifest](docs/workers/#domstack-manifest) (for offline MPA support)
+- [Service worker support](docs/workers/#service-workers)
+- [Web worker support](docs/workers/#web-workers)
+- [Page generators](docs/generation/#generated-pages) (generate pages from other pages)
+- [Template generators](docs/generation/#templates) (generate anything from pages)
+- [Test helpers](docs/api/#test-builds)
+- A [default layout and stylesheet](docs/layouts/#the-default-rootlayoutts) if none are provided
+- Extensive [examples](docs/example-projects/), [docs](docs/), and a [cookbook](docs/cookbook/)
 
-In a new project directory:
+## Core concepts
 
-```sh
-npm init -y
-npm install --save-dev @domstack/static@beta
-mkdir src
-```
-
-Create `src/page.md`:
-
-```markdown
-# Hello, web
-
-This page is built with DOMStack.
-```
-
-Build the site:
-
-```sh
-npx domstack
-```
-
-The generated page is `public/index.html`, rendered with the bundled default layout and stylesheet.
-Run `npx domstack --watch` to rebuild on changes and open the local development server's URL.
-Use `npx domstack --serve` to preview a production build.
-
-## Core Concepts
-
-`domstack` builds pages from a `src` directory into a destination directory, usually `public`.
+`domstack` builds pages from a `src` directory into a destination directory (usually `public`).
 Page URLs follow the source directory structure, creating a filesystem router without separate routing configuration.
 
 Given this source:
@@ -115,34 +112,51 @@ The `root` layout is the default, while pages can select another layout through 
 Global styles, browser code, and variables apply across the site regardless of where their files live in `src`.
 
 Templates and other advanced features can generate additional output as needed.
-The following sections document each convention in detail.
+The [documentation](docs/) covers each convention in detail.
 
-`domstack` ships with sane defaults, so you can point it at a standard [markdown-documented repository](https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github) and build a website with near-zero preparation.
+`domstack` ships with sane defaults, so you can point it at a standard [Markdown-documented repository](https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github) and build a website with near-zero preparation.
 
-## Documentation
+## Installation and first build
 
-- [Pages](docs/pages/)
-- [Layouts](docs/layouts/)
-- [Assets](docs/assets/)
-- [Settings](docs/settings/)
-- [Data](docs/data/)
-- [Generation](docs/generation/)
-- [TypeScript](docs/typescript/)
-- [Workers](docs/workers/)
-- [Recipes](docs/cookbook/)
-- [CLI](docs/cli/)
-- [API](docs/api/)
-- [Implementation](docs/implementation/)
-- [About](docs/about/)
+Use Node.js 22.18+ within the 22.x release line, or Node.js 24 or newer.
+The v12 prerelease is published under the `beta` npm tag.
+
+In a new project directory:
+
+```sh
+npm init -y
+npm install --save-dev @domstack/static@beta
+mkdir src
+```
+
+Create `src/page.md`:
+
+```markdown
+# Hello, web
+
+This page is built with DOMStack.
+```
+
+Build the site:
+
+```sh
+npx domstack
+```
+
+The generated page is `public/index.html`, rendered with the bundled default layout and stylesheet.
+Run `npx domstack --watch` to rebuild on changes, then open the local development server's URL.
+Use `npx domstack --serve` to preview a production build.
 
 ## Links
 
+- [Documentation](docs/)
+- [About](docs/about/)
 - [Examples](docs/example-projects/)
 - [Changelog](CHANGELOG.md)
 - [Contributing](CONTRIBUTING.md)
 - [Dependency graph](dependencygraph.svg)
 - [fragtml documentation](https://github.com/bcomnes/fragtml#readme)
-- [Historical v11 migration guide](docs/v11-migration.md)
+- [Historical v11 migration guide](docs/migrations/v11-migration.md)
 
 ## License
 

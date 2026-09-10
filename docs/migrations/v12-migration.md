@@ -1,8 +1,13 @@
 ---
 layout: docs
+docsOrder: 10
+docsParent: /docs/migrations/
+docsPageOnly: true
 ---
 
 # v12 migration
+
+[All migrations](./)
 
 This guide covers breaking and notable changes when moving from domstack v11 to v12.
 
@@ -128,7 +133,7 @@ Layouts can now export a static `parentLayout` name instead of importing and inv
 Pages still select the innermost layout through `vars.layout`.
 `parentLayout` is an optional named string export, not a field in `vars`, an import path, or a callback.
 Omitting it leaves the selected layout without a parent; a non-root layout is not automatically wrapped by `root`.
-See the [layout module reference](layouts/#layout-module-exports) and [nested-layout declaration contract](layouts/#declaring-nested-layouts) for name resolution, validation, rendering order, and rebuild behavior.
+See the [layout module reference](../layouts/#layout-module-exports) and [nested-layout declaration contract](../layouts/#declaring-nested-layouts) for name resolution, validation, rendering order, and rebuild behavior.
 
 ```ts
 // article.layout.ts
@@ -377,7 +382,7 @@ Update any prerelease-based code that reads global data from `vars` or accepts `
 
 The resolved `page.vars` object is cached and shallow-frozen.
 Treat it as read-only rather than mutating it during collection processing.
-See [Page data and introspection](data/#page-data-and-introspection) for examples and rendering guidance.
+See [Page data and introspection](../data/#page-data-and-introspection) for examples and rendering guidance.
 
 ---
 
@@ -394,7 +399,7 @@ Most Markdown pages require no source changes. Sites should compare rendered out
 
 The alert plugin provides markup, not site-specific presentation.
 Import its styles or provide equivalent rules if you use alert blocks.
-See [Markdown settings](settings/#markdown-it.settings.ts) for DOMStack's default plugin list and override API.
+See [Markdown settings](../settings/#markdown-it.settings.ts) for DOMStack's default plugin list and override API.
 
 ---
 
@@ -428,7 +433,7 @@ They do not have page-local `style.css`, `client.ts`, or `*.worker.ts` assets be
 Factories receive global vars, their declared global data, and metadata for their own `*.pages.ts` file.
 They do not receive raw source-backed or generated pages.
 Likewise, `results.siteData.pages` remains source discovery data and does not include generated pages.
-See [Generated pages](generation/#generated-pages) for all export forms, types, and lifecycle details.
+See [Generated pages](../generation/#generated-pages) for all export forms, types, and lifecycle details.
 
 ---
 
@@ -456,7 +461,7 @@ test('builds the home page', async () => {
 
 This is additive.
 Existing tests that construct `DomStack` directly can continue to do so.
-See [Programmatic test builds](api/#test-builds) for the complete return shape and repository examples.
+See [Programmatic test builds](../api/#test-builds) for the complete return shape and repository examples.
 
 ---
 

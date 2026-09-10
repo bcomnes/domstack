@@ -1,5 +1,6 @@
 ---
 layout: docs
+docsOrder: 110
 handlebars: false
 ---
 
@@ -395,11 +396,3 @@ const site = new DomStack('src', 'public', {
 const results = await site.build()
 console.log(results.domstackManifest?.version)
 ```
-
-[htm]: https://github.com/developit/htm
-[fragtml]: https://www.npmjs.com/package/fragtml
-[fragtml-docs]: https://github.com/bcomnes/fragtml#readme
-[preact]: https://preactjs.com/
-[domstack-sync]: https://www.npmjs.com/package/@domstack/sync
-[hb]: https://handlebarsjs.com
-[esbuild]: http://esbuild.github.io

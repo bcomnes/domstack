@@ -3,6 +3,9 @@
 const navigation = document.querySelector<HTMLDetailsElement>('.docs-navigation')
 const links = Array.from(navigation?.querySelectorAll<HTMLAnchorElement>('a[href]') ?? [])
 const headings = Array.from(document.querySelectorAll<HTMLElement>('#docs-content h2[id], #docs-content h3[id], #docs-content h4[id]'))
+const breadcrumbList = document.querySelector<HTMLOListElement>('.docs-breadcrumb ol')
+const breadcrumbPage = breadcrumbList?.querySelector<HTMLElement>('[aria-current="page"]')
+let breadcrumbHeading: HTMLAnchorElement | undefined
 // Keep this breakpoint in sync with docs.layout.css.
 const desktop = matchMedia('(min-width: 64rem)')
 
@@ -35,11 +38,36 @@ function sectionLink (target: HTMLElement | null): HTMLAnchorElement | undefined
   }
 }
 
+function updateBreadcrumb (target: HTMLElement | null): void {
+  if (!breadcrumbList || !breadcrumbPage) return
+  if (!target || !headings.includes(target)) {
+    breadcrumbHeading?.parentElement?.remove()
+    breadcrumbHeading = undefined
+    breadcrumbPage.setAttribute('aria-current', 'page')
+    return
+  }
+  if (!breadcrumbHeading) {
+    const item = document.createElement('li')
+    item.className = 'docs-breadcrumb-section'
+    breadcrumbHeading = document.createElement('a')
+    breadcrumbHeading.setAttribute('aria-current', 'location')
+    item.append(breadcrumbHeading)
+    breadcrumbList.append(item)
+  }
+  const title = target.textContent?.trim().replace(/\s+/g, ' ') ?? ''
+  breadcrumbHeading.textContent = title
+  breadcrumbHeading.title = title
+  breadcrumbHeading.setAttribute('href', `#${encodeURIComponent(target.id)}`)
+  breadcrumbPage.removeAttribute('aria-current')
+}
+
 function updateLocation (reveal: boolean): void {
   // The browser accepts both literal and decoded fragments. Markdown heading
   // IDs can themselves contain percent escapes. Resolve the same target before
   // the browser's initial fragment scroll (when :target may not yet be set).
-  const currentSection = sectionLink(fragmentTarget(location.hash))
+  const target = fragmentTarget(location.hash)
+  updateBreadcrumb(target)
+  const currentSection = sectionLink(target)
   let active: HTMLAnchorElement | undefined
   for (const link of links) {
     const samePage = link.pathname === location.pathname

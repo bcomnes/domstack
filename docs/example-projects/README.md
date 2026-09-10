@@ -1,5 +1,6 @@
 ---
 layout: docs
+docsOrder: 20
 handlebars: false
 ---
 
@@ -55,11 +56,3 @@ If you have a project that uses domstack and could act as a nice example, please
 
 (Did you make a cool DOMStack website that is open source?
 PR it to the list!)
-
-[htm]: https://github.com/developit/htm
-[fragtml]: https://www.npmjs.com/package/fragtml
-[fragtml-docs]: https://github.com/bcomnes/fragtml#readme
-[preact]: https://preactjs.com/
-[domstack-sync]: https://www.npmjs.com/package/@domstack/sync
-[hb]: https://handlebarsjs.com
-[esbuild]: http://esbuild.github.io

@@ -1,5 +1,6 @@
 ---
 layout: docs
+docsOrder: 10
 handlebars: false
 ---
 
@@ -74,10 +75,4 @@ When you run `domstack --eject`, it will:
 
 It is recommended to eject early in your project so that you can customize the root layout as you see fit, and decouple yourself from potential unwanted changes in the default layout as new versions of DOMStack are released.
 
-[htm]: https://github.com/developit/htm
-[fragtml]: https://www.npmjs.com/package/fragtml
-[fragtml-docs]: https://github.com/bcomnes/fragtml#readme
-[preact]: https://preactjs.com/
 [domstack-sync]: https://www.npmjs.com/package/@domstack/sync
-[hb]: https://handlebarsjs.com
-[esbuild]: http://esbuild.github.io

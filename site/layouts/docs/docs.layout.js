@@ -49,8 +49,14 @@ export function navigation (entries, pageUrl) {
             if (!entry.sections.length) return html`<li>${link}</li>`
             return html`
               <li>
-                <details ${current ? raw('open') : ''}>
-                  <summary>${link}</summary>
+                <details ${pageUrl.startsWith(entry.url) ? raw('open') : ''}>
+                  <summary>
+                    ${link}
+                    <svg class="docs-navigation-chevron" xmlns="http://www.w3.org/2000/svg"
+                      width="16" height="16" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                      aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6" /></svg>
+                  </summary>
                   ${sectionLinks(entry.sections, pageUrl)}
                 </details>
               </li>
@@ -66,24 +72,15 @@ export function navigation (entries, pageUrl) {
  * Keep Markdown's local ToCs useful on GitHub, but replace them on the website.
  * Parsing only inner content also keeps the shared navigation out of itself.
  * @param {string} content
- * @param {NavigationEntry[]} entries
- * @param {string} pageUrl
  */
-export function documentationContent (content, entries, pageUrl) {
+export function documentationContent (content) {
   const $ = load(content, {}, false)
   $('.table-of-contents').each((_, toc) => {
     const heading = $(toc).prev()
     if (heading.is('h2, h3') && heading.text().trim().toLowerCase() === 'table of contents') heading.remove()
     $(toc).remove()
   })
-  if (pageUrl === docsIndexUrl) {
-    const entriesByUrl = new Map(entries.map(entry => [entry.url, entry]))
-    $('.docs-index li > a').each((_, link) => {
-      const url = new URL($(link).attr('href') ?? '', `https://docs.invalid${pageUrl}`)
-      const entry = entriesByUrl.get(url.pathname)
-      if (entry?.sections.length) $(link).after(render(sectionLinks(entry.sections, pageUrl)))
-    })
-  }
+
   return raw($.html())
 }
 
@@ -94,7 +91,7 @@ export default function docsLayout ({ children, page, data }) {
       ${navigation(data.docsNavigation, page.url)}
       <main class="docs-content" id="docs-content" tabindex="-1">
         ${breadcrumb(page.url)}
-        ${documentationContent(typeof children === 'string' ? children : render(children), data.docsNavigation, page.url)}
+        ${documentationContent(typeof children === 'string' ? children : render(children))}
       </main>
       <dialog class="docs-menu" id="docs-menu" aria-labelledby="docs-menu-title">
         <div class="docs-menu-header">

@@ -7,7 +7,7 @@ import { breadcrumb } from './docs.layout.js'
 for (const { url, labels, links } of [
   { url: '/docs/', labels: ['Home', 'docs'], links: ['../'] },
   { url: '/docs/pages/', labels: ['Home', 'docs', 'pages'], links: ['../../', '../'] },
-  { url: '/docs/v12-migration.html', labels: ['Home', 'docs', 'v12-migration'], links: ['../', './'] },
+  { url: '/docs/migrations/v12-migration.html', labels: ['Home', 'docs', 'migrations', 'v12-migration'], links: ['../../', '../', './'] },
   { url: '/docs/nested/page/', labels: ['Home', 'docs', 'nested', 'page'], links: ['../../../', '../../', '../'] },
 ]) {
   test(`breadcrumbs for ${url}`, () => {

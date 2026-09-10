@@ -1,5 +1,6 @@
 ---
 layout: docs
+docsOrder: 150
 handlebars: false
 ---
 
@@ -79,7 +80,7 @@ How does `domstack` relate to [`top-bun`](https://www.npmjs.com/package/top-bun)
 
 :   `top-bun` is the former name of `domstack` and was named after the bakery in Wallace & Gromit's [A Matter of Loaf and Death 🍞](https://www.youtube.com/watch?v=zXBmZLmfQZ4) which my kids were watching at the time.
 The project and package were renamed to DOMStack and `@domstack/static` in v11.
-See the [`top-bun` to DOMStack migration guide](../../docs/v11-migration.md) when updating an older project.
+See the [`top-bun` to DOMStack migration guide](../migrations/v11-migration.md) when updating an older project.
 The `bun` project took off
 and hosed the projects chances at SEO!
 
@@ -118,10 +119,4 @@ Its core feature set includes:
 See the [GitHub roadmap](https://github.com/users/bcomnes/projects/3/) for planned work, or the [changelog](../../CHANGELOG.md) for completed changes.
 Issues, ideas, and examples of sites built with DOMStack are welcome.
 
-[htm]: https://github.com/developit/htm
-[fragtml]: https://www.npmjs.com/package/fragtml
-[fragtml-docs]: https://github.com/bcomnes/fragtml#readme
-[preact]: https://preactjs.com/
 [domstack-sync]: https://www.npmjs.com/package/@domstack/sync
-[hb]: https://handlebarsjs.com
-[esbuild]: http://esbuild.github.io

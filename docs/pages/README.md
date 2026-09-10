@@ -1,5 +1,6 @@
 ---
 layout: docs
+docsOrder: 30
 handlebars: false
 ---
 
@@ -399,10 +400,7 @@ Template files receive a similar set of variables:
 - `data`: Only the top-level values selected from [`global.data.ts`](../data/#global-data) by the template's `dataDeps` named export.
 - `template`: Information about the current template file.
 
-[htm]: https://github.com/developit/htm
 [fragtml]: https://www.npmjs.com/package/fragtml
-[fragtml-docs]: https://github.com/bcomnes/fragtml#readme
 [preact]: https://preactjs.com/
-[domstack-sync]: https://www.npmjs.com/package/@domstack/sync
 [hb]: https://handlebarsjs.com
 [esbuild]: http://esbuild.github.io

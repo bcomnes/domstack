@@ -1,5 +1,6 @@
 ---
 layout: docs
+docsOrder: 40
 handlebars: false
 ---
 
@@ -7,7 +8,7 @@ handlebars: false
 
 Layouts wrap page content in shared HTML and can contribute variables, data subscriptions, styles, and browser code.
 Use a single root layout for a simple site, or declare parent layouts to share structure across sections.
-For a complete working example, see [Compose nested layouts](../cookbook/#compose-nested-layouts).
+For a complete working example, see [Compose nested layouts](../cookbook/nested-layouts/).
 
 ## Table of Contents
 
@@ -99,11 +100,9 @@ Watch mode tracks the resolved chain and each layout's static imports for source
 Each layout can also declare its own [global-data subscriptions](../data/#data-subscriptions) through `vars.dataDeps`.
 DOMStack passes only those declared keys to that layout's `data` argument; a child does not receive its parent's data or need to repeat its declarations.
 For rebuilds, the page depends on the union of its own subscriptions and every layout's subscriptions in the declared chain.
-See [Data subscriptions in nested layouts](../cookbook/#data-subscriptions-in-nested-layouts) for typed declarations and examples.
+See [Data subscriptions in nested layouts](../cookbook/nested-layouts/#data-subscriptions-in-nested-layouts) for typed declarations and examples.
 
-Manual function composition remains supported, but `parentLayout` is recommended so DOMStack manages the ancestor chain and its rebuild dependencies.
-Do not both declare a parent and call its render function manually, or the parent will render twice.
-See [Compose nested layouts](../cookbook/#compose-nested-layouts) for a complete example, asset guidance, and the manual-composition alternative.
+See [Compose nested layouts](../cookbook/nested-layouts/) for a complete example and asset guidance.
 
 ## Layout variables
 
@@ -229,7 +228,7 @@ Layout styles are bundled with [`esbuild`][esbuild] and can bundle relative and 
 DOMStack loads stylesheets in this order: optional defaults, global, outermost-to-innermost layouts, then page.
 Under the normal [CSS cascade](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_cascade/Cascade), later styles take precedence when origin, importance, cascade layer, and specificity are otherwise equal.
 This lets page styles override layout styles, and inner layout styles override outer layout styles.
-See [Assets](../assets/#optional-cascade-layers) for optional cascade-layer conventions.
+See [Global bundles](../global-bundles/#optional-cascade-layers) for optional cascade-layer conventions.
 
 ## Layout client bundles
 

@@ -1,5 +1,6 @@
 ---
 layout: docs
+docsOrder: 70
 handlebars: false
 ---
 
@@ -7,7 +8,7 @@ handlebars: false
 
 Use settings modules to define site-wide variables and customize DOMStack's JavaScript, CSS, and Markdown build tools.
 These files can live anywhere under `src`; they configure the build and are not emitted as browser assets.
-For shared scripts and styles, see [Assets](../assets/).
+For shared scripts and styles, see [Global bundles](../global-bundles/).
 
 Only one file may match each global filename pattern.
 When DOMStack discovers a duplicate, it keeps the first file it found, skips the duplicate, and reports a warning.
