@@ -4,6 +4,12 @@ import { createServer } from 'node:http'
 import { extname, resolve, sep } from 'node:path'
 import { testBuild } from '../index.js'
 
+// Exercise the website's real exclusions, rather than maintaining a second list.
+const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'))
+export const websiteOptions = {
+  ignore: pkg.scripts['build:domstack'].match(/--ignore (\S+)/)[1].split(','),
+}
+
 const fixtureSrc = resolve(import.meta.dirname, '../test-cases/general-features/src')
 const contentTypes = new Map([
   ['.css', 'text/css; charset=utf-8'],
@@ -13,8 +19,10 @@ const contentTypes = new Map([
 ])
 
 export const test = base.extend({
-  siteURL: async ({ context }, use) => {
-    const build = await testBuild(fixtureSrc)
+  siteSrc: [fixtureSrc, { option: true }],
+  siteOptions: [{}, { option: true }],
+  siteURL: async ({ context, siteSrc, siteOptions }, use) => {
+    const build = await testBuild(siteSrc, siteOptions)
     const publicDir = build.dest
     const server = createServer(async (request, response) => {
       try {

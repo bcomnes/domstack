@@ -1,4 +1,13 @@
-# Migration Guide: domstack v12
+---
+layout: docs
+docsOrder: 10
+docsParent: /docs/migrations/
+docsPageOnly: true
+---
+
+# v12 migration
+
+[All migrations](./)
 
 This guide covers breaking and notable changes when moving from domstack v11 to v12.
 
@@ -13,17 +22,19 @@ Then apply the v12 changes below.
 
 ## Runtime requirements
 
-DOMStack v12 supports Node.js 22 and Node.js 24 or newer:
+DOMStack v12 supports Node.js 22.18+ within the 22.x release line, and Node.js 24 or newer:
 
 ```json
 {
   "engines": {
-    "node": "^22.0.0 || >=24.0.0"
+    "node": "^22.18.0 || >=24.0.0"
   }
 }
 ```
 
-Node.js 23 satisfied v11's `>=22` engine range but is not supported by v12. Move development, CI, and deployment environments to Node.js 22 LTS or Node.js 24+ before upgrading.
+Node.js 23 satisfied v11's `>=22` engine range but is not supported by v12.
+Move development, CI, and deployment environments to Node.js 22.18+ within the 22.x release line, or Node.js 24+ before upgrading.
+The minimum matches `@domstack/sync` and enables native TypeScript type stripping without an experimental flag.
 
 ---
 
@@ -122,7 +133,7 @@ Layouts can now export a static `parentLayout` name instead of importing and inv
 Pages still select the innermost layout through `vars.layout`.
 `parentLayout` is an optional named string export, not a field in `vars`, an import path, or a callback.
 Omitting it leaves the selected layout without a parent; a non-root layout is not automatically wrapped by `root`.
-See the [layout module reference](../README.md#layout-module-exports) and [nested-layout declaration contract](../README.md#declaring-nested-layouts) for name resolution, validation, rendering order, and rebuild behavior.
+See the [layout module reference](../layouts/#layout-module-exports) and [nested-layout declaration contract](../layouts/#declaring-nested-layouts) for name resolution, validation, rendering order, and rebuild behavior.
 
 ```ts
 // article.layout.ts
@@ -369,7 +380,9 @@ Update any prerelease-based code that reads global data from `vars` or accepts `
 - `renderInnerPage()` renders page content without its layout
 - `renderFullPage()` renders the complete page
 
-The resolved `page.vars` object is cached and shallow-frozen. Treat it as read-only rather than mutating it during collection processing. See [Page data and introspection](../README.md#page-data-and-introspection) for examples and rendering guidance.
+The resolved `page.vars` object is cached and shallow-frozen.
+Treat it as read-only rather than mutating it during collection processing.
+See [Page data and introspection](../data/#page-data-and-introspection) for examples and rendering guidance.
 
 ---
 
@@ -384,7 +397,9 @@ Most Markdown pages require no source changes. Sites should compare rendered out
 - Depend on exact generated HTML in CSS, tests, or content transforms
 - Use definition lists or unusual YAML frontmatter values
 
-The alert plugin provides markup, not site-specific presentation. Import its styles or provide equivalent rules if you use alert blocks. See [Markdown settings](../README.md#markdown-itsettingsts) for DOMStack's default plugin list and override API.
+The alert plugin provides markup, not site-specific presentation.
+Import its styles or provide equivalent rules if you use alert blocks.
+See [Markdown settings](../settings/#markdown-it.settings.ts) for DOMStack's default plugin list and override API.
 
 ---
 
@@ -418,7 +433,7 @@ They do not have page-local `style.css`, `client.ts`, or `*.worker.ts` assets be
 Factories receive global vars, their declared global data, and metadata for their own `*.pages.ts` file.
 They do not receive raw source-backed or generated pages.
 Likewise, `results.siteData.pages` remains source discovery data and does not include generated pages.
-See [Generated Pages](../README.md#generated-pages) for all export forms, types, and lifecycle details.
+See [Generated pages](../generation/#generated-pages) for all export forms, types, and lifecycle details.
 
 ---
 
@@ -444,7 +459,9 @@ test('builds the home page', async () => {
 })
 ```
 
-This is additive. Existing tests that construct `DomStack` directly can continue to do so. See [Programmatic test builds](../README.md#programmatic-test-builds) for the complete return shape and repository examples.
+This is additive.
+Existing tests that construct `DomStack` directly can continue to do so.
+See [Programmatic test builds](../api/#test-builds) for the complete return shape and repository examples.
 
 ---
 
@@ -562,7 +579,7 @@ This lets DOMStack inject the finalized `manifest.version` into `/service-worker
 
 ## Migration checklist
 
-- [ ] Run development, CI, and deployment builds on Node.js 22 LTS or Node.js 24+. Do not use Node.js 23.
+- [ ] Run development, CI, and deployment builds on Node.js 22.18+ within the 22.x release line, or Node.js 24+. Do not use Node.js 23.
 - [ ] If you import public types from `@domstack/static`, update those imports to `@domstack/static/types.js`.
 - [ ] If you rely on BrowserSync-specific dev-server behavior, test watch mode with `@domstack/sync`.
 - [ ] If you use the new `--serve` preview, keep it separate from watch modes and use `--port` only with `--serve`.

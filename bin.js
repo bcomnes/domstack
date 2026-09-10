@@ -83,6 +83,10 @@ const options = {
     type: 'boolean',
     help: 'watch and build the src folder without serving',
   },
+  verbose: {
+    type: 'boolean',
+    help: 'show debug logs, including the build tree and individual copy operations',
+  },
   serve: {
     type: 'boolean',
     help: 'build once and serve the destination directory without watching',
@@ -222,7 +226,7 @@ domstack eject actions:
     opts.copy = copyPaths.map(p => resolve(cwd, p))
   }
 
-  const logger = createDomStackLogger()
+  const logger = createDomStackLogger(argv['verbose'] ? 'debug' : 'info')
   opts.logger = logger
   const domStack = new DomStack(src, dest, opts)
   /** @type {BsInstance | null} */
@@ -256,8 +260,9 @@ domstack eject actions:
   if (!argv['watch'] && !argv['watch-only']) {
     try {
       const results = await domStack.build()
-      logger.info(tree(generateTreeData(cwd, src, dest, results)))
+      logger.debug(tree(generateTreeData(cwd, src, dest, results)))
       logWarnings(logger, results?.warnings)
+      logger.info(`Built ${relative(cwd, src) || '.'} → ${relative(cwd, dest) || '.'}`)
       logger.info('\nBuild Success!\n\n')
       if (argv['serve']) {
         buildServer = await createServer({
@@ -277,7 +282,7 @@ domstack eject actions:
         }
       }
       if ('results' in err) delete err.results
-      logger.error(inspect(err, { depth: 999, colors: true }))
+      logger.error(formatDiagnostic(err, Boolean(process.stdout.isTTY)))
       logger.error('\nBuild Failed!\n\n')
       process.exit(1)
     }
@@ -285,7 +290,7 @@ domstack eject actions:
     await domStack.watch({
       serve: !argv['watch-only'],
       onInitialBuild: (initialResults) => {
-        logger.info(tree(generateTreeData(cwd, src, dest, initialResults)))
+        logger.debug(tree(generateTreeData(cwd, src, dest, initialResults)))
         logWarnings(logger, initialResults?.warnings)
       },
     })
@@ -315,12 +320,29 @@ function logWarnings (logger, warnings) {
     if ('message' in warning) {
       logger.warn(`  ${warning.message}`)
     } else {
-      logger.warn(inspect(warning, { depth: 999, colors: true }))
+      logger.warn(formatDiagnostic(warning, Boolean(process.stdout.isTTY)))
     }
   }
 }
 
+/**
+ * Keep nested causes, locations, and every diagnostic visible in CLI output.
+ * @param {unknown} value
+ * @param {boolean} colors
+ */
+function formatDiagnostic (value, colors) {
+  return inspect(value, {
+    depth: null,
+    maxArrayLength: null,
+    maxStringLength: null,
+    colors,
+  })
+}
+
 run().catch(err => {
-  console.error(new Error('Unhandled domstack error', { cause: err }))
+  console.error(formatDiagnostic(
+    new Error('Unhandled domstack error', { cause: err }),
+    Boolean(process.stderr.isTTY)
+  ))
   process.exit(1)
 })

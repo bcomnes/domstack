@@ -13,6 +13,7 @@
     "types/**/*",
     "lib/**/*",
     "test-cases/**/*",
+    "site/**/*",
     "index.js",
     "bin.js",
     "types.ts"

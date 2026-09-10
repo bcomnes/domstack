@@ -24,13 +24,7 @@ jobs:
       - run: npm i
       - run: npx playwright install --with-deps chromium
       - name: Run tests
-        run: |
-          node_major=$(node -p "process.versions.node.split('.')[0]")
-          if [ "$node_major" -lt 23 ]; then
-            NODE_OPTIONS="--experimental-strip-types" npm test
-          else
-            npm test
-          fi
+        run: npm test
       - name: Coveralls
         uses: coverallsapp/github-action@v2
         with:

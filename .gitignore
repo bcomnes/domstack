@@ -3,6 +3,7 @@
 !.claude/hooks/
 !.claude/hooks/worktree-hook.sh
 !.claude/settings.json
+.delta/*
 node_modules
 sandbox.js
 .nyc_output

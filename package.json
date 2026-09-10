@@ -22,7 +22,7 @@
     "bin.d.ts",
     "bin.d.ts.map",
     "docs/**/*.md",
-    "global.css",
+    "site/globals/global.css",
     "index.js",
     "index.d.ts",
     "index.d.ts.map",
@@ -45,18 +45,18 @@
     "url": "https://github.com/bcomnes/domstack/issues"
   },
   "engines": {
-    "node": "^22.0.0 || >=24.0.0"
+    "node": "^22.18.0 || >=24.0.0"
   },
   "dependencies": {
     "@11ty/dependency-tree-typescript": "^1.0.0",
-    "@domstack/sync": "^0.0.6",
+    "@domstack/sync": "^0.0.8",
     "argsclopts": "^1.0.4",
     "async-folder-walker": "^3.0.5",
     "chokidar": "^5.0.0",
     "clean-deep": "^3.4.0",
-    "cpx2": "^9.0.2",
+    "cpx2": "^9.0.3",
     "esbuild": "^0.28.1",
-    "fragtml": "^0.0.9",
+    "fragtml": "^0.0.10",
     "handlebars": "^4.7.8",
     "highlight.js": "^11.9.0",
     "ignore": "^7.0.0",
@@ -98,6 +98,7 @@
     "cheerio": "^1.0.0-rc.10",
     "installed-check": "^11.0.0",
     "jsonfeed-to-atom": "^1.2.5",
+    "mermaid": "^11.17.2",
     "neostandard": "^0.13.0",
     "npm-run-all2": "^9.0.2",
     "preact": "^10.29.6",
@@ -129,7 +130,7 @@
     "clean:declarations-lib": "rm -rf $(find lib -type f -name '*.d.ts*' ! -name '*-types.d.ts')",
     "clean-node_modules": "rm -rf node_modules && rm -rf examples/*/node_modules",
     "build": "npm run clean && run-p build:*",
-    "build:domstack": "./bin.js --src . --ignore examples,test-cases,coverage,*.tsconfig.json,fonts",
+    "build:domstack": "./bin.js --src . --ignore examples,test-cases,coverage,*.tsconfig.json,fonts,/lib,/types,/scripts,/plans,/browser-tests,/test-results,/lcov.info,/tsconfig.json,/AGENTS.md,/AGENT.md,/agents.md",
     "build:declaration": "tsc -p declaration.tsconfig.json",
     "build:schema": "node scripts/domstack-manifest-schema.js",
     "watch": "npm run clean && run-p watch:*",

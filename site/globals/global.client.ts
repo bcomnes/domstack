@@ -1,3 +1,5 @@
+/// <reference lib="dom" />
+
 const toc = document.querySelector<HTMLElement>('.table-of-contents')
 const tocLinks = Array.from(toc?.querySelectorAll<HTMLAnchorElement>('a[href^="#"]') ?? [])
 const main = toc?.closest<HTMLElement>('.app-main')

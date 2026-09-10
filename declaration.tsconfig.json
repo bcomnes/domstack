@@ -9,5 +9,6 @@
   "exclude": [
     "**/*.test.js",
     "test-cases/**/*",
+    "site/**/*",
   ]
 }

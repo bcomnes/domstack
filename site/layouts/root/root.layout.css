@@ -1,0 +1,172 @@
+@layer domstack.layout {
+  :root {
+    --site-header-height: 4.5rem;
+    --site-border: color-mix(in srgb, var(--text) 16%, var(--background));
+    --site-muted: color-mix(in srgb, var(--text) 70%, var(--background));
+    --site-glass-background: var(--background);
+    --site-glass-filter: none;
+    scrollbar-gutter: stable;
+    scroll-padding-block-start: calc(var(--site-header-height) + 1rem);
+  }
+
+  body.site {
+    display: flex;
+    flex-direction: column;
+    min-block-size: 100dvh;
+    margin: 0;
+    padding: 0;
+  }
+
+  .site-body {
+    flex: 1;
+    min-inline-size: 0;
+  }
+
+  .site-header,
+  .site-footer {
+    font-family: var(--system-sans, system-ui, sans-serif);
+    font-size: 0.875rem;
+  }
+
+  .site-header {
+    position: sticky;
+    inset-block-start: 0;
+    z-index: 20;
+    background: var(--site-glass-background);
+    -webkit-backdrop-filter: var(--site-glass-filter);
+    backdrop-filter: var(--site-glass-filter);
+    border-block-end: 1px solid var(--site-border);
+  }
+
+  /* The header and mobile menu share a theme-aware glass surface, with a
+     solid fallback for unsupported browsers and reduced transparency. */
+  @supports (backdrop-filter: blur(12px)) or (-webkit-backdrop-filter: blur(12px)) {
+    :root {
+      --site-glass-background: color-mix(in srgb, var(--background) 80%, transparent);
+      --site-glass-filter: blur(12px);
+    }
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    :root {
+      --site-glass-background: var(--background);
+      --site-glass-filter: none;
+    }
+  }
+
+  .site-header-inner,
+  .site-footer-inner {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    max-inline-size: 90rem;
+    margin-inline: auto;
+    padding-inline: max(1.25rem, env(safe-area-inset-left)) max(1.25rem, env(safe-area-inset-right));
+  }
+
+  .site-header-inner {
+    block-size: var(--site-header-height);
+  }
+
+  .site-brand {
+    color: var(--text);
+    font-family: 'DSWeiss-Gotisch', serif;
+    font-size: 1.8rem;
+    line-height: 1;
+    text-decoration: none;
+  }
+
+  .site-header .site-links {
+    margin-inline-start: auto;
+  }
+
+  .site-links {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+  }
+
+  .site-links a {
+    color: var(--site-muted);
+    text-decoration: none;
+  }
+
+  .site-links a:hover,
+  .site-links a[aria-current] {
+    color: var(--text);
+    text-decoration: underline;
+    text-underline-offset: 0.3em;
+  }
+
+  .site-menu-toggle {
+    display: grid;
+    place-items: center;
+    flex: none;
+    inline-size: 2.75rem;
+    block-size: 2.75rem;
+    padding: 0;
+    border: 1px solid var(--site-border);
+    border-radius: 0.4rem;
+    background: var(--background);
+    color: var(--text);
+    box-shadow: none;
+    cursor: pointer;
+  }
+
+  .site-menu-toggle[hidden] {
+    display: none;
+  }
+
+  .site-skip-link {
+    position: fixed;
+    inset-block-start: 0.5rem;
+    inset-inline-start: 1rem;
+    z-index: 30;
+    padding: 0.5rem 1rem;
+    background: var(--background);
+  }
+
+  .site-skip-link:not(:focus) {
+    clip-path: inset(50%);
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+  }
+
+  .site-footer {
+    border-block-start: 1px solid var(--site-border);
+    color: var(--site-muted);
+  }
+
+  .site-footer .site-brand {
+    font-size: 1.25rem;
+    color: var(--site-muted);
+  }
+
+  .site-footer-inner {
+    justify-content: space-between;
+    flex-wrap: wrap;
+    padding-block: 2rem;
+  }
+
+  .site-copyright {
+    margin: 0;
+  }
+
+  @media (max-width: 40rem) {
+    .site-header-inner,
+    .site-links {
+      gap: 1rem;
+    }
+
+    .site-examples-link {
+      display: none;
+    }
+
+    .site-footer-inner {
+      align-items: start;
+      flex-direction: column;
+    }
+  }
+}

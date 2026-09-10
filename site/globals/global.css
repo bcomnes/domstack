@@ -1,3 +1,5 @@
+/* A custom root layout opts into DOMStack's shared base styles explicitly. */
+@import '../../lib/defaults/default.style.css';
 @import 'markdown-it-github-alerts/styles/github-base.css' layer(domstack.global);
 @import 'markdown-it-github-alerts/styles/github-colors-light.css' layer(domstack.global);
 @import 'markdown-it-github-alerts/styles/github-colors-dark-media.css' layer(domstack.global);
@@ -7,7 +9,7 @@
 
   @font-face {
     font-family: 'DSWeiss-Gotisch';
-    src: url('./fonts/ds-weiss-gotisch/DSWeiss-Gotisch.ttf') format('truetype');
+    src: url('../../fonts/ds-weiss-gotisch/DSWeiss-Gotisch.ttf') format('truetype');
   }
 
   body {
@@ -16,6 +18,17 @@
 
   h1, h2, h3, h4, h5, h6 {
     font-family: 'DSWeiss-Gotisch', serif;
+  }
+
+  /* Site navigation uses relative URLs; absolute web links point off-site.
+     Empty alternative text keeps this visual marker out of accessible names.
+     Image links (including badges) already supply their own presentation. */
+  a:is([href^='https://' i], [href^='http://' i], [href^='//']):not(:has(img, svg))::after {
+    content: '↗' / '';
+    display: inline-block;
+    margin-inline-start: 0.2em;
+    font-family: var(--system-sans, system-ui, sans-serif);
+    font-size: 0.8em;
   }
 
   /* Generated Markdown table of contents */
@@ -27,7 +40,7 @@
       max-inline-size: calc(16rem + 4rem + 56em + 2em);
     }
 
-    .docs-content {
+    .app-main.has-sidebar-toc > .docs-content {
       grid-column: 2;
       min-inline-size: 0;
     }

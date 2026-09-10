@@ -1,0 +1,294 @@
+@layer domstack.layout {
+  .docs-shell {
+    --docs-navigation-width: 17rem;
+    container-type: inline-size;
+    min-inline-size: 0;
+    max-inline-size: 90rem;
+    margin-inline: auto;
+  }
+
+  .docs-content {
+    --docs-content-padding-inline: max(1.25rem, env(safe-area-inset-right));
+    min-inline-size: 0;
+    max-inline-size: 56rem;
+    padding: 0 var(--docs-content-padding-inline) 4rem;
+    overflow-wrap: anywhere;
+  }
+
+  .docs-content > h1 {
+    margin-block-start: 2rem;
+    font-size: 2.5rem;
+  }
+
+  .docs-content h2 {
+    font-size: 1.9rem;
+  }
+
+  .docs-content h3 {
+    font-size: 1.5rem;
+  }
+
+  .docs-content h4 {
+    font-size: 1.25rem;
+  }
+
+  .docs-navigation {
+    padding: 1.25rem;
+    overflow-wrap: anywhere;
+    font-family: var(--system-sans, system-ui, sans-serif);
+    font-size: 0.85rem;
+    line-height: 1.5;
+    border-block-end: 1px solid var(--site-border);
+
+    summary {
+      cursor: pointer;
+    }
+
+    > summary {
+      font-weight: 600;
+    }
+
+    nav > a,
+    nav > ul > li > a,
+    summary a {
+      display: block;
+      padding: 0.65rem 0.75rem;
+      color: var(--text);
+      border-radius: 0.35rem;
+    }
+
+    nav > a {
+      margin-block-end: 0.5rem;
+    }
+
+    nav summary {
+      display: flex;
+      align-items: center;
+      list-style: none;
+      border-radius: 0.35rem;
+    }
+
+    nav summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .docs-navigation-chevron {
+      display: block;
+      flex: none;
+      inline-size: 16px;
+      block-size: 16px;
+      margin-inline: 6px;
+      transform-origin: center;
+
+      @media (prefers-reduced-motion: no-preference) {
+        transition: transform 200ms ease;
+      }
+    }
+
+    nav details[open] > summary > .docs-navigation-chevron {
+      transform: rotate(-180deg);
+    }
+
+    nav summary a {
+      flex: 1;
+    }
+
+    ul {
+      list-style: none;
+      margin: 0;
+      padding-inline-start: 1rem;
+    }
+
+    details > ul {
+      margin: 0.3rem 0 0.75rem 0.75rem;
+      border-inline-start: 1px solid var(--site-border);
+    }
+
+    li > a {
+      display: block;
+      padding: 0.4rem 0.75rem;
+      border-radius: 0.35rem;
+    }
+
+    nav > ul {
+      padding: 0;
+    }
+
+    a {
+      color: var(--site-muted);
+      text-decoration: none;
+      box-shadow: none;
+    }
+
+    a[aria-current] {
+      color: var(--link-text);
+      font-weight: 600;
+    }
+
+    a[aria-current='page'] {
+      background: color-mix(in srgb, var(--link-text) 10%, var(--background));
+    }
+
+    a:hover {
+      color: var(--link-text);
+      text-decoration: underline;
+    }
+  }
+
+  .docs-menu {
+    inline-size: 100%;
+    max-inline-size: none;
+    block-size: 100dvh;
+    max-block-size: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    /* The full-viewport backdrop supplies the glass behind the menu content. */
+    background: transparent;
+    color: var(--text);
+    overflow: hidden;
+  }
+
+  .docs-menu[open] {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .docs-menu::backdrop {
+    background: var(--site-glass-background);
+    -webkit-backdrop-filter: var(--site-glass-filter);
+    backdrop-filter: var(--site-glass-filter);
+  }
+
+  .docs-menu-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex: none;
+    min-block-size: var(--site-header-height);
+    padding: 0.75rem 1.25rem;
+    border-block-end: 1px solid var(--site-border);
+    font: 600 0.9rem var(--system-sans, system-ui, sans-serif);
+
+    form {
+      margin: 0;
+    }
+
+    button {
+      min-block-size: 2.75rem;
+      padding: 0.5rem 0.75rem;
+      font: inherit;
+      box-shadow: none;
+    }
+  }
+
+  #docs-menu-title {
+    font: 400 1.8rem / 1.2 'DSWeiss-Gotisch', serif;
+  }
+
+  .docs-menu .docs-navigation {
+    min-block-size: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-block-end: max(2rem, env(safe-area-inset-bottom));
+    border: 0;
+  }
+
+  .docs-shell[data-navigation-enhanced] .docs-navigation > summary {
+    display: none;
+  }
+
+  html:has(.docs-menu[open]) {
+    overflow: hidden;
+  }
+
+  /* Keep this breakpoint in sync with docs.layout.client.ts. */
+  @media (min-width: 64rem) {
+    .docs-shell {
+      display: grid;
+      grid-template-columns: var(--docs-navigation-width) minmax(0, 1fr);
+      min-block-size: calc(100dvh - var(--site-header-height));
+    }
+
+    .docs-content {
+      --docs-content-padding-inline: clamp(2rem, 4vw, 4rem);
+      --docs-breadcrumb-width: calc(100cqi - var(--docs-navigation-width) - 1px);
+      grid-column: 2;
+      padding: 0 var(--docs-content-padding-inline) 5rem;
+      border-inline-start: 1px solid var(--site-border);
+    }
+
+    .docs-shell > .docs-navigation {
+      position: sticky;
+      inset-block-start: var(--site-header-height);
+      align-self: start;
+      max-block-size: calc(100dvh - var(--site-header-height));
+      overflow-y: auto;
+      scrollbar-gutter: stable;
+      border: 0;
+
+      > summary {
+        display: none;
+      }
+    }
+  }
+
+  .docs-breadcrumb {
+    position: sticky;
+    inset-block-start: var(--site-header-height);
+    z-index: 10;
+    box-sizing: border-box;
+    inline-size: var(--docs-breadcrumb-width, 100cqi);
+    margin-inline: calc(-1 * var(--docs-content-padding-inline));
+    margin-block-end: 1.5rem;
+    padding: 0.5rem var(--docs-content-padding-inline);
+    border-block-end: 1px solid var(--site-border);
+    background: var(--site-glass-background);
+    -webkit-backdrop-filter: var(--site-glass-filter);
+    backdrop-filter: var(--site-glass-filter);
+    font: 0.8rem / 1.5 var(--system-sans, system-ui, sans-serif);
+    color: var(--site-muted);
+
+    ol {
+      display: flex;
+      flex-wrap: wrap;
+      column-gap: 0.5em;
+      padding: 0;
+      margin: 0;
+      list-style: none;
+    }
+
+    li {
+      display: flex;
+      align-items: center;
+      column-gap: 0.5em;
+      min-inline-size: 0;
+    }
+
+    li + li::before {
+      content: '';
+      flex: none;
+      inline-size: 0.35em;
+      block-size: 0.35em;
+      border-inline-end: 1px solid currentColor;
+      border-block-end: 1px solid currentColor;
+      transform: rotate(-45deg);
+    }
+
+    .docs-breadcrumb-section {
+      flex: 1 1 0;
+
+      a {
+        min-inline-size: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+    }
+
+    li > span {
+      color: var(--text);
+    }
+  }
+}

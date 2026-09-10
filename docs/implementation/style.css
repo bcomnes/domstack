@@ -1,0 +1,36 @@
+@layer domstack.page {
+  .mermaid {
+    max-inline-size: 100%;
+    overflow-x: auto;
+    padding: 1rem;
+    border: 1px solid var(--site-border);
+    border-radius: 0.4rem;
+    background: var(--background);
+    box-shadow: none;
+  }
+
+  .mermaid > svg {
+    display: block;
+    /* Preserve Mermaid's intrinsic dimensions so text stays readable. */
+    max-inline-size: none;
+    max-width: none;
+    margin-inline: auto;
+  }
+
+  /* Mermaid embeds ID-scoped theme rules in each SVG. Override only its
+     surfaces and labels so diagrams follow the site's live light/dark theme. */
+  .mermaid .node :is(rect, polygon, circle, path),
+  .mermaid .edgeLabel rect {
+    fill: var(--background) !important;
+    stroke: var(--site-muted) !important;
+  }
+
+  .mermaid .cluster rect {
+    fill: color-mix(in srgb, var(--text) 3%, var(--background)) !important;
+    stroke: var(--site-muted) !important;
+  }
+
+  .mermaid text {
+    fill: var(--text) !important;
+  }
+}

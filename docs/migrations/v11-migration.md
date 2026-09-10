@@ -1,6 +1,17 @@
-# Migration Guide: top-bun → domstack
+---
+layout: docs
+docsOrder: 20
+docsParent: /docs/migrations/
+docsPageOnly: true
+---
 
-This guide covers all breaking changes introduced in the `next` branch relative to `master`, documenting what needs to change when migrating from `top-bun` to `domstack` (`@domstack/static`).
+# v11 migration
+
+[All migrations](./)
+
+Migrate a `top-bun` project to DOMStack v11 (`@domstack/static`) using this historical guide.
+It covers the package rename and the accompanying changes to commands, types, and file conventions.
+For v12, apply the [v12 migration](v12-migration.md) afterward.
 
 ## Table of Contents
 
@@ -190,7 +201,9 @@ Two new filenames are now recognized and processed by domstack. If you have exis
 
 ### `global.data.js` (and `.ts`, `.mjs`, `.mts`, `.cjs`, `.cts`)
 
-Now treated as the global data aggregation file. Its default export is called with `{ pages }` after source-backed pages are initialized and before generated-page factories run. See [section 7](#7-postvars-removed--globaldatajs) above.
+Now treated as the global data aggregation file.
+Its default export is called with `{ pages }` after source-backed pages are initialized and before generated-page factories run.
+See [section 7](#7.-postvars-removed-%E2%86%92-global.data.js) above.
 
 ### `markdown-it.settings.js` (and `.ts`, `.mjs`, `.mts`, `.cjs`, `.cts`)
 
