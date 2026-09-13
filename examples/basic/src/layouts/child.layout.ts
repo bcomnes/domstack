@@ -23,3 +23,12 @@ const articleLayout: LayoutFunction<PageVars, string | HtmlResult, string> = ({ 
 }
 
 export default articleLayout
+
+declare module '@domstack/static/types.js' {
+  interface LayoutRegistry {
+    child: {
+      parentLayout: typeof parentLayout
+      render: typeof articleLayout
+    }
+  }
+}

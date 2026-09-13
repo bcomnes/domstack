@@ -1,19 +1,15 @@
 /**
- * @import { PageFunction } from '@domstack/static/types.js'
- * @import { PageVars } from '../layouts/root.layout.ts'
- * @import { HtmlResult } from 'fragtml/types.js'
+ * @import { PageForLayout } from '@domstack/static/types.js'
  */
 import { html } from 'fragtml'
 
-/**
-* @type { PageFunction <PageVars, HtmlResult> }
-*/
-export default async function JSPage ({
+/** @satisfies {PageForLayout<'child'>} */
+const JSPage = async ({
   vars: {
     siteName,
     title,
   }
-}) {
+}) => {
   return html`
   <div class="js-page-example">
     <h1>JavaScript Page Example</h1>
@@ -70,6 +66,8 @@ export default async function JSPage ({
   </div>
   `
 }
+
+export default JSPage
 
 // Define page-specific variables
 export const vars = {

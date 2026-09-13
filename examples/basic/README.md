@@ -71,6 +71,44 @@ src/
 ### Layouts
 The example demonstrates DOMStack's layout system with nested layouts that wrap page content, fully typed with TypeScript interfaces.
 
+### Inferred layout contracts
+
+The [root layout](src/layouts/root.layout.ts) and [child layout](src/layouts/child.layout.ts) register their actual renderer types through the type-only `LayoutRegistry` interface.
+The child registration also references `typeof parentLayout`, linking it to root without repeating the parent name in the type declaration.
+Both renderers keep explicit `LayoutFunction` annotations so their signatures do not depend recursively on their own registrations.
+
+The [JavaScript page](src/js-page/page.js) uses JSDoc to derive its vars and accepted output from the registered child layout:
+
+```js
+/**
+ * @import { PageForLayout } from '@domstack/static/types.js'
+ */
+
+/** @satisfies {PageForLayout<'child'>} */
+```
+
+The `@satisfies` annotation checks the inferred contract while preserving the async function's own Promise return type.
+Its [page.vars.js](src/js-page/page.vars.js) still selects `child` at runtime.
+The page returns a `HtmlResult`, child converts that into a string, and root wraps the result into the final document.
+The registry checks this chain without requiring the page to import `PageVars` or repeat `HtmlResult` in its annotation.
+The [loose-assets TypeScript page](src/js-page/loose-assets/page.ts) similarly uses `PageForLayout<'root'>` for its default root layout.
+
+Registration does not supply missing vars or replace runtime layout selection.
+`siteName` still comes from global vars, and each page supplies its title.
+The example's TypeScript program includes both `.ts` and `.js` files, so `npm test` checks the JSDoc consumer as well as the TypeScript consumer.
+Keep each site's registry in its own TypeScript program to avoid name collisions with other sites.
+
+When working from this repository checkout, build the package declarations before checking the example, and clean them afterward:
+
+```sh
+# Run from the repository root
+npm run build:declaration
+npm --workspace @domstack/basic-example test
+npm --workspace @domstack/basic-example run build
+npm run clean:declarations-top
+npm run clean:declarations-lib
+```
+
 ### Assets
 Static assets like images are co-located with content and automatically copied to the output directory.
 

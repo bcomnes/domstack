@@ -50,3 +50,11 @@ const RootLayout: LayoutFunction<PageVars, string | HtmlResult, string> = async 
 }
 
 export default RootLayout
+
+declare module '@domstack/static/types.js' {
+  interface LayoutRegistry {
+    root: {
+      render: typeof RootLayout
+    }
+  }
+}

@@ -1,11 +1,9 @@
 import { html } from 'fragtml'
-import type { HtmlResult } from 'fragtml/types.js'
-import type { PageFunction } from '@domstack/static/types.js'
+import type { PageForLayout } from '@domstack/static/types.js'
 
 import sharedData from './shared-lib.ts'
-import type { PageVars } from '../../layouts/root.layout.ts'
 
-const JSPage: PageFunction<PageVars, HtmlResult> = async () => {
+const JSPage: PageForLayout<'root'> = async () => {
   return html`
   <div>
     <p>
@@ -24,10 +22,6 @@ const JSPage: PageFunction<PageVars, HtmlResult> = async () => {
 
 export default JSPage
 
-interface PageVariables extends PageVars {
-  title: string;
-}
-
-export const vars: Partial<PageVariables> = {
+export const vars = {
   title: 'JS Page with loose assets',
 }
