@@ -18,7 +18,8 @@
     font-size: 1.2rem;
   }
 
-  #counter {
+  #counter,
+  #shared-counter {
     font-weight: bold;
     color: #0066cc;
   }

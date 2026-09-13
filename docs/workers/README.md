@@ -15,8 +15,8 @@ The DOMStack manifest provides an inventory of built files for service-worker po
 
 ## Web workers
 
-You can easily write [web workers](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Using_web_workers) for a page by adding a file called `${name}.worker.ts` or `${name}.worker.js` where `name` becomes the name of the worker filename in the `workers.json` file.
-DOMStack will build these similarly to page `client.ts` bundles, and will even bundle split their contents with the rest of your site.
+You can write [dedicated workers](https://developer.mozilla.org/en-US/docs/Web/API/Worker) and [shared workers](https://developer.mozilla.org/en-US/docs/Web/API/SharedWorker) for a page by adding a file called `${name}.worker.ts` or `${name}.worker.js`, where `name` becomes the key for the worker filename in `workers.json`.
+DOMStack builds both worker kinds as ESM entry points similarly to page `client.ts` bundles and can split shared dependencies into chunks with the rest of your site.
 
 ```
 page-directory/
@@ -26,7 +26,7 @@ page-directory/
   └── data.worker.js     # Worker for data processing
 ```
 
-To use a woker, load in a `./workers.json` file that is generated along with the worker bundle to get the final name of the worker entrypoint and then create a worker with that filename.
+To use a worker, load the generated `./workers.json` file to get the content-hashed worker entrypoint filename and then create a `Worker` or `SharedWorker` with that filename.
 
 ```typescript
 // First, fetch the workers.json to get worker paths in your client.ts
@@ -51,6 +51,47 @@ async function initializeWorkers() {
 }
 
 const worker = await initializeWorkers();
+```
+
+### Shared workers
+
+A shared worker uses the same generated mapping, but clients communicate through its `port` property.
+All pages connecting to a shared worker must use the same origin and worker URL.
+
+```typescript
+const response = await fetch('./workers.json')
+const workersData = await response.json()
+const sharedWorker = new SharedWorker(
+  new URL(`./${workersData['shared-counter']}`, import.meta.url),
+  { type: 'module' }
+)
+
+sharedWorker.port.onmessage = event => {
+  console.log(event.data)
+}
+sharedWorker.port.start()
+sharedWorker.port.postMessage({ action: 'increment' })
+```
+
+Inside `shared-counter.worker.ts`, accept each connection and communicate through the supplied `MessagePort`.
+
+```typescript
+/// <reference lib="webworker" />
+
+const sharedWorker = globalThis as unknown as SharedWorkerGlobalScope
+let count = 0
+
+sharedWorker.onconnect = event => {
+  const port = event.ports[0]
+  if (!port) return
+
+  port.onmessage = message => {
+    if (message.data.action === 'increment') count++
+    port.postMessage({ count })
+  }
+  port.start()
+  port.postMessage({ count })
+}
 ```
 
 See the [Web Workers Example](https://github.com/bcomnes/domstack/tree/master/examples/worker-example) for a complete implementation.

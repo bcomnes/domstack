@@ -9,12 +9,13 @@
     <h2>About Web Workers</h2>
     <p>
       Web Workers run JavaScript in background threads, allowing you to perform
-      computations without blocking the main UI thread. This example shows two
+      computations without blocking the main UI thread. This example shows three
       worker implementations:
     </p>
     <ul>
-      <li><strong>Counter Worker:</strong> A simple worker that maintains state</li>
-      <li><strong>Fibonacci Worker:</strong> A computationally intensive worker</li>
+      <li><strong>Counter Worker:</strong> A dedicated worker that maintains state for this page</li>
+      <li><strong>Shared Counter Worker:</strong> A shared worker that synchronizes state across tabs</li>
+      <li><strong>Fibonacci Worker:</strong> A computationally intensive dedicated worker</li>
     </ul>
   </section>
 
@@ -31,6 +32,26 @@
         <button id="decrement">Decrement</button>
         <button id="reset">Reset</button>
         <button id="multiply">Multiply by 2</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="demo-section shared-counter">
+    <h2>Shared Counter Worker Example</h2>
+    <p>
+      This counter lives in a <code>SharedWorker</code>, so every same-origin tab
+      connected to this worker sees the same value.
+      Open another tab and change the value in either one to see both update.
+    </p>
+    <div class="demo-container">
+      <div class="counter-display">
+        <p>Shared counter value: <span id="sharedCounter">Connecting…</span></p>
+      </div>
+      <div class="controls">
+        <button id="sharedIncrement">Increment</button>
+        <button id="sharedDecrement">Decrement</button>
+        <button id="sharedReset">Reset</button>
+        <a class="button-link" href="./" target="_blank" rel="noopener">Open another tab</a>
       </div>
     </div>
   </section>
@@ -73,18 +94,27 @@ async function initializeWorkers() {
     new URL(`./${workersData.fibonacci}`, import.meta.url),
     { type: 'module' }
   );
+  const sharedCounterWorker = new SharedWorker(
+    new URL(`./${workersData['shared-counter']}`, import.meta.url),
+    { type: 'module' }
+  );
 
-  return { counterWorker, fibWorker };
+  return { counterWorker, fibWorker, sharedCounterWorker };
 }</code></pre>
     <p>This handles the hashed filenames that get generated during the build process.</p>
     <p>Send messages to workers:</p>
     <pre><code>// Send data to the worker
 counterWorker.postMessage({ action: 'increment' });
-fibWorker.postMessage({ n: 42 });</code></pre>
+fibWorker.postMessage({ n: 42 });
+sharedCounterWorker.port.postMessage({ action: 'increment' });</code></pre>
     <p>Receive responses from workers:</p>
     <pre><code>// Listen for worker responses
 counterWorker.onmessage = (e) => {
   console.log('New count:', e.data.count);
-};</code></pre>
+};
+sharedCounterWorker.port.onmessage = (e) => {
+  console.log('New shared count:', e.data.count);
+};
+sharedCounterWorker.port.start();</code></pre>
   </section>
 </div>
