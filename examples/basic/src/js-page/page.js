@@ -1,5 +1,5 @@
 /**
- * @import { PageForLayout } from '@domstack/static/types.js'
+ * @import { PageForLayout, ValidatePageVars } from '@domstack/static/types.js'
  * @import { default as globalVars } from '../global.vars.ts'
  */
 import { html } from 'fragtml'
@@ -87,10 +87,13 @@ const JSPage = async ({
 export default JSPage
 
 // Define page-specific variables
-export const vars = {
+const pageVars = {
   title: 'JavaScript Page Example',
   description: 'Learn how to use JavaScript pages in DOMStack for dynamic content generation',
   theme: /** @type {const} */ ('light'),
   badge: { label: 'Hands-on example', tone: /** @type {const} */ ('tip') },
   topics: ['TypeScript', 'JSDoc', 'Nested layouts'],
 }
+
+/** @satisfies {ValidatePageVars<'child', typeof pageVars, Awaited<ReturnType<typeof globalVars>>>} */
+export const vars = pageVars

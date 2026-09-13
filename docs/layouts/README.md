@@ -430,6 +430,9 @@ The registry helpers are:
 | `LayoutPageOutput<Name>` | Children type accepted by the innermost layout. |
 | `LayoutResult<Name>` | Awaited output of the outermost renderer, before DOMStack converts it to the final HTML string. |
 | `PageForLayout<Name, PageVars, Data, GlobalVars>` | A `PageFunction` with inferred vars and page output. `Data` remains the page's own data contract and never includes layout data. |
+| `ValidatePageVars<Name, PageVars, GlobalVars>` | The original supplied `PageVars` if actual known sources satisfy every renderer, otherwise `never`. |
+| `GeneratedPageForLayout<Name, PageVars, Data, GlobalVars>` | A strictly checked generated definition with supplied vars, a required literal layout selector, and correctly typed static or inline children. |
+| `PagesForLayout<Name, PageVars, GlobalVars, FactoryData, PageData>` | A factory or async generator producing checked definitions, with separate factory and inline-page data contracts. |
 
 These types describe contracts; they do not supply missing values or select a layout at runtime.
 Required vars without registered defaults still need a global, page, or builder source.
@@ -471,6 +474,43 @@ declare module '@domstack/static/types.js' {
 ```
 
 These imports are erased and do not become runtime or watch dependencies.
+
+### Validating supplied page vars
+
+`PageForLayout` describes a renderer contract but does not prove that your exports supply all required vars.
+Use `ValidatePageVars` at the export boundary for that stronger check:
+
+```ts
+import type { ValidatePageVars } from '@domstack/static/types.js'
+import type globalVars from './global.vars.ts'
+
+const supplied = {
+  layout: 'article' as const,
+  title: 'My article',
+}
+
+export const vars = supplied satisfies ValidatePageVars<
+  'article',
+  typeof supplied,
+  Awaited<ReturnType<typeof globalVars>>
+>
+```
+
+For the registered layouts above, this succeeds if the global provider supplies `siteName`; the article layout supplies `showSidebar`.
+Removing `title` from `supplied`, or omitting `siteName` from the globals, makes the validation type `never` and the export fails to type-check.
+The local `supplied` binding avoids circular inference from checking `typeof vars` within its own initializer.
+JavaScript can use the equivalent `@satisfies {ValidatePageVars<...>}` annotation on `export const vars = supplied`.
+
+Validation uses only actual known sources, without adding renderer requirements as assumed values.
+It merges global vars, outer-to-inner layout defaults, and the supplied page vars, then checks the final object against every renderer.
+`dataDeps` stays in the original page export but is stripped from page/layout vars during validation, matching runtime subscription handling; global vars must not contain `dataDeps`.
+The generic inputs are resolved object types, so use `Awaited<ReturnType<typeof provider>>` for function exports.
+If page vars and frontmatter are separate sources, pass their final shallow-merged shape; TypeScript does not inspect frontmatter automatically.
+Built-in defaults are not inferred automatically: include any relied-on built-ins in the known effective global-vars type.
+
+The name selects the chain to validate, not the runtime layout: keep the actual `layout` export consistent with it.
+These checks cannot prove the accuracy of manually asserted types or validate arbitrary dynamic modules.
+[Registry-aware generated definitions](../generation/#registered-layouts-for-generated-pages) additionally require a matching literal `vars.layout` and validate supplied vars automatically.
 
 ## Custom layout renderers
 

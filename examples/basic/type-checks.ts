@@ -4,6 +4,8 @@ import type {
   LayoutProvidedVars,
   LayoutRequiredVars,
   PageForLayout,
+  ValidatePageVars,
+  GeneratedPageForLayout,
 } from '@domstack/static/types.js'
 import type globalVars from './src/global.vars.ts'
 import type { vars as pageVars } from './src/js-page/page.js'
@@ -19,6 +21,11 @@ type GlobalVars = Awaited<ReturnType<typeof globalVars>>
 type ArticleDefaults = LayoutProvidedVars<'child'>
 type ArticleResolved = LayoutChainVars<'child', GlobalVars, typeof pageVars>
 type AssetResolved = LayoutChainVars<'root', GlobalVars, typeof assetVars>
+
+export type SuppliedPageVars = Expect<Equal<ValidatePageVars<'child', typeof pageVars, GlobalVars>, typeof pageVars>>
+export type MissingTitle = Expect<Equal<ValidatePageVars<'child', {}, GlobalVars>, never>>
+export type MissingGlobalLocale = Expect<Equal<ValidatePageVars<'child', typeof pageVars, { siteName: string }>, never>>
+export type GeneratedMissingTitle = Expect<Equal<GeneratedPageForLayout<'child', {}, Record<string, never>, GlobalVars>, never>>
 
 export type Chain = Expect<Equal<LayoutChain<'child'>, readonly ['root', 'child']>>
 export type GlobalTheme = Expect<Equal<GlobalVars['theme'], 'dark'>>

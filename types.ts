@@ -4,6 +4,10 @@
 // There is intentionally no runtime `types.js` today; this source emits `types.d.ts`,
 // and `types.js` is reserved for a future runtime/type companion entry if needed.
 import type { Results } from './lib/builder.js'
+import type {
+  GeneratedPageDefinition as GeneratedPageDefinitionExport,
+  PagesFunctionParams as PagesFunctionParamsExport,
+} from './lib/build-pages/index.js'
 
 import type { PageFunction as PageFunctionExport } from './lib/build-pages/page-builders/page-writer.js'
 
@@ -198,6 +202,124 @@ export type PageForLayout<
           : never
         : never
   : never
+
+/**
+ * Validate resolved page/frontmatter vars against a registered chain using only
+ * actual known sources: global vars, layout defaults, then page vars. Returns
+ * the original supplied PageVars on success, or never for missing requirements
+ * or incompatible overrides. Unlike PageForLayout, renderer requirements do not
+ * supply a baseline. Name identifies the chain to check, not runtime selection.
+ * dataDeps stays in the export but is removed before checking renderer vars.
+ */
+export type ValidatePageVars<
+  Name extends string,
+  PageVars extends AnyVars,
+  GlobalVars extends AnyVars = {}
+> = [SuppliedLayoutVars<Name, GlobalVars, PageVars>] extends [never] ? never : PageVars
+
+/**
+ * One generated page for a registered layout. vars contains only supplied page
+ * vars plus a required literal layout selector. Inline children receive the
+ * validated final merged vars and their own Data, never the factory's data.
+ * Empty content may be omitted only when the layout accepts an empty string.
+ * Static null/undefined also normalize to empty content; functions are renderers.
+ */
+export type GeneratedPageForLayout<
+  Name extends string,
+  PageVars extends AnyVars = {},
+  Data extends object = Record<string, unknown>,
+  GlobalVars extends AnyVars = {}
+> = SuppliedLayoutVars<Name, GlobalVars, PageVars & { layout: Name }> extends infer ResolvedVars
+  ? [ResolvedVars] extends [never]
+      ? never
+      : [ResolvedVars] extends [AnyVars]
+          ? GeneratedLayoutDefinition<Name, PageVars & { layout: Name }, Extract<ResolvedVars, AnyVars>, Data>
+          : never
+  : never
+
+/**
+ * A sync/async factory or async generator producing pages for one layout.
+ * GlobalVars describes only effective globals available before layout defaults;
+ * FactoryData and PageData are independent subscription contracts. Module
+ * dataDeps subscribes the factory; each definition's vars.dataDeps subscribes
+ * its inline renderer. Type arguments alone do not create subscriptions.
+ */
+export type PagesForLayout<
+  Name extends string,
+  PageVars extends AnyVars = {},
+  GlobalVars extends AnyVars = {},
+  FactoryData extends object = Record<string, unknown>,
+  PageData extends object = Record<string, unknown>
+> = GeneratedPageForLayout<Name, PageVars, PageData, GlobalVars> extends infer Definition
+  ? [Definition] extends [never]
+      ? never
+      : (params: PagesFunctionParamsExport<GlobalVars, FactoryData>) =>
+      GeneratedLayoutResults<Definition> | Promise<GeneratedLayoutResults<Definition>>
+  : never
+
+type GeneratedLayoutResults<Definition> =
+  Definition | Definition[] | AsyncIterable<Definition> | null | undefined
+
+type GeneratedLayoutDefinition<
+  Name extends string,
+  SuppliedVars,
+  ResolvedVars extends AnyVars,
+  Data extends object
+> = Pick<GeneratedPageDefinitionExport, 'outputName' | 'draft'>
+  & { vars: SuppliedVars }
+  & GeneratedLayoutChildren<LayoutPageOutput<Name>, ResolvedVars, Data>
+
+type AwaitCompatible<Children, Whole = Children> =
+  Children extends unknown ? [Awaited<Children>] extends [Whole] ? Children : never : never
+
+type GeneratedLayoutChildren<Children, Vars extends AnyVars, Data extends object> =
+  [AwaitCompatible<Children>] extends [never]
+    ? never
+    : '' extends Children
+      ? { children?: GeneratedLayoutContent<AwaitCompatible<Children>, Vars, Data> | null | undefined }
+      : { children: GeneratedLayoutContent<AwaitCompatible<Children>, Vars, Data> }
+
+// Callable objects can structurally match a plain object children contract but
+// runtime calls them as renderers. Reserve callable/thenable members on static
+// objects; an inline renderer can return objects with ordinary call/apply keys.
+type StaticLayoutContent<Value> = Value extends object
+  ? Value & { call?: never, apply?: never, bind?: never, then?: never }
+  : Value
+
+type RenderedLayoutContent<Value> = Value extends object ? Value & { then?: never } : Value
+
+type GeneratedLayoutContent<Children, Vars extends AnyVars, Data extends object> =
+  StaticLayoutContent<Exclude<Children, AnyFunction | PromiseLike<unknown> | null | undefined>>
+  | PageFunctionExport<Vars, RenderedLayoutContent<Exclude<Children, PromiseLike<unknown>>>, Data>
+
+type WithoutSubscriptions<Vars> = Vars extends unknown ? Omit<Vars, 'dataDeps'> : never
+
+type SuppliedLayoutVars<
+  Name extends string,
+  GlobalVars extends AnyVars,
+  PageVars extends AnyVars
+> = ResolveLayoutChain<Name> extends infer Chain
+  ? [Chain] extends [never]
+      ? never
+      : Chain extends readonly [string, ...string[]]
+        ? 'dataDeps' extends KeysOfUnion<GlobalVars>
+          ? never
+          : MergeRight<
+          MergeRight<GlobalVars, WithoutSubscriptions<MergeLayoutDefaults<Chain>>>,
+          WithoutSubscriptions<PageVars>
+        > extends infer Vars
+            ? [Vars] extends [never]
+                ? never
+                : true extends HasNeverRequired<Vars>
+                  ? never
+                  : EveryRendererAccepts<Chain, Vars> extends true
+                    ? Vars
+                    : never
+            : never
+        : never
+  : never
+
+type KeysOfUnion<Value> = Value extends unknown ? keyof Value : never
 
 type AnyVars = Record<string, any>
 type AnyFunction = (...args: any[]) => any

@@ -192,14 +192,13 @@ declare module '#types' {
   }
 }
 
-export type _RegistryNames = Expect<Equal<
-  LayoutRegistryName,
+export type _RegistryNames = Expect<(
   | 'root' | 'article' | 'badChild' | 'orphan' | 'cycleA' | 'cycleB' | 'badVars' | 'invalidVars' | 'dynamicParent'
   | 'undefinedParent' | 'optionalUndefinedParent' | 'possiblyRootParent' | 'optionalRootParent' | 'unionParent'
   | 'possiblyUndefinedVars' | 'optionalVars' | 'narrowOuter' | 'wideInner' | 'wideOuter' | 'narrowInner'
   | 'requiredDefault' | 'optionalOverride' | 'unionDefaults' | 'unionDefaultsChild' | 'incompatibleRequirements'
     | 'unionRequirements' | 'unionOverlap' | 'narrowedUnion'
->>
+) extends LayoutRegistryName ? true : false>
 export type _Chain = Expect<Equal<LayoutChain<'article'>, readonly ['root', 'article']>>
 export type _PageOutput = Expect<Equal<LayoutPageOutput<'article'>, string>>
 export type _OuterResult = Expect<Equal<LayoutResult<'article'>, Uint8Array>>

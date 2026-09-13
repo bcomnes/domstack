@@ -1,5 +1,5 @@
 import { html } from 'fragtml'
-import type { PageForLayout } from '@domstack/static/types.js'
+import type { PageForLayout, ValidatePageVars } from '@domstack/static/types.js'
 import type globalVars from '../../global.vars.ts'
 
 import sharedData from './shared-lib.ts'
@@ -39,10 +39,16 @@ const JSPage: AssetPage = async ({ vars }) => {
 
 export default JSPage
 
-export const vars = {
+const pageVars = {
   title: 'JS Page with loose assets',
   assets: [
     { label: 'Shared data', kind: 'module' as const },
     { label: 'Local styles', kind: 'stylesheet' as const },
   ],
 }
+
+export const vars = pageVars satisfies ValidatePageVars<
+  'root',
+  typeof pageVars,
+  Awaited<ReturnType<typeof globalVars>>
+>

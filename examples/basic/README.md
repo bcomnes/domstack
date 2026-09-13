@@ -129,9 +129,29 @@ Vars merge shallowly: overriding `badge` must provide the complete required obje
 - `LayoutRequiredVars<'child'>` identifies `title`, `siteName`, and `locale` as required values not supplied by the layouts.
 - `LayoutChainVars` verifies every step of theme precedence, page-only arrays, and global navigation inference.
 - Invalid themes, string reading times, incomplete badge overrides, and incompatible page output are rejected.
+- `ValidatePageVars` checks actual supplied sources and rejects a missing page title or missing global locale, even though those properties are declared in the renderer contract.
 
 The checks live outside `src` so they are not copied into the built site.
 Run them with the example's regular `npm test` command.
+
+#### Checking the exports, not just renderer parameters
+
+The JavaScript and TypeScript source pages now validate their exported vars separately from their renderer signatures.
+Each defines a local `pageVars` object and checks it with `ValidatePageVars` when exporting `vars`.
+This avoids circular inference while ensuring globals, layout defaults, and the actual page export supply every required renderer property.
+`PageForLayout` alone still describes a renderer contract rather than proving that all required values exist.
+
+#### Generated pages with the same registry
+
+[guides.pages.ts](src/guides.pages.ts) uses `PagesForLayout` to generate two child-layout pages:
+
+- `/guides/layout-defaults/` renders async inline content that reads the merged global, root, child, and supplied page vars.
+- `/guides/static-content/` supplies static string children checked against the same layout.
+
+The factory receives only global vars, while the inline renderer receives defaults such as `readingMinutes`, `badge`, and `footer`.
+Each definition must supply its title and an explicit `layout: 'child'`; it does not need to repeat inherited defaults.
+Both factory and inline page declare `Record<string, never>` data contracts, so neither implicitly inherits subscriptions.
+Unlike the JavaScript page's light-theme override, these generated pages inherit the child's dark theme.
 
 When working from this repository checkout, build the package declarations before checking the example, and clean them afterward:
 

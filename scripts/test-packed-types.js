@@ -48,6 +48,7 @@ void stack
 import type { WorkerOptions } from 'node:worker_threads'
 import type {
   DomStackOpts,
+  GeneratedPageForLayout,
   LayoutChain,
   LayoutChainVars,
   LayoutFunction,
@@ -55,7 +56,9 @@ import type {
   LayoutResult,
   PageForLayout,
   PageFunction,
+  PagesForLayout,
   Results,
+  ValidatePageVars,
 } from '@domstack/static/types.js'
 
 const logger = pino({ level: 'silent' })
@@ -114,6 +117,88 @@ const articlePage: ArticlePage = ({ vars, data }) => {
 }
 // @ts-expect-error The article layout accepts string page output.
 const invalidArticlePage: ArticlePage = () => ({ html: 'invalid' })
+
+type _MissingSiteName = Expect<Equal<ValidatePageVars<'article', { slug: string }>, never>>
+type _ValidatedPageVars = Expect<Equal<
+  ValidatePageVars<'article', { slug: string }, { siteName: string }>,
+  { slug: string }
+>>
+type _MissingGeneratedGlobals = Expect<Equal<GeneratedPageForLayout<'article', { slug: string }>, never>>
+type _MissingFactoryGlobals = Expect<Equal<PagesForLayout<'article', { slug: string }>, never>>
+
+type GeneratedArticle = GeneratedPageForLayout<'article', { slug: string }, { body: string }, { siteName: string }>
+type _SuppliedGeneratedVars = Expect<Equal<GeneratedArticle['vars'], { slug: string } & { layout: 'article' }>>
+const generatedArticle: GeneratedArticle = {
+  vars: { layout: 'article', slug: 'generated' },
+  children: ({ vars, data }) => {
+    vars.layout satisfies 'article'
+    vars.siteName.toUpperCase()
+    vars.showSidebar.valueOf()
+    vars.slug.toUpperCase()
+    data.body.toUpperCase()
+    // @ts-expect-error Inline page data does not include factory data.
+    data.slugs
+    return data.body
+  },
+}
+// Layout defaults and globals need not be repeated in the supplied vars.
+const emptyGeneratedArticle: GeneratedArticle = { vars: { layout: 'article', slug: 'empty' } }
+// @ts-expect-error Generated definitions must supply vars.
+const missingGeneratedVars: GeneratedArticle = { children: 'article' }
+// @ts-expect-error The runtime layout selector is required.
+const missingGeneratedLayout: GeneratedArticle = { vars: { slug: 'article' } }
+// @ts-expect-error Supplied page vars are required independently of defaults.
+const missingGeneratedSlug: GeneratedArticle = { vars: { layout: 'article' } }
+// @ts-expect-error The layout selector must be the registered literal.
+const wrongGeneratedLayout: GeneratedArticle = { vars: { layout: 'root', slug: 'article' } }
+// @ts-expect-error Static children must match the article layout input.
+const wrongGeneratedChildren: GeneratedArticle = { vars: { layout: 'article', slug: 'article' }, children: { html: 'invalid' } }
+// @ts-expect-error Inline renderer output must match the article layout input.
+const wrongGeneratedRenderer: GeneratedArticle = { vars: { layout: 'article', slug: 'article' }, children: () => ({ html: 'invalid' }) }
+
+type ArticlePages = PagesForLayout<'article', { slug: string }, { siteName: string }, { slugs: string[] }, { body: string }>
+const articlePages: ArticlePages = ({ vars, data }) => {
+  vars.siteName.toUpperCase()
+  // @ts-expect-error Layout defaults are not available to the factory.
+  vars.showSidebar
+  // @ts-expect-error Generated page vars are not available to the factory.
+  vars.slug
+  // @ts-expect-error Inline page data is not factory data.
+  data.body
+  return data.slugs.map(slug => ({
+    vars: { layout: 'article', slug },
+    children: ({ vars, data }) => {
+      vars.siteName.toUpperCase()
+      vars.showSidebar.valueOf()
+      vars.slug.toUpperCase()
+      // @ts-expect-error Factory data is not merged into inline page data.
+      data.slugs
+      return data.body.toUpperCase()
+    },
+  }))
+}
+const asyncArticlePages: ArticlePages = async ({ data }) => ({
+  vars: { layout: 'article', slug: data.slugs[0] },
+  children: ({ data }) => data.body,
+})
+const iterableArticlePages: ArticlePages = async function * ({ vars, data }) {
+  vars.siteName.toUpperCase()
+  for (const slug of data.slugs) {
+    yield { vars: { layout: 'article', slug }, children: 'article' } satisfies GeneratedArticle
+  }
+}
+
+void generatedArticle
+void emptyGeneratedArticle
+void missingGeneratedVars
+void missingGeneratedLayout
+void missingGeneratedSlug
+void wrongGeneratedLayout
+void wrongGeneratedChildren
+void wrongGeneratedRenderer
+void articlePages
+void asyncArticlePages
+void iterableArticlePages
 
 // The logger option retains Pino's full contract.
 const configuredLogger: pino.Logger | undefined = options.logger
@@ -182,7 +267,7 @@ declare module '@domstack/static/types.js' {
   }
 }
 `),
-    writeFile(path.join(consumerPath, 'js-page.js'), `/** @import { PageForLayout } from '@domstack/static/types.js' */
+    writeFile(path.join(consumerPath, 'js-page.js'), `/** @import { GeneratedPageForLayout, PageForLayout, PagesForLayout } from '@domstack/static/types.js' */
 
 export const layout = 'js-article'
 
@@ -202,6 +287,39 @@ const articlePage = ({ vars, data }) => {
 /** @type {PageForLayout<typeof layout, { slug: string }, { body: string }, { siteName: string }>} */
 // @ts-expect-error The article layout accepts string page output, not a frame.
 const invalidArticlePage = () => ({ html: 'invalid' })
+
+/** @type {GeneratedPageForLayout<typeof layout, { slug: string }, { body: string }, { siteName: string }>} */
+export const generatedArticle = {
+  vars: { layout: 'js-article', slug: 'generated' },
+  children: ({ vars, data }) => {
+    vars.siteName.toUpperCase()
+    vars.showSidebar.valueOf()
+    vars.slug.toUpperCase()
+    // @ts-expect-error Layout data is not merged into inline page data.
+    data.related
+    return data.body.toUpperCase()
+  },
+}
+
+/** @type {PagesForLayout<typeof layout, { slug: string }, { siteName: string }, { slugs: string[] }, { body: string }>} */
+export const articlePages = ({ vars, data }) => {
+  vars.siteName.toUpperCase()
+  // @ts-expect-error Layout defaults are not available to the factory.
+  vars.showSidebar
+  // @ts-expect-error Inline page data is not factory data.
+  data.body
+  return data.slugs.map(slug => ({
+    vars: { layout: 'js-article', slug },
+    children: ({ vars, data }) => {
+      vars.siteName.toUpperCase()
+      vars.showSidebar.valueOf()
+      vars.slug.toUpperCase()
+      // @ts-expect-error Factory data is not merged into inline page data.
+      data.slugs
+      return data.body.toUpperCase()
+    },
+  }))
+}
 
 void invalidArticlePage
 export default articlePage

@@ -247,6 +247,97 @@ export default archivePages
 
 For metadata-driven redirects, see the cookbook recipe [Generate redirect pages from page metadata](../cookbook/redirect-pages/).
 
+### Registered layouts for generated pages
+
+For a [registered layout chain](../layouts/#inferring-registered-layout-chains), use `GeneratedPageForLayout<Name, PageVars, PageData, GlobalVars>` for a definition or `PagesForLayout<Name, PageVars, GlobalVars, FactoryData, PageData>` for a factory.
+These helpers validate required vars from actual known sources, rather than assuming values exist because a renderer requires them.
+`PageVars` describes only what each definition supplies; inline renderers receive the merged globals, layout defaults, and page vars.
+
+For the registered `article` layout in the layout guide, which accepts string content and defaults `showSidebar`, a single definition can be typed as follows:
+
+```ts
+import type { GeneratedPageForLayout } from '@domstack/static/types.js'
+import type globalVars from './global.vars.ts'
+
+type GlobalVars = Awaited<ReturnType<typeof globalVars>>
+
+type ArticleDefinition = GeneratedPageForLayout<
+  'article',
+  { title: string },
+  Record<string, never>,
+  GlobalVars
+>
+
+const article: ArticleDefinition = {
+  outputName: 'article/index.html',
+  vars: { layout: 'article', title: 'Generated article' },
+  children: ({ vars }) => vars.showSidebar ? '<p>With sidebar</p>' : '<p>No sidebar</p>',
+}
+
+export default article
+```
+
+The actual global provider must supply `siteName`, as required by the registered root renderer.
+The definition supplies neither `siteName` nor `showSidebar`, but its inline renderer can access both.
+Its `vars` property is required and must contain the literal `layout: 'article'`, even when a global default would select the same layout.
+A missing title, incompatible override, wrong selector, or incompatible children produces a type error.
+
+Factories keep their own inputs separate from each generated page:
+
+```ts
+import type { DataDeps, PagesForLayout } from '@domstack/static/types.js'
+import type globalVars from './global.vars.ts'
+
+type GlobalVars = Awaited<ReturnType<typeof globalVars>>
+type FactoryData = { articleTitles: string[] }
+type InlineData = { announcement: string }
+type SuppliedVars = {
+  title: string
+  dataDeps: DataDeps<InlineData>
+}
+
+export const dataDeps = ['articleTitles'] satisfies DataDeps<FactoryData>
+
+const articles: PagesForLayout<
+  'article', SuppliedVars, GlobalVars, FactoryData, InlineData
+> = async function * ({ vars: globals, data: factoryData }) {
+  for (const [index, title] of factoryData.articleTitles.entries()) {
+    yield {
+      outputName: `articles/${index}/index.html`,
+      vars: { layout: 'article', title, dataDeps: ['announcement'] },
+      children: ({ vars, data }) => {
+        // vars contains siteName, title, and showSidebar, but not dataDeps.
+        // data contains announcement, not articleTitles or layout subscriptions.
+        return `${globals.siteName}: ${vars.title} — ${data.announcement}`
+      },
+    }
+  }
+}
+
+export default articles
+```
+
+Here the factory sees only effective global vars and its own subscribed data, not layout defaults or page vars.
+The inline page receives its own data contract; `FactoryData` and `PageData` default independently and do not inherit from each other.
+The global-data provider must produce both declared data keys; supplying type arguments does not create subscriptions.
+Escape interpolated content with your template library when producing HTML from untrusted values.
+
+Factories can return one definition, an array, an async iterable, `null`, or `undefined`, directly or through a promise.
+Arrays and iterables contain definitions, not promises or nullish placeholders.
+Use a union of individually checked `GeneratedPageForLayout` types for heterogeneous collections; a single `PagesForLayout` checks one literal selected layout.
+The existing explicit `GeneratedPageDefinition` and `PagesFunction` APIs remain available for dynamic or unregistered layouts.
+
+Children follow the runtime boundary:
+
+- Static content must match the innermost layout's accepted children type.
+- Omitted, `undefined`, or static `null` content becomes an empty string, so these forms are allowed only when that layout accepts `''`.
+- Inline renderer results are awaited and then passed through unchanged, including nullish values; a layout accepting only `null` therefore needs `children: () => null`, not static `null`.
+- Static callable and thenable objects are not supported by this strict helper; use an inline renderer so invocation and awaiting are explicit.
+- Static objects reserve `call`, `apply`, `bind`, and `then` properties to avoid accidentally accepting functions or promises through structural object compatibility.
+- To pass a function as a child's render value, wrap it in an inline renderer that returns the function.
+
+See the [basic example's generated guides](../../examples/basic/src/guides.pages.ts) for static and async inline content using the same registered chain.
+
 ## Templates
 
 Template files let you write any kind of file type to the `dest` folder while customizing the contents with global vars and explicitly subscribed global data.
