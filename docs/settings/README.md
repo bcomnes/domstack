@@ -154,7 +154,12 @@ A settings plugin is configured on every resulting context, so plugins with shar
 Dependencies imported across roots are bundled independently by design, which trades some duplicate output and build work for isolation.
 Bundle roots control code splitting, not access permissions or import boundaries; explicitly shared global or layout bundles can still be loaded by pages in multiple roots.
 Changes to the settings file itself are reloaded when watch mode restarts its builds, but changes to that file's imported dependencies are not independently reloaded.
-Conflicting outputs from custom naming settings fail the build, but output writes are not transactional, so a failed build can leave partial output in the destination.
+Node retains imported ESM modules for the process lifetime, so DOMStack allows at most 256 distinct settings module versions across all settings paths in one process, including failed imports.
+Identical or reverted contents reuse their previous module identity without consuming another version.
+After reaching this limit, loading new settings contents fails with an instruction to restart the DOMStack process; stopping and starting watch contexts does not reset the limit.
+This limits DOMStack-created settings module identities, not total memory usage or Node's ESM cache, and imported dependencies still require a process restart to refresh.
+Conflicting outputs from custom naming settings fail the build when reported through metafiles or in-memory `outputFiles`, but output writes are not transactional, so a failed build can leave partial output in the destination.
+With both `write: true` and `metafile: false`, esbuild exposes neither output list, so DOMStack cannot detect collisions; retain metafiles when using custom output names.
 
 ### Customizing build options
 
