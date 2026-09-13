@@ -31,6 +31,7 @@
     "lib/**/*.d.ts.map",
     "lib/**/*.js",
     "lib/**/*.json",
+    "lib/defaults/default.root.layout.ts",
     "!lib/**/*.test.js",
     "!lib/**/fixtures/**",
     "page.vars.js",

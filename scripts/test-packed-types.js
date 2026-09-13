@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict'
 import { execFile, spawn } from 'node:child_process'
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -21,7 +22,11 @@ try {
     ['pack', '--json', '--ignore-scripts', '--pack-destination', temporaryPath],
     { cwd: projectPath, encoding: 'utf8' }
   )
-  const [{ filename }] = JSON.parse(stdout)
+  const [{ filename, files }] = JSON.parse(stdout)
+  const packedPaths = files.map(/** @param {{ path: string }} file */ file => file.path)
+  assert.ok(packedPaths.includes('lib/defaults/default.root.layout.ts'))
+  assert.ok(packedPaths.includes('lib/defaults/default.root.layout.d.ts'))
+  assert.ok(!packedPaths.includes('lib/defaults/default.root.layout.js'), 'no duplicate JavaScript layout is packaged')
   const tarballPath = path.join(temporaryPath, filename)
 
   await mkdir(consumerPath)
@@ -474,6 +479,27 @@ export default articlePage
     ['install', '--ignore-scripts', '--no-audit', '--no-fund', '--no-package-lock'],
     consumerPath
   )
+  const packedBin = path.join(consumerPath, 'node_modules', '@domstack/static', 'bin.js')
+  for (const language of ['ts', 'js']) {
+    const src = `src-${language}`
+    await mkdir(path.join(consumerPath, src))
+    await writeFile(path.join(consumerPath, src, 'page.html'), '<h1>Packed defaults</h1>')
+    await run(process.execPath, [packedBin, '--eject', '--language', language, '--yes', '--src', src], consumerPath)
+    await run(process.execPath, [packedBin, '--src', src, '--dest', `public-${language}`], consumerPath)
+    assert.match(await readFile(path.join(consumerPath, `public-${language}`, 'index.html'), 'utf8'), /<h1>Packed defaults<\/h1>/)
+  }
+  await mkdir(path.join(consumerPath, 'src-default'))
+  await writeFile(path.join(consumerPath, 'src-default', 'page.html'), '<h1>Canonical default</h1>')
+  await run(process.execPath, [packedBin, '--src', 'src-default', '--dest', 'public-default'], consumerPath)
+  assert.match(await readFile(path.join(consumerPath, 'public-default', 'index.html'), 'utf8'), /<h1>Canonical default<\/h1>/)
+  await writeFile(path.join(consumerPath, 'tsconfig-eject.json'), `${JSON.stringify({
+    extends: './tsconfig.json',
+    // fragtml currently ships a declaration with an unresolved FragmentBoundary.
+    // Still check our ejected source and its public imports, not dependency internals.
+    compilerOptions: { skipLibCheck: true },
+    include: ['src-ts/**/*.ts'],
+  }, null, 2)}\n`)
+
   // Node 26 exercises the missing alias; 24 and 22 guard against duplicate
   // declarations on supported older releases. Check each entry in isolation.
   for (const nodeVersion of [26, 24, 22]) {
@@ -484,7 +510,7 @@ export default articlePage
         consumerPath
       )
     }
-    for (const config of ['tsconfig.json', 'tsconfig-types.json', 'tsconfig-js.json', 'tsconfig-null-checks.json']) {
+    for (const config of ['tsconfig.json', 'tsconfig-types.json', 'tsconfig-js.json', 'tsconfig-null-checks.json', 'tsconfig-eject.json']) {
       console.log(`Checking TypeScript ${devDependencies.typescript}, @types/node ${nodeVersion}, ${config}`)
       await run(
         process.execPath,

@@ -1,23 +1,13 @@
-/**
- * @import { LayoutFunction } from '#types'
- * @import { HtmlResult } from 'fragtml/types.js'
- */
+import type { LayoutFunctionParams } from '#types'
+import type { HtmlResult } from 'fragtml/types.js'
 import { html, raw, render } from 'fragtml'
 
-/**
- * @typedef {{
- *   title: string,
- *   siteName: string,
- *   defaultStyle: boolean,
- *   basePath: string
- * }} DefaultRootLayoutVars
- */
-
-/**
- * Build all of the bundles using esbuild.
- *
- * @type {LayoutFunction<DefaultRootLayoutVars, string | HtmlResult, string>}
- */
+export type DefaultRootLayoutVars = {
+  title: string
+  siteName: string
+  defaultStyle: boolean
+  basePath: string
+}
 export default function defaultRootLayout ({
   vars: {
     title,
@@ -30,7 +20,7 @@ export default function defaultRootLayout ({
   children,
   /* pages */
   /* page */
-}) {
+}: LayoutFunctionParams<DefaultRootLayoutVars, string | HtmlResult>): string {
   return render(html`
     <!DOCTYPE html>
     <html>

@@ -28,6 +28,8 @@ Usage: domstack [options]
     --noEsbuildMeta       skip writing the esbuild metafile to disk
     --domstackManifest    write the domstack manifest to disk
     --eject, -e           eject the DOMStack default layout, style and client into the src flag directory
+    --language            language for --eject: ts or js (default: js)
+    --yes                 skip confirmation for --eject
     --watch, -w           build, watch and serve the site build
     --watch-only          watch and build the src folder without serving
     --verbose             show debug logs, including the build tree and individual copy operations
@@ -66,12 +68,28 @@ When you run `domstack --eject`, it will:
 2.
   Create a default global CSS file at `globals/global.css`
 3.
-  Create a default client-side JavaScript file at `globals/global.client.js`
+  Create a default client-side JavaScript file at `globals/global.client.js` (or `.mjs` depending on your package.json type)
 4.
   Add the necessary dependencies to your package.json:
    - mine.css
    - fragtml
    - highlight.js
+
+Use `domstack --eject --language ts` to write `layouts/root.layout.ts` and `globals/global.client.ts` instead.
+For packages without `"type": "module"`, the TypeScript layout uses `.mts` so Node loads it as ESM without changing your package type.
+The CSS and added dependencies are the same for both languages.
+JavaScript remains the default (`--language js`), with `.js` files in module packages and `.mjs` files otherwise.
+Only `ts` and `js` are accepted language values.
+
+DOMStack maintains one canonical TypeScript root layout and runs it using Node's native type stripping.
+JavaScript eject output is derived from that source using `node:module`'s `stripTypeScriptTypes`, not a separate template.
+The TypeScript output uses the public type-only `@domstack/static/types.js` entry instead of DOMStack's private `#types` alias.
+Keep `@domstack/static` installed for those types; no runtime type import or separate TypeScript compilation step is needed.
+The client is currently comment-only, but receives a `.ts` extension when TypeScript is selected.
+
+For automation, run `domstack --eject --language ts --yes --src src` to skip the confirmation prompt.
+Without `--yes`, eject asks for confirmation before writing files or updating dependencies.
+Eject overwrites its target files, so review or back up existing customizations before proceeding.
 
 It is recommended to eject early in your project so that you can customize the root layout as you see fit, and decouple yourself from potential unwanted changes in the default layout as new versions of DOMStack are released.
 
