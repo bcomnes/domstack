@@ -326,6 +326,152 @@ const articleLayout: LayoutFunction<ArticleLayoutVars, string | HtmlResult, stri
 export default articleLayout
 ```
 
+### Inferring registered layout chains
+
+TypeScript projects can optionally register layouts through module augmentation.
+The registry is type-only: it does not replace filesystem discovery, create runtime imports, or change DOMStack's runtime validation.
+Annotate each renderer with the existing explicit `LayoutFunction` API first, then register the actual exports with `typeof` so the renderer does not recursively depend on its own registry entry.
+
+```ts
+// root.layout.ts
+import type { LayoutFunction } from '@domstack/static/types.js'
+
+export type RootVars = {
+  siteName: string
+  title: string
+}
+
+export type Frame = { html: string }
+
+const rootLayout: LayoutFunction<RootVars, Frame, string> = ({ children }) => {
+  return `<!doctype html><html><body>${children.html}</body></html>`
+}
+
+export default rootLayout
+
+declare module '@domstack/static/types.js' {
+  interface LayoutRegistry {
+    root: {
+      render: typeof rootLayout
+    }
+  }
+}
+```
+
+```ts
+// article.layout.ts
+import type { LayoutFunction } from '@domstack/static/types.js'
+import type { Frame, RootVars } from './root.layout.ts'
+
+export const parentLayout = 'root'
+export const vars = { showSidebar: true }
+
+export type ArticleVars = RootVars & {
+  showSidebar: boolean
+}
+
+const articleLayout: LayoutFunction<ArticleVars, string, Frame> = ({ children }) => ({
+  html: `<article>${children}</article>`,
+})
+
+export default articleLayout
+
+declare module '@domstack/static/types.js' {
+  interface LayoutRegistry {
+    article: {
+      parentLayout: typeof parentLayout
+      vars: typeof vars
+      render: typeof articleLayout
+    }
+  }
+}
+```
+
+A page can then derive its renderer contract from the selected innermost layout:
+
+```ts
+import type { DataDeps, PageForLayout } from '@domstack/static/types.js'
+
+type PageData = { articleBody: string }
+
+export const vars = {
+  layout: 'article',
+  title: 'My article',
+  dataDeps: ['articleBody'] satisfies DataDeps<PageData>,
+}
+
+type ArticlePage = PageForLayout<
+  'article',
+  typeof vars,             // page/frontmatter/builder vars known here
+  PageData,                // this page's data only
+  { siteName: string }      // global vars known here
+>
+
+const page: ArticlePage = ({ vars, data }) => {
+  vars.siteName
+  vars.title
+  vars.showSidebar
+  data.articleBody
+  return '<p>Article body</p>'
+}
+
+export default page
+```
+
+The registry helpers are:
+
+| Type | Result |
+| --- | --- |
+| `LayoutRegistryName` | Registered names in the current TypeScript program. |
+| `LayoutChain<Name>` | Names from the outermost to innermost layout. |
+| `LayoutProvidedVars<Name>` | Layout defaults merged outer-to-inner with shallow override semantics. |
+| `LayoutRequiredVars<Name>` | Required renderer vars not definitely supplied by layout defaults. |
+| `LayoutChainVars<Name, GlobalVars, PageVars>` | Final known vars after global, layout, and page override precedence. |
+| `LayoutPageOutput<Name>` | Children type accepted by the innermost layout. |
+| `LayoutResult<Name>` | Awaited output of the outermost renderer, before DOMStack converts it to the final HTML string. |
+| `PageForLayout<Name, PageVars, Data, GlobalVars>` | A `PageFunction` with inferred vars and page output. `Data` remains the page's own data contract and never includes layout data. |
+
+These types describe contracts; they do not supply missing values or select a layout at runtime.
+Required vars without registered defaults still need a global, page, or builder source.
+Use `LayoutRequiredVars` to inspect those obligations; the global-vars type above assumes a matching global vars export.
+`LayoutVars<T>` retains its existing meaning as the type of a layout vars export.
+
+The helpers await each layout's return type and verify it is accepted by the immediate parent.
+They also reject statically known incompatible vars overrides.
+Unknown names, missing parents, cycles, widened or union parent names, malformed entries, incompatible renderer boundaries, and chains deeper than 32 layouts resolve to `never`.
+DOMStack still performs runtime checks because Markdown frontmatter, dynamic modules, and JavaScript values are not guaranteed by TypeScript.
+The selected name must be a single string literal; a union of selected names also resolves to `never` rather than accepting a page that only works for one alternative.
+Use the existing `LayoutFunction` and `PageFunction` APIs for unregistered layouts or dynamic/union layout selections.
+Explicit `any` contracts, generic renderers, and overloaded functions can reduce inference precision; prefer concrete `LayoutFunction` annotations for registered renderers.
+
+Registry declarations are global to one TypeScript program.
+Use one program per site or site-specific layout names when several sites share a program, otherwise common names such as `root` can collide.
+Every file containing an augmentation must be included by that site's `tsconfig.json`.
+
+JavaScript/JSDoc projects can opt in with an included companion declaration file:
+
+```ts
+// src/layout-registry.d.ts
+import type rootLayout from './layouts/root.layout.js'
+import type articleLayout from './layouts/article.layout.js'
+import type { parentLayout, vars } from './layouts/article.layout.js'
+
+declare module '@domstack/static/types.js' {
+  interface LayoutRegistry {
+    root: {
+      render: typeof rootLayout
+    }
+    article: {
+      parentLayout: typeof parentLayout
+      vars: typeof vars
+      render: typeof articleLayout
+    }
+  }
+}
+```
+
+These imports are erased and do not become runtime or watch dependencies.
+
 ## Custom layout renderers
 
 DOMStack's bundled default layout uses [`fragtml`][fragtml] because the default template only needs safe string manipulation.

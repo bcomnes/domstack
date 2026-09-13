@@ -48,6 +48,12 @@ void stack
 import type { WorkerOptions } from 'node:worker_threads'
 import type {
   DomStackOpts,
+  LayoutChain,
+  LayoutChainVars,
+  LayoutFunction,
+  LayoutPageOutput,
+  LayoutResult,
+  PageForLayout,
   PageFunction,
   Results,
 } from '@domstack/static/types.js'
@@ -55,6 +61,59 @@ import type {
 const logger = pino({ level: 'silent' })
 const options: DomStackOpts = { buildDrafts: true, logger }
 const render: PageFunction<Record<string, unknown>, string> = ({ vars }) => String(vars)
+
+type Equal<Left, Right> =
+  (<Value>() => Value extends Left ? 1 : 2) extends
+  (<Value>() => Value extends Right ? 1 : 2)
+    ? true
+    : false
+type Expect<Value extends true> = Value
+
+type Frame = { html: string }
+const rootLayout: LayoutFunction<{ siteName: string }, Frame, Uint8Array> = ({ children }) => new TextEncoder().encode(children.html)
+const parentLayout = 'root'
+const articleVars = async () => ({ showSidebar: true })
+const articleLayout: LayoutFunction<{ siteName: string, showSidebar: boolean }, string, Frame> = ({ children }) => ({ html: children })
+
+declare module '@domstack/static/types.js' {
+  interface LayoutRegistry {
+    root: {
+      render: typeof rootLayout
+    }
+    article: {
+      parentLayout: typeof parentLayout
+      vars: typeof articleVars
+      render: typeof articleLayout
+    }
+  }
+}
+
+type _Chain = Expect<Equal<LayoutChain<'article'>, readonly ['root', 'article']>>
+type _PageOutput = Expect<Equal<LayoutPageOutput<'article'>, string>>
+type _LayoutResult = Expect<Equal<LayoutResult<'article'>, Uint8Array>>
+type _Vars = Expect<Equal<
+  LayoutChainVars<'article', { siteName: string }, { slug: string }>['slug'],
+  string
+>>
+
+// With exactOptionalPropertyTypes disabled, an optional override can supply undefined.
+type _OptionalOverride = Expect<Equal<
+  LayoutChainVars<'article', { siteName: string, x: string }, { x?: number }>['x'],
+  string | number | undefined
+>>
+
+type ArticlePage = PageForLayout<'article', { slug: string }, { body: string }, { siteName: string }>
+const articlePage: ArticlePage = ({ vars, data }) => {
+  vars.siteName
+  vars.showSidebar
+  vars.slug
+  data.body
+  // @ts-expect-error Layout data is not merged into page data.
+  data.navigation
+  return 'article'
+}
+// @ts-expect-error The article layout accepts string page output.
+const invalidArticlePage: ArticlePage = () => ({ html: 'invalid' })
 
 // The logger option retains Pino's full contract.
 const configuredLogger: pino.Logger | undefined = options.logger
@@ -71,12 +130,81 @@ const actual: TransferItem = expected
 const invalidTransfer: TransferItem = 123
 
 void render
+void articlePage
+void invalidArticlePage
 void configuredLogger
 void childOptions
 void invalidOptions
 void actual
 void invalidTransfer
 void ({} as Results)
+`),
+    writeFile(path.join(consumerPath, 'js-root.layout.js'), `/** @import { LayoutFunction } from '@domstack/static/types.js' */
+
+/** @type {LayoutFunction<{ siteName: string }, { html: string }, Uint8Array, { navigation: string[] }>} */
+const rootLayout = ({ vars, children, data }) => {
+  vars.siteName.toUpperCase()
+  data.navigation.map(item => item.toUpperCase())
+  return new TextEncoder().encode(children.html)
+}
+
+export default rootLayout
+`),
+    writeFile(path.join(consumerPath, 'js-article.layout.js'), `/** @import { LayoutFunction } from '@domstack/static/types.js' */
+
+export const parentLayout = 'js-root'
+export const vars = async () => ({ showSidebar: true })
+
+/** @type {LayoutFunction<{ siteName: string, showSidebar: boolean }, string, { html: string }, { related: string[] }>} */
+const articleLayout = ({ vars, children, data }) => {
+  vars.siteName.toUpperCase()
+  vars.showSidebar.valueOf()
+  data.related.map(item => item.toUpperCase())
+  return { html: children.toUpperCase() }
+}
+
+export default articleLayout
+`),
+    writeFile(path.join(consumerPath, 'js-layout-registry.d.ts'), `import type rootLayout from './js-root.layout.js'
+import type articleLayout from './js-article.layout.js'
+import type { parentLayout, vars } from './js-article.layout.js'
+
+declare module '@domstack/static/types.js' {
+  interface LayoutRegistry {
+    'js-root': {
+      render: typeof rootLayout
+    }
+    'js-article': {
+      parentLayout: typeof parentLayout
+      vars: typeof vars
+      render: typeof articleLayout
+    }
+  }
+}
+`),
+    writeFile(path.join(consumerPath, 'js-page.js'), `/** @import { PageForLayout } from '@domstack/static/types.js' */
+
+export const layout = 'js-article'
+
+/** @type {PageForLayout<typeof layout, { slug: string }, { body: string }, { siteName: string }>} */
+const articlePage = ({ vars, data }) => {
+  vars.siteName.toUpperCase()
+  vars.showSidebar.valueOf()
+  vars.slug.toUpperCase()
+  data.body.toUpperCase()
+  // @ts-expect-error Ancestor layout data is not merged into page data.
+  data.navigation
+  // @ts-expect-error Immediate layout data is not merged into page data.
+  data.related
+  return data.body
+}
+
+/** @type {PageForLayout<typeof layout, { slug: string }, { body: string }, { siteName: string }>} */
+// @ts-expect-error The article layout accepts string page output, not a frame.
+const invalidArticlePage = () => ({ html: 'invalid' })
+
+void invalidArticlePage
+export default articlePage
 `),
     writeFile(path.join(consumerPath, 'tsconfig.json'), `${JSON.stringify({
       compilerOptions: {
@@ -93,6 +221,16 @@ void ({} as Results)
     writeFile(path.join(consumerPath, 'tsconfig-types.json'), `${JSON.stringify({
       extends: './tsconfig.json',
       include: ['types.ts'],
+    }, null, 2)}\n`),
+    writeFile(path.join(consumerPath, 'tsconfig-js.json'), `${JSON.stringify({
+      extends: './tsconfig.json',
+      compilerOptions: {
+        allowJs: true,
+        checkJs: true,
+        strict: true,
+        skipLibCheck: false,
+      },
+      include: ['js-root.layout.js', 'js-article.layout.js', 'js-page.js', 'js-layout-registry.d.ts'],
     }, null, 2)}\n`),
   ])
 
@@ -111,7 +249,7 @@ void ({} as Results)
         consumerPath
       )
     }
-    for (const config of ['tsconfig.json', 'tsconfig-types.json']) {
+    for (const config of ['tsconfig.json', 'tsconfig-types.json', 'tsconfig-js.json']) {
       console.log(`Checking TypeScript ${devDependencies.typescript}, @types/node ${nodeVersion}, ${config}`)
       await run(
         process.execPath,

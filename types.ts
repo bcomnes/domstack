@@ -5,6 +5,8 @@
 // and `types.js` is reserved for a future runtime/type companion entry if needed.
 import type { Results } from './lib/builder.js'
 
+import type { PageFunction as PageFunctionExport } from './lib/build-pages/page-builders/page-writer.js'
+
 export type { DataDeps } from './lib/build-pages/data-deps.js'
 export type {
   PageOutput,
@@ -70,3 +72,366 @@ export type TestBuildResult = {
   readOutput: (path: string) => Promise<string>
   cleanup: () => Promise<void>
 }
+
+/**
+ * Compile-time registry for layouts known to an application's TypeScript
+ * program. Layout modules opt in through module augmentation; DOMStack does not
+ * create or read this registry at runtime.
+ *
+ * This interface intentionally has no index signature so unknown layout and
+ * parent names can be detected.
+ */
+export interface LayoutRegistry {}
+
+/** Names registered in the current TypeScript program. */
+export type LayoutRegistryName = Extract<keyof LayoutRegistry, string>
+
+/**
+ * Registered layout names from the outermost layout to the selected innermost
+ * layout. Invalid entries, missing parents, cycles, incompatible render values,
+ * and chains deeper than 32 layouts resolve to `never`.
+ */
+export type LayoutChain<Name extends string> = ResolveLayoutChain<Name>
+
+/** Layout `vars` exports merged in runtime order, outermost to innermost. */
+export type LayoutProvidedVars<Name extends string> =
+  ResolveLayoutChain<Name> extends infer Chain
+    ? [Chain] extends [never]
+        ? never
+        : Chain extends readonly [string, ...string[]]
+          ? MergeLayoutDefaults<Chain>
+          : never
+    : never
+
+/**
+ * Renderer variables that are not definitely supplied by a registered layout's
+ * `vars` export. They must be supplied by another source such as global vars,
+ * page vars/frontmatter, or builder vars.
+ */
+export type LayoutRequiredVars<Name extends string> =
+  ResolveLayoutChain<Name> extends infer Chain
+    ? [Chain] extends [never]
+        ? never
+        : Chain extends readonly [string, ...string[]]
+          ? CheckedLayoutVars<Chain, {}, {}> extends infer Vars
+            ? [Vars] extends [never]
+                ? never
+                : Vars extends AnyVars
+                  ? Pick<
+                  Vars,
+                  Extract<
+                    Exclude<
+                      RequiredKeys<Vars>,
+                      DefinitelyRequiredKeys<MergeLayoutDefaults<Chain>>
+                    >,
+                    keyof Vars
+                  >
+                >
+                  : never
+            : never
+          : never
+    : never
+
+/**
+ * Variables visible to the page after known sources are shallow-merged in
+ * runtime precedence order: global vars, outer-to-inner layout vars, then page
+ * vars/frontmatter/builder vars. Renderer declarations provide the baseline
+ * contract and every known override must remain compatible with every renderer
+ * in the chain.
+ */
+export type LayoutChainVars<
+  Name extends string,
+  GlobalVars extends AnyVars = {},
+  PageVars extends AnyVars = {}
+> = ResolveLayoutChain<Name> extends infer Chain
+  ? [Chain] extends [never]
+      ? never
+      : Chain extends readonly [string, ...string[]]
+        ? CheckedLayoutVars<Chain, GlobalVars, PageVars>
+        : never
+  : never
+
+/** The value a page must return for the selected innermost layout. */
+export type LayoutPageOutput<Name extends string> =
+  ResolveLayoutChain<Name> extends infer Chain
+    ? [Chain] extends [never]
+        ? never
+        : Chain extends readonly [string, ...string[]]
+          ? RendererChildren<Last<Chain>>
+          : never
+    : never
+
+/**
+ * Awaited result of the outermost layout. This is distinct from DOMStack's final
+ * serialized HTML string.
+ */
+export type LayoutResult<Name extends string> =
+  ResolveLayoutChain<Name> extends infer Chain
+    ? [Chain] extends [never]
+        ? never
+        : Chain extends readonly [infer Outer extends string, ...string[]]
+          ? RendererResult<Outer>
+          : never
+    : never
+
+/**
+ * Page render function inferred from a selected registered layout.
+ *
+ * `Data` is the page's own subscribed data contract. Layout data contracts are
+ * intentionally not merged into it.
+ */
+export type PageForLayout<
+  Name extends string,
+  PageVars extends AnyVars = {},
+  Data extends object = Record<string, unknown>,
+  GlobalVars extends AnyVars = {}
+> = ResolveLayoutChain<Name> extends infer Chain
+  ? [Chain] extends [never]
+      ? never
+      : Chain extends readonly [string, ...string[]]
+        ? CheckedLayoutVars<Chain, GlobalVars, PageVars> extends infer Vars
+          ? [Vars] extends [never]
+              ? never
+              : Vars extends AnyVars
+                ? PageFunctionExport<Vars, RendererChildren<Last<Chain>>, Data>
+                : never
+          : never
+        : never
+  : never
+
+type AnyVars = Record<string, any>
+type AnyFunction = (...args: any[]) => any
+
+type RegistryEntry<Name extends string> =
+  Name extends LayoutRegistryName ? LayoutRegistry[Name] : never
+
+type EntryProperty<Entry, Key extends PropertyKey> =
+  Key extends keyof Entry ? Entry[Key] : never
+
+type Renderer<Name extends string> =
+  RegistryEntry<Name> extends { readonly render: infer Render extends AnyFunction }
+    ? Render
+    : never
+
+type RendererParams<Name extends string> =
+  Renderer<Name> extends (params: infer Params, ...rest: any[]) => any
+    ? Params
+    : never
+
+type RendererVars<Name extends string> =
+  RendererParams<Name> extends { readonly vars: infer Vars extends AnyVars }
+    ? Vars
+    : never
+
+type RendererChildren<Name extends string> =
+  RendererParams<Name> extends { readonly children: infer Children }
+    ? Children
+    : never
+
+type RendererResult<Name extends string> =
+  Renderer<Name> extends AnyFunction ? Awaited<ReturnType<Renderer<Name>>> : never
+
+type RendererIsValid<Name extends string> =
+  [Renderer<Name>] extends [never]
+    ? false
+    : RendererParams<Name> extends {
+      readonly vars: AnyVars
+      readonly children: unknown
+    }
+      ? true
+      : false
+
+type ResolvedVarsValue<Value> =
+  Value extends AnyVars ? Value : false
+
+type ResolveVarsExport<Value> =
+  Value extends undefined
+    ? {}
+    : Value extends () => infer Result
+      ? ResolvedVarsValue<Awaited<Result>>
+      : ResolvedVarsValue<Value>
+
+type EntryDefaults<Name extends string> =
+  'vars' extends keyof RegistryEntry<Name>
+    ? ResolveVarsExport<EntryProperty<RegistryEntry<Name>, 'vars'>> extends infer Defaults
+      ? [Defaults] extends [AnyVars]
+          ? Defaults
+          : never
+      : never
+    : {}
+
+type RootReference = { readonly kind: 'root' }
+type ParentReference<Name extends string> = { readonly kind: 'parent', readonly name: Name }
+type InvalidParentReference = { readonly kind: 'invalid' }
+
+type IsUnion<Value, Whole = Value> =
+  Value extends unknown ? ([Whole] extends [Value] ? false : true) : never
+
+type EntryParent<Name extends string> =
+  'parentLayout' extends keyof RegistryEntry<Name>
+    ? EntryProperty<RegistryEntry<Name>, 'parentLayout'> extends infer Parent
+      ? [Parent] extends [never]
+          ? InvalidParentReference
+          : [Parent] extends [undefined]
+              ? RootReference
+              : undefined extends Parent
+                ? InvalidParentReference
+                : [Parent] extends [string]
+                    ? string extends Parent
+                      ? InvalidParentReference
+                      : true extends IsUnion<Parent>
+                        ? InvalidParentReference
+                        : ParentReference<Parent & string>
+                    : InvalidParentReference
+      : InvalidParentReference
+    : RootReference
+
+type ResolveLayoutChain<
+  Name extends string,
+  Seen extends string = never,
+  Depth extends readonly unknown[] = []
+> = true extends IsUnion<Name>
+  ? never
+  : string extends Name
+    ? never
+    : ResolveLiteralLayoutChain<Name, Seen, Depth>
+
+type ResolveLiteralLayoutChain<
+  Name extends string,
+  Seen extends string,
+  Depth extends readonly unknown[]
+> = Depth['length'] extends 32
+  ? never
+  : Name extends LayoutRegistryName
+    ? Name extends Seen
+      ? never
+      : RendererIsValid<Name> extends true
+        ? [EntryDefaults<Name>] extends [never]
+            ? never
+            : EntryParent<Name> extends RootReference
+              ? readonly [Name]
+              : EntryParent<Name> extends ParentReference<infer Parent>
+                ? Parent extends LayoutRegistryName
+                  ? [RendererResult<Name>] extends [RendererChildren<Parent>]
+                      ? ResolveLayoutChain<
+                      Parent,
+                      Seen | Name,
+                      readonly [...Depth, unknown]
+                    > extends infer Parents
+                        ? Parents extends readonly [string, ...string[]]
+                          ? readonly [...Parents, Name]
+                          : never
+                        : never
+                      : never
+                  : never
+                : never
+        : never
+    : never
+
+type Simplify<Value> = { -readonly [Key in keyof Value]: Value[Key] }
+
+type OptionalKeys<Value> = Exclude<keyof Value, RequiredKeys<Value>>
+
+// Without exactOptionalPropertyTypes, an explicitly supplied undefined is a
+// legal override and must remain in the result even when the left key exists.
+type PresentProperty<Value, Key extends keyof Value> =
+  { value: undefined } extends { value?: never } ? Value[Key] : Required<Value>[Key]
+
+type SpreadPair<Left, Right> = Simplify<
+  Omit<Left, keyof Right>
+  & Pick<Right, RequiredKeys<Right>>
+  & {
+    [Key in Extract<OptionalKeys<Right>, RequiredKeys<Left>>]-?:
+    Key extends keyof Left
+      ? Left[Key] | PresentProperty<Right, Key & keyof Right>
+      : PresentProperty<Right, Key & keyof Right>
+  }
+  & {
+    [Key in Exclude<OptionalKeys<Right>, RequiredKeys<Left>>]?:
+      (Key extends keyof Left ? Left[Key] : never)
+      | PresentProperty<Right, Key & keyof Right>
+  }
+>
+
+/** Distributive, right-biased shallow merge matching object spread semantics. */
+type MergeRight<Left, Right> =
+  Left extends object
+    ? Right extends object
+      ? SpreadPair<Left, Right>
+      : never
+    : never
+
+/** Renderer declarations are simultaneous requirements, not override sources. */
+type MergeRendererVars<
+  Chain extends readonly string[],
+  Accumulated = {}
+> = Chain extends readonly [infer Current extends string, ...infer Rest extends string[]]
+  ? MergeRendererVars<Rest, Accumulated & RendererVars<Current>>
+  : SatisfiableRequirements<Accumulated>
+
+type MergeLayoutDefaults<
+  Chain extends readonly string[],
+  Accumulated = {}
+> = Chain extends readonly [infer Current extends string, ...infer Rest extends string[]]
+  ? MergeLayoutDefaults<Rest, MergeRight<Accumulated, EntryDefaults<Current>>>
+  : Simplify<Accumulated>
+
+type CandidateLayoutVars<
+  Chain extends readonly string[],
+  GlobalVars extends AnyVars,
+  PageVars extends AnyVars
+> = MergeRight<
+  MergeRight<
+    MergeRight<MergeRendererVars<Chain>, GlobalVars>,
+    MergeLayoutDefaults<Chain>
+  >,
+  PageVars
+>
+
+type EveryRendererAccepts<Chain extends readonly string[], Vars> =
+  Chain extends readonly [infer Current extends string, ...infer Rest extends string[]]
+    ? [Vars] extends [RendererVars<Current>]
+        ? EveryRendererAccepts<Rest, Vars>
+        : false
+    : true
+
+type NeverRequiredKeys<Value> = {
+  [Key in RequiredKeys<Value>]: [Value[Key]] extends [never] ? Key : never
+}[RequiredKeys<Value>]
+
+// Intersections of union contracts can contain impossible alternatives; those
+// are not valid requirements and should not invalidate the remaining choices.
+type SatisfiableRequirements<Value> =
+  Value extends unknown
+    ? [NeverRequiredKeys<Value>] extends [never] ? Value : never
+    : never
+
+type HasNeverRequired<Value> =
+  Value extends unknown
+    ? [NeverRequiredKeys<Value>] extends [never] ? false : true
+    : never
+
+type CheckedLayoutVars<
+  Chain extends readonly string[],
+  GlobalVars extends AnyVars,
+  PageVars extends AnyVars
+> = CandidateLayoutVars<Chain, GlobalVars, PageVars> extends infer Vars
+  ? [Vars] extends [never]
+      ? never
+      : true extends HasNeverRequired<Vars>
+        ? never
+        : EveryRendererAccepts<Chain, Vars> extends true
+          ? Simplify<Vars>
+          : never
+  : never
+
+type DefinitelyRequiredKeys<Value, Keys extends PropertyKey = keyof Value> = {
+  [Key in Keys]: [Value] extends [Record<Key, unknown>] ? Key : never
+}[Keys]
+
+type RequiredKeys<Value> = {
+  [Key in keyof Value]-?: {} extends Pick<Value, Key> ? never : Key
+}[keyof Value]
+
+type Last<Values extends readonly string[]> =
+  Values extends readonly [...string[], infer Value extends string] ? Value : never
