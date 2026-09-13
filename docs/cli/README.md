@@ -81,8 +81,8 @@ The CSS and added dependencies are the same for both languages.
 JavaScript remains the default (`--language js`), with `.js` files in module packages and `.mjs` files otherwise.
 Only `ts` and `js` are accepted language values.
 
-DOMStack maintains one canonical TypeScript root layout and runs it using Node's native type stripping.
-JavaScript eject output is derived from that source using `node:module`'s `stripTypeScriptTypes`, not a separate template.
+DOMStack maintains one canonical TypeScript root layout and generates its JavaScript counterpart at build and release time.
+Both files are published; the runtime loads JavaScript directly without a custom loader, and eject copies the selected language rather than compiling it.
 The TypeScript output uses the public type-only `@domstack/static/types.js` entry instead of DOMStack's private `#types` alias.
 Keep `@domstack/static` installed for those types; no runtime type import or separate TypeScript compilation step is needed.
 The client is currently comment-only, but receives a `.ts` extension when TypeScript is selected.

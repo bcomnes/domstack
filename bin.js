@@ -8,7 +8,6 @@
  */
 
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
-import { stripTypeScriptTypes } from 'node:module'
 import { basename, resolve, join, relative } from 'node:path'
 import { parseArgs } from 'node:util'
 import { printHelpText } from 'argsclopts'
@@ -210,14 +209,14 @@ domstack eject actions:
       }
     }
 
-    const defaultLayoutPath = join(__dirname, 'lib/defaults/default.root.layout.ts')
+    const defaultLayoutPath = join(__dirname, `lib/defaults/default.root.layout.${language}`)
     const defaultGlobalStylePath = join(__dirname, 'lib/defaults/default.style.css')
     const defaultGlobalClientPath = join(__dirname, 'lib/defaults/default.client.js')
 
     const layoutSource = await readFile(defaultLayoutPath, 'utf8')
     const layout = language === 'ts'
       ? layoutSource.replace("from '#types'", "from '@domstack/static/types.js'")
-      : stripTypeScriptTypes(layoutSource)
+      : layoutSource
     await mkdir(join(src, 'layouts'), { recursive: true })
     await Promise.all([
       writeFile(join(src, targetLayoutPath), layout),

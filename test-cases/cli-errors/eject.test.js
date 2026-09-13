@@ -3,7 +3,6 @@ import { execFile, spawnSync } from 'node:child_process'
 import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { stripTypeScriptTypes } from 'node:module'
 import { promisify } from 'node:util'
 import { test } from 'node:test'
 
@@ -29,7 +28,7 @@ for (const type of ['module', 'commonjs']) {
       const canonical = await readFile(join(project, 'lib/defaults/default.root.layout.ts'), 'utf8')
       assert.equal(layout, language === 'ts'
         ? canonical.replace("from '#types'", "from '@domstack/static/types.js'")
-        : stripTypeScriptTypes(canonical))
+        : await readFile(join(project, 'lib/defaults/default.root.layout.js'), 'utf8'))
       assert.doesNotMatch(layout, /#types/)
       assert.equal(await readFile(join(cwd, `src/globals/global.client.${language === 'ts' ? 'ts' : extension}`), 'utf8'),
         await readFile(join(project, 'lib/defaults/default.client.js'), 'utf8'))
