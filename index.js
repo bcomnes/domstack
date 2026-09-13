@@ -479,6 +479,7 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
    * @returns {Promise<void>}
    */
   async #executeWatchPlan (plan, event) {
+    if (plan.kind === 'full' && plan.warning) this.#logger.warn(plan.warning)
     if (plan.message) this.#logger.info(plan.message)
     if (plan.kind === 'skip') return
     if (plan.kind === 'full') {

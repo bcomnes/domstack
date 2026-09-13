@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises'
+import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { setTimeout } from 'node:timers/promises'
@@ -16,6 +16,46 @@ async function until (check) {
     await setTimeout(25)
   }
 }
+
+test('settings edits warn for cached esbuild settings but reload Markdown in fresh workers', { timeout: 20000 }, async t => {
+  const root = await mkdtemp(join(import.meta.dirname, 'logging-workspace-'))
+  const src = join(root, 'src')
+  const dest = join(root, 'dest')
+  await mkdir(src)
+  const settings = 'export default opts => opts\n'
+  await Promise.all(Object.entries({
+    'page.md': 'Original text',
+    'root.layout.js': 'export default ({children}) => children',
+    'global.vars.js': "export default { layout: 'root' }",
+    'client.js': 'console.log("initial")',
+    'esbuild.settings.js': settings,
+    'markdown-it.settings.js': 'export default md => md',
+  }).map(([file, content]) => writeFile(join(src, file), content)))
+  /** @type {Array<{level: number, msg: string}>} */
+  const records = []
+  const logger = pino({ level: 'info' }, { write: chunk => records.push(JSON.parse(chunk)) })
+  const site = new DomStack(src, dest, { logger })
+  t.after(async () => {
+    if (site.watching) await site.stopWatching()
+    await rm(root, { recursive: true, force: true })
+  })
+  await site.watch({ serve: false })
+  assert.match(await readFile(join(dest, 'index.html'), 'utf8'), /Original text/)
+  records.length = 0
+  await writeFile(join(src, 'markdown-it.settings.js'), 'export default md => { md.renderer.rules.text = () => "Updated Markdown"; return md }')
+  let rendered = ''
+  for (let attempt = 0; !rendered.includes('Updated Markdown'); attempt++) {
+    assert.ok(attempt < 200, 'Markdown settings edit was not applied')
+    await setTimeout(25)
+    rendered = await readFile(join(dest, 'index.html'), 'utf8')
+  }
+  assert.ok(!records.some(record => record.msg.includes('Stop and restart DOMStack')))
+  await writeFile(join(src, 'esbuild.settings.js'), `${settings}// edited\n`)
+  await until(() => records.some(record => record.level === 40 && record.msg.includes('Stop and restart DOMStack')))
+  const warning = records.find(record => record.level === 40 && record.msg.includes('Stop and restart DOMStack'))
+  assert.match(warning?.msg ?? '', /esbuild.settings.js/)
+  assert.match(warning?.msg ?? '', /restarting esbuild alone does not reload/)
+})
 
 for (const level of ['debug', 'silent']) {
   test(`watch builds once per context and respects the ${level} logger`, { timeout: 20000 }, async t => {
