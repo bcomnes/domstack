@@ -15,12 +15,26 @@ export interface PageVars {
   title: string;
   siteName: string;
   basePath?: string;
+  locale: 'en' | 'fr';
+  theme: 'light' | 'dark';
+  footer: {
+    label: string;
+    showYear: boolean;
+  };
 }
+
+export const vars = {
+  theme: 'light',
+  footer: { label: 'Built with DOMStack', showYear: false },
+} satisfies Pick<PageVars, 'theme' | 'footer'>
 
 const RootLayout: LayoutFunction<PageVars, string | HtmlResult, string> = async ({
   vars: {
     title,
     siteName,
+    locale,
+    theme,
+    footer,
     basePath
   },
   scripts,
@@ -29,7 +43,7 @@ const RootLayout: LayoutFunction<PageVars, string | HtmlResult, string> = async 
 }) => {
   return render(html`
     <!DOCTYPE html>
-    <html>
+    <html lang="${locale}" data-theme="${theme}">
       <head>
         <meta charset="utf-8" />
         <title>${siteName}${title ? ` | ${title}` : ''}</title>
@@ -44,6 +58,7 @@ const RootLayout: LayoutFunction<PageVars, string | HtmlResult, string> = async 
       </head>
       <body class="safe-area-inset">
         <main class="mine-layout app-main">${typeof children === 'string' ? raw(children) : children}</main>
+        <footer>${footer.label}${footer.showYear ? ` · ${new Date().getFullYear()}` : ''}</footer>
       </body>
     </html>
   `)
@@ -54,6 +69,7 @@ export default RootLayout
 declare module '@domstack/static/types.js' {
   interface LayoutRegistry {
     root: {
+      vars: typeof vars
       render: typeof RootLayout
     }
   }

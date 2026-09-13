@@ -82,21 +82,56 @@ The [JavaScript page](src/js-page/page.js) uses JSDoc to derive its vars and acc
 ```js
 /**
  * @import { PageForLayout } from '@domstack/static/types.js'
+ * @import { default as globalVars } from '../global.vars.ts'
  */
 
-/** @satisfies {PageForLayout<'child'>} */
+/** @satisfies {PageForLayout<'child', typeof vars, Record<string, never>, Awaited<ReturnType<typeof globalVars>>>} */
 ```
 
 The `@satisfies` annotation checks the inferred contract while preserving the async function's own Promise return type.
 Its [page.vars.js](src/js-page/page.vars.js) still selects `child` at runtime.
 The page returns a `HtmlResult`, child converts that into a string, and root wraps the result into the final document.
 The registry checks this chain without requiring the page to import `PageVars` or repeat `HtmlResult` in its annotation.
-The [loose-assets TypeScript page](src/js-page/loose-assets/page.ts) similarly uses `PageForLayout<'root'>` for its default root layout.
+The [loose-assets TypeScript page](src/js-page/loose-assets/page.ts) similarly uses `PageForLayout<'root', typeof vars, Record<string, never>, Awaited<ReturnType<typeof globalVars>>>` for its default root layout.
+Both pages reference actual exports for their own vars and resolved async global vars, while the registry supplies layout defaults and renderer requirements.
+`Record<string, never>` explicitly states that these pages subscribe to no global data; global vars and subscribed data are separate concepts.
 
 Registration does not supply missing vars or replace runtime layout selection.
-`siteName` still comes from global vars, and each page supplies its title.
+`siteName` and `locale` still come from global vars, and each page supplies its title.
 The example's TypeScript program includes both `.ts` and `.js` files, so `npm test` checks the JSDoc consumer as well as the TypeScript consumer.
 Keep each site's registry in its own TypeScript program to avoid name collisions with other sites.
+
+#### A visible variable cascade
+
+The two pages render their inferred variables so the type-level composition can be compared with the built HTML:
+
+| Variable | Global vars | Root defaults | Async child defaults | JavaScript page | Final JavaScript page type/value |
+| --- | --- | --- | --- | --- | --- |
+| `theme` | `'dark'` | `'light'` | `'dark'` | `'light'` | `'light'` |
+| `locale` | `'en'` | — | — | — | `'en'` |
+| `navigation` | Array of `{ label, href }` | — | — | — | Typed navigation entries |
+| `footer` | — | `{ label: 'Built with DOMStack', showYear: false }` | — | — | Inherited typed object |
+| `readingMinutes` | — | — | `4` | — | `number`, value `4` |
+| `badge` | — | — | `{ label: 'Guide', tone: 'info' }` | `{ label: 'Hands-on example', tone: 'tip' }` | Page object, with tone `'tip'` |
+| `topics` | — | — | — | String array | Page-only `string[]` |
+
+The TypeScript loose-assets page selects root, so it gets root's `'light'` theme instead of the global `'dark'` theme and has no child-only reading time or badge.
+Its own `assets` array infers the item kind as `'module' | 'stylesheet'` without a separate page vars interface.
+
+Layout renderer requirements remain deliberately broader than supplied defaults.
+Root accepts either `'light'` or `'dark'`, and child accepts badges with either `'info'` or `'tip'` tone, so the page can supply a compatible override without being restricted to the default literal.
+The helpers infer the winning source's narrower type rather than intersecting `'light'` and `'dark'` into `never`.
+Vars merge shallowly: overriding `badge` must provide the complete required object, not just a new label.
+
+[Compile-time checks](type-checks.ts) exercise the actual example registrations and exports:
+
+- `LayoutProvidedVars<'child'>` includes root defaults plus the awaited child defaults.
+- `LayoutRequiredVars<'child'>` identifies `title`, `siteName`, and `locale` as required values not supplied by the layouts.
+- `LayoutChainVars` verifies every step of theme precedence, page-only arrays, and global navigation inference.
+- Invalid themes, string reading times, incomplete badge overrides, and incompatible page output are rejected.
+
+The checks live outside `src` so they are not copied into the built site.
+Run them with the example's regular `npm test` command.
 
 When working from this repository checkout, build the package declarations before checking the example, and clean them afterward:
 

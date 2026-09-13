@@ -1,9 +1,17 @@
 import { html } from 'fragtml'
 import type { PageForLayout } from '@domstack/static/types.js'
+import type globalVars from '../../global.vars.ts'
 
 import sharedData from './shared-lib.ts'
 
-const JSPage: PageForLayout<'root'> = async () => {
+type AssetPage = PageForLayout<
+  'root',
+  typeof vars,
+  Record<string, never>,
+  Awaited<ReturnType<typeof globalVars>>
+>
+
+const JSPage: AssetPage = async ({ vars }) => {
   return html`
   <div>
     <p>
@@ -16,6 +24,15 @@ const JSPage: PageForLayout<'root'> = async () => {
       that get imported into the page.js, client.js and style.css files for this page.
     </p>
     <p>${sharedData.shared}</p>
+    <section>
+      <h2>Inferred root-layout variables</h2>
+      <p>${vars.siteName} · ${vars.locale} · ${vars.theme} theme</p>
+      <p>Root footer default: ${vars.footer.label}</p>
+      <h3>Page-only asset metadata</h3>
+      <ul>
+        ${vars.assets.map(asset => html`<li>${asset.label}: ${asset.kind}</li>`)}
+      </ul>
+    </section>
   </div>
   `
 }
@@ -24,4 +41,8 @@ export default JSPage
 
 export const vars = {
   title: 'JS Page with loose assets',
+  assets: [
+    { label: 'Shared data', kind: 'module' as const },
+    { label: 'Local styles', kind: 'stylesheet' as const },
+  ],
 }

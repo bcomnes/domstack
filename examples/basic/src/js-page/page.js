@@ -1,13 +1,21 @@
 /**
  * @import { PageForLayout } from '@domstack/static/types.js'
+ * @import { default as globalVars } from '../global.vars.ts'
  */
 import { html } from 'fragtml'
 
-/** @satisfies {PageForLayout<'child'>} */
+/** @satisfies {PageForLayout<'child', typeof vars, Record<string, never>, Awaited<ReturnType<typeof globalVars>>>} */
 const JSPage = async ({
   vars: {
     siteName,
     title,
+    locale,
+    theme,
+    footer,
+    readingMinutes,
+    badge,
+    navigation,
+    topics,
   }
 }) => {
   return html`
@@ -44,10 +52,19 @@ const JSPage = async ({
 
     <section class="variables-demo">
       <h2>Using Variables</h2>
-      <p>Here we access the <code>siteName</code> and <code>title</code> variables inside the page:</p>
+      <p>These values are inferred from global vars, both layouts, and this page's overrides:</p>
       <div class="variable-display">
         <div><strong>Site Name:</strong> ${siteName}</div>
         <div><strong>Page Title:</strong> ${title}</div>
+        <div><strong>Global locale:</strong> ${locale}</div>
+        <div><strong>Page theme override:</strong> ${theme}</div>
+        <div><strong>Inherited root footer:</strong> ${footer.label}</div>
+        <div><strong>Inherited child reading time:</strong> ${readingMinutes} minutes</div>
+        <div><strong>Page badge override:</strong> ${badge.label} (${badge.tone})</div>
+        <div><strong>Page-only topics:</strong> ${topics.join(', ')}</div>
+        <nav aria-label="Example navigation">
+          ${navigation.map(link => html`<a href="${link.href}">${link.label}</a>`)}
+        </nav>
       </div>
     </section>
 
@@ -72,5 +89,8 @@ export default JSPage
 // Define page-specific variables
 export const vars = {
   title: 'JavaScript Page Example',
-  description: 'Learn how to use JavaScript pages in DOMStack for dynamic content generation'
+  description: 'Learn how to use JavaScript pages in DOMStack for dynamic content generation',
+  theme: /** @type {const} */ ('light'),
+  badge: { label: 'Hands-on example', tone: /** @type {const} */ ('tip') },
+  topics: ['TypeScript', 'JSDoc', 'Nested layouts'],
 }
