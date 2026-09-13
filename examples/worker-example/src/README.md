@@ -4,17 +4,20 @@ This example demonstrates how to use web workers in a DOMStack project.
 
 ## Features
 
-- **Counter Worker**: A simple worker that maintains state and responds to messages
-- **Fibonacci Worker**: A worker that performs computationally intensive operations
+- **Counter Worker**: A dedicated worker that maintains state and responds to messages
+- **Shared Counter Worker**: A shared worker that synchronizes state across same-origin tabs
+- **Fibonacci Worker**: A dedicated worker that performs computationally intensive operations
 - **Integration with DOMStack**: Shows how workers are bundled and made available to pages
 
 ## [Worker Page Example](/worker-page/)
 
-Visit the [Worker Example page](/worker-page/) to see the web workers in action. The page demonstrates:
+Visit the [Worker Example page](/worker-page/) to see the web workers in action.
+The page demonstrates:
 
-1. How to create and structure web workers in DOMStack
-2. How to communicate with workers using messages
-3. How to handle responses from workers
+1. How to create and structure dedicated and shared workers in DOMStack
+2. How to communicate with dedicated workers using messages
+3. How to communicate with shared workers using `MessagePort`
+4. How a shared worker synchronizes state across tabs
 
 ## How It Works
 
@@ -30,8 +33,9 @@ For example, with a file structure like:
 page-directory/
   ├── page.js
   ├── client.js
-  ├── counter.worker.js
-  └── fibonacci.worker.js
+  ├── counter.worker.ts
+  ├── fibonacci.worker.js
+  └── shared-counter.worker.ts
 ```
 
 After building, DOMStack generates:
@@ -42,6 +46,7 @@ page-directory/
   ├── client-XXXX.js
   ├── counter.worker-XXXX.js
   ├── fibonacci.worker-XXXX.js
+  ├── shared-counter.worker-XXXX.js
   └── workers.json      # Contains worker path mappings
 ```
 
@@ -60,24 +65,35 @@ async function initializeWorkers() {
     { type: 'module' }
   );
   
-  // Send messages to the worker
+  const sharedCounterWorker = new SharedWorker(
+    new URL(`./${workersData['shared-counter']}`, import.meta.url),
+    { type: 'module' }
+  );
+
+  // Dedicated workers communicate directly with postMessage
   counterWorker.postMessage({ action: 'increment' });
-  
-  // Receive messages from the worker
   counterWorker.onmessage = (e) => {
     console.log(e.data.count);
   };
+
+  // Shared workers communicate through their MessagePort
+  sharedCounterWorker.port.onmessage = (e) => {
+    console.log(e.data.count);
+  };
+  sharedCounterWorker.port.start();
+  sharedCounterWorker.port.postMessage({ action: 'increment' });
   
-  return counterWorker;
+  return { counterWorker, sharedCounterWorker };
 }
 
 // Initialize workers when the page loads
-const counterWorker = await initializeWorkers();
+const { counterWorker, sharedCounterWorker } = await initializeWorkers();
 ```
 
 ## Technical Details
 
 - Workers are bundled using esbuild during the build process
 - Each worker gets its own bundle with proper hashing for cache busting
-- Workers are loaded as ES modules by default
+- Dedicated and shared workers are loaded as ES modules by default
 - The `workers.json` file helps client code find the correct hashed worker files
+- Shared workers use one worker instance for clients with the same origin and worker URL

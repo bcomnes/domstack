@@ -13,7 +13,7 @@ async function initializeWorkers () {
 
     const workersData = await response.json()
 
-    if (!workersData.counter || !workersData.fibonacci) {
+    if (!workersData.counter || !workersData.fibonacci || !workersData['shared-counter']) {
       console.error('Invalid workers.json format:', workersData)
       return { error: true }
     }
@@ -29,7 +29,12 @@ async function initializeWorkers () {
       { type: 'module' }
     )
 
-    return { counterWorker, fibWorker }
+    const sharedCounterWorker = new SharedWorker(
+      new URL(`./${workersData['shared-counter']}`, import.meta.url),
+      { type: 'module' }
+    )
+
+    return { counterWorker, fibWorker, sharedCounterPort: sharedCounterWorker.port }
   } catch (err) {
     console.error('Error initializing workers:', err)
     return { error: true }
@@ -46,6 +51,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   const resetButton = document.getElementById('reset')
   const multiplyButton = document.getElementById('multiply')
 
+  // Shared counter example elements
+  const sharedCounterElement = document.getElementById('sharedCounter')
+  const sharedIncrementButton = document.getElementById('sharedIncrement')
+  const sharedDecrementButton = document.getElementById('sharedDecrement')
+  const sharedResetButton = document.getElementById('sharedReset')
+
   // Fibonacci example elements
   const fibInput = document.getElementById('fibInput')
   const calculateButton = document.getElementById('calculate')
@@ -53,7 +64,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const computationTimeElement = document.getElementById('computationTime')
 
   // Initialize workers
-  const { counterWorker, fibWorker, error } = await initializeWorkers()
+  const { counterWorker, fibWorker, sharedCounterPort, error } = await initializeWorkers()
 
   if (error) {
     // Show error message if workers couldn't be initialized
@@ -94,6 +105,24 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   multiplyButton.addEventListener('click', () => {
     counterWorker.postMessage({ action: 'multiply', value: 2 })
+  })
+
+  // Set up shared counter worker
+  sharedCounterPort.onmessage = (e) => {
+    sharedCounterElement.textContent = e.data.count
+  }
+  sharedCounterPort.start()
+
+  sharedIncrementButton.addEventListener('click', () => {
+    sharedCounterPort.postMessage({ action: 'increment' })
+  })
+
+  sharedDecrementButton.addEventListener('click', () => {
+    sharedCounterPort.postMessage({ action: 'decrement' })
+  })
+
+  sharedResetButton.addEventListener('click', () => {
+    sharedCounterPort.postMessage({ action: 'reset' })
   })
 
   // Set up Fibonacci worker
