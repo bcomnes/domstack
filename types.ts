@@ -83,7 +83,8 @@ export type TestBuildResult = {
  * create or read this registry at runtime.
  *
  * This interface intentionally has no index signature so unknown layout and
- * parent names can be detected.
+ * parent names can be detected. Registry helpers require strictNullChecks;
+ * without it they resolve to never. Existing explicit renderer APIs are unchanged.
  */
 export interface LayoutRegistry {}
 
@@ -97,7 +98,7 @@ export type LayoutRegistryName = Extract<keyof LayoutRegistry, string>
  */
 export type LayoutChain<Name extends string> = ResolveLayoutChain<Name>
 
-/** Layout `vars` exports merged in runtime order, outermost to innermost. */
+/** Layout defaults merged outermost to innermost, excluding dataDeps metadata. */
 export type LayoutProvidedVars<Name extends string> =
   ResolveLayoutChain<Name> extends infer Chain
     ? [Chain] extends [never]
@@ -117,22 +118,7 @@ export type LayoutRequiredVars<Name extends string> =
     ? [Chain] extends [never]
         ? never
         : Chain extends readonly [string, ...string[]]
-          ? CheckedLayoutVars<Chain, {}, {}> extends infer Vars
-            ? [Vars] extends [never]
-                ? never
-                : Vars extends AnyVars
-                  ? Pick<
-                  Vars,
-                  Extract<
-                    Exclude<
-                      RequiredKeys<Vars>,
-                      DefinitelyRequiredKeys<MergeLayoutDefaults<Chain>>
-                    >,
-                    keyof Vars
-                  >
-                >
-                  : never
-            : never
+          ? RequiredVarsAcrossDefaults<MergeRendererVars<Chain>, MergeLayoutDefaults<Chain>>
           : never
     : never
 
@@ -305,7 +291,7 @@ type SuppliedLayoutVars<
         ? 'dataDeps' extends KeysOfUnion<GlobalVars>
           ? never
           : MergeRight<
-          MergeRight<GlobalVars, WithoutSubscriptions<MergeLayoutDefaults<Chain>>>,
+          MergeRight<GlobalVars, MergeLayoutDefaults<Chain>>,
           WithoutSubscriptions<PageVars>
         > extends infer Vars
             ? [Vars] extends [never]
@@ -412,11 +398,13 @@ type ResolveLayoutChain<
   Name extends string,
   Seen extends string = never,
   Depth extends readonly unknown[] = []
-> = true extends IsUnion<Name>
+> = undefined extends string
   ? never
-  : string extends Name
+  : true extends IsUnion<Name>
     ? never
-    : ResolveLiteralLayoutChain<Name, Seen, Depth>
+    : string extends Name
+      ? never
+      : ResolveLiteralLayoutChain<Name, Seen, Depth>
 
 type ResolveLiteralLayoutChain<
   Name extends string,
@@ -489,26 +477,36 @@ type MergeRendererVars<
   Accumulated = {}
 > = Chain extends readonly [infer Current extends string, ...infer Rest extends string[]]
   ? MergeRendererVars<Rest, Accumulated & RendererVars<Current>>
-  : SatisfiableRequirements<Accumulated>
+  : RenderableRequirements<SatisfiableRequirements<Accumulated>>
+
+// Subscription metadata is never a renderer variable. Drop optional metadata,
+// but reject alternatives that require it rather than inventing a runtime value.
+type RenderableRequirements<Requirements> = Requirements extends unknown
+  ? WithoutSubscriptions<Requirements> extends Requirements
+    ? WithoutSubscriptions<Requirements>
+    : never
+  : never
 
 type MergeLayoutDefaults<
   Chain extends readonly string[],
   Accumulated = {}
 > = Chain extends readonly [infer Current extends string, ...infer Rest extends string[]]
-  ? MergeLayoutDefaults<Rest, MergeRight<Accumulated, EntryDefaults<Current>>>
+  ? MergeLayoutDefaults<Rest, MergeRight<Accumulated, WithoutSubscriptions<EntryDefaults<Current>>>>
   : Simplify<Accumulated>
 
 type CandidateLayoutVars<
   Chain extends readonly string[],
   GlobalVars extends AnyVars,
   PageVars extends AnyVars
-> = MergeRight<
-  MergeRight<
-    MergeRight<MergeRendererVars<Chain>, GlobalVars>,
-    MergeLayoutDefaults<Chain>
-  >,
-  PageVars
->
+> = 'dataDeps' extends KeysOfUnion<GlobalVars>
+  ? never
+  : MergeRight<
+    MergeRight<
+      MergeRight<MergeRendererVars<Chain>, GlobalVars>,
+      MergeLayoutDefaults<Chain>
+    >,
+    WithoutSubscriptions<PageVars>
+  >
 
 type EveryRendererAccepts<Chain extends readonly string[], Vars> =
   Chain extends readonly [infer Current extends string, ...infer Rest extends string[]]
@@ -547,9 +545,32 @@ type CheckedLayoutVars<
           : never
   : never
 
-type DefinitelyRequiredKeys<Value, Keys extends PropertyKey = keyof Value> = {
-  [Key in Keys]: [Value] extends [Record<Key, unknown>] ? Key : never
-}[Keys]
+// Each defaults branch can choose any compatible renderer alternative (OR).
+// Drop stronger alternatives when a weaker obligation already covers them.
+type MinimalRequiredVars<Choices, Whole = Choices> =
+  Choices extends unknown
+    ? Choices extends Exclude<Whole, Choices> ? never : Choices
+    : never
+
+type RequiredVarsForDefault<Requirements, Defaults> =
+  Requirements extends unknown
+    ? [MergeRight<Requirements, Defaults>] extends [Requirements]
+        ? Pick<Requirements, Exclude<RequiredKeys<Requirements>, RequiredKeys<Defaults>>>
+        : never
+    : never
+
+// Wrap before distributing so {} cannot absorb another branch's obligations,
+// and never cannot silently disappear. Contravariant inference combines the
+// branch obligations with AND without intersecting their renderer choices.
+type RequiredVarsDefaultFunctions<Requirements, Defaults> =
+  Defaults extends unknown
+    ? (vars: MinimalRequiredVars<RequiredVarsForDefault<Requirements, Defaults>>) => void
+    : never
+
+type RequiredVarsAcrossDefaults<Requirements, Defaults> =
+  RequiredVarsDefaultFunctions<Requirements, Defaults> extends (vars: infer Vars) => void
+    ? Simplify<SatisfiableRequirements<Vars>>
+    : never
 
 type RequiredKeys<Value> = {
   [Key in keyof Value]-?: {} extends Pick<Value, Key> ? never : Key

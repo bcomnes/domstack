@@ -329,6 +329,9 @@ export default articleLayout
 ### Inferring registered layout chains
 
 TypeScript projects can optionally register layouts through module augmentation.
+Registry helpers require `strictNullChecks: true` in the site's TypeScript configuration (`strict: true` enables it unless explicitly overridden).
+Without it, TypeScript cannot distinguish optional or nullish contracts reliably, so chain-dependent registry helpers consistently resolve to `never`.
+The existing explicit `LayoutFunction`, `PageFunction`, `GeneratedPageDefinition`, and `PagesFunction` APIs remain available without this setting.
 The registry is type-only: it does not replace filesystem discovery, create runtime imports, or change DOMStack's runtime validation.
 Annotate each renderer with the existing explicit `LayoutFunction` API first, then register the actual exports with `typeof` so the renderer does not recursively depend on its own registry entry.
 
@@ -424,7 +427,7 @@ The registry helpers are:
 | --- | --- |
 | `LayoutRegistryName` | Registered names in the current TypeScript program. |
 | `LayoutChain<Name>` | Names from the outermost to innermost layout. |
-| `LayoutProvidedVars<Name>` | Layout defaults merged outer-to-inner with shallow override semantics. |
+| `LayoutProvidedVars<Name>` | Layout defaults merged outer-to-inner with shallow override semantics, excluding `dataDeps` metadata. |
 | `LayoutRequiredVars<Name>` | Required renderer vars not definitely supplied by layout defaults. |
 | `LayoutChainVars<Name, GlobalVars, PageVars>` | Final known vars after global, layout, and page override precedence. |
 | `LayoutPageOutput<Name>` | Children type accepted by the innermost layout. |
@@ -437,7 +440,12 @@ The registry helpers are:
 These types describe contracts; they do not supply missing values or select a layout at runtime.
 Required vars without registered defaults still need a global, page, or builder source.
 Use `LayoutRequiredVars` to inspect those obligations; the global-vars type above assumes a matching global vars export.
+For union-shaped defaults, a renderer alternative may be satisfied differently by each defaults branch; the helper reports only obligations needed across all possible branches.
+For example, when both renderer vars and defaults are `{ a: string } | { b: number }`, nothing remains required externally, so `LayoutRequiredVars` is `{}`.
+If different defaults branches leave different fields missing, the external vars must cover every branch rather than just one.
 `LayoutVars<T>` retains its existing meaning as the type of a layout vars export.
+Registry-provided, required, and renderer vars exclude the reserved `dataDeps` property; it stays in raw exports for subscription handling but is not passed to renderers.
+A renderer that requires `vars.dataDeps` is incompatible with that runtime boundary, and global vars containing `dataDeps` are rejected just as they are at runtime.
 
 The helpers await each layout's return type and verify it is accepted by the immediate parent.
 They also reject statically known incompatible vars overrides.

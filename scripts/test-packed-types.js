@@ -53,6 +53,8 @@ import type {
   LayoutChainVars,
   LayoutFunction,
   LayoutPageOutput,
+  LayoutProvidedVars,
+  LayoutRequiredVars,
   LayoutResult,
   PageForLayout,
   PageFunction,
@@ -75,13 +77,22 @@ type Expect<Value extends true> = Value
 type Frame = { html: string }
 const rootLayout: LayoutFunction<{ siteName: string }, Frame, Uint8Array> = ({ children }) => new TextEncoder().encode(children.html)
 const parentLayout = 'root'
-const articleVars = async () => ({ showSidebar: true })
+const articleVars = async () => ({ showSidebar: true, dataDeps: ['related'] })
 const articleLayout: LayoutFunction<{ siteName: string, showSidebar: boolean }, string, Frame> = ({ children }) => ({ html: children })
 
 declare module '@domstack/static/types.js' {
   interface LayoutRegistry {
     root: {
       render: typeof rootLayout
+      vars: { dataDeps: ['navigation'] }
+    }
+    packedUnionDefaults: {
+      render: LayoutFunction<{ a: string } | { b: number }, string, string>
+      vars: { a: string } | { b: number }
+    }
+    packedSharedMissing: {
+      render: LayoutFunction<({ a: string } | { b: number }) & { shared: boolean }, string, string>
+      vars: { a: string } | { b: number }
     }
     article: {
       parentLayout: typeof parentLayout
@@ -90,6 +101,13 @@ declare module '@domstack/static/types.js' {
     }
   }
 }
+
+type _NoRequiredUnionDefaults = Expect<Equal<LayoutRequiredVars<'packedUnionDefaults'>, {}>>
+type _SharedMissing = Expect<Equal<LayoutRequiredVars<'packedSharedMissing'>, { shared: boolean }>>
+type _ProvidedExcludesMetadata = Expect<Equal<LayoutProvidedVars<'article'>, { showSidebar: boolean }>>
+type _RequiredExcludesMetadata = Expect<Equal<LayoutRequiredVars<'article'>, { siteName: string }>>
+type _PageMetadata = PageForLayout<'article', { slug: string, dataDeps: ['body'] }>
+type _PageExcludesMetadata = Expect<Equal<'dataDeps' extends keyof Parameters<_PageMetadata>[0]['vars'] ? true : false, false>>
 
 type _Chain = Expect<Equal<LayoutChain<'article'>, readonly ['root', 'article']>>
 type _PageOutput = Expect<Equal<LayoutPageOutput<'article'>, string>>
@@ -111,6 +129,8 @@ const articlePage: ArticlePage = ({ vars, data }) => {
   vars.showSidebar
   vars.slug
   data.body
+  // @ts-expect-error Layout subscription metadata is not a renderer variable.
+  vars.dataDeps
   // @ts-expect-error Layout data is not merged into page data.
   data.navigation
   return 'article'
@@ -224,6 +244,75 @@ void actual
 void invalidTransfer
 void ({} as Results)
 `),
+    writeFile(path.join(consumerPath, 'null-checks.ts'), `import type {
+  GeneratedPageDefinition,
+  GeneratedPageForLayout,
+  LayoutChain,
+  LayoutChainVars,
+  LayoutFunction,
+  LayoutPageOutput,
+  LayoutProvidedVars,
+  LayoutRequiredVars,
+  LayoutResult,
+  PageForLayout,
+  PageFunction,
+  PagesForLayout,
+  PagesFunction,
+  ValidatePageVars,
+} from '@domstack/static/types.js'
+
+type Equal<Left, Right> =
+  (<Value>() => Value extends Left ? 1 : 2) extends
+  (<Value>() => Value extends Right ? 1 : 2)
+    ? true
+    : false
+type Expect<Value extends true> = Value
+
+const render: LayoutFunction<{ title: string }, string, string> = ({ vars, children }) => vars.title + children
+
+declare module '@domstack/static/types.js' {
+  interface LayoutRegistry {
+    nullRoot: {
+      vars: { title: string }
+      render: typeof render
+    }
+    nullChild: {
+      parentLayout: 'nullRoot'
+      render: typeof render
+    }
+  }
+}
+
+// Both root-only and nested registry contracts require strictNullChecks.
+type _NullChecksDisabled = Expect<Equal<undefined extends string ? true : false, true>>
+type _RootChain = Expect<Equal<LayoutChain<'nullRoot'>, never>>
+type _ChildChain = Expect<Equal<LayoutChain<'nullChild'>, never>>
+type _ProvidedVars = Expect<Equal<LayoutProvidedVars<'nullRoot'> | LayoutProvidedVars<'nullChild'>, never>>
+type _RequiredVars = Expect<Equal<LayoutRequiredVars<'nullRoot'> | LayoutRequiredVars<'nullChild'>, never>>
+type _ChainVars = Expect<Equal<LayoutChainVars<'nullRoot'> | LayoutChainVars<'nullChild'>, never>>
+type _PageOutput = Expect<Equal<LayoutPageOutput<'nullRoot'> | LayoutPageOutput<'nullChild'>, never>>
+type _Result = Expect<Equal<LayoutResult<'nullRoot'> | LayoutResult<'nullChild'>, never>>
+type _Page = Expect<Equal<PageForLayout<'nullRoot'> | PageForLayout<'nullChild'>, never>>
+type _ValidatedVars = Expect<Equal<ValidatePageVars<'nullRoot', {}> | ValidatePageVars<'nullChild', {}>, never>>
+type _GeneratedPage = Expect<Equal<GeneratedPageForLayout<'nullRoot'> | GeneratedPageForLayout<'nullChild'>, never>>
+type _Pages = Expect<Equal<PagesForLayout<'nullRoot'> | PagesForLayout<'nullChild'>, never>>
+
+// Explicit APIs remain usable without registry inference or strictNullChecks.
+const page: PageFunction<{ title: string }, string> = ({ vars }) => vars.title.toUpperCase()
+const generatedPage: GeneratedPageDefinition<{ title: string }, string> = {
+  vars: { title: 'Explicit page' },
+  children: page,
+}
+const pages: PagesFunction<{ title: string }, string, { title: string }> = ({ vars }) => ({
+  ...generatedPage,
+  vars: { title: vars.title.toUpperCase() },
+})
+
+void render
+void page
+void generatedPage
+void pages
+`),
     writeFile(path.join(consumerPath, 'js-root.layout.js'), `/** @import { LayoutFunction } from '@domstack/static/types.js' */
 
 /** @type {LayoutFunction<{ siteName: string }, { html: string }, Uint8Array, { navigation: string[] }>} */
@@ -238,7 +327,7 @@ export default rootLayout
     writeFile(path.join(consumerPath, 'js-article.layout.js'), `/** @import { LayoutFunction } from '@domstack/static/types.js' */
 
 export const parentLayout = 'js-root'
-export const vars = async () => ({ showSidebar: true })
+export const vars = async () => ({ showSidebar: true, dataDeps: ['related'] })
 
 /** @type {LayoutFunction<{ siteName: string, showSidebar: boolean }, string, { html: string }, { related: string[] }>} */
 const articleLayout = ({ vars, children, data }) => {
@@ -277,6 +366,8 @@ const articlePage = ({ vars, data }) => {
   vars.showSidebar.valueOf()
   vars.slug.toUpperCase()
   data.body.toUpperCase()
+  // @ts-expect-error Subscription metadata is absent from JSDoc renderer vars.
+  vars.dataDeps
   // @ts-expect-error Ancestor layout data is not merged into page data.
   data.navigation
   // @ts-expect-error Immediate layout data is not merged into page data.
@@ -340,6 +431,15 @@ export default articlePage
       extends: './tsconfig.json',
       include: ['types.ts'],
     }, null, 2)}\n`),
+    writeFile(path.join(consumerPath, 'tsconfig-null-checks.json'), `${JSON.stringify({
+      extends: './tsconfig.json',
+      compilerOptions: {
+        strict: true,
+        strictNullChecks: false,
+        skipLibCheck: true,
+      },
+      include: ['null-checks.ts'],
+    }, null, 2)}\n`),
     writeFile(path.join(consumerPath, 'tsconfig-js.json'), `${JSON.stringify({
       extends: './tsconfig.json',
       compilerOptions: {
@@ -367,7 +467,7 @@ export default articlePage
         consumerPath
       )
     }
-    for (const config of ['tsconfig.json', 'tsconfig-types.json', 'tsconfig-js.json']) {
+    for (const config of ['tsconfig.json', 'tsconfig-types.json', 'tsconfig-js.json', 'tsconfig-null-checks.json']) {
       console.log(`Checking TypeScript ${devDependencies.typescript}, @types/node ${nodeVersion}, ${config}`)
       await run(
         process.execPath,
