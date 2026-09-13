@@ -73,7 +73,11 @@ test.describe('general-features', () => {
     )
     assert.ok(
       manifestEntries.some(entry => entry.kind === 'worker' && entry.url.includes('/worker-page/counter.worker-')),
-      'domstack manifest classifies worker bundles'
+      'domstack manifest classifies dedicated worker bundles'
+    )
+    assert.ok(
+      manifestEntries.some(entry => entry.kind === 'worker' && entry.url.includes('/worker-page/shared-counter.worker-')),
+      'domstack manifest classifies shared worker bundles'
     )
     assert.ok(
       manifestEntries.some(entry => entry.kind === 'copy' && entry.url === '/oldsite/client.js'),
@@ -731,14 +735,20 @@ export default function esbuildSettings (opts) {
     }
 
     // Check for worker files existence (used in the next test)
-    const hasWorkerFiles = files.some(f => f.relname.includes('worker-page') && f.relname.includes('counter.worker-'))
+    const hasWorkerFiles = files.some(f => f.relname.includes('worker-page/counter.worker-'))
     assert.ok(hasWorkerFiles, 'Worker files exist in the output')
 
     // Test for web worker functionality
-    await t.test('should support web workers', async () => {
+    await t.test('should support dedicated and shared web workers', async () => {
       // Check for worker files in the output
-      const workerFiles = files.filter(f => f.relname.includes('counter.worker-'))
-      assert.ok(workerFiles.length > 0, 'Web worker files were bundled')
+      const dedicatedWorkerFiles = files.filter(f => f.relname.includes('worker-page/counter.worker-'))
+      const sharedWorkerFiles = files.filter(f => f.relname.includes('worker-page/shared-counter.worker-'))
+      assert.ok(dedicatedWorkerFiles.length > 0, 'Dedicated worker files were bundled')
+      assert.ok(sharedWorkerFiles.length > 0, 'Shared worker files were bundled')
+
+      const workerMappings = JSON.parse(await readFile(path.join(dest, 'worker-page/workers.json'), 'utf8'))
+      assert.match(workerMappings.counter, /^counter\.worker-[A-Z0-9]+\.js$/)
+      assert.match(workerMappings['shared-counter'], /^shared-counter\.worker-[A-Z0-9]+\.js$/)
 
       // Check that the metafile contains worker entries
       const metaFilePath = path.join(dest, 'domstack-esbuild-meta.json')
@@ -746,14 +756,15 @@ export default function esbuildSettings (opts) {
       const metaData = JSON.parse(metaContent)
 
       // Verify worker files in the outputs section of the metafile
-      let workerOutputFound = false
-      for (const outputPath of Object.keys(metaData.outputs)) {
-        if (outputPath.includes('counter.worker-')) {
-          workerOutputFound = true
-          break
-        }
-      }
-      assert.ok(workerOutputFound, 'Worker output found in metafile')
+      const workerOutputPaths = Object.keys(metaData.outputs)
+      assert.ok(
+        workerOutputPaths.some(outputPath => outputPath.includes('worker-page/counter.worker-')),
+        'Dedicated worker output found in metafile'
+      )
+      assert.ok(
+        workerOutputPaths.some(outputPath => outputPath.includes('worker-page/shared-counter.worker-')),
+        'Shared worker output found in metafile'
+      )
 
       // Check the worker page HTML content
       const workerPagePath = path.join(dest, 'worker-page/index.html')
