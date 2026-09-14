@@ -28,7 +28,7 @@ export async function setup (t, files) {
     ...files,
   })
   const logs = /** @type {string[]} */ ([])
-  const options = { domstackManifest: false, logger: pino({ level: 'debug' }, { write: line => logs.push(line) }) }
+  const options = { static: true, domstackManifest: false, logger: pino({ level: 'debug' }, { write: line => logs.push(line) }) }
   const site = new DomStack(src, dest, options)
   t.after(async () => {
     if (site.watching) await site.stopWatching()

@@ -408,11 +408,15 @@ Parent traversal is allowed only while the resolved target remains inside the de
 Escapes and invalid file targets fail the build.
 These rules do not change existing template output-path semantics.
 
-Duplicate destinations fail even when content is identical, including duplicates between hooks and conflicts with normal HTML, other pages, templates, copied assets, or bundles.
-There is no implicit override mechanism.
-Hook, iterator, validation, and collision failures publish none of the staged page-phase outputs and do not clean up stale page outputs or replace prior ownership.
-An iterator that throws after yielding records therefore cannot publish those earlier yields to the live destination.
-This is a page-phase guarantee, not a transaction across every build phase or a rollback guarantee for filesystem I/O failures during publication.
+Duplicate destinations produce best-effort warnings based on build output reports, including exact duplicates between hooks and conflicts with normal HTML, other pages, templates, copied assets, or bundles.
+They do not reject the build, even when content differs.
+Watch warnings only compare outputs observed in the current page/template phase; this is not a persistent cross-build conflict registry or a case-alias check.
+Choose unique destinations; do not rely on write order or cleanup behavior for conflicting outputs.
+
+DOMStack renders a page and collects and validates all its hook results before writing that page's HTML and additional files directly to the destination.
+If rendering, a hook, an iterator, or output validation fails, that owning page's existing HTML and sidecars remain unchanged.
+An iterator that throws after yielding records therefore does not write those earlier yields.
+Other pages and build phases may already have written their outputs; there is no whole-build or page-phase isolation, and filesystem write failures can leave partial updates.
 
 ### Watch behavior and ownership
 

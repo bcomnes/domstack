@@ -139,26 +139,23 @@ for (const scenario of [
   { name: 'layout hook', output: 'shared.txt', files: { 'root.layout.js': 'export default ({ children }) => children; ' + hook('shared.txt') } },
   { name: 'other page hook', output: 'shared.txt', files: { 'other/page.js': "export default () => 'other'; " + hook('/shared.txt') } },
 ]) {
-  test(`builder rejects sidecar collision with ${scenario.name}`, async t => {
-    const { build, dest, read } = await setup(t, {
+  test(`builder warns about a duplicate sidecar destination with ${scenario.name}`, async t => {
+    const { build } = await setup(t, {
       'page.js': "export default () => 'new main'; " + hook(scenario.output),
       ...scenario.files,
     })
-    await writeFiles(dest, { 'index.html': 'previous main', 'sentinel.txt': 'keep' })
-    await assert.rejects(build(), error => {
-      assert.match(errorText(error), /Output path conflict/)
-      assert.ok(errorText(error).includes(scenario.output), errorText(error))
-      return true
-    })
-    assert.equal(await read('index.html'), 'previous main', 'failed page phase never publishes main HTML')
-    assert.equal(await read('sentinel.txt'), 'keep')
+    const result = await build()
+    assert.ok(result.warnings.some(warning => {
+      const message = errorText(warning)
+      return /duplicate|conflict/i.test(message) && message.includes(scenario.output)
+    }), `expected a duplicate destination warning for ${scenario.output}: ${errorText(result.warnings)}`)
   })
 }
 
 for (const result of [
   "'bare string'",
   "{ outputName: 'bad.txt', content: 42 }",
-  "[{ outputName: 'same.txt', content: 'same' }, { outputName: './same.txt', content: 'same' }]",
+
   "{ outputName: '../escape.txt', content: 'bad' }",
   "{ outputName: '/', content: 'bad' }",
 ]) {
@@ -173,7 +170,7 @@ for (const result of [
   })
 }
 
-test('iterator failure after a yield preserves all live page-phase outputs', async t => {
+test('iterator failure after a yield leaves the owning page unchanged', async t => {
   const { build, dest, read } = await setup(t, {
     'a/page.js': "export default () => 'new sibling'; " + hook('sibling.txt', 'new sibling sidecar'),
     'z/page.js': `export default () => 'new main'; export async function* additionalOutputs () {
@@ -182,7 +179,7 @@ test('iterator failure after a yield preserves all live page-phase outputs', asy
       throw Error('iterator exploded')
     }`,
   })
-  const previous = { 'a/index.html': 'old sibling', 'a/sibling.txt': 'old sibling sidecar', 'z/index.html': 'old main', 'z/old.txt': 'old sidecar', 'z/stale.txt': 'retain on failure' }
+  const previous = { 'z/index.html': 'old main', 'z/old.txt': 'old sidecar', 'z/stale.txt': 'retain on failure' }
   await writeFiles(dest, previous)
   await assert.rejects(build(), error => {
     assert.match(errorText(error), /iterator exploded/)
@@ -190,4 +187,33 @@ test('iterator failure after a yield preserves all live page-phase outputs', asy
   })
   for (const [name, content] of Object.entries(previous)) assert.equal(await read(name), content)
   await assert.rejects(stat(join(dest, 'z/partial.txt')), { code: 'ENOENT' })
+})
+
+test('identical duplicate records from one hook warn rather than reject the build', async t => {
+  const { build, read } = await setup(t, {
+    'page.js': `export default () => 'main'; export const additionalOutputs = () => [
+      { outputName: 'same.txt', content: 'same' },
+      { outputName: './same.txt', content: 'same' },
+    ]`,
+  })
+  const result = await build()
+  assert.equal(await read('index.html'), 'main')
+  assert.equal(await read('same.txt'), 'same')
+  assert.ok(result.warnings.some(warning => {
+    const message = errorText(warning)
+    return /duplicate|conflict/i.test(message) && message.includes('same.txt')
+  }), `expected a duplicate destination warning: ${errorText(result.warnings)}`)
+})
+
+test('render failure leaves the owning page HTML and sidecars unchanged', async t => {
+  const { build, dest, read } = await setup(t, {
+    'page.js': "export default () => { throw Error('render exploded') }; " + hook('old.txt', 'replacement'),
+  })
+  await writeFiles(dest, { 'index.html': 'old main', 'old.txt': 'old sidecar' })
+  await assert.rejects(build(), error => {
+    assert.match(errorText(error), /render exploded/)
+    return true
+  })
+  assert.equal(await read('index.html'), 'old main')
+  assert.equal(await read('old.txt'), 'old sidecar')
 })

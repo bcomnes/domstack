@@ -102,12 +102,13 @@ test('watch removes sidecars on source rename and draft exclusion', { timeout: 3
   assert.equal(await read('renamed.html.txt'), '# Article\n')
 })
 
-test('watch iterator failure preserves ownership and recovery removes stale outputs', { timeout: 30_000 }, async t => {
+test('watch hook failure leaves its owning page unchanged and recovery removes stale outputs', { timeout: 30_000 }, async t => {
   const { site, src, dest, read, mtime, logs } = await setup(t, {
     'page.js': "export default () => 'old main'; " + hook('old.txt', 'old sidecar'),
   })
   await site.watch({ serve: false })
   const oldTime = await mtime('old.txt')
+  const oldHtmlTime = await mtime('index.html')
   await settle(site, logs, async () => {
     await writeFile(join(src, 'page.js'), `export default () => 'failed main'; export async function* additionalOutputs () {
       yield { outputName: 'old.txt', content: 'failed replacement' }
@@ -117,6 +118,7 @@ test('watch iterator failure preserves ownership and recovery removes stale outp
   }, 'watch iterator exploded')
   assert.ok(logs.some(line => line.includes('watch iterator exploded')), 'watch reports the hook failure')
   assert.equal(await read('index.html'), 'old main')
+  assert.equal(await mtime('index.html'), oldHtmlTime)
   assert.equal(await read('old.txt'), 'old sidecar')
   assert.equal(await mtime('old.txt'), oldTime)
   await assert.rejects(stat(join(dest, 'partial.txt')), { code: 'ENOENT' })

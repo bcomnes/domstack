@@ -125,7 +125,8 @@ export async function additionalOutputs ({ page, vars }) {
 ```
 
 The filename is relative to the current page's output directory, not the layout directory.
-Using the page's HTML filename avoids collisions when several loose Markdown pages share a directory.
+Using the page's HTML filename helps keep destinations unique when several loose Markdown pages share a directory.
+Exact duplicate destinations produce best-effort build warnings, not an override contract; avoid sharing output paths between pages or hooks.
 Nested hooks run outermost layout → innermost layout → page, and each layout hook shares only that layout renderer's `vars.dataDeps` subscriptions.
 Generated pages skip these hooks, including inherited layout hooks.
 See [Additional outputs](../pages/#additional-outputs) for the complete API, companion modules, path rules, and watch behavior.

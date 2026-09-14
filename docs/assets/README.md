@@ -14,31 +14,6 @@ Build-tool configuration and site-wide variables are documented separately in [S
 
 [[toc]]
 
-## Output conflicts
-
-Each output file must have one producer across pages, generated pages, templates, static files, copied directories, esbuild bundles, service workers, and generated metadata.
-This includes page `workers.json` files, the optional `domstack-manifest.json`, and files written through a manifest hook's `writeFile` helper.
-Two templates cannot emit the same path, and a single template cannot repeat an output in an array or async iterator.
-Repeated identical reporting records within one batch are deduplicated; they are not additional writes.
-File-versus-directory conflicts such as `feed` and `feed/index.xml` are also rejected.
-Output separators and dot segments are normalized, and case aliases are checked using the destination filesystem's case behavior.
-
-One-shot builds claim outputs before writing them, so a conflicting second producer cannot overwrite the first.
-Earlier successful build steps may remain in the destination after a later failure; the build is not rolled back.
-Manifest hooks can read files they just wrote through `writeFile` from their supplied `dest`.
-Watch rebuilds retain ownership for untouched producers, revalidate page outputs before promotion, and release obsolete paths after successful replacement or removal.
-In a successfully started watch session, a failed conflict check retains the previous successful outputs and ownership, so fixing the source can recover without restarting watch mode.
-Initial copy or esbuild failures abort startup and require starting watch again; initial page failures are logged and can recover within the session.
-Full watch rebuilds replace the complete ownership map rather than accumulating historical paths.
-
-Page phases and full watch builds use unique stages on the destination filesystem, and copied sources are isolated before publication.
-Staging requires additional disk space.
-Publication is not an atomic filesystem transaction: an I/O failure during the final copy can still leave partially updated files.
-The registry covers DOMStack-managed writers, not arbitrary filesystem writes performed directly by user code or esbuild plugins.
-Manifest hooks should use their supplied `writeFile` helper to participate in conflict detection.
-Identifiable esbuild entry collisions use the same conflict error; native plugin or shared-chunk collisions that cannot be attributed to two sources retain esbuild's diagnostic.
-Concurrent builds use independent stages, but separate DOMStack instances should not publish different sites to the same destination concurrently.
-
 ## Static assets
 
 All static assets in the `src` directory are copied 1:1 to the destination directory using [cpx2](https://github.com/bcomnes/cpx2).
@@ -55,9 +30,8 @@ Place a file in a directory whose structure encodes its desired destination path
 To copy multiple directories, repeat the flag: `domstack --copy oldsite --copy archived-docs`.
 
 > [!WARNING]
-> DOMStack rejects conflicting output paths with `DOM_STACK_ERROR_OUTPUT_CONFLICT`.
-The error identifies the destination-relative path and both producers, including files from different `--copy` directories.
-Rename or exclude one input instead of relying on copy order to select a winner.
+> DOMStack does not detect conflicts between copied directories and other build output.
+If multiple inputs produce the same destination path, the result is undefined.
 
 Copy folders must live **outside** of the `dest` directory.
 Copy directories can be in the src directory allowing for nested builds.
