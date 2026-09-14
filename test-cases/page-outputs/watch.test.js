@@ -160,6 +160,29 @@ for (const change of ['source deletion', 'draft exclusion', 'hook removal', 'com
   })
 }
 
+test('provider precedence warnings reach the configured logger on initial and incremental watch builds', { timeout: 15_000 }, async t => {
+  const { site, src, read, logs } = await setup(t, {
+    'page.js': "export default () => 'initial'; " + hook('selected.txt', 'page module'),
+    'page.vars.js': "export default {}; export const pageOutputs = () => { throw Error('ignored companion ran') }",
+  })
+  const result = await site.watch({ serve: false })
+  assert.equal(result.pageBuildResults?.warnings.filter(warning => 'code' in warning && warning.code === 'DOM_STACK_WARNING_DUPLICATE_PAGE_OUTPUTS_PROVIDER').length, 1)
+  const cursor = logs.length
+  await settle(site, logs, async () => {
+    await writeFile(join(src, 'page.js'), "export default () => 'rebuilt'; " + hook('selected.txt', 'page module'))
+  })
+  for (const messages of [logs.slice(0, cursor), logs.slice(cursor)]) {
+    const warnings = messages.map(line => JSON.parse(line)).filter(entry => entry.level === 40 && entry.msg.includes('both export pageOutputs'))
+    assert.ok(warnings.length > 0, 'the configured logger receives provider warnings for this watch phase')
+    for (const warning of warnings) {
+      assert.ok(warning.msg.includes(join(src, 'page.js')))
+      assert.ok(warning.msg.includes(join(src, 'page.vars.js')))
+    }
+  }
+  assert.equal(await read('index.html'), 'rebuilt')
+  assert.equal(await read('selected.txt'), 'page module')
+})
+
 test('hook-only data subscriptions invalidate their owner but not an unrelated sibling', { timeout: 30_000 }, async t => {
   const { site, src, read, mtime, logs } = await setup(t, {
     'global.data.js': "export default { selected: 'first', unrelated: 'unchanged' }",

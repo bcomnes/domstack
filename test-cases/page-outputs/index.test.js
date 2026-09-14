@@ -155,12 +155,19 @@ test('generated pages skip inherited layout hooks', async t => {
 })
 
 test('JS page outputs take precedence over companion outputs while layouts remain additive', async t => {
-  const { build, read } = await setup(t, {
+  const { build, read, src } = await setup(t, {
     'root.layout.js': 'export default ({ children }) => children; ' + hook('layout.txt', 'layout'),
     'page.js': "export default () => 'main'; " + hook('page.txt', 'page'),
     'page.vars.js': "export default {}; export const pageOutputs = () => { throw Error('ignored companion must not run') }",
   })
-  await build()
+  const result = await build()
+  const warnings = result.pageBuildResults?.warnings.filter(warning => 'code' in warning && warning.code === 'DOM_STACK_WARNING_DUPLICATE_PAGE_OUTPUTS_PROVIDER')
+  assert.equal(warnings?.length, 1)
+  const warning = warnings?.[0]
+  assert.ok(warning && 'message' in warning)
+  assert.ok(warning.message.includes(join(src, 'page.js')))
+  assert.ok(warning.message.includes(join(src, 'page.vars.js')))
+  assert.ok(result.warnings.includes(warning), 'worker warnings propagate to the aggregate build result')
   assert.equal(await read('index.html'), 'main')
   assert.equal(await read('layout.txt'), 'layout')
   assert.equal(await read('page.txt'), 'page')
