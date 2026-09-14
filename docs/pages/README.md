@@ -319,7 +319,116 @@ export default async () => {
 Page variable files have higher precedence than `global.vars.ts` variables, but lower precedence than frontmatter or `vars` exports from `ts` pages.
 See [Variables](../../docs/pages/#variables) for the full variable cascade.
 
-### Draft pages
+## Additional outputs
+
+Source-backed pages can publish extra files alongside their normal HTML through a named `additionalOutputs` export.
+Use a [layout hook](../layouts/#additional-outputs) for shared policy, a JS/TS page-module hook for executable pages, or the page's directly associated vars companion for page-specific Markdown, HTML, or JS/TS behavior.
+The hook declares files; it must not write directly to the destination.
+
+```js
+// src/article/page.js
+export const vars = {
+  title: 'An article',
+  dataDeps: ['siteMetadata'],
+}
+
+export default ({ vars }) => `<h1>${vars.title}</h1>`
+
+export const additionalOutputs = ({ vars, data }) => ({
+  outputName: './metadata.json',
+  content: JSON.stringify({ title: vars.title, site: data.siteMetadata }),
+})
+```
+
+### Companion hooks
+
+The existing vars companion can export the same named hook without changing its default vars export:
+
+```js
+// src/article/page.vars.js (alongside page.md)
+export default { title: 'An article' }
+
+export async function* additionalOutputs ({ page, vars }) {
+  yield {
+    outputName: './source.md',
+    content: await page.readMarkdownContent(),
+  }
+  yield {
+    outputName: './metadata.json',
+    content: JSON.stringify({ title: vars.title }),
+  }
+}
+```
+
+For HTML and JS/TS companions, return suitable text or JSON instead of calling `readMarkdownContent()`.
+The hook is a named module export, not a property of resolved vars or executable Markdown frontmatter.
+Only the directly associated companion provides a page-level hook; global vars and inherited directory vars do not provide hooks.
+If both a JS/TS page module and its companion export `additionalOutputs`, the build fails with a provider-conflict error identifying both modules.
+Choose one provider rather than relying on precedence.
+
+### Hook arguments and results
+
+Every hook receives `{ page, vars, data }`:
+
+- `page` is a read-only handle to the current source page, including `type`, `path`, `url`, `outputName`, `outputRelname`, `draft`, and read-only `pageFile` metadata.
+  Its `readMarkdownContent()` method reads the Markdown body with YAML frontmatter removed, without rendering Markdown, substituting Handlebars, or rewriting links.
+  The method throws for non-Markdown pages.
+  The handle does not expose rendering methods, output-writing methods, or another consumer's data.
+- `vars` contains the fully resolved page variables and is read-only.
+- `data` contains only the declaring renderer's subscribed global data.
+  Page-module and companion hooks share the page renderer's subscriptions; each layout hook shares that specific layout renderer's subscriptions.
+  Declare these with the existing static `vars.dataDeps` array convention, or `dataDeps` in the companion's default vars object.
+  There is no `additionalOutputsDataDeps` export, and undeclared keys are not implicitly available.
+  See [Data subscriptions](../data/#data-subscriptions).
+
+A hook returns one explicit `{ outputName: string, content: string }` record, an array of records, or an async iterable of records, directly or through a promise.
+Only string content is supported; serialize JSON yourself.
+Bare strings are invalid because there is no implicit filename.
+An empty array or an async iterator that yields nothing declares no files for that hook.
+
+Applicable hooks execute in outermost layout → innermost layout → page order, and all their outputs are additive.
+Returning `[]` from the page hook does not suppress layout outputs.
+For an application-specific opt-out, have the layout inspect a resolved variable such as `rawExport: false` and return `[]` itself.
+Hooks run only in the owning page's output-build phase, not when collection or global-data code calls `renderInnerPage()` or `renderFullPage()`.
+Generated `*.pages.*` pages skip additional-output hooks entirely, including inherited layout hooks.
+
+### Output paths and failures
+
+Output names resolve beneath the configured destination, including custom destinations:
+
+| Output name | Resolution for a page at `docs/article/index.html` |
+| --- | --- |
+| `metadata.json` or `./metadata.json` | `docs/article/metadata.json` |
+| `../source/article.md` | `docs/source/article.md` |
+| `/raw/article.md` | `raw/article.md` at the destination root |
+
+A leading `/` means destination-root-relative, never filesystem-absolute.
+Relative paths use the current page's output directory even when a layout declares them.
+Parent traversal is allowed only while the resolved target remains inside the destination.
+Escapes and invalid file targets fail the build.
+These rules do not change existing template output-path semantics.
+
+Duplicate destinations fail even when content is identical, including duplicates between hooks and conflicts with normal HTML, other pages, templates, copied assets, or bundles.
+There is no implicit override mechanism.
+Hook, iterator, validation, and collision failures publish none of the staged page-phase outputs and do not clean up stale page outputs or replace prior ownership.
+An iterator that throws after yielding records therefore cannot publish those earlier yields to the live destination.
+This is a page-phase guarantee, not a transaction across every build phase or a rollback guarantee for filesystem I/O failures during publication.
+
+### Watch behavior and ownership
+
+Additional files belong to the source page and appear in page build reports and the build manifest.
+Ownership tracking and cleanup also work when public build-manifest generation is disabled.
+After a successful rebuild, DOMStack removes previously owned files no longer returned, including renamed outputs and files from removed hooks.
+Source deletion, source rename, or draft exclusion also removes the page's old outputs.
+Adding, editing, removing, or renaming a companion updates the owning page's hook and output set.
+
+Hooks rerun when the owning page rebuilds, including changes to applicable page or layout data subscriptions.
+A dependency used only by a hook still triggers an HTML rebuild because both outputs rebuild together.
+Byte-identical additional files are not rewritten in the live destination, but remain in the complete owned output set.
+An article body edit can update that article's HTML and raw export without invalidating sibling raw exports; a shared navigation rebuild can rerun all affected hooks without changing unchanged raw-file mtimes.
+Keep collection-wide search indexes and feeds in templates, while using these hooks for per-page artifacts.
+
+## Draft pages
 
 A complete draft page can use the same colocated files as a published page:
 

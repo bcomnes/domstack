@@ -38,6 +38,7 @@ import { createServer } from '@domstack/sync'
 import { find } from '@11ty/dependency-tree-typescript'
 
 import { assertInsideDest, toPosix } from './lib/helpers/path.js'
+import { prepareAdditionalOutputPromotion } from './lib/helpers/additional-output-promotion.js'
 import { getCopyGlob } from './lib/build-static/index.js'
 import { getCopyDirs } from './lib/build-copy/index.js'
 import { isProcessedFile, globalBundleAssets, pageBundleAssets, layoutBundleAssets } from './lib/file-conventions.js'
@@ -119,6 +120,8 @@ export class DomStack {
   #caseInsensitive = false
   /** @type {string | null} Unpublished initial watch outputs, retained for recovery. */
   #initialStage = null
+  /** @type {Map<string, DomstackManifestRecord>} Sidecars staged by successful initial page transactions. */
+  #initialAdditionalOutputs = new Map()
 
   // One session owns the resources above until shutdown finishes.
   // Normal path: absent → starting → watching → stopping → absent.
@@ -308,7 +311,7 @@ export class DomStack {
         trackWatchDependencies: true,
         previousOutputClaims: this.#outputClaims,
         caseInsensitive: this.#caseInsensitive,
-        promoteOutputs: (report, write) => this.#promotePageOutputs(report, write),
+        promoteOutputs: (report, write, preflight) => this.#promotePageOutputs(report, write, preflight),
       })
       this.#remapInitialPageReport(pageBuildResults)
       if (pageBuildResults.errors.length > 0) {
@@ -477,15 +480,18 @@ export class DomStack {
    * watch build queue: esbuild callbacks also run during queued context startup.
    * @param {() => OutputClaim[]} nextClaims
    * @param {() => Promise<void>} write
+   * @param {(removablePaths: string[]) => Promise<void>} [preflight]
    */
-  #commitOutputs (nextClaims, write) {
+  #commitOutputs (nextClaims, write, preflight) {
     const transaction = this.#outputLock.then(async () => {
       const next = nextClaims()
       const paths = new Set(next.map(claim => claim.outputRelname))
-      for (const claim of this.#outputClaims) {
-        if (paths.has(claim.outputRelname)) continue
-        const writeDest = this.#initialStage ?? this.#dest
-        const target = resolve(writeDest, claim.outputRelname)
+      const stale = this.#outputClaims.filter(claim => !paths.has(claim.outputRelname)).map(claim => claim.outputRelname)
+      const writeDest = this.#initialStage ?? this.#dest
+      await prepareAdditionalOutputPromotion(writeDest, [], stale)
+      await preflight?.(stale)
+      for (const name of stale) {
+        const target = resolve(writeDest, name)
         assertInsideDest(writeDest, target)
         await rm(target, { force: true })
         // Only remove empty directories; never recursively delete unowned files.
@@ -505,7 +511,14 @@ export class DomStack {
     const publish = this.#outputLock.then(async () => {
       if (!this.#initialStage) return
       await mkdir(this.#dest, { recursive: true })
-      await cp(this.#initialStage, await realpath(this.#dest), { recursive: true, force: true })
+      const stage = this.#initialStage
+      const unchanged = await prepareAdditionalOutputPromotion(this.#dest, [...this.#initialAdditionalOutputs.values()])
+      await cp(stage, await realpath(this.#dest), {
+        recursive: true,
+        force: true,
+        filter: source => !unchanged.has(toPosix(relative(stage, source))),
+      })
+      this.#initialAdditionalOutputs.clear()
       await rm(this.#initialStage, { recursive: true, force: true })
       this.#initialStage = null
     })
@@ -534,14 +547,27 @@ export class DomStack {
    * its possibly stale pre-render snapshot.
    * @param {PageBuildStepResult} report
    * @param {() => Promise<void>} write
+   * @param {(removablePaths: string[]) => Promise<void>} preflight
    */
-  #promotePageOutputs (report, write) {
+  #promotePageOutputs (report, write, preflight) {
     return this.#commitOutputs(() => {
       const replaced = new Set(report.report.replacedOwnerIds ?? [])
       const registry = new OutputRegistry(this.#outputClaims, { replaceOwnerIds: replaced, caseInsensitive: this.#caseInsensitive })
       for (const claim of report.report.newClaims ?? []) registry.claim(claim.outputRelname, claim.owner)
       return registry.snapshot()
-    }, write)
+    }, async () => {
+      await write()
+      if (this.#initialStage) {
+        const replaced = new Set(report.report.replacedOwnerIds ?? [])
+        const removed = new Set(this.#outputClaims.filter(claim => replaced.has(claim.owner.id)).map(claim => claim.outputRelname))
+        for (const name of removed) this.#initialAdditionalOutputs.delete(name)
+        for (const output of report.outputs) {
+          if (output.kind === 'page-additional') {
+            this.#initialAdditionalOutputs.set(output.outputRelname, { ...output, filepath: resolve(this.#initialStage, output.outputRelname) })
+          }
+        }
+      }
+    }, preflight)
   }
 
   /**
@@ -598,11 +624,12 @@ export class DomStack {
       const results = await builder(this.#src, this.#dest, { ...this.opts, domstackManifest: false }, {
         watch: true,
         caseInsensitive: this.#caseInsensitive,
-        promoteOutputs: (claims, write) => this.#commitOutputs(() => claims, write),
+        promoteOutputs: (claims, write, preflight) => this.#commitOutputs(() => claims, write, preflight),
       })
       if (this.#initialStage) {
         await rm(this.#initialStage, { recursive: true, force: true })
         this.#initialStage = null
+        this.#initialAdditionalOutputs.clear()
       }
       const { siteData, pageBuildResults } = results
       this.#siteData = siteData
@@ -734,7 +761,7 @@ export class DomStack {
         trackWatchDependencies: true,
         previousOutputClaims: this.#outputClaims,
         caseInsensitive: this.#caseInsensitive,
-        promoteOutputs: (report, write) => this.#promotePageOutputs(report, write),
+        promoteOutputs: (report, write, preflight) => this.#promotePageOutputs(report, write, preflight),
       })
       this.#remapInitialPageReport(pageBuildResults)
       if (pageBuildResults.errors.length > 0) {
@@ -971,6 +998,7 @@ export class DomStack {
     await this.#outputLock
     results.push(...await Promise.allSettled([...this.#cpxWatchStages, ...(this.#initialStage ? [this.#initialStage] : [])].map(stage => rm(stage, { recursive: true, force: true }))))
     this.#initialStage = null
+    this.#initialAdditionalOutputs.clear()
     this.#watcher = null
     this.#cpxWatchers = []
     this.#cpxWatchStages = []

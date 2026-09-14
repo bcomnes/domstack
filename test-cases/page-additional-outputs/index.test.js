@@ -1,0 +1,193 @@
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { stat } from 'node:fs/promises'
+import { join } from 'node:path'
+import { errorText, hook, setup, writeFiles } from './helpers.js'
+
+const rawLayout = `export default ({ children }) => '<main>' + children + '</main>'
+export const additionalOutputs = async ({ page }) => ({ outputName: './source.txt', content: await page.readMarkdownContent() })`
+
+test('builder renders Markdown and exports the unrendered body from its layout at a custom destination', async t => {
+  const body = '# Article\n\nKeep **Markdown**, {{ vars.title }}, and [links](./other.md).\n'
+  const { build, read, dest } = await setup(t, {
+    'root.layout.js': rawLayout,
+    'docs/page.md': '---\ntitle: Resolved title\n---\n' + body,
+  })
+  const result = await build()
+  assert.match(await read('docs/index.html'), /<main>\s*<h1/)
+  assert.match(await read('docs/index.html'), /<strong>Markdown<\/strong>/)
+  assert.equal(await read('docs/source.txt'), '\n' + body)
+  const record = result.pageBuildResults?.outputs.find(output => output.outputRelname === 'docs/source.txt')
+  assert.ok(record, 'additional output is included in the page build report')
+  assert.equal(record.filepath, join(dest, 'docs/source.txt'))
+  assert.equal(record.sourceRelname, 'docs/page.md')
+})
+
+test('nested hooks run outer -> inner -> companion with isolated renderer data and resolved vars', async t => {
+  const { build, read } = await setup(t, {
+    'global.vars.js': "export default { layout: 'inner', title: 'global' }; export const additionalOutputs = () => { throw Error('global provider ran') }",
+    'global.data.js': "export default { outer: 'O', inner: 'I', selected: 'P', secret: 'hidden' }",
+    'root.layout.js': `import assert from 'node:assert/strict'
+      export const vars = { dataDeps: ['outer'] }
+      export default ({ children, data }) => data.outer + children
+      export const additionalOutputs = ({ page, vars, data }) => {
+        assert.equal(vars.title, 'page title')
+        assert.throws(() => data.selected, /undeclared/)
+        assert.equal('renderFullPage' in page, false)
+        assert.equal('data' in page, false)
+        globalThis[page.pageFile.filepath] = ['outer']
+        return { outputName: 'outer.txt', content: data.outer }
+      }`,
+    'inner.layout.js': `import assert from 'node:assert/strict'
+      export const parentLayout = 'root'
+      export const vars = { dataDeps: ['inner'] }
+      export default ({ children, data }) => data.inner + children
+      export async function* additionalOutputs ({ page, data }) {
+        assert.throws(() => data.outer, /undeclared/)
+        globalThis[page.pageFile.filepath].push('inner')
+        yield { outputName: './inner.txt', content: data.inner }
+      }`,
+    'docs/page.md': '---\ntitle: page title\n---\n# Body\n',
+    'docs/page.vars.js': `import assert from 'node:assert/strict'
+      export default { dataDeps: ['selected'] }
+      export const additionalOutputs = async ({ page, vars, data }) => {
+        assert.throws(() => data.secret, /undeclared/)
+        assert.throws(() => data.inner, /undeclared/)
+        assert.equal(Object.isFrozen(page), true)
+        assert.equal(Object.isFrozen(vars), true)
+        const order = globalThis[page.pageFile.filepath]
+        delete globalThis[page.pageFile.filepath]
+        return [
+          { outputName: '/metadata.json', content: JSON.stringify({ title: vars.title, selected: data.selected, order: [...order, 'page'] }) },
+          { outputName: '../source/article.txt', content: await page.readMarkdownContent() },
+        ]
+      }`,
+  })
+  await build()
+  assert.deepEqual(JSON.parse(await read('metadata.json')), { title: 'page title', selected: 'P', order: ['outer', 'inner', 'page'] })
+  assert.equal(await read('docs/outer.txt'), 'O')
+  assert.equal(await read('docs/inner.txt'), 'I')
+  assert.equal(await read('source/article.txt'), '\n# Body\n')
+  assert.match(await read('docs/index.html'), /^OI\s*<h1/)
+})
+
+for (const extension of ['html', 'js', 'ts']) {
+  test(`builder supports ${extension} page companion hooks and page renderer subscriptions`, async t => {
+    const { build, read } = await setup(t, {
+      'global.data.js': "export default { selected: 'subscribed', secret: 'private' }",
+      [`article/page.${extension}`]: extension === 'html' ? '<p>{{ vars.title }}</p>' : 'export default ({ vars, data }) => vars.title + data.selected',
+      'article/page.vars.js': `import assert from 'node:assert/strict'
+        export default { title: 'Companion', dataDeps: ['selected'] }
+        export async function additionalOutputs ({ page, vars, data }) {
+          await assert.rejects(page.readMarkdownContent())
+          assert.throws(() => data.secret, /undeclared/)
+          return { outputName: 'metadata.json', content: JSON.stringify({ title: vars.title, value: data.selected }) }
+        }`,
+    })
+    await build()
+    assert.match(await read('article/index.html'), /Companion/)
+    assert.deepEqual(JSON.parse(await read('article/metadata.json')), { title: 'Companion', value: 'subscribed' })
+  })
+}
+
+test('JS page modules support promised async iterables, arrays, and empty results', async t => {
+  const { build, read } = await setup(t, {
+    'page.js': `export default () => 'main'; export const additionalOutputs = async () => (async function* () {
+      yield { outputName: 'one.txt', content: 'one' }; yield { outputName: './two.txt', content: 'two' }
+    })()`,
+    'array/page.js': "export default () => 'array'; export const additionalOutputs = () => [{ outputName: 'array.txt', content: 'array' }]",
+    'empty/page.js': "export default () => 'empty'; export const additionalOutputs = () => []",
+    'iterator/page.js': "export default () => 'empty iterator'; export async function* additionalOutputs () {}",
+  })
+  await build()
+  for (const name of ['one', 'two']) assert.equal(await read(`${name}.txt`), name)
+  assert.equal(await read('array/array.txt'), 'array')
+  assert.equal(await read('empty/index.html'), 'empty')
+  assert.equal(await read('iterator/index.html'), 'empty iterator')
+})
+
+test('generated pages skip inherited layout hooks', async t => {
+  const { build, read } = await setup(t, {
+    'root.layout.js': "export default ({ children }) => children; export const additionalOutputs = () => { throw Error('generated hook ran') }",
+    'items.pages.js': "export default { outputName: 'generated.html', children: 'Generated' }",
+  })
+  await build()
+  assert.equal(await read('generated.html'), 'Generated')
+})
+
+test('duplicate JS and companion providers fail with both module names', async t => {
+  const { build } = await setup(t, {
+    'page.js': "export default () => 'main'; " + hook('page.txt'),
+    'page.vars.js': 'export default {}; ' + hook('companion.txt'),
+  })
+  await assert.rejects(build(), error => {
+    const message = errorText(error)
+    assert.match(message, /page\.js/)
+    assert.match(message, /page\.vars\.js/)
+    assert.match(message, /additionalOutputs/)
+    assert.match(message, /both|conflict/i)
+    return true
+  })
+})
+
+for (const scenario of [
+  { name: 'own HTML', output: 'index.html', files: {} },
+  { name: 'other page HTML', output: 'other/index.html', files: { 'other/page.html': 'Other' } },
+  { name: 'template', output: 'shared.txt', files: { 'shared.txt.template.js': "export default () => 'template'" } },
+  { name: 'asset', output: 'shared.txt', files: { 'shared.txt': 'asset' } },
+  { name: 'bundle', output: 'client.js', files: { 'client.js': 'console.log(1)', 'esbuild.settings.js': "export default opts => ({ ...opts, entryNames: '[dir]/[name]' })" } },
+  { name: 'layout hook', output: 'shared.txt', files: { 'root.layout.js': 'export default ({ children }) => children; ' + hook('shared.txt') } },
+  { name: 'other page hook', output: 'shared.txt', files: { 'other/page.js': "export default () => 'other'; " + hook('/shared.txt') } },
+]) {
+  test(`builder rejects sidecar collision with ${scenario.name}`, async t => {
+    const { build, dest, read } = await setup(t, {
+      'page.js': "export default () => 'new main'; " + hook(scenario.output),
+      ...scenario.files,
+    })
+    await writeFiles(dest, { 'index.html': 'previous main', 'sentinel.txt': 'keep' })
+    await assert.rejects(build(), error => {
+      assert.match(errorText(error), /Output path conflict/)
+      assert.ok(errorText(error).includes(scenario.output), errorText(error))
+      return true
+    })
+    assert.equal(await read('index.html'), 'previous main', 'failed page phase never publishes main HTML')
+    assert.equal(await read('sentinel.txt'), 'keep')
+  })
+}
+
+for (const result of [
+  "'bare string'",
+  "{ outputName: 'bad.txt', content: 42 }",
+  "[{ outputName: 'same.txt', content: 'same' }, { outputName: './same.txt', content: 'same' }]",
+  "{ outputName: '../escape.txt', content: 'bad' }",
+  "{ outputName: '/', content: 'bad' }",
+]) {
+  test(`builder rejects invalid additional output: ${result}`, async t => {
+    const { build, dest, read } = await setup(t, {
+      'page.js': `export default () => 'new'; export const additionalOutputs = () => (${result})`,
+    })
+    await writeFiles(dest, { 'index.html': 'old' })
+    await assert.rejects(build())
+    assert.equal(await read('index.html'), 'old')
+    await assert.rejects(stat(join(dest, '../escape.txt')), { code: 'ENOENT' })
+  })
+}
+
+test('iterator failure after a yield preserves all live page-phase outputs', async t => {
+  const { build, dest, read } = await setup(t, {
+    'a/page.js': "export default () => 'new sibling'; " + hook('sibling.txt', 'new sibling sidecar'),
+    'z/page.js': `export default () => 'new main'; export async function* additionalOutputs () {
+      yield { outputName: 'old.txt', content: 'replacement' }
+      yield { outputName: 'partial.txt', content: 'must not publish' }
+      throw Error('iterator exploded')
+    }`,
+  })
+  const previous = { 'a/index.html': 'old sibling', 'a/sibling.txt': 'old sibling sidecar', 'z/index.html': 'old main', 'z/old.txt': 'old sidecar', 'z/stale.txt': 'retain on failure' }
+  await writeFiles(dest, previous)
+  await assert.rejects(build(), error => {
+    assert.match(errorText(error), /iterator exploded/)
+    return true
+  })
+  for (const [name, content] of Object.entries(previous)) assert.equal(await read(name), content)
+  await assert.rejects(stat(join(dest, 'z/partial.txt')), { code: 'ENOENT' })
+})

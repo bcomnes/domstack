@@ -63,6 +63,7 @@ DOMStack recognizes these exports from a layout module:
 | `default` | Yes | A synchronous or asynchronous [layout render function](#layout-render-function). |
 | `vars` | No | An object, or a sync/async function returning an object, providing [layout defaults](#layout-variables). |
 | `parentLayout` | No | A non-empty string naming the immediate outer layout; see [Declaring nested layouts](#declaring-nested-layouts). |
+| `additionalOutputs` | No | A build-only hook declaring [page-owned additional outputs](../pages/#additional-outputs), such as raw Markdown or JSON sidecars. |
 
 ## Declaring nested layouts
 
@@ -103,6 +104,31 @@ For rebuilds, the page depends on the union of its own subscriptions and every l
 See [Data subscriptions in nested layouts](../cookbook/nested-layouts/#data-subscriptions-in-nested-layouts) for typed declarations and examples.
 
 See [Compose nested layouts](../cookbook/nested-layouts/) for a complete example and asset guidance.
+
+## Additional outputs
+
+A layout can define shared output policy for its source-backed pages by exporting `additionalOutputs`.
+The current source page owns the files, even though the layout declares the hook.
+For example, a documentation layout can publish raw Markdown alongside each rendered page:
+
+```js
+// src/docs.layout.js
+export default ({ children }) => children
+
+export async function additionalOutputs ({ page, vars }) {
+  if (page.type !== 'md' || vars.rawExport === false) return []
+  return {
+    outputName: page.outputName.replace(/\.html$/, '.source.md'),
+    content: await page.readMarkdownContent(),
+  }
+}
+```
+
+The filename is relative to the current page's output directory, not the layout directory.
+Using the page's HTML filename avoids collisions when several loose Markdown pages share a directory.
+Nested hooks run outermost layout → innermost layout → page, and each layout hook shares only that layout renderer's `vars.dataDeps` subscriptions.
+Generated pages skip these hooks, including inherited layout hooks.
+See [Additional outputs](../pages/#additional-outputs) for the complete API, companion modules, path rules, and watch behavior.
 
 ## Layout variables
 
