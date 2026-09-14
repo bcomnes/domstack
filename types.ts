@@ -6,6 +6,15 @@
 import type { Results } from './lib/builder.js'
 
 export type { DataDeps } from './lib/build-pages/data-deps.js'
+export type {
+  PageOutput,
+  PageOutputProvenance,
+  PageOutputsFunction,
+  PageOutputsFunctionParams,
+  PageOutputsPage,
+  PageOutputsResult,
+  CollectedPageOutput,
+} from './lib/build-pages/page-outputs.js'
 
 export type { BuildOptions } from 'esbuild'
 export type { DomStackOpts, Results, SiteData } from './lib/builder.js'

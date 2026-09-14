@@ -11,6 +11,7 @@
  * @import { Logger as PinoLogger } from 'pino'
  * @import { DomstackManifestRecord } from './lib/domstack-manifest/index.js'
  * @import { WatchDependencyState } from './lib/build-pages/watch-dependencies.js'
+ * @import { PageOutputCache } from './lib/build-pages/page-builders/page-output-writer.js'
  * @import { WatchSnapshot, WatchEvent, WatchPlan } from './lib/watch-plan.js'
  * @typedef {{ dispose: () => Promise<void> }} DisposableBuildContext
  * @typedef {{ pageFilePath: string, sourcePageFilePath?: string | undefined, pagesFilePath?: string | undefined, layoutNames: string[], outputs?: DomstackManifestRecord[] | undefined }} WatchedPageReport
@@ -22,10 +23,10 @@
  */
 import { once } from 'events'
 import assert from 'node:assert'
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { lstat, mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import chokidar from 'chokidar'
-import { basename, join, relative, resolve } from 'node:path'
+import { basename, dirname, join, relative, resolve } from 'node:path'
 // @ts-expect-error
 import makeArray from 'make-array'
 import ignore from 'ignore'
@@ -101,10 +102,12 @@ export class DomStack {
   #globalDataDepPaths = new Set()
   /** @type {Set<string>} absolute filepaths of esbuild entry points */
   #esbuildEntryPoints = new Set()
-  /** @type {Set<string>} destination-relative outputs from the last successful page builds */
-  #pageOutputRelnames = new Set()
-  /** @type {Map<string, Set<string>>} *.pages.* filepath → owned destination-relative outputs */
-  #pagesFileOutputMap = new Map()
+  /** @type {Map<string, Set<string>>} source page or *.pages.* filepath → owned absolute output paths */
+  #pageOutputMap = new Map()
+  /** @type {PageOutputCache} Successful writes, including those before an iterator failure. */
+  #pageOutputCache = new Map()
+  /** @type {Map<string, Set<string>>} template filepath → currently claimed absolute output paths */
+  #templateOutputMap = new Map()
   /** @type {Map<string, Set<string>>} *.pages.* filepath → layouts used by its generated pages */
   #pagesFileLayoutMap = new Map()
   /** @type {WatchDependencyState | null} subscriptions and fingerprints from the last successful page build */
@@ -280,7 +283,10 @@ export class DomStack {
         ...this.opts,
         trackWatchDependencies: true,
       })
+      this.#pageOutputCache = pageBuildResults.report.pageOutputCache ?? this.#pageOutputCache
+      delete pageBuildResults.report.pageOutputCache
       if (pageBuildResults.errors.length > 0) {
+        this.#rememberPartialPageOutputs(pageBuildResults)
         throw new DomStackAggregateError(pageBuildResults.errors, 'Page build finished but there were errors.', {
           siteData,
           pageBuildResults,
@@ -291,8 +297,7 @@ export class DomStack {
         siteData,
         pageBuildResults,
       }
-      this.#pageOutputRelnames = getPageOutputRelnames(pageBuildResults.outputs)
-      this.#pagesFileOutputMap = getPagesFileOutputMap(pageBuildResults.report.pages)
+      await this.#removeObsoletePageOutputs(pageBuildResults, false)
       this.#pagesFileLayoutMap = getPagesFileLayoutMap(pageBuildResults.report.pages)
       this.#updatePageLayoutNames(pageBuildResults.report.pages, true)
       this.#pageBuildFailed = false
@@ -534,22 +539,24 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
         ...(templateFilterPaths ? { templateFilterPaths } : {}),
         ...(pagesFileFilterPaths ? { pagesFileFilterPaths } : {}),
         previousWatchDependencies: this.#watchDependencies,
+        previousPageOutputCache: this.#pageOutputCache,
         trackWatchDependencies: true,
       })
+      this.#pageOutputCache = pageBuildResults.report.pageOutputCache ?? this.#pageOutputCache
+      delete pageBuildResults.report.pageOutputCache
       if (pageBuildResults.errors.length > 0) {
+        this.#rememberPartialPageOutputs(pageBuildResults)
         throw new DomStackAggregateError(pageBuildResults.errors, 'Page build finished but there were errors.', {
           siteData,
           pageBuildResults,
         })
       }
       const isFiltered = pageFilterPaths !== null || templateFilterPaths !== null || pagesFileFilterPaths !== null
+      await this.#removeObsoletePageOutputs(pageBuildResults, isFiltered)
       this.#updatePageLayoutNames(pageBuildResults.report.pages, !isFiltered)
       if (!isFiltered) {
-        await this.#removeObsoletePageOutputs(pageBuildResults.outputs)
-        this.#pagesFileOutputMap = getPagesFileOutputMap(pageBuildResults.report.pages)
         this.#pagesFileLayoutMap = getPagesFileLayoutMap(pageBuildResults.report.pages)
-      } else if ((pageBuildResults.report.rebuiltPagesFilePaths?.length ?? 0) > 0) {
-        await this.#removeObsoleteGeneratedPageOutputs(pageBuildResults.report.rebuiltPagesFilePaths ?? [], pageBuildResults.report.pages)
+      } else {
         updatePagesFileLayoutMap(this.#pagesFileLayoutMap, pageBuildResults.report.rebuiltPagesFilePaths ?? [], pageBuildResults.report.pages)
       }
       this.#watchDependencies = pageBuildResults.report.watchDependencies ?? this.#watchDependencies
@@ -570,61 +577,59 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
   }
 
   /**
-   * Remove page files that were emitted by the previous successful full build
-   * but are no longer claimed by the current page or template build.
-   *
-   * @param {DomstackManifestRecord[]} outputs
+   * Failed direct builds can leave new files. Keep their paths alongside prior
+   * ownership without cleaning anything up until a successful rebuild.
+   * @param {Pick<WorkerBuildStepResult, 'report'>} results
    */
-  async #removeObsoletePageOutputs (outputs) {
-    const currentOutputRelnames = new Set(outputs.map(output => output.outputRelname))
-    const currentPageOutputRelnames = getPageOutputRelnames(outputs)
-    const dest = resolve(this.#dest)
-
-    await Promise.all(Array.from(this.#pageOutputRelnames, async outputRelname => {
-      if (currentOutputRelnames.has(outputRelname)) return
-      const filepath = resolve(dest, outputRelname)
-      assertInsideDest(dest, filepath)
-      if (filepath === dest) throw new Error('Refusing to remove the build destination')
-      await rm(filepath, { force: true })
-    }))
-
-    this.#pageOutputRelnames = currentPageOutputRelnames
+  #rememberPartialPageOutputs (results) {
+    for (const [owner, outputs] of getPageOutputMap(resolve(this.#dest), results.report.pages)) {
+      const previous = this.#pageOutputMap.get(owner) ?? new Set()
+      for (const path of outputs) previous.add(path)
+      this.#pageOutputMap.set(owner, previous)
+    }
   }
 
   /**
-   * Remove outputs no longer emitted by the selected generated-pages owners.
-   * Ownership state changes only after a successful targeted build.
+   * Reconcile page ownership only after a successful page phase. Untouched page
+   * and template owners still protect their outputs during targeted builds.
    *
-   * @param {string[]} pagesFileFilterPaths
-   * @param {WatchedPageReport[]} pageReports
+   * @param {Pick<WorkerBuildStepResult, 'report' | 'outputs'>} results
+   * @param {boolean} isFiltered
    */
-  async #removeObsoleteGeneratedPageOutputs (pagesFileFilterPaths, pageReports) {
-    const currentByOwner = getPagesFileOutputMap(pageReports)
+  async #removeObsoletePageOutputs (results, isFiltered) {
     const dest = resolve(this.#dest)
+    const rebuiltPages = getPageOutputMap(dest, results.report.pages)
+    const pages = isFiltered ? new Map(this.#pageOutputMap) : new Map()
+    const templates = isFiltered ? new Map(this.#templateOutputMap) : new Map()
 
-    for (const pagesFilePath of pagesFileFilterPaths) {
-      const previousOutputs = this.#pagesFileOutputMap.get(pagesFilePath) ?? new Set()
-      const currentOutputs = currentByOwner.get(pagesFilePath) ?? new Set()
-
-      await Promise.all(Array.from(previousOutputs, async outputRelname => {
-        if (currentOutputs.has(outputRelname)) return
-        const filepath = resolve(dest, outputRelname)
-        assertInsideDest(dest, filepath)
-        if (filepath === dest) throw new Error('Refusing to remove the build destination')
-        await rm(filepath, { force: true })
-      }))
-
-      for (const outputRelname of previousOutputs) this.#pageOutputRelnames.delete(outputRelname)
-      for (const report of pageReports) {
-        if (report.pagesFilePath !== pagesFilePath) continue
-        for (const output of report.outputs ?? []) {
-          if (output.kind === 'page') this.#pageOutputRelnames.add(output.outputRelname)
-        }
-      }
-
-      if (currentOutputs.size > 0) this.#pagesFileOutputMap.set(pagesFilePath, currentOutputs)
-      else this.#pagesFileOutputMap.delete(pagesFilePath)
+    // Factories can successfully rebuild to zero pages; regular pages always
+    // report their HTML output, even when their page-output hook is gone.
+    for (const owner of results.report.rebuiltPagesFilePaths ?? []) pages.delete(owner)
+    for (const [owner, outputs] of rebuiltPages) pages.set(owner, outputs)
+    for (const report of results.report.templates) {
+      templates.set(report.templateInfo.templateFile.filepath, new Set(
+        report.outputs.map(output => resolve(dest, report.templateInfo.path, output))
+      ))
     }
+
+    const claimed = new Set(results.outputs.map(output => resolve(dest, output.outputRelname)))
+    for (const outputs of [...pages.values(), ...templates.values()]) {
+      for (const filepath of outputs) claimed.add(filepath)
+    }
+    const stale = new Set()
+    for (const outputs of this.#pageOutputMap.values()) {
+      for (const filepath of outputs) {
+        if (!claimed.has(filepath)) stale.add(filepath)
+      }
+    }
+    for (const filepath of stale) await removeStalePageOutput(dest, filepath)
+
+    const pageOwnedPaths = new Set([...pages.values()].flatMap(outputs => [...outputs]))
+    for (const filepath of this.#pageOutputCache.keys()) {
+      if (!pageOwnedPaths.has(filepath)) this.#pageOutputCache.delete(filepath)
+    }
+    this.#pageOutputMap = pages
+    this.#templateOutputMap = templates
   }
 
   /**
@@ -846,33 +851,43 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
 }
 
 /**
- * @param {DomstackManifestRecord[]} outputs
- * @returns {Set<string>}
- */
-function getPageOutputRelnames (outputs) {
-  return new Set(outputs
-    .filter(output => output.kind === 'page')
-    .map(output => output.outputRelname))
-}
-
-/**
- * Group generated-page outputs by their owning *.pages.* filepath.
- *
+ * @param {string} dest
  * @param {WatchedPageReport[]} pageReports
  * @returns {Map<string, Set<string>>}
  */
-function getPagesFileOutputMap (pageReports) {
+function getPageOutputMap (dest, pageReports) {
   /** @type {Map<string, Set<string>>} */
   const outputsByOwner = new Map()
-
   for (const report of pageReports) {
-    if (!report.pagesFilePath) continue
-    const outputs = outputsByOwner.get(report.pagesFilePath) ?? new Set()
-    for (const output of report.outputs ?? []) outputs.add(output.outputRelname)
-    outputsByOwner.set(report.pagesFilePath, outputs)
+    const owner = report.pagesFilePath ?? report.sourcePageFilePath
+    if (!owner) continue
+    const outputs = outputsByOwner.get(owner) ?? new Set()
+    for (const output of report.outputs ?? []) outputs.add(resolve(dest, output.outputRelname))
+    outputsByOwner.set(owner, outputs)
   }
-
   return outputsByOwner
+}
+
+/**
+ * Never follow a replaced output directory outside the destination. A symlink
+ * at the output itself is safe to unlink; directories are never removed.
+ * @param {string} dest
+ * @param {string} filepath
+ */
+async function removeStalePageOutput (dest, filepath) {
+  assertInsideDest(dest, filepath)
+  if (filepath === dest) throw new Error('Refusing to remove the build destination')
+  try {
+    for (let ancestor = dirname(filepath); ; ancestor = dirname(ancestor)) {
+      const stats = await lstat(ancestor)
+      if (stats.isSymbolicLink() || !stats.isDirectory()) return
+      if (ancestor === dest) break
+    }
+    const stats = await lstat(filepath)
+    if (!stats.isDirectory()) await rm(filepath, { force: true })
+  } catch (err) {
+    if (/** @type {NodeJS.ErrnoException} */ (err).code !== 'ENOENT') throw err
+  }
 }
 
 /**

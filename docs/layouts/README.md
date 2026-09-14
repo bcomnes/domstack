@@ -63,6 +63,7 @@ DOMStack recognizes these exports from a layout module:
 | `default` | Yes | A synchronous or asynchronous [layout render function](#layout-render-function). |
 | `vars` | No | An object, or a sync/async function returning an object, providing [layout defaults](#layout-variables). |
 | `parentLayout` | No | A non-empty string naming the immediate outer layout; see [Declaring nested layouts](#declaring-nested-layouts). |
+| `pageOutputs` | No | A build-only function returning [extra files for each source page](../pages/#page-outputs), such as Markdown downloads or JSON metadata. |
 
 ## Declaring nested layouts
 
@@ -103,6 +104,45 @@ For rebuilds, the page depends on the union of its own subscriptions and every l
 See [Data subscriptions in nested layouts](../cookbook/nested-layouts/#data-subscriptions-in-nested-layouts) for typed declarations and examples.
 
 See [Compose nested layouts](../cookbook/nested-layouts/) for a complete example and asset guidance.
+
+## Page outputs
+
+Export `pageOutputs` from a layout to produce extra files for each source-backed page that uses it.
+This is the same export used by page modules and vars companions, and it receives `{ page, vars, data }`.
+The function runs for each page, and that page owns the returned files.
+For example, a documentation layout can publish a Markdown download alongside each rendered page:
+
+```js
+// src/docs.layout.js
+export default ({ children }) => children
+
+export async function pageOutputs ({ page, vars }) {
+  if (page.type !== 'md' || vars.rawExport === false) return []
+  return {
+    outputName: page.outputName.replace(/\.html$/, '.source.md'),
+    content: await page.readMarkdownContent(),
+  }
+}
+```
+
+The filename is relative to the current page's output directory, not the layout directory.
+Using the page's HTML filename helps keep destinations unique when several loose Markdown pages share a directory.
+Exact duplicate destinations produce best-effort build warnings, not an override contract; avoid sharing output paths between pages or hooks.
+Set `rawExport: false` in a page's frontmatter or vars to opt out of this layout's Markdown download.
+Returning `[]` from a page hook does not suppress layout files; the layout itself must check the opt-out variable.
+
+Nested hooks run outermost layout → innermost layout → selected page-level hook, and their files are additive.
+If a JS/TS page module and its vars companion both export `pageOutputs`, the page module's hook wins with a warning; layout hooks still run.
+Each layout hook receives the fully resolved page `vars` and only that layout renderer's `vars.dataDeps` subscriptions in `data`.
+Declare data needed by the hook in the same subscriptions used by the layout render function.
+
+Hooks may return a `{ outputName, content }` record, an array of records, or an async iterable of records, directly or through a promise.
+DOMStack validates and processes each file before requesting the next record, writing it or retaining an unchanged file during watch rebuilds.
+A later hook runs only after the preceding hook's files have been processed.
+Files are written directly, without transactions or rollback; if a later record or hook fails, earlier writes remain in the destination.
+Watch mode tracks these files for cleanup after a successful rebuild or source removal.
+Support for generated `*.pages.*` pages is deferred; they skip these hooks, including inherited layout hooks.
+See [Page outputs](../pages/#page-outputs) for the complete arguments, public types, path rules, and watch behavior.
 
 ## Layout variables
 

@@ -15,6 +15,7 @@ Both can subscribe to shared values prepared by the [data pipeline](../data/).
 | Archives, tag indexes, or HTML redirects with page variables and layouts | `*.pages.ts` | One or more DOMStack pages |
 | Feeds, sitemaps, JSON, text, or fully controlled output | `*.template.ts` | One or more files, without layout wrapping |
 | An ordinary page with its own source directory and browser assets | [Page files](../pages/#page-files) | A source-backed page |
+| Markdown downloads, JSON metadata, or other extra files owned by a source-backed page | [`pageOutputs`](../pages/#page-outputs) | Extra files alongside the page's HTML |
 
 ## Table of Contents
 
@@ -48,6 +49,8 @@ A generated-pages module can default-export:
 | An async iterable, usually returned by `async function*` | Pages are discovered incrementally or the total is not known in advance |
 
 Static objects and arrays do not receive factory parameters.
+A `null` or `undefined` default export or factory result produces no pages, as does an empty array or async iterable.
+Each array entry or yielded value must still be a page-definition object; `null` entries are not skipped.
 
 #### One page definition
 
@@ -138,6 +141,29 @@ export default async function * archivePages ({ data }) {
 }
 ```
 
+#### Streaming and failures
+
+DOMStack consumes generated pages one at a time rather than collecting all definitions before building them.
+For each definition, it validates the definition and output path, initializes the page's variables, layouts, and declared data, then renders and writes the HTML before requesting the next definition.
+An async generator resumes after `yield` only once that page has been written, so it can release resources associated with the completed page before preparing the next one.
+Arrays and single-object results use the same per-page pipeline, although an array-producing factory necessarily creates its array before returning it.
+
+Definitions marked `draft: true` are skipped unless drafts are enabled.
+Skipped drafts retain their position in source identifiers: after a skipped first definition, the next page is identified as `archive.pages.ts#1`, not `archive.pages.ts#0`.
+Output paths must be unique across generated pages and must not collide with source-backed pages.
+Do not rely on the processing order of sibling factory modules.
+
+A factory, validation, initialization, or render failure stops the active iterator without requesting later definitions.
+Async generators can use `try`/`finally` to release resources when iteration stops.
+Earlier completed pages remain written; generated-page builds are not transactional, and a late failure does not roll back earlier HTML.
+Conflict errors still identify both sources even when one page has already been written.
+Build results retain output metadata and the owning pages-file path for completed pages, including when the build fails.
+
+In watch mode, failed builds retain both previously owned outputs and any newly written partial outputs without stale-output cleanup.
+A later successful rebuild removes obsolete outputs, including partial pages from repeated failures or an initially failed watch build.
+Removing the factory or changing it to return no pages also cleans up its tracked outputs after a successful rebuild.
+This ownership tracking does not require a public DOMStack manifest and does not remove outputs still owned by sibling factories.
+
 ### Generated-pages factory parameters
 
 Functions receive one object with:
@@ -150,6 +176,8 @@ Functions receive one object with:
 
 Factories do not receive raw source or generated `PageData` collections.
 Put page-collection logic in [`global.data.ts`](../data/#global-data), return a focused serializable value, and subscribe to its key from the factory.
+Source-backed pages remain fully initialized before `global.data.ts` runs, so it can inspect their resolved variables and use their rendering methods subject to the normal data-dependency rules.
+Generated pages are not included in that collection, even after earlier yielded pages have been written.
 This keeps factories downstream of source discovery without exposing generation order or creating page-generation cycles.
 
 ### Generated page definitions
@@ -163,6 +191,8 @@ This keeps factories downstream of source discovery without exposing generation 
 
 Generated pages use [global bundles](../global-bundles/) and [layout assets](../layouts/#layout-styles).
 They do not have page-local `style.css`, `client.js`, or worker entries because they do not have their own source-page directory.
+Support for [page outputs](../pages/#page-outputs) on generated pages is deferred.
+Generated pages skip all `pageOutputs` hooks, including hooks inherited from layouts.
 
 ### Generated-pages types
 
