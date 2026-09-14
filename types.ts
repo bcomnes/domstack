@@ -10,6 +10,7 @@ import type {
 } from './lib/build-pages/index.js'
 
 import type { PageFunction as PageFunctionExport } from './lib/build-pages/page-builders/page-writer.js'
+import type { PageOutputsFunction as PageOutputsFunctionExport } from './lib/build-pages/page-outputs.js'
 
 export type { DataDeps } from './lib/build-pages/data-deps.js'
 export type {
@@ -87,6 +88,18 @@ export type TestBuildResult = {
  * without it they resolve to never. Existing explicit renderer APIs are unchanged.
  */
 export interface LayoutRegistry {}
+
+/**
+ * Additional-output hook using an existing page or layout renderer's vars and
+ * own data subscriptions, with the restricted page-output metadata handle.
+ * Generated pages do not run these hooks, including inherited layout hooks.
+ */
+export type PageOutputsForRenderer<Renderer> =
+  Renderer extends (params: infer Params, ...rest: any[]) => any
+    ? Params extends { vars: infer Vars extends AnyVars, data: infer Data extends object }
+      ? PageOutputsFunctionExport<Vars, Data>
+      : never
+    : never
 
 /** Names registered in the current TypeScript program. */
 export type LayoutRegistryName = Extract<keyof LayoutRegistry, string>

@@ -1,5 +1,5 @@
 import { html } from 'fragtml'
-import type { PageForLayout, ValidatePageVars } from '@domstack/static/types.js'
+import type { PageForLayout, PageOutputsForRenderer, ValidatePageVars } from '@domstack/static/types.js'
 import type globalVars from '../../global.vars.ts'
 
 import sharedData from './shared-lib.ts'
@@ -32,12 +32,25 @@ const JSPage: AssetPage = async ({ vars }) => {
       <ul>
         ${vars.assets.map(asset => html`<li>${asset.label}: ${asset.kind}</li>`)}
       </ul>
+      <p><a href="./assets.json">Download asset metadata as JSON</a></p>
     </section>
   </div>
   `
 }
 
 export default JSPage
+
+export const pageOutputs: PageOutputsForRenderer<AssetPage> = ({ page, vars }) => ({
+  outputName: './assets.json',
+  content: JSON.stringify({
+    title: vars.title,
+    siteName: vars.siteName,
+    locale: vars.locale,
+    theme: vars.theme,
+    assets: vars.assets,
+    url: page.url,
+  }, null, 2),
+})
 
 const pageVars = {
   title: 'JS Page with loose assets',

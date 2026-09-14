@@ -135,6 +135,21 @@ Nested hooks run outermost layout → innermost layout → selected page-level h
 If a JS/TS page module and its vars companion both export `pageOutputs`, the page module's hook wins with a warning; layout hooks still run.
 Each layout hook receives the fully resolved page `vars` and only that layout renderer's `vars.dataDeps` subscriptions in `data`.
 Declare data needed by the hook in the same subscriptions used by the layout render function.
+The hook's `page` is a restricted read-only `PageOutputsPage` handle with source metadata and `readMarkdownContent()`, not the renderer's full page object or its rendering methods.
+
+Use `PageOutputsForRenderer<typeof layoutRenderer>` to derive a hook's resolved vars and own subscribed data contract from an explicitly typed layout renderer, or `PageOutputsForRenderer<ArticlePage>` for a page renderer type such as the one below.
+This helper reuses the renderer's vars and data types but keeps the hook's restricted page handle; it does not combine data from other renderers or create runtime subscriptions.
+When a layout renderer declares only a subset of the fully resolved page vars, the derived hook type exposes only that declared contract.
+For example, alongside the `ArticlePage` renderer below:
+
+```ts
+import type { PageOutputsForRenderer } from '@domstack/static/types.js'
+
+export const pageOutputs: PageOutputsForRenderer<ArticlePage> = ({ page, vars, data }) => ({
+  outputName: './article.json',
+  content: JSON.stringify({ title: vars.title, url: page.url, body: data.articleBody }),
+})
+```
 
 Hooks may return a `{ outputName, content }` record, an array of records, or an async iterable of records, directly or through a promise.
 DOMStack validates and processes each file before requesting the next record, writing it or retaining an unchanged file during watch rebuilds.
@@ -433,6 +448,7 @@ The registry helpers are:
 | `LayoutPageOutput<Name>` | Children type accepted by the innermost layout. |
 | `LayoutResult<Name>` | Awaited output of the outermost renderer, before DOMStack converts it to the final HTML string. |
 | `PageForLayout<Name, PageVars, Data, GlobalVars>` | A `PageFunction` with inferred vars and page output. `Data` remains the page's own data contract and never includes layout data. |
+| `PageOutputsForRenderer<Renderer>` | A page-output hook deriving vars and the renderer's own data contract, with a restricted read-only page handle. |
 | `ValidatePageVars<Name, PageVars, GlobalVars>` | The original supplied `PageVars` if actual known sources satisfy every renderer, otherwise `never`. |
 | `GeneratedPageForLayout<Name, PageVars, Data, GlobalVars>` | A strictly checked generated definition with supplied vars, a required literal layout selector, and correctly typed static or inline children. |
 | `PagesForLayout<Name, PageVars, GlobalVars, FactoryData, PageData>` | A factory or async generator producing checked definitions, with separate factory and inline-page data contracts. |

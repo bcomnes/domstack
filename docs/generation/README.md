@@ -50,7 +50,8 @@ A generated-pages module can default-export:
 
 Static objects and arrays do not receive factory parameters.
 A `null` or `undefined` default export or factory result produces no pages, as does an empty array or async iterable.
-Each array entry or yielded value must still be a page-definition object; `null` entries are not skipped.
+Each consumed entry must resolve to a page-definition object; `null` entries are not skipped.
+The runtime consumes arrays with `for await`, so promise entries are awaited before definition validation.
 
 #### One page definition
 
@@ -323,7 +324,10 @@ The global-data provider must produce both declared data keys; supplying type ar
 Escape interpolated content with your template library when producing HTML from untrusted values.
 
 Factories can return one definition, an array, an async iterable, `null`, or `undefined`, directly or through a promise.
-Arrays and iterables contain definitions, not promises or nullish placeholders.
+`PagesForLayout` intentionally uses a conservative definition-only array envelope: its array entries must be definitions, not promises.
+This is a type-level restriction, not a runtime limitation: `iterateGeneratedPageDefinitions` consumes arrays with `for await`, awaiting promise entries before validation.
+Resolve promised definitions before returning an array to satisfy the helper, or use an async generator to yield resolved definitions incrementally.
+Nullish placeholders are invalid entries even though a nullish top-level result produces no pages.
 Use a union of individually checked `GeneratedPageForLayout` types for heterogeneous collections; a single `PagesForLayout` checks one literal selected layout.
 The existing explicit `GeneratedPageDefinition` and `PagesFunction` APIs remain available for dynamic or unregistered layouts.
 

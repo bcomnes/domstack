@@ -45,6 +45,7 @@ void PageData
 void stack
 `),
     writeFile(path.join(consumerPath, 'types.ts'), `import pino from 'pino'
+import type { PageOutputsForRenderer } from '@domstack/static/types.js'
 import type { WorkerOptions } from 'node:worker_threads'
 import type {
   DomStackOpts,
@@ -124,6 +125,14 @@ type _OptionalOverride = Expect<Equal<
 >>
 
 type ArticlePage = PageForLayout<'article', { slug: string }, { body: string }, { siteName: string }>
+export const articleOutputs: PageOutputsForRenderer<ArticlePage> = ({ vars, data, page }) => {
+  vars.showSidebar satisfies boolean
+  // @ts-expect-error Layout data is not page hook data.
+  data.navigation
+  // @ts-expect-error Hook metadata does not allow rendering.
+  page.render()
+  return { outputName: './article.json', content: JSON.stringify({ slug: vars.slug, body: data.body, url: page.url }) }
+}
 const articlePage: ArticlePage = ({ vars, data }) => {
   vars.siteName
   vars.showSidebar
@@ -356,7 +365,7 @@ declare module '@domstack/static/types.js' {
   }
 }
 `),
-    writeFile(path.join(consumerPath, 'js-page.js'), `/** @import { GeneratedPageForLayout, PageForLayout, PagesForLayout } from '@domstack/static/types.js' */
+    writeFile(path.join(consumerPath, 'js-page.js'), `/** @import { GeneratedPageForLayout, PageForLayout, PageOutputsForRenderer, PagesForLayout } from '@domstack/static/types.js' */
 
 export const layout = 'js-article'
 
@@ -410,6 +419,14 @@ export const articlePages = ({ vars, data }) => {
       return data.body.toUpperCase()
     },
   }))
+}
+
+/** @type {PageOutputsForRenderer<typeof articlePage>} */
+export const pageOutputs = ({ vars, data, page }) => {
+  vars.showSidebar.valueOf()
+  // @ts-expect-error Layout data does not leak into the page hook.
+  data.navigation
+  return { outputName: './article.json', content: JSON.stringify({ slug: vars.slug, body: data.body, url: page.url }) }
 }
 
 void invalidArticlePage

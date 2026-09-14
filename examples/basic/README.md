@@ -141,6 +141,14 @@ Each defines a local `pageVars` object and checks it with `ValidatePageVars` whe
 This avoids circular inference while ensuring globals, layout defaults, and the actual page export supply every required renderer property.
 `PageForLayout` alone still describes a renderer contract rather than proving that all required values exist.
 
+#### Page outputs with the same renderer contract
+
+The [loose-assets TypeScript page](src/js-page/loose-assets/page.ts) exports `pageOutputs: PageOutputsForRenderer<AssetPage>` and renders a link to its `./assets.json` output.
+The JSON includes `title`, `siteName`, `locale`, `theme`, `assets`, and `url` from `page.url`.
+`PageOutputsForRenderer` derives resolved vars and the declaring renderer's own data contract from the renderer type, without repeating those types or including other renderers' subscriptions.
+The hook receives a restricted read-only `PageOutputsPage` handle rather than the renderer's full page object, so metadata such as `page.url` is available but rendering methods are not.
+The helper does not create runtime data subscriptions; this page still declares no subscribed data.
+
 #### Generated pages with the same registry
 
 [guides.pages.ts](src/guides.pages.ts) uses `PagesForLayout` to generate two child-layout pages:
@@ -152,6 +160,9 @@ The factory receives only global vars, while the inline renderer receives defaul
 Each definition must supply its title and an explicit `layout: 'child'`; it does not need to repeat inherited defaults.
 Both factory and inline page declare `Record<string, never>` data contracts, so neither implicitly inherits subscriptions.
 Unlike the JavaScript page's light-theme override, these generated pages inherit the child's dark theme.
+Generated pages skip all `pageOutputs` hooks, including inherited layout hooks.
+`PagesForLayout` conservatively types array entries as definitions only, even though the runtime consumes arrays with `for await` and awaits promise entries before validating them.
+Resolve promised definitions before returning an array to stay within that helper's type contract.
 
 When working from this repository checkout, build the package declarations before checking the example, and clean them afterward:
 
