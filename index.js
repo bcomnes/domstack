@@ -12,6 +12,8 @@
  * @import { DomstackManifestRecord } from './lib/domstack-manifest/index.js'
  * @import { WatchDependencyState } from './lib/build-pages/watch-dependencies.js'
  * @import { WatchSnapshot, WatchEvent, WatchPlan } from './lib/watch-plan.js'
+ * @import { OutputClaim } from './lib/output-registry.js'
+ * @import { PageBuildStepResult } from './lib/build-pages/index.js'
  * @typedef {{ dispose: () => Promise<void> }} DisposableBuildContext
  * @typedef {{ pageFilePath: string, sourcePageFilePath?: string | undefined, pagesFilePath?: string | undefined, layoutNames: string[], outputs?: DomstackManifestRecord[] | undefined }} WatchedPageReport
  * @typedef {object} WatchSession
@@ -22,10 +24,11 @@
  */
 import { once } from 'events'
 import assert from 'node:assert'
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { cp, copyFile, mkdir, mkdtemp, readFile, realpath, rm, rmdir, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
+import { createHash } from 'node:crypto'
 import chokidar from 'chokidar'
-import { basename, join, relative, resolve } from 'node:path'
+import { basename, dirname, join, relative, resolve } from 'node:path'
 // @ts-expect-error
 import makeArray from 'make-array'
 import ignore from 'ignore'
@@ -34,7 +37,7 @@ import { inspect } from 'util'
 import { createServer } from '@domstack/sync'
 import { find } from '@11ty/dependency-tree-typescript'
 
-import { assertInsideDest } from './lib/helpers/path.js'
+import { assertInsideDest, toPosix } from './lib/helpers/path.js'
 import { getCopyGlob } from './lib/build-static/index.js'
 import { getCopyDirs } from './lib/build-copy/index.js'
 import { isProcessedFile, globalBundleAssets, pageBundleAssets, layoutBundleAssets } from './lib/file-conventions.js'
@@ -43,9 +46,9 @@ import { buildEsbuildWatch } from './lib/build-esbuild/index.js'
 import { buildPages } from './lib/build-pages/index.js'
 import { identifyPages } from './lib/identify-pages.js'
 import { classifyWatchEvent, planWatchEvent, planBundleChange } from './lib/watch-plan.js'
-import { ensureDest } from './lib/helpers/ensure-dest.js'
 import { DomStackAggregateError } from './lib/helpers/domstack-aggregate-error.js'
 import { createDomStackLogger } from './lib/logger.js'
+import { OutputRegistry, isCaseInsensitiveDest } from './lib/output-registry.js'
 
 export { PageData } from './lib/build-pages/page-data.js'
 export {
@@ -75,6 +78,8 @@ export class DomStack {
   /** @type {Readonly<DomStackOpts>} */ opts
   /** @type {FSWatcher?} */ #watcher = null
   /** @type {ReturnType<typeof cpxWatch>[]} */ #cpxWatchers = []
+  /** @type {string[]} */ #cpxWatchStages = []
+  /** @type {Map<string, () => Promise<void>>} */ #pendingCopyUpdates = new Map()
   /** @type {BsInstance?} */ #syncServer = null
   /** @type {DisposableBuildContext?} */ #esbuildContext = null
   /** @type {SiteData?} */ #siteData = null
@@ -101,16 +106,19 @@ export class DomStack {
   #globalDataDepPaths = new Set()
   /** @type {Set<string>} absolute filepaths of esbuild entry points */
   #esbuildEntryPoints = new Set()
-  /** @type {Set<string>} destination-relative outputs from the last successful page builds */
-  #pageOutputRelnames = new Set()
-  /** @type {Map<string, Set<string>>} *.pages.* filepath → owned destination-relative outputs */
-  #pagesFileOutputMap = new Map()
+
   /** @type {Map<string, Set<string>>} *.pages.* filepath → layouts used by its generated pages */
   #pagesFileLayoutMap = new Map()
   /** @type {WatchDependencyState | null} subscriptions and fingerprints from the last successful page build */
   #watchDependencies = null
   /** @type {boolean} Failed builds may leave the previous routing state incomplete. */
   #pageBuildFailed = false
+  /** @type {OutputClaim[]} Output ownership from the latest successful watch build. */
+  #outputClaims = []
+  #outputLock = Promise.resolve()
+  #caseInsensitive = false
+  /** @type {string | null} Unpublished initial watch outputs, retained for recovery. */
+  #initialStage = null
 
   // One session owns the resources above until shutdown finishes.
   // Normal path: absent → starting → watching → stopping → absent.
@@ -231,6 +239,8 @@ export class DomStack {
     }
 
     session.state = 'watching'
+    for (const update of this.#pendingCopyUpdates.values()) this.#enqueueBuild(session, update)
+    this.#pendingCopyUpdates.clear()
     const enqueue = (/** @type {() => Promise<unknown>} */ fn) => {
       this.#enqueueBuild(session, fn)
     }
@@ -260,12 +270,28 @@ export class DomStack {
       throw new DomStackAggregateError(siteData.errors, 'Page walk finished but there were errors.', siteData)
     }
 
-    await ensureDest(this.#dest, siteData)
+    await mkdir(this.#dest, { recursive: true })
+    this.#initialStage = await mkdtemp(join(resolve(this.#dest), '.domstack-stage-'))
+
+    this.#caseInsensitive = await isCaseInsensitiveDest(this.#dest)
+    // The watchers' initial inventories are the only copy scan at startup.
+    const copyDirs = getCopyDirs(this.opts.copy ?? [])
+    const copyStartup = await Promise.allSettled([
+      ...(this.opts.static === false ? [] : [this.#startCopyWatcher(getCopyGlob(this.#src), signal, 'static', this.opts.ignore ?? [])]),
+      ...copyDirs.map((copyDir, index) => this.#startCopyWatcher(copyDir, signal, 'copy', [], `copy-root:${index}:`)),
+    ])
+    const copyErrors = copyStartup.filter(result => result.status === 'rejected').map(result => result.reason)
+    if (copyErrors.length) throw new AggregateError(copyErrors, 'Copy watch startup failed')
+    await this.#drainPendingCopyUpdates()
 
     // Start esbuild in watch mode (stable filenames, no hash)
     let esbuildContext
     try {
-      const { context } = await buildEsbuildWatch(this.#src, this.#dest, siteData, this.opts, { logger: this.#logger })
+      const { context } = await buildEsbuildWatch(this.#src, this.#dest, siteData, this.opts, {
+        logger: this.#logger,
+        writeDest: () => this.#initialStage ?? this.#dest,
+        promoteOutputs: (outputs, phase, write) => this.#promoteEsbuildOutputs(outputs, phase, write),
+      })
       esbuildContext = context
     } catch (err) {
       throw new Error('Error starting esbuild watch context', { cause: err })
@@ -273,13 +299,18 @@ export class DomStack {
     this.#esbuildContext = esbuildContext
     this.#siteData = siteData
 
+    await this.#drainPendingCopyUpdates()
     // Build pages (initial full build)
     let report
     try {
-      const pageBuildResults = await buildPages(this.#src, this.#dest, siteData, {
+      const pageBuildResults = await buildPages(this.#src, this.#initialStage ?? this.#dest, siteData, {
         ...this.opts,
         trackWatchDependencies: true,
+        previousOutputClaims: this.#outputClaims,
+        caseInsensitive: this.#caseInsensitive,
+        promoteOutputs: (report, write) => this.#promotePageOutputs(report, write),
       })
+      this.#remapInitialPageReport(pageBuildResults)
       if (pageBuildResults.errors.length > 0) {
         throw new DomStackAggregateError(pageBuildResults.errors, 'Page build finished but there were errors.', {
           siteData,
@@ -291,12 +322,13 @@ export class DomStack {
         siteData,
         pageBuildResults,
       }
-      this.#pageOutputRelnames = getPageOutputRelnames(pageBuildResults.outputs)
-      this.#pagesFileOutputMap = getPagesFileOutputMap(pageBuildResults.report.pages)
+
       this.#pagesFileLayoutMap = getPagesFileLayoutMap(pageBuildResults.report.pages)
       this.#updatePageLayoutNames(pageBuildResults.report.pages, true)
       this.#pageBuildFailed = false
       this.#watchDependencies = pageBuildResults.report.watchDependencies ?? null
+      delete pageBuildResults.report.newClaims
+      delete pageBuildResults.report.replacedOwnerIds
       delete pageBuildResults.report.watchDependencies
       delete pageBuildResults.report.rebuiltPagesFilePaths
       buildLogger(report, this.#logger)
@@ -312,13 +344,9 @@ export class DomStack {
     await this.#rebuildMaps(siteData)
 
     // Copy readiness is cancellable: cpx2 invalidates pending scans on close.
-    const copyDirs = getCopyDirs(this.opts.copy ?? [])
-    const copyStartup = await Promise.allSettled([
-      this.#startCopyWatcher(getCopyGlob(this.#src), signal, this.opts.ignore ?? []),
-      ...copyDirs.map(copyDir => this.#startCopyWatcher(copyDir, signal)),
-    ])
-    const copyErrors = copyStartup.filter(result => result.status === 'rejected').map(result => result.reason)
-    if (copyErrors.length) throw new AggregateError(copyErrors, 'Copy watch startup failed')
+    await this.#drainPendingCopyUpdates()
+    if (!signal.aborted && !this.#pageBuildFailed) await this.#publishInitialStage()
+    await this.#drainPendingCopyUpdates()
 
     // ── Chokidar watcher ─────────────────────────────────────────────────
     const ig = ignore().add(this.opts.ignore ?? [])
@@ -359,20 +387,57 @@ export class DomStack {
   /**
    * @param {string} source
    * @param {AbortSignal} signal
+   * @param {'static' | 'copy'} kind
    * @param {string[]} [ignores]
+   * @param {string} [ownerPrefix] - Matches buildCopy's configured root identity.
    */
-  async #startCopyWatcher (source, signal, ignores = []) {
-    const watcher = cpxWatch(source, this.#dest, { ignore: ignores })
+  async #startCopyWatcher (source, signal, kind, ignores = [], ownerPrefix = '') {
+    const stageDest = await mkdtemp(join(this.#dest, '.domstack-copy-watch-'))
+    this.#cpxWatchStages.push(stageDest)
+    const watcher = cpxWatch(source, stageDest, { ignore: ignores })
     this.#cpxWatchers.push(watcher)
+    // Isolate each source before cpx writes, including case and file/dir aliases.
+    // Retain cpx's logical mapping; only its private physical destination changes.
+    const toDestination = watcher.toDestination
+    const logicalOutputs = new Map()
+    watcher.toDestination = sourcePath => {
+      const path = join(stageDest, createHash('sha256').update(sourcePath).digest('hex'))
+      logicalOutputs.set(path, toPosix(relative(stageDest, toDestination(sourcePath))))
+      return path
+    }
+    const ownerByOutput = new Map()
     let ready = false
     let initialCopies = 0
     watcher.on('copy', (/** @type{{ srcPath: string, dstPath: string }} */e) => {
+      const outputRelname = logicalOutputs.get(e.dstPath)
+      const sourceRelname = toPosix(relative(this.#src, resolve(e.srcPath)))
+      const owner = { id: `${ownerPrefix}${kind}:${sourceRelname}`, type: kind, path: sourceRelname }
+      ownerByOutput.set(e.dstPath, owner)
       if (!ready) initialCopies++
       this.#logger.debug(`Copy ${e.srcPath} to ${e.dstPath}`)
-      if (ready) this.#logger.info(`Static asset updated: ${e.srcPath}`)
+      if (this.#watchSession) {
+        const update = async () => {
+          try {
+            await stat(e.srcPath)
+            await this.#promoteCopyOutput(e.dstPath, outputRelname, owner)
+          } catch (error) {
+            if (/** @type {NodeJS.ErrnoException} */ (error).code !== 'ENOENT') throw error
+            await this.#removeCopyOutput(outputRelname, owner)
+          }
+        }
+        if (!ready || this.#watchSession.state === 'starting') this.#pendingCopyUpdates.set(e.dstPath, update)
+        else this.#enqueueBuild(this.#watchSession, update)
+      }
     })
     watcher.on('remove', (/** @type{{ path: string }} */e) => {
-      this.#logger.info(`Remove ${e.path}`)
+      const outputRelname = logicalOutputs.get(e.path)
+      const owner = ownerByOutput.get(e.path)
+      ownerByOutput.delete(e.path)
+      if (owner && this.#watchSession) {
+        const update = () => this.#removeCopyOutput(outputRelname, owner)
+        if (!ready || this.#watchSession.state === 'starting') this.#pendingCopyUpdates.set(e.path, update)
+        else this.#enqueueBuild(this.#watchSession, update)
+      }
     })
     watcher.on('watch-error', (/** @type{Error} */err) => {
       this.#logger.error(`Copy error: ${err.message}`)
@@ -381,21 +446,131 @@ export class DomStack {
     // cpx2 reports startup failure as "watch-error", not EventEmitter's "error".
     // A closed session may never emit readiness, so cancellation must also settle
     // this wait. This does not drain file operations already started by cpx2.
-    const { promise, resolve, reject } = Promise.withResolvers()
-    const onAbort = () => resolve(undefined)
-    watcher.once('watch-ready', resolve)
+    const { promise, resolve: resolveReady, reject } = Promise.withResolvers()
+    const onAbort = () => resolveReady(undefined)
+    watcher.once('watch-ready', resolveReady)
     watcher.once('watch-error', reject)
     signal.addEventListener('abort', onAbort, { once: true })
     try {
       if (signal.aborted) return
       await promise
+      if (signal.aborted) return
       ready = true
-      if (!signal.aborted) this.#logger.info(`Static asset watcher ready (${initialCopies} initial copy operations)`)
+      this.#logger.info(`Static asset watcher ready (${initialCopies} initial copy operations)`)
     } finally {
-      watcher.off('watch-ready', resolve)
+      watcher.off('watch-ready', resolveReady)
       watcher.off('watch-error', reject)
       signal.removeEventListener('abort', onAbort)
     }
+  }
+
+  async #drainPendingCopyUpdates () {
+    while (this.#pendingCopyUpdates.size > 0) {
+      const updates = [...this.#pendingCopyUpdates.values()]
+      this.#pendingCopyUpdates.clear()
+      for (const update of updates) await update()
+    }
+  }
+
+  /**
+   * Serialize ownership checks, promotion, and commits independently of the
+   * watch build queue: esbuild callbacks also run during queued context startup.
+   * @param {() => OutputClaim[]} nextClaims
+   * @param {() => Promise<void>} write
+   */
+  #commitOutputs (nextClaims, write) {
+    const transaction = this.#outputLock.then(async () => {
+      const next = nextClaims()
+      const paths = new Set(next.map(claim => claim.outputRelname))
+      for (const claim of this.#outputClaims) {
+        if (paths.has(claim.outputRelname)) continue
+        const writeDest = this.#initialStage ?? this.#dest
+        const target = resolve(writeDest, claim.outputRelname)
+        assertInsideDest(writeDest, target)
+        await rm(target, { force: true })
+        // Only remove empty directories; never recursively delete unowned files.
+        for (let dir = dirname(target); dir !== resolve(writeDest); dir = dirname(dir)) {
+          try { await rmdir(dir) } catch { break }
+        }
+      }
+      await write()
+      this.#outputClaims = next
+    })
+    this.#outputLock = transaction.catch(() => {})
+    return transaction
+  }
+
+  /** Publish initial watch outputs only once every initial producer succeeds. */
+  async #publishInitialStage () {
+    const publish = this.#outputLock.then(async () => {
+      if (!this.#initialStage) return
+      await mkdir(this.#dest, { recursive: true })
+      await cp(this.#initialStage, await realpath(this.#dest), { recursive: true, force: true })
+      await rm(this.#initialStage, { recursive: true, force: true })
+      this.#initialStage = null
+    })
+    this.#outputLock = publish.catch(() => {})
+    await publish
+  }
+
+  /** @param {PageBuildStepResult} result */
+  #remapInitialPageReport (result) {
+    if (!this.#initialStage) return
+    for (const output of result.outputs) output.filepath = resolve(this.#dest, output.outputRelname)
+    for (const page of result.report.pages) page.pageFilePath = resolve(this.#dest, relative(this.#initialStage, page.pageFilePath))
+  }
+
+  /**
+   * @param {DomstackManifestRecord[]} outputs
+   * @param {'browser' | 'service-worker'} phase
+   * @param {() => Promise<void>} write
+   */
+  #promoteEsbuildOutputs (outputs, phase, write) {
+    return this.#commitOutputs(() => replaceEsbuildClaims(this.#outputClaims, outputs, phase, this.#caseInsensitive), write)
+  }
+
+  /**
+   * Revalidate the worker's selected producers against current ownership, not
+   * its possibly stale pre-render snapshot.
+   * @param {PageBuildStepResult} report
+   * @param {() => Promise<void>} write
+   */
+  #promotePageOutputs (report, write) {
+    return this.#commitOutputs(() => {
+      const replaced = new Set(report.report.replacedOwnerIds ?? [])
+      const registry = new OutputRegistry(this.#outputClaims, { replaceOwnerIds: replaced, caseInsensitive: this.#caseInsensitive })
+      for (const claim of report.report.newClaims ?? []) registry.claim(claim.outputRelname, claim.owner)
+      return registry.snapshot()
+    }, write)
+  }
+
+  /**
+   * @param {string} stagedPath
+   * @param {string} outputRelname
+   * @param {{ id: string, type: string, path: string }} owner
+   */
+  async #promoteCopyOutput (stagedPath, outputRelname, owner) {
+    await this.#commitOutputs(() => {
+      const registry = new OutputRegistry(this.#outputClaims, { replaceOwnerIds: [owner.id], caseInsensitive: this.#caseInsensitive })
+      registry.claim(outputRelname, owner)
+      return registry.snapshot()
+    }, async () => {
+      const writeDest = this.#initialStage ?? this.#dest
+      const target = resolve(writeDest, outputRelname)
+      assertInsideDest(writeDest, target)
+      await mkdir(dirname(target), { recursive: true })
+      await copyFile(stagedPath, target)
+    })
+    this.#logger.info(`Static asset updated: ${owner.path}`)
+  }
+
+  /**
+   * @param {string} outputRelname
+   * @param {{ id: string, type: string, path: string }} owner
+   */
+  async #removeCopyOutput (outputRelname, owner) {
+    await this.#commitOutputs(() => this.#outputClaims.filter(claim => claim.owner.id !== owner.id || claim.outputRelname !== outputRelname), async () => {})
+    this.#logger.info(`Remove ${outputRelname}`)
   }
 
   async #startWatchServer () {
@@ -419,22 +594,35 @@ export class DomStack {
       this.#esbuildContext = null
     }
 
-    const siteData = await identifyPages(this.#src, this.opts)
-
-    if (siteData.errors.length > 0) {
-      this.#logger.error(`identifyPages errors:
-${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
-      return
+    try {
+      const results = await builder(this.#src, this.#dest, { ...this.opts, domstackManifest: false }, {
+        watch: true,
+        caseInsensitive: this.#caseInsensitive,
+        promoteOutputs: (claims, write) => this.#commitOutputs(() => claims, write),
+      })
+      if (this.#initialStage) {
+        await rm(this.#initialStage, { recursive: true, force: true })
+        this.#initialStage = null
+      }
+      const { siteData, pageBuildResults } = results
+      this.#siteData = siteData
+      if (pageBuildResults) {
+        this.#updatePageLayoutNames(pageBuildResults.report.pages, true)
+        this.#pagesFileLayoutMap = getPagesFileLayoutMap(pageBuildResults.report.pages)
+        this.#watchDependencies = pageBuildResults.report.watchDependencies ?? null
+      }
+      this.#pageBuildFailed = false
+      const { context } = await buildEsbuildWatch(this.#src, this.#dest, siteData, this.opts, {
+        logger: this.#logger,
+        promoteOutputs: (outputs, phase, write) => this.#promoteEsbuildOutputs(outputs, phase, write),
+      })
+      this.#esbuildContext = context
+      await this.#rebuildMaps(siteData)
+      buildLogger(results, this.#logger)
+    } catch (error) {
+      this.#pageBuildFailed = true
+      throw error
     }
-
-    await ensureDest(this.#dest, siteData)
-
-    const { context } = await buildEsbuildWatch(this.#src, this.#dest, siteData, this.opts, { logger: this.#logger })
-    this.#esbuildContext = context
-    this.#siteData = siteData
-
-    await this.#runPageBuild(siteData)
-    await this.#rebuildMaps(siteData)
   }
 
   /** @returns {WatchSnapshot | undefined} */
@@ -463,6 +651,10 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
   async #handleWatchEvent (changedPath, type) {
     const snapshot = this.#watchSnapshot()
     if (!snapshot) return
+    if (!this.#esbuildContext) {
+      await this.#fullRebuild()
+      return
+    }
     const event = classifyWatchEvent(type, changedPath)
     await this.#executeWatchPlan(planWatchEvent(snapshot, event), event)
   }
@@ -498,12 +690,16 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
       this.#logger.error(`identifyPages errors:\n${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
       return
     }
-    await ensureDest(this.#dest, siteData)
+    await mkdir(this.#dest, { recursive: true })
     if (this.#esbuildContext) {
       await this.#esbuildContext.dispose()
       this.#esbuildContext = null
     }
-    const { context } = await buildEsbuildWatch(this.#src, this.#dest, siteData, this.opts, { logger: this.#logger })
+    const { context } = await buildEsbuildWatch(this.#src, this.#dest, siteData, this.opts, {
+      logger: this.#logger,
+      writeDest: () => this.#initialStage ?? this.#dest,
+      promoteOutputs: (outputs, phase, write) => this.#promoteEsbuildOutputs(outputs, phase, write),
+    })
     this.#esbuildContext = context
     this.#siteData = siteData
     const snapshot = this.#watchSnapshot()
@@ -527,32 +723,37 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
     // Retry the complete page phase after a failure: neither subscriptions nor
     // layout routing from a failed build can safely drive an incremental retry.
     if (this.#pageBuildFailed) pageFilterPaths = templateFilterPaths = pagesFileFilterPaths = null
+
     try {
-      const pageBuildResults = await buildPages(this.#src, this.#dest, siteData, {
+      const pageBuildResults = await buildPages(this.#src, this.#initialStage ?? this.#dest, siteData, {
         ...this.opts,
         ...(pageFilterPaths ? { pageFilterPaths } : {}),
         ...(templateFilterPaths ? { templateFilterPaths } : {}),
         ...(pagesFileFilterPaths ? { pagesFileFilterPaths } : {}),
         previousWatchDependencies: this.#watchDependencies,
         trackWatchDependencies: true,
+        previousOutputClaims: this.#outputClaims,
+        caseInsensitive: this.#caseInsensitive,
+        promoteOutputs: (report, write) => this.#promotePageOutputs(report, write),
       })
+      this.#remapInitialPageReport(pageBuildResults)
       if (pageBuildResults.errors.length > 0) {
         throw new DomStackAggregateError(pageBuildResults.errors, 'Page build finished but there were errors.', {
           siteData,
           pageBuildResults,
         })
       }
+      await this.#publishInitialStage()
       const isFiltered = pageFilterPaths !== null || templateFilterPaths !== null || pagesFileFilterPaths !== null
       this.#updatePageLayoutNames(pageBuildResults.report.pages, !isFiltered)
       if (!isFiltered) {
-        await this.#removeObsoletePageOutputs(pageBuildResults.outputs)
-        this.#pagesFileOutputMap = getPagesFileOutputMap(pageBuildResults.report.pages)
         this.#pagesFileLayoutMap = getPagesFileLayoutMap(pageBuildResults.report.pages)
       } else if ((pageBuildResults.report.rebuiltPagesFilePaths?.length ?? 0) > 0) {
-        await this.#removeObsoleteGeneratedPageOutputs(pageBuildResults.report.rebuiltPagesFilePaths ?? [], pageBuildResults.report.pages)
         updatePagesFileLayoutMap(this.#pagesFileLayoutMap, pageBuildResults.report.rebuiltPagesFilePaths ?? [], pageBuildResults.report.pages)
       }
       this.#watchDependencies = pageBuildResults.report.watchDependencies ?? this.#watchDependencies
+      delete pageBuildResults.report.newClaims
+      delete pageBuildResults.report.replacedOwnerIds
       delete pageBuildResults.report.watchDependencies
       delete pageBuildResults.report.rebuiltPagesFilePaths
       await this.#rebuildMaps(siteData)
@@ -566,64 +767,6 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
     } catch (err) {
       this.#pageBuildFailed = true
       errorLogger(err, this.#logger)
-    }
-  }
-
-  /**
-   * Remove page files that were emitted by the previous successful full build
-   * but are no longer claimed by the current page or template build.
-   *
-   * @param {DomstackManifestRecord[]} outputs
-   */
-  async #removeObsoletePageOutputs (outputs) {
-    const currentOutputRelnames = new Set(outputs.map(output => output.outputRelname))
-    const currentPageOutputRelnames = getPageOutputRelnames(outputs)
-    const dest = resolve(this.#dest)
-
-    await Promise.all(Array.from(this.#pageOutputRelnames, async outputRelname => {
-      if (currentOutputRelnames.has(outputRelname)) return
-      const filepath = resolve(dest, outputRelname)
-      assertInsideDest(dest, filepath)
-      if (filepath === dest) throw new Error('Refusing to remove the build destination')
-      await rm(filepath, { force: true })
-    }))
-
-    this.#pageOutputRelnames = currentPageOutputRelnames
-  }
-
-  /**
-   * Remove outputs no longer emitted by the selected generated-pages owners.
-   * Ownership state changes only after a successful targeted build.
-   *
-   * @param {string[]} pagesFileFilterPaths
-   * @param {WatchedPageReport[]} pageReports
-   */
-  async #removeObsoleteGeneratedPageOutputs (pagesFileFilterPaths, pageReports) {
-    const currentByOwner = getPagesFileOutputMap(pageReports)
-    const dest = resolve(this.#dest)
-
-    for (const pagesFilePath of pagesFileFilterPaths) {
-      const previousOutputs = this.#pagesFileOutputMap.get(pagesFilePath) ?? new Set()
-      const currentOutputs = currentByOwner.get(pagesFilePath) ?? new Set()
-
-      await Promise.all(Array.from(previousOutputs, async outputRelname => {
-        if (currentOutputs.has(outputRelname)) return
-        const filepath = resolve(dest, outputRelname)
-        assertInsideDest(dest, filepath)
-        if (filepath === dest) throw new Error('Refusing to remove the build destination')
-        await rm(filepath, { force: true })
-      }))
-
-      for (const outputRelname of previousOutputs) this.#pageOutputRelnames.delete(outputRelname)
-      for (const report of pageReports) {
-        if (report.pagesFilePath !== pagesFilePath) continue
-        for (const output of report.outputs ?? []) {
-          if (output.kind === 'page') this.#pageOutputRelnames.add(output.outputRelname)
-        }
-      }
-
-      if (currentOutputs.size > 0) this.#pagesFileOutputMap.set(pagesFilePath, currentOutputs)
-      else this.#pagesFileOutputMap.delete(pagesFilePath)
     }
   }
 
@@ -825,11 +968,17 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
       Promise.resolve().then(() => this.#esbuildContext?.dispose()),
       Promise.resolve().then(() => this.#syncServer?.exit()),
     ]))
+    await this.#outputLock
+    results.push(...await Promise.allSettled([...this.#cpxWatchStages, ...(this.#initialStage ? [this.#initialStage] : [])].map(stage => rm(stage, { recursive: true, force: true }))))
+    this.#initialStage = null
     this.#watcher = null
     this.#cpxWatchers = []
+    this.#cpxWatchStages = []
+    this.#pendingCopyUpdates.clear()
     this.#esbuildContext = null
     this.#syncServer = null
     this.#siteData = null
+    this.#outputClaims = []
     this.#buildLock = Promise.resolve()
     this.#watchSession = null
     const errors = results.filter(result => result.status === 'rejected').map(result => result.reason)
@@ -842,37 +991,23 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
    */
   async settled () {
     await this.#buildLock
+    await this.#outputLock
   }
 }
 
 /**
+ * @param {OutputClaim[]} claims
  * @param {DomstackManifestRecord[]} outputs
- * @returns {Set<string>}
+ * @param {'browser' | 'service-worker'} phase
+ * @param {boolean} caseInsensitive
+ * @returns {OutputClaim[]}
  */
-function getPageOutputRelnames (outputs) {
-  return new Set(outputs
-    .filter(output => output.kind === 'page')
-    .map(output => output.outputRelname))
-}
-
-/**
- * Group generated-page outputs by their owning *.pages.* filepath.
- *
- * @param {WatchedPageReport[]} pageReports
- * @returns {Map<string, Set<string>>}
- */
-function getPagesFileOutputMap (pageReports) {
-  /** @type {Map<string, Set<string>>} */
-  const outputsByOwner = new Map()
-
-  for (const report of pageReports) {
-    if (!report.pagesFilePath) continue
-    const outputs = outputsByOwner.get(report.pagesFilePath) ?? new Set()
-    for (const output of report.outputs ?? []) outputs.add(output.outputRelname)
-    outputsByOwner.set(report.pagesFilePath, outputs)
-  }
-
-  return outputsByOwner
+function replaceEsbuildClaims (claims, outputs, phase, caseInsensitive) {
+  const prefix = `esbuild:${phase}:`
+  const replaceOwnerIds = claims.filter(claim => claim.owner.id.startsWith(prefix)).map(claim => claim.owner.id)
+  const registry = new OutputRegistry(claims, { replaceOwnerIds, caseInsensitive })
+  registry.claimRecords(outputs, prefix)
+  return registry.snapshot()
 }
 
 /**

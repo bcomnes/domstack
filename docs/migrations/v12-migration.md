@@ -20,6 +20,15 @@ Then apply the v12 changes below.
 
 ---
 
+## Conflicting output paths now fail
+
+DOMStack rejects duplicate output paths across pages, generated pages, templates, esbuild, static assets, and `--copy` directories with `DOM_STACK_ERROR_OUTPUT_CONFLICT`.
+The error names the destination-relative output and both producers.
+Previously, copied files and templates could silently overwrite other outputs depending on write order.
+Rename or exclude the conflicting input; there is no implicit last-writer-wins override.
+This also applies to file-versus-directory conflicts and case aliases on case-insensitive destination filesystems.
+See [Output conflicts](../assets/#output-conflicts) for staging, watch recovery, and custom-writer limitations.
+
 ## Runtime requirements
 
 DOMStack v12 supports Node.js 22.18+ within the 22.x release line, and Node.js 24 or newer:
