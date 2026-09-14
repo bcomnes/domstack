@@ -1,11 +1,11 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { stat } from 'node:fs/promises'
+import { stat, utimes } from 'node:fs/promises'
 import { join } from 'node:path'
 import { errorText, hook, setup, writeFiles } from './helpers.js'
 
 const rawLayout = `export default ({ children }) => '<main>' + children + '</main>'
-export const additionalOutputs = async ({ page }) => ({ outputName: './source.txt', content: await page.readMarkdownContent() })`
+export const pageOutputs = async ({ page }) => ({ outputName: './source.txt', content: await page.readMarkdownContent() })`
 
 test('builder renders Markdown and exports the unrendered body from its layout at a custom destination', async t => {
   const body = '# Article\n\nKeep **Markdown**, {{ vars.title }}, and [links](./other.md).\n'
@@ -18,19 +18,19 @@ test('builder renders Markdown and exports the unrendered body from its layout a
   assert.match(await read('docs/index.html'), /<strong>Markdown<\/strong>/)
   assert.equal(await read('docs/source.txt'), '\n' + body)
   const record = result.pageBuildResults?.outputs.find(output => output.outputRelname === 'docs/source.txt')
-  assert.ok(record, 'additional output is included in the page build report')
+  assert.ok(record, 'page output is included in the page build report')
   assert.equal(record.filepath, join(dest, 'docs/source.txt'))
   assert.equal(record.sourceRelname, 'docs/page.md')
 })
 
 test('nested hooks run outer -> inner -> companion with isolated renderer data and resolved vars', async t => {
   const { build, read } = await setup(t, {
-    'global.vars.js': "export default { layout: 'inner', title: 'global' }; export const additionalOutputs = () => { throw Error('global provider ran') }",
+    'global.vars.js': "export default { layout: 'inner', title: 'global' }; export const pageOutputs = () => { throw Error('global provider ran') }",
     'global.data.js': "export default { outer: 'O', inner: 'I', selected: 'P', secret: 'hidden' }",
     'root.layout.js': `import assert from 'node:assert/strict'
       export const vars = { dataDeps: ['outer'] }
       export default ({ children, data }) => data.outer + children
-      export const additionalOutputs = ({ page, vars, data }) => {
+      export const pageOutputs = ({ page, vars, data }) => {
         assert.equal(vars.title, 'page title')
         assert.throws(() => data.selected, /undeclared/)
         assert.equal('renderFullPage' in page, false)
@@ -44,7 +44,7 @@ test('nested hooks run outer -> inner -> companion with isolated renderer data a
       export const parentLayout = 'root'
       export const vars = { dataDeps: ['inner'] }
       export default ({ children, data }) => data.inner + children
-      export async function* additionalOutputs ({ page, data }) {
+      export async function* pageOutputs ({ page, data }) {
         assert.throws(() => data.outer, /undeclared/)
         assert.equal(await readFile(join(dirname(page.pageFile.filepath), '../../custom-output/docs/outer.txt'), 'utf8'), 'O')
         globalThis[page.pageFile.filepath].push('inner')
@@ -55,7 +55,7 @@ test('nested hooks run outer -> inner -> companion with isolated renderer data a
       import { readFile } from 'node:fs/promises'
       import { dirname, join } from 'node:path'
       export default { dataDeps: ['selected'] }
-      export const additionalOutputs = async ({ page, vars, data }) => {
+      export const pageOutputs = async ({ page, vars, data }) => {
         assert.throws(() => data.secret, /undeclared/)
         assert.throws(() => data.inner, /undeclared/)
         assert.equal(Object.isFrozen(page), true)
@@ -86,7 +86,7 @@ for (const extension of ['html', 'js', 'ts']) {
       [`article/page.${extension}`]: extension === 'html' ? '<p>{{ vars.title }}</p>' : 'export default ({ vars, data }) => vars.title + data.selected',
       'article/page.vars.js': `import assert from 'node:assert/strict'
         export default { title: 'Companion', dataDeps: ['selected'] }
-        export async function additionalOutputs ({ page, vars, data }) {
+        export async function pageOutputs ({ page, vars, data }) {
           await assert.rejects(page.readMarkdownContent())
           assert.throws(() => data.secret, /undeclared/)
           return { outputName: 'metadata.json', content: JSON.stringify({ title: vars.title, value: data.selected }) }
@@ -100,12 +100,12 @@ for (const extension of ['html', 'js', 'ts']) {
 
 test('JS page modules support promised async iterables, arrays, and empty results', async t => {
   const { build, read } = await setup(t, {
-    'page.js': `export default () => 'main'; export const additionalOutputs = async () => (async function* () {
+    'page.js': `export default () => 'main'; export const pageOutputs = async () => (async function* () {
       yield { outputName: 'one.txt', content: 'one' }; yield { outputName: './two.txt', content: 'two' }
     })()`,
-    'array/page.js': "export default () => 'array'; export const additionalOutputs = () => [{ outputName: 'array.txt', content: 'array' }]",
-    'empty/page.js': "export default () => 'empty'; export const additionalOutputs = () => []",
-    'iterator/page.js': "export default () => 'empty iterator'; export async function* additionalOutputs () {}",
+    'array/page.js': "export default () => 'array'; export const pageOutputs = () => [{ outputName: 'array.txt', content: 'array' }]",
+    'empty/page.js': "export default () => 'empty'; export const pageOutputs = () => []",
+    'iterator/page.js': "export default () => 'empty iterator'; export async function* pageOutputs () {}",
   })
   await build()
   for (const name of ['one', 'two']) assert.equal(await read(`${name}.txt`), name)
@@ -120,7 +120,7 @@ test('async generators publish each record before requesting the next at a custo
       import { readFile, stat } from 'node:fs/promises'
       import { dirname, join } from 'node:path'
       export default () => 'main'
-      export async function* additionalOutputs ({ page }) {
+      export async function* pageOutputs ({ page }) {
         const dest = join(dirname(page.pageFile.filepath), '../custom-output')
         yield { outputName: 'replaced.txt', content: 'replacement' }
         assert.equal(await readFile(join(dest, 'replaced.txt'), 'utf8'), 'replacement')
@@ -129,15 +129,16 @@ test('async generators publish each record before requesting the next at a custo
         const unchangedTime = (await stat(join(dest, 'unchanged.txt'))).mtimeMs
         yield { outputName: 'unchanged.txt', content: 'same bytes' }
         assert.equal(await readFile(join(dest, 'unchanged.txt'), 'utf8'), 'same bytes')
-        assert.equal((await stat(join(dest, 'unchanged.txt'))).mtimeMs, unchangedTime)
+        assert.notEqual((await stat(join(dest, 'unchanged.txt'))).mtimeMs, unchangedTime, 'a cold build writes even identical bytes')
       }`,
   })
   await writeFiles(dest, { 'replaced.txt': 'old sidecar', 'unchanged.txt': 'same bytes' })
+  await utimes(join(dest, 'unchanged.txt'), 1, 1)
   const unchangedTime = await mtime('unchanged.txt')
   const result = await build()
   assert.equal(await read('replaced.txt'), 'replacement')
   assert.equal(await read('nested/new.txt'), 'new sidecar')
-  assert.equal(await mtime('unchanged.txt'), unchangedTime)
+  assert.notEqual(await mtime('unchanged.txt'), unchangedTime)
   assert.equal(await read('index.html'), 'main')
   for (const outputRelname of ['replaced.txt', 'nested/new.txt', 'unchanged.txt']) {
     assert.ok(result.pageBuildResults?.outputs.some(output => output.outputRelname === outputRelname), `${outputRelname} is reported, including unchanged content`)
@@ -146,26 +147,24 @@ test('async generators publish each record before requesting the next at a custo
 
 test('generated pages skip inherited layout hooks', async t => {
   const { build, read } = await setup(t, {
-    'root.layout.js': "export default ({ children }) => children; export const additionalOutputs = () => { throw Error('generated hook ran') }",
+    'root.layout.js': "export default ({ children }) => children; export const pageOutputs = () => { throw Error('generated hook ran') }",
     'items.pages.js': "export default { outputName: 'generated.html', children: 'Generated' }",
   })
   await build()
   assert.equal(await read('generated.html'), 'Generated')
 })
 
-test('duplicate JS and companion providers fail with both module names', async t => {
-  const { build } = await setup(t, {
-    'page.js': "export default () => 'main'; " + hook('page.txt'),
-    'page.vars.js': 'export default {}; ' + hook('companion.txt'),
+test('JS page outputs take precedence over companion outputs while layouts remain additive', async t => {
+  const { build, read } = await setup(t, {
+    'root.layout.js': 'export default ({ children }) => children; ' + hook('layout.txt', 'layout'),
+    'page.js': "export default () => 'main'; " + hook('page.txt', 'page'),
+    'page.vars.js': "export default {}; export const pageOutputs = () => { throw Error('ignored companion must not run') }",
   })
-  await assert.rejects(build(), error => {
-    const message = errorText(error)
-    assert.match(message, /page\.js/)
-    assert.match(message, /page\.vars\.js/)
-    assert.match(message, /additionalOutputs/)
-    assert.match(message, /both|conflict/i)
-    return true
-  })
+  await build()
+  assert.equal(await read('index.html'), 'main')
+  assert.equal(await read('layout.txt'), 'layout')
+  assert.equal(await read('page.txt'), 'page')
+  await assert.rejects(read('companion.txt'), { code: 'ENOENT' })
 })
 
 for (const scenario of [
@@ -197,9 +196,9 @@ for (const result of [
   "{ outputName: '../escape.txt', content: 'bad' }",
   "{ outputName: '/', content: 'bad' }",
 ]) {
-  test(`builder rejects invalid additional output: ${result}`, async t => {
+  test(`builder rejects invalid page output: ${result}`, async t => {
     const { build, dest, read } = await setup(t, {
-      'page.js': `export default () => 'new'; export const additionalOutputs = () => (${result})`,
+      'page.js': `export default () => 'new'; export const pageOutputs = () => (${result})`,
     })
     await writeFiles(dest, { 'index.html': 'old' })
     await assert.rejects(build())
@@ -211,7 +210,7 @@ for (const result of [
 test('iterator failure retains earlier sidecar writes and the previous HTML', async t => {
   const { build, dest, read } = await setup(t, {
     'a/page.js': "export default () => 'new sibling'; " + hook('sibling.txt', 'new sibling sidecar'),
-    'z/page.js': `export default () => 'new main'; export async function* additionalOutputs () {
+    'z/page.js': `export default () => 'new main'; export async function* pageOutputs () {
       yield { outputName: 'old.txt', content: 'replacement' }
       yield { outputName: 'partial.txt', content: 'published before failure' }
       throw Error('iterator exploded')
@@ -231,18 +230,18 @@ test('iterator failure retains earlier sidecar writes and the previous HTML', as
 
 for (const provider of ['layout', 'page']) {
   test(`a later ${provider} provider failure retains earlier layout files`, async t => {
-    const failingHook = 'export const additionalOutputs = () => { throw Error(\'later provider exploded\') }'
+    const failingHook = 'export const pageOutputs = () => { throw Error(\'later provider exploded\') }'
     const { build, dest, read } = await setup(t, {
       'global.vars.js': "export default { layout: 'inner' }",
       'root.layout.js': `export default ({ children }) => children
-        export async function* additionalOutputs () {
+        export async function* pageOutputs () {
           yield { outputName: 'old.txt', content: 'replacement' }
           yield { outputName: 'partial.txt', content: 'partial' }
         }`,
       'inner.layout.js': `export const parentLayout = 'root'; export default ({ children }) => children;
-        ${provider === 'layout' ? failingHook : 'export const additionalOutputs = () => []'}`,
+        ${provider === 'layout' ? failingHook : 'export const pageOutputs = () => []'}`,
       'page.js': `export default () => 'new main';
-        ${provider === 'page' ? failingHook : "export const additionalOutputs = () => { throw Error('page provider must not run') }"}`,
+        ${provider === 'page' ? failingHook : "export const pageOutputs = () => { throw Error('page provider must not run') }"}`,
     })
     await writeFiles(dest, { 'index.html': 'old main', 'old.txt': 'old sidecar' })
     await assert.rejects(build(), error => {
@@ -265,7 +264,7 @@ for (const invalid of [
       'page.js': `import { writeFile } from 'node:fs/promises'
         import { dirname, join } from 'node:path'
         export default () => 'new main'
-        export async function* additionalOutputs ({ page }) {
+        export async function* pageOutputs ({ page }) {
           yield { outputName: 'first.txt', content: 'published' }
           yield ${invalid.record}
           await writeFile(join(dirname(page.pageFile.filepath), '../following-yield-requested'), 'requested')
@@ -287,7 +286,7 @@ for (const invalid of [
 
 test('identical duplicate records from one hook warn rather than reject the build', async t => {
   const { build, read } = await setup(t, {
-    'page.js': `export default () => 'main'; export const additionalOutputs = () => [
+    'page.js': `export default () => 'main'; export const pageOutputs = () => [
       { outputName: 'same.txt', content: 'same' },
       { outputName: './same.txt', content: 'same' },
     ]`,

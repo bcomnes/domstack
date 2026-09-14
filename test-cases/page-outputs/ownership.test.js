@@ -7,7 +7,7 @@ import { hook, setup, settle } from './helpers.js'
 test('data-invalidated pages replace ownership using actual reports', { timeout: 15_000 }, async t => {
   const { site, src, dest, read, logs } = await setup(t, {
     'global.data.js': "export default { name: 'old.txt' }",
-    'page.js': "export const vars = { dataDeps: ['name'] }; export default () => 'main'; export const additionalOutputs = ({ data }) => ({ outputName: data.name, content: 'sidecar' })",
+    'page.js': "export const vars = { dataDeps: ['name'] }; export default () => 'main'; export const pageOutputs = ({ data }) => ({ outputName: data.name, content: 'sidecar' })",
   })
   await site.watch({ serve: false })
   await settle(site, logs, async () => {
@@ -40,7 +40,7 @@ test('repeated failed watch builds union partial paths with successful ownership
   })
   await site.watch({ serve: false })
   await settle(site, logs, async () => {
-    await writeFile(join(src, 'page.js'), `export default () => 'failed main'; export async function* additionalOutputs () {
+    await writeFile(join(src, 'page.js'), `export default () => 'failed main'; export async function* pageOutputs () {
       yield { outputName: 'partial.txt', content: 'partial' }
       throw Error('ownership failure')
     }`)
@@ -48,7 +48,7 @@ test('repeated failed watch builds union partial paths with successful ownership
   assert.equal(await read('old.txt'), 'sidecar', 'failure must not clean up the previous successful output')
   assert.equal(await read('partial.txt'), 'partial')
   await settle(site, logs, async () => {
-    await writeFile(join(src, 'page.js'), `export default () => 'failed again'; export async function* additionalOutputs () {
+    await writeFile(join(src, 'page.js'), `export default () => 'failed again'; export async function* pageOutputs () {
       yield { outputName: 'second-partial.txt', content: 'second partial' }
       throw Error('second ownership failure')
     }`)
@@ -70,7 +70,7 @@ for (const change of ['recovery', 'source deletion', 'hook removal']) {
   test(`initial failed watch tracks partial ownership for ${change}`, { timeout: 15_000 }, async t => {
     const { site, src, dest, read, logs } = await setup(t, {
       'article/page.html': 'Article',
-      'article/page.vars.js': `export default {}; export async function* additionalOutputs () {
+      'article/page.vars.js': `export default {}; export async function* pageOutputs () {
         yield { outputName: 'partial.txt', content: 'partial' }
         yield { outputName: '/root-partial.txt', content: 'root partial' }
         throw Error('initial ownership failure')

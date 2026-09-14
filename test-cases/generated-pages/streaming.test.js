@@ -10,7 +10,7 @@ import pino from 'pino'
 import { DomStack } from '../../index.js'
 import { builder } from '../../lib/builder.js'
 import { DomStackAggregateError } from '../../lib/helpers/domstack-aggregate-error.js'
-import { errorText, settle, writeFiles } from '../page-additional-outputs/helpers.js'
+import { errorText, settle, writeFiles } from '../page-outputs/helpers.js'
 
 /** @param {TestContext} t @param {Record<string, string>} files @param {boolean} [buildDrafts] */
 async function setup (t, files, buildDrafts = false) {
@@ -88,13 +88,13 @@ for (const [form, factoryExport] of Object.entries({
           assert.throws(() => data.pageValue, /undeclared/)
           return '<article>' + vars.title + ':' + vars.layoutOnly + ':' + data.layoutValue + ':' + children + '</article>'
         }
-        export const additionalOutputs = () => { throw Error('generated layout output hook must be skipped') }`,
+        export const pageOutputs = () => { throw Error('generated layout output hook must be skipped') }`,
       'stream.pages.js': `import assert from 'node:assert/strict'
         import { readFile } from 'node:fs/promises'
         import { join } from 'node:path'
         import globals from './global.vars.js'
         export const dataDeps = ['collection']
-        export const additionalOutputs = () => { throw Error('pages-file output hook must be skipped') }
+        export const pageOutputs = () => { throw Error('pages-file output hook must be skipped') }
         async function* pages (context) {
           if (context) {
             assert.deepEqual(context.data.collection, ['Initialized concrete'])

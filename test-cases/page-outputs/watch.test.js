@@ -6,7 +6,7 @@ import { hook, setup, settle, writeFiles } from './helpers.js'
 
 const rawLayout = `export const vars = { dataDeps: ['navigation'] }
 export default ({ children, data }) => data.navigation + children
-export const additionalOutputs = async ({ page }) => ({ outputName: 'source.txt', content: await page.readMarkdownContent() })`
+export const pageOutputs = async ({ page }) => ({ outputName: 'source.txt', content: await page.readMarkdownContent() })`
 
 test('watch updates only changed raw content and retains unchanged ownership without a public manifest', { timeout: 30_000 }, async t => {
   const { site, src, dest, read, mtime, logs } = await setup(t, {
@@ -82,7 +82,7 @@ test('watch reconciles companion addition, output rename, hook removal, companio
 test('watch removes sidecars on source rename and draft exclusion', { timeout: 30_000 }, async t => {
   const { site, src, dest, read, logs } = await setup(t, {
     'root.layout.js': `export default ({ children }) => children
-      export const additionalOutputs = async ({ page }) => ({ outputName: page.outputName + '.txt', content: await page.readMarkdownContent() })`,
+      export const pageOutputs = async ({ page }) => ({ outputName: page.outputName + '.txt', content: await page.readMarkdownContent() })`,
     'article.md': '# Article\n',
   })
   await site.watch({ serve: false })
@@ -104,7 +104,7 @@ test('watch removes sidecars on source rename and draft exclusion', { timeout: 3
 
 test('watch hook failure retains partial writes and recovery removes old and partial outputs', { timeout: 30_000 }, async t => {
   const { site, src, dest, read, mtime, logs } = await setup(t, {
-    'page.js': `export default () => 'old main'; export const additionalOutputs = () => [
+    'page.js': `export default () => 'old main'; export const pageOutputs = () => [
       { outputName: 'old.txt', content: 'old sidecar' },
       { outputName: 'stale.txt', content: 'retain until recovery' },
     ]`,
@@ -112,7 +112,7 @@ test('watch hook failure retains partial writes and recovery removes old and par
   await site.watch({ serve: false })
   const oldHtmlTime = await mtime('index.html')
   await settle(site, logs, async () => {
-    await writeFile(join(src, 'page.js'), `export default () => 'failed main'; export async function* additionalOutputs () {
+    await writeFile(join(src, 'page.js'), `export default () => 'failed main'; export async function* pageOutputs () {
       yield { outputName: 'old.txt', content: 'failed replacement' }
       yield { outputName: 'partial.txt', content: 'partial' }
       throw Error('watch iterator exploded')
@@ -164,7 +164,7 @@ test('hook-only data subscriptions invalidate their owner but not an unrelated s
   const { site, src, read, mtime, logs } = await setup(t, {
     'global.data.js': "export default { selected: 'first', unrelated: 'unchanged' }",
     'a/page.html': 'A',
-    'a/page.vars.js': "export default { dataDeps: ['selected'] }; export const additionalOutputs = ({ data }) => ({ outputName: 'data.txt', content: data.selected })",
+    'a/page.vars.js': "export default { dataDeps: ['selected'] }; export const pageOutputs = ({ data }) => ({ outputName: 'data.txt', content: data.selected })",
     'b/page.html': 'B',
   })
   await site.watch({ serve: false })

@@ -33,7 +33,7 @@
             "description": "Classifies the build pipeline step or artifact type that produced this output.",
             "enum": [
               "page",
-              "page-additional",
+              "page-output",
               "template",
               "script",
               "style",

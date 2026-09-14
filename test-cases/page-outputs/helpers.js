@@ -87,4 +87,4 @@ export function errorText (error) {
 }
 
 /** @param {string} outputName @param {string} [content] */
-export const hook = (outputName, content = 'sidecar') => `export const additionalOutputs = () => ({ outputName: ${JSON.stringify(outputName)}, content: ${JSON.stringify(content)} })`
+export const hook = (outputName, content = 'sidecar') => `export const pageOutputs = () => ({ outputName: ${JSON.stringify(outputName)}, content: ${JSON.stringify(content)} })`

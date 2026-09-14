@@ -15,6 +15,7 @@ Both can subscribe to shared values prepared by the [data pipeline](../data/).
 | Archives, tag indexes, or HTML redirects with page variables and layouts | `*.pages.ts` | One or more DOMStack pages |
 | Feeds, sitemaps, JSON, text, or fully controlled output | `*.template.ts` | One or more files, without layout wrapping |
 | An ordinary page with its own source directory and browser assets | [Page files](../pages/#page-files) | A source-backed page |
+| Markdown downloads, JSON metadata, or other extra files owned by a source-backed page | [`pageOutputs`](../pages/#page-outputs) | Extra files alongside the page's HTML |
 
 ## Table of Contents
 
@@ -190,7 +191,8 @@ This keeps factories downstream of source discovery without exposing generation 
 
 Generated pages use [global bundles](../global-bundles/) and [layout assets](../layouts/#layout-styles).
 They do not have page-local `style.css`, `client.js`, or worker entries because they do not have their own source-page directory.
-Generated pages skip [additional-output hooks](../pages/#additional-outputs), including hooks inherited from layouts; streaming does not enable these hooks.
+Support for [page outputs](../pages/#page-outputs) on generated pages is deferred.
+Generated pages skip all `pageOutputs` hooks, including hooks inherited from layouts.
 
 ### Generated-pages types
 

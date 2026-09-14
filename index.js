@@ -11,6 +11,7 @@
  * @import { Logger as PinoLogger } from 'pino'
  * @import { DomstackManifestRecord } from './lib/domstack-manifest/index.js'
  * @import { WatchDependencyState } from './lib/build-pages/watch-dependencies.js'
+ * @import { PageOutputCache } from './lib/build-pages/page-builders/page-output-writer.js'
  * @import { WatchSnapshot, WatchEvent, WatchPlan } from './lib/watch-plan.js'
  * @typedef {{ dispose: () => Promise<void> }} DisposableBuildContext
  * @typedef {{ pageFilePath: string, sourcePageFilePath?: string | undefined, pagesFilePath?: string | undefined, layoutNames: string[], outputs?: DomstackManifestRecord[] | undefined }} WatchedPageReport
@@ -103,6 +104,8 @@ export class DomStack {
   #esbuildEntryPoints = new Set()
   /** @type {Map<string, Set<string>>} source page or *.pages.* filepath → owned absolute output paths */
   #pageOutputMap = new Map()
+  /** @type {PageOutputCache} Successful writes, including those before an iterator failure. */
+  #pageOutputCache = new Map()
   /** @type {Map<string, Set<string>>} template filepath → currently claimed absolute output paths */
   #templateOutputMap = new Map()
   /** @type {Map<string, Set<string>>} *.pages.* filepath → layouts used by its generated pages */
@@ -280,6 +283,8 @@ export class DomStack {
         ...this.opts,
         trackWatchDependencies: true,
       })
+      this.#pageOutputCache = pageBuildResults.report.pageOutputCache ?? this.#pageOutputCache
+      delete pageBuildResults.report.pageOutputCache
       if (pageBuildResults.errors.length > 0) {
         this.#rememberPartialPageOutputs(pageBuildResults)
         throw new DomStackAggregateError(pageBuildResults.errors, 'Page build finished but there were errors.', {
@@ -534,8 +539,11 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
         ...(templateFilterPaths ? { templateFilterPaths } : {}),
         ...(pagesFileFilterPaths ? { pagesFileFilterPaths } : {}),
         previousWatchDependencies: this.#watchDependencies,
+        previousPageOutputCache: this.#pageOutputCache,
         trackWatchDependencies: true,
       })
+      this.#pageOutputCache = pageBuildResults.report.pageOutputCache ?? this.#pageOutputCache
+      delete pageBuildResults.report.pageOutputCache
       if (pageBuildResults.errors.length > 0) {
         this.#rememberPartialPageOutputs(pageBuildResults)
         throw new DomStackAggregateError(pageBuildResults.errors, 'Page build finished but there were errors.', {
@@ -595,7 +603,7 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
     const templates = isFiltered ? new Map(this.#templateOutputMap) : new Map()
 
     // Factories can successfully rebuild to zero pages; regular pages always
-    // report their HTML output, even when their additional-output hook is gone.
+    // report their HTML output, even when their page-output hook is gone.
     for (const owner of results.report.rebuiltPagesFilePaths ?? []) pages.delete(owner)
     for (const [owner, outputs] of rebuiltPages) pages.set(owner, outputs)
     for (const report of results.report.templates) {
@@ -616,6 +624,10 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
     }
     for (const filepath of stale) await removeStalePageOutput(dest, filepath)
 
+    const pageOwnedPaths = new Set([...pages.values()].flatMap(outputs => [...outputs]))
+    for (const filepath of this.#pageOutputCache.keys()) {
+      if (!pageOwnedPaths.has(filepath)) this.#pageOutputCache.delete(filepath)
+    }
     this.#pageOutputMap = pages
     this.#templateOutputMap = templates
   }
