@@ -102,12 +102,14 @@ test('watch removes sidecars on source rename and draft exclusion', { timeout: 3
   assert.equal(await read('renamed.html.txt'), '# Article\n')
 })
 
-test('watch hook failure leaves its owning page unchanged and recovery removes stale outputs', { timeout: 30_000 }, async t => {
+test('watch hook failure retains partial writes and recovery removes old and partial outputs', { timeout: 30_000 }, async t => {
   const { site, src, dest, read, mtime, logs } = await setup(t, {
-    'page.js': "export default () => 'old main'; " + hook('old.txt', 'old sidecar'),
+    'page.js': `export default () => 'old main'; export const additionalOutputs = () => [
+      { outputName: 'old.txt', content: 'old sidecar' },
+      { outputName: 'stale.txt', content: 'retain until recovery' },
+    ]`,
   })
   await site.watch({ serve: false })
-  const oldTime = await mtime('old.txt')
   const oldHtmlTime = await mtime('index.html')
   await settle(site, logs, async () => {
     await writeFile(join(src, 'page.js'), `export default () => 'failed main'; export async function* additionalOutputs () {
@@ -119,15 +121,17 @@ test('watch hook failure leaves its owning page unchanged and recovery removes s
   assert.ok(logs.some(line => line.includes('watch iterator exploded')), 'watch reports the hook failure')
   assert.equal(await read('index.html'), 'old main')
   assert.equal(await mtime('index.html'), oldHtmlTime)
-  assert.equal(await read('old.txt'), 'old sidecar')
-  assert.equal(await mtime('old.txt'), oldTime)
-  await assert.rejects(stat(join(dest, 'partial.txt')), { code: 'ENOENT' })
+  assert.equal(await read('old.txt'), 'failed replacement')
+  assert.equal(await read('partial.txt'), 'partial')
+  assert.equal(await read('stale.txt'), 'retain until recovery')
   await settle(site, logs, async () => {
     await writeFile(join(src, 'page.js'), "export default () => 'recovered main'; " + hook('new.txt', 'recovered'))
   })
   assert.equal(await read('index.html'), 'recovered main')
   assert.equal(await read('new.txt'), 'recovered')
-  await assert.rejects(stat(join(dest, 'old.txt')), { code: 'ENOENT' })
+  for (const name of ['old.txt', 'stale.txt', 'partial.txt']) {
+    await assert.rejects(stat(join(dest, name)), { code: 'ENOENT' })
+  }
 })
 
 for (const change of ['source deletion', 'draft exclusion', 'hook removal', 'companion deletion', 'companion rename']) {

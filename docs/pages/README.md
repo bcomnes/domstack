@@ -387,6 +387,9 @@ Bare strings are invalid because there is no implicit filename.
 An empty array or an async iterator that yields nothing declares no files for that hook.
 
 Applicable hooks execute in outermost layout → innermost layout → page order, and all their outputs are additive.
+Records are consumed sequentially, without collecting all hook results first.
+DOMStack validates each record and its destination, then writes its content (or checks that the existing bytes are identical) before requesting the next record.
+A later layout or page hook starts only after the preceding hook's files have been processed.
 Returning `[]` from the page hook does not suppress layout outputs.
 For an application-specific opt-out, have the layout inspect a resolved variable such as `rawExport: false` and return `[]` itself.
 Hooks run only in the owning page's output-build phase, not when collection or global-data code calls `renderInnerPage()` or `renderFullPage()`.
@@ -413,16 +416,19 @@ They do not reject the build, even when content differs.
 Watch warnings only compare outputs observed in the current page/template phase; this is not a persistent cross-build conflict registry or a case-alias check.
 Choose unique destinations; do not rely on write order or cleanup behavior for conflicting outputs.
 
-DOMStack renders a page and collects and validates all its hook results before writing that page's HTML and additional files directly to the destination.
-If rendering, a hook, an iterator, or output validation fails, that owning page's existing HTML and sidecars remain unchanged.
-An iterator that throws after yielding records therefore does not write those earlier yields.
-Other pages and build phases may already have written their outputs; there is no whole-build or page-phase isolation, and filesystem write failures can leave partial updates.
+Additional files are written directly to the destination as their records arrive, without staging or rollback.
+If a later hook, iterator step, output validation, or write fails, earlier sidecar writes remain, including updates to existing files and newly created files.
+Processing stops at the failure rather than requesting subsequent records or invoking later hooks.
+The page's HTML is currently rendered before sidecar processing and written only after its hooks succeed, so a hook failure leaves the previous HTML in place.
+This is not a transactional guarantee: other pages and build phases may already have written their outputs, and filesystem write failures can leave partial updates.
 
 ### Watch behavior and ownership
 
 Additional files belong to the source page and appear in page build reports and the build manifest.
 Ownership tracking and cleanup also work when public build-manifest generation is disabled.
-After a successful rebuild, DOMStack removes previously owned files no longer returned, including renamed outputs and files from removed hooks.
+A failed build retains prior ownership and adds any sidecar paths already emitted before the failure; it does not clean up the page's old outputs.
+After a successful rebuild, DOMStack removes previously owned files no longer returned, including renamed outputs, files from removed hooks, and partial outputs retained from failed attempts.
+Partial ownership is tracked even when the initial watch build fails, so recovery, hook removal, or source deletion can clean up those files.
 Source deletion, source rename, or draft exclusion also removes the page's old outputs.
 Adding, editing, removing, or renaming a companion updates the owning page's hook and output set.
 

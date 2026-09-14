@@ -281,6 +281,7 @@ export class DomStack {
         trackWatchDependencies: true,
       })
       if (pageBuildResults.errors.length > 0) {
+        this.#rememberPartialPageOutputs(pageBuildResults)
         throw new DomStackAggregateError(pageBuildResults.errors, 'Page build finished but there were errors.', {
           siteData,
           pageBuildResults,
@@ -536,6 +537,7 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
         trackWatchDependencies: true,
       })
       if (pageBuildResults.errors.length > 0) {
+        this.#rememberPartialPageOutputs(pageBuildResults)
         throw new DomStackAggregateError(pageBuildResults.errors, 'Page build finished but there were errors.', {
           siteData,
           pageBuildResults,
@@ -563,6 +565,19 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
     } catch (err) {
       this.#pageBuildFailed = true
       errorLogger(err, this.#logger)
+    }
+  }
+
+  /**
+   * Failed direct builds can leave new files. Keep their paths alongside prior
+   * ownership without cleaning anything up until a successful rebuild.
+   * @param {Pick<WorkerBuildStepResult, 'report'>} results
+   */
+  #rememberPartialPageOutputs (results) {
+    for (const [owner, outputs] of getPageOutputMap(resolve(this.#dest), results.report.pages)) {
+      const previous = this.#pageOutputMap.get(owner) ?? new Set()
+      for (const path of outputs) previous.add(path)
+      this.#pageOutputMap.set(owner, previous)
     }
   }
 

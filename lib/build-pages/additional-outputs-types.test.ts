@@ -8,6 +8,7 @@ import type {
   CollectedAdditionalOutput,
   PageData,
 } from '../../types.ts'
+import { normalizeAdditionalOutputs } from './additional-outputs.js'
 
 // Compile-only assertions for the public type entry and the narrow hook contract.
 export function checkAdditionalOutputsTypes (pageData: PageData<{ title: string }>, page: AdditionalOutputsPage) {
@@ -19,7 +20,11 @@ export function checkAdditionalOutputsTypes (pageData: PageData<{ title: string 
     outputName: 'feed.json', content: vars.title + page.url + data.posts.join(','),
   })
   const params: AdditionalOutputsFunctionParams<{ title: string }, { posts: string[] }> = { page, vars: { title: 'title' }, data: { posts: [] } }
-  const promise: Promise<CollectedAdditionalOutput[]> = pageData.collectAdditionalOutputs()
+  const outputs: AsyncGenerator<CollectedAdditionalOutput, void, unknown> = pageData.collectAdditionalOutputs()
+  const normalized: AsyncGenerator<CollectedAdditionalOutput, void, unknown> = normalizeAdditionalOutputs(result, provenance)
+  const iterable: AsyncIterable<CollectedAdditionalOutput> = outputs
+  // @ts-expect-error Collection is streamed, not a promise of buffered records.
+  const buffered: Promise<CollectedAdditionalOutput[]> = pageData.collectAdditionalOutputs()
   const iterator: AdditionalOutputsFunction = async function * () { yield output }
   const promisedIterator: AdditionalOutputsFunction = async () => (async function * () { yield output })()
   // @ts-expect-error Bare strings are not hook results.
@@ -40,5 +45,5 @@ export function checkAdditionalOutputsTypes (pageData: PageData<{ title: string 
   params.vars.title = 'other'
   // @ts-expect-error Only declared data is available.
   const secret = params.data.secret
-  return { hook, params, promise, collected, result, iterator, promisedIterator, badHook, badOutput, bypass, globalData, secret }
+  return { hook, params, outputs, normalized, iterable, buffered, collected, result, iterator, promisedIterator, badHook, badOutput, bypass, globalData, secret }
 }

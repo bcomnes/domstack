@@ -128,6 +128,10 @@ The filename is relative to the current page's output directory, not the layout 
 Using the page's HTML filename helps keep destinations unique when several loose Markdown pages share a directory.
 Exact duplicate destinations produce best-effort build warnings, not an override contract; avoid sharing output paths between pages or hooks.
 Nested hooks run outermost layout → innermost layout → page, and each layout hook shares only that layout renderer's `vars.dataDeps` subscriptions.
+Hooks may return a record, an array, or an async iterable, directly or through a promise.
+Each record is validated and written (or checked for identical content) before the next record is requested, and a later hook runs only after the preceding hook's files have been processed.
+If a later record or provider fails, earlier sidecar writes remain in the destination; outputs are not staged or rolled back.
+Watch mode retains these partial outputs in the page's ownership for cleanup after recovery or removal.
 Generated pages skip these hooks, including inherited layout hooks.
 See [Additional outputs](../pages/#additional-outputs) for the complete API, companion modules, path rules, and watch behavior.
 

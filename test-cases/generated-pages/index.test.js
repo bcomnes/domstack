@@ -529,7 +529,7 @@ export default function indexesPages ({ data }) {
     await withTempFixture({
       'root.layout.js': minimalRootLayout,
       'global.vars.js': minimalGlobalVars,
-      'invalid.pages.js': 'export default [{ outputName: "valid/index.html" }, 42]\n',
+      'invalid.pages.js': 'export default [{ outputName: "valid/index.html", children: "Published before validation failure" }, 42]\n',
     }, async ({ src, dest }) => {
       const domstack = new DomStack(src, dest)
       await assert.rejects(
@@ -544,6 +544,7 @@ export default function indexesPages ({ data }) {
           return true
         }
       )
+      assert.match(await readFile(join(dest, 'valid/index.html'), 'utf8'), /Published before validation failure/)
     })
   })
 
