@@ -14,6 +14,16 @@ export type ArticleVars = PageVars & {
   }
 }
 
+declare module '@domstack/static/types.js' {
+  interface LayoutRegistry {
+    child: {
+      parentLayout: typeof parentLayout
+      vars: typeof vars
+      render: typeof articleLayout
+    }
+  }
+}
+
 export const vars = async () => ({
   theme: 'dark',
   readingMinutes: 4,
@@ -41,13 +51,3 @@ const articleLayout: LayoutFunction<ArticleVars, string | HtmlResult, string> = 
 }
 
 export default articleLayout
-
-declare module '@domstack/static/types.js' {
-  interface LayoutRegistry {
-    child: {
-      parentLayout: typeof parentLayout
-      vars: typeof vars
-      render: typeof articleLayout
-    }
-  }
-}

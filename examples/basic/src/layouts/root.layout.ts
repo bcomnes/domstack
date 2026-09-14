@@ -23,6 +23,15 @@ export interface PageVars {
   };
 }
 
+declare module '@domstack/static/types.js' {
+  interface LayoutRegistry {
+    root: {
+      vars: typeof vars
+      render: typeof RootLayout
+    }
+  }
+}
+
 export const vars = {
   theme: 'light',
   footer: { label: 'Built with DOMStack', showYear: false },
@@ -65,12 +74,3 @@ const RootLayout: LayoutFunction<PageVars, string | HtmlResult, string> = async 
 }
 
 export default RootLayout
-
-declare module '@domstack/static/types.js' {
-  interface LayoutRegistry {
-    root: {
-      vars: typeof vars
-      render: typeof RootLayout
-    }
-  }
-}
