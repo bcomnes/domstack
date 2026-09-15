@@ -27,8 +27,7 @@ See [Supported file types](../typescript/#supported-file-types) for all availabl
 For data that aggregates across multiple pages — like blog indexes, sitemaps, recent-post lists, or RSS feed content — use `global.data.ts`.
 It is the only public build hook that receives the source-backed `PageData[]` collection.
 It returns an object of named, top-level values that downstream consumers can explicitly subscribe to.
-Existing synchronous or asynchronous callbacks that accept only `({ pages })` remain supported, as do static default object exports such as `export default { siteName: 'My site' }`.
-Incremental state is opt-in and does not change the meaning of the returned object.
+The default export can be an object or a synchronous or asynchronous function that returns one.
 
 ```typescript
 // src/global.data.ts
@@ -72,81 +71,6 @@ const buildGlobalData: AsyncGlobalDataFunction<GlobalData> = async ({ pages }) =
 
 export default buildGlobalData
 ```
-
-## Incremental global data
-
-> [!NOTE]
-> Most sites do not need incremental global data.
-> Start with a regular `global.data.ts` callback and consider incremental indexing when a large number of pages makes watch rebuilds slow.
-
-In watch mode, keep an index so you only recompute entries for affected source pages.
-The callback receives four fields:
-
-- `pages`: All current source pages, excluding generated pages.
-- `previousState`: Your saved state, or `undefined` when starting fresh. It is isolated and safe to modify.
-- `changes`: On `kind: 'reset'`, rebuild from `pages`. On `kind: 'delta'`, replace entries for `changes.upserted` and delete the IDs in `changes.removed`.
-- `setState(next)`: Save a snapshot for the next successful build. Always call it to retain your updates.
-
-Use `page.sourceId` as the index key: a read-only source-relative path such as `docs/data/README.md`, using `/` separators on every platform.
-`changes.removed` contains these same IDs.
-
-### Simple documentation index
-
-This example caches titles and URLs for Markdown pages under `/docs/` and returns a sorted navigation list.
-
-```typescript
-// src/global.data.ts
-import type { GlobalDataFunctionParams } from '@domstack/static/types.js'
-
-type SourceVars = { title?: string }
-type Entry = { title: string, url: string }
-type Index = Map<string, Entry>
-
-export default function ({
-  pages, previousState, changes, setState,
-}: GlobalDataFunctionParams<SourceVars, string, Index>) {
-  let index: Index
-  let inputs: typeof pages
-  switch (changes.kind) {
-    case 'reset':
-      index = new Map()
-      inputs = pages
-      break
-    case 'delta':
-      index = previousState ?? new Map()
-      inputs = previousState === undefined ? pages : changes.upserted
-      for (const sourceId of changes.removed) index.delete(sourceId)
-      break
-    default:
-      throw new Error('Unhandled global-data changes', { cause: changes satisfies never })
-  }
-
-  for (const page of inputs) {
-    const { url, type } = page.pageInfo
-    if (type !== 'md' || !url.startsWith('/docs/')) {
-      index.delete(page.sourceId)
-      continue
-    }
-    index.set(page.sourceId, { title: page.vars.title ?? url, url })
-  }
-
-  setState(index)
-  return {
-    docsNavigation: [...index.values()].sort((a, b) => a.url.localeCompare(b.url)),
-  }
-}
-```
-
-A consuming layout declares `export const vars = { dataDeps: ['docsNavigation'] }` and reads `data.docsNavigation`.
-If the returned navigation is unchanged, its subscribers do not rebuild just because the index was updated.
-For a larger example that also caches heading links, see `site/globals/global.data.ts` in this repository.
-
-### Usage notes
-
-- State lasts for the current watch session and is retained only after a successful build. Always handle resets, including after producer or settings changes and failed builds.
-- Store cloneable records, arrays, or maps—not `PageData` instances, functions, or shared memory.
-- An upsert may repeat even when content is unchanged. Replace its cached entry, or delete it if the page no longer belongs in your index.
-- Relative static imports and re-exports within the watched source tree are tracked. Restart watching when other inputs change, such as arbitrary file reads, environment variables, or network data.
 
 ## Data subscriptions
 
@@ -428,3 +352,78 @@ export default globalData
 
 Rendering performed inside `global.data.ts` cannot use the derived values that the same file is still computing.
 After `global.data.ts` returns, consumers receive only the values named by their `dataDeps` declarations.
+
+## Incremental global data
+
+> [!NOTE]
+> Most sites do not need incremental global data.
+> Start with a regular `global.data.ts` callback and consider incremental indexing when a large number of pages makes watch rebuilds slow.
+
+In watch mode, keep an index so you only recompute entries for affected source pages.
+The callback receives four fields:
+
+- `pages`: All current source pages, excluding generated pages.
+- `previousState`: Your saved state, or `undefined` when starting fresh. It is isolated and safe to modify.
+- `changes`: On `kind: 'reset'`, rebuild from `pages`. On `kind: 'delta'`, replace entries for `changes.upserted` and delete the IDs in `changes.removed`.
+- `setState(next)`: Save a snapshot for the next successful build. Always call it to retain your updates.
+
+Use `page.sourceId` as the index key: a read-only source-relative path such as `docs/data/README.md`, using `/` separators on every platform.
+`changes.removed` contains these same IDs.
+
+### Simple documentation index
+
+This example caches titles and URLs for Markdown pages under `/docs/` and returns a sorted navigation list.
+
+```typescript
+// src/global.data.ts
+import type { GlobalDataFunctionParams } from '@domstack/static/types.js'
+
+type SourceVars = { title?: string }
+type Entry = { title: string, url: string }
+type Index = Map<string, Entry>
+
+export default function ({
+  pages, previousState, changes, setState,
+}: GlobalDataFunctionParams<SourceVars, string, Index>) {
+  let index: Index
+  let inputs: typeof pages
+  switch (changes.kind) {
+    case 'reset':
+      index = new Map()
+      inputs = pages
+      break
+    case 'delta':
+      index = previousState ?? new Map()
+      inputs = previousState === undefined ? pages : changes.upserted
+      for (const sourceId of changes.removed) index.delete(sourceId)
+      break
+    default:
+      throw new Error('Unhandled global-data changes', { cause: changes satisfies never })
+  }
+
+  for (const page of inputs) {
+    const { url, type } = page.pageInfo
+    if (type !== 'md' || !url.startsWith('/docs/')) {
+      index.delete(page.sourceId)
+      continue
+    }
+    index.set(page.sourceId, { title: page.vars.title ?? url, url })
+  }
+
+  setState(index)
+  return {
+    docsNavigation: [...index.values()].sort((a, b) => a.url.localeCompare(b.url)),
+  }
+}
+```
+
+A consuming layout declares `export const vars = { dataDeps: ['docsNavigation'] }` and reads `data.docsNavigation`.
+If the returned navigation is unchanged, its subscribers do not rebuild just because the index was updated.
+For a larger example that also caches heading links, see `site/globals/global.data.ts` in this repository.
+
+### Usage notes
+
+- State lasts for the current watch session and is retained only after a successful build. Always handle resets, including after producer or settings changes and failed builds.
+- Store cloneable records, arrays, or maps—not `PageData` instances, functions, or shared memory.
+- An upsert may repeat even when content is unchanged. Replace its cached entry, or delete it if the page no longer belongs in your index.
+- Relative static imports and re-exports within the watched source tree are tracked. Restart watching when other inputs change, such as arbitrary file reads, environment variables, or network data.
