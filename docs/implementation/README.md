@@ -229,7 +229,7 @@ Require a full page retry`"]
 
 Bundle replanning returns only a page plan or a skip; it does not restart esbuild again.
 After a page-build failure, the next page-producing plan retries the complete page phase rather than trusting incremental filters.
-Without retained global-data state, manifest-settings changes and service-worker entry additions or removals retain their intentional page-phase skips.
+Manifest-settings changes and service-worker entry additions or removals skip page rendering unless an incremental global-data index needs to be reset.
 The one-shot manifest pipeline is not part of watch execution.
 
 > [!NOTE]
@@ -250,10 +250,8 @@ When a targeted build recomputes global data, DOMStack compares top-level values
 
 ### What triggers what
 
-The tables below describe the unchanged defaults when no global-data state is retained.
-When retaining state, watched module edits—including JavaScript/TypeScript pages, page-variable modules, helpers, browser entries, and manifest or other settings—reset the index and trigger a **full rebuild**: rediscover inputs, restart esbuild, and rebuild all pages and templates.
-Direct Markdown/HTML source edits can still use incremental deltas.
-Input changes can request a global-data reset without retained state, but do not change these default output rebuild scopes.
+The tables below apply when `global.data.ts` does not save state with `setState`.
+With an [incremental index](../data/#incremental-global-data), Markdown and HTML edits can update individual entries, while changes to watched modules reset the index and trigger a **full rebuild**.
 
 | Change | Rebuild scope |
 |---|---|
@@ -285,8 +283,8 @@ When a full page/template rebuild or targeted generated-pages rebuild no longer 
 ### Dependency tracking
 
 DOMStack uses [`@11ty/dependency-tree-typescript`](https://github.com/11ty/dependency-tree-typescript) to statically analyze ESM imports.
-The page watcher observes only processed file extensions in the watched source tree; imported JSON changes do not trigger page rebuilds.
-It maintains maps for:
+Imported JSON changes do not trigger page rebuilds; restart watch mode after editing those files.
+DOMStack maintains dependency maps for:
 
 - Layout dependencies, source-backed pages using each layout, and generated-page owner layout membership
 - TypeScript pages and adjacent page-variable dependencies
@@ -300,8 +298,8 @@ Dependency analysis is best-effort.
 When DOMStack cannot safely determine a targeted scope, it falls back to a broader rebuild or skips an unrelated changed module.
 
 esbuild tracks browser-entry dependencies independently.
-Without retained global-data state, changing a module imported only by `client.ts` rebundles that entry without rendering page HTML.
-When retaining state, watched module edits trigger the full rebuild described above.
+A module imported only by `client.ts` normally triggers rebundling without rendering page HTML.
+If `global.data.ts` has saved an incremental index, the module edit also resets that index and triggers a full rebuild.
 
 ### Stable entry filenames
 
@@ -328,7 +326,7 @@ Page HTML points to stable entry files during watch mode. esbuild can update an 
 ### Manifest behavior
 
 Watch mode builds and rebundles the site service worker, but it does not finalize, return, or write the [DOMStack manifest](../../docs/workers/#domstack-manifest).
-Changes to `domstack-manifest.settings.ts` do not trigger a watch rebuild unless global-data state is retained.
+Editing `domstack-manifest.settings.ts` only triggers a rebuild when an incremental global-data index needs to be reset; it does not generate a manifest.
 
 Use `domstack --serve` when testing manifest-driven cache behavior.
 It runs a one-shot build and serves the result without watch-mode filenames or live-reload HTML injection.
