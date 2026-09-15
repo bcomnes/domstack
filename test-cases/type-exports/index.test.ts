@@ -117,6 +117,9 @@ const templateParams: TemplateFunctionParams<Record<string, any>> = {
 
 const globalDataParams: GlobalDataFunctionParams = {
   pages: [pageData],
+  previousState: undefined,
+  changes: { kind: 'reset', reason: 'initial', events: [] },
+  setState () {},
 }
 
 const layoutFunction: LayoutFunction<{ title: string }, string, string> = ({ vars, children }) => `${vars.title}: ${children}`

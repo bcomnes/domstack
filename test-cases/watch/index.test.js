@@ -8,6 +8,7 @@ import assert from 'node:assert'
 import { DomStack } from '../../index.js'
 import { cp, rm, writeFile, readFile, unlink, mkdtemp, stat, readdir, mkdir } from 'fs/promises'
 import * as path from 'path'
+import { startWatch } from './helpers.js'
 
 const fixtureDir = path.join(import.meta.dirname, '../general-features/src')
 
@@ -49,7 +50,7 @@ async function setupTempWatch (t, { prefix, files, logger }) {
     if (domStack.watching) await domStack.stopWatching()
     await rm(tmp, { recursive: true, force: true })
   })
-  await domStack.watch({ serve: false })
+  await startWatch(t, domStack, src)
 
   return { src, dest, domStack }
 }
@@ -276,7 +277,7 @@ test.describe('watch', () => {
       if (domStack.watching) await domStack.stopWatching()
       await rm(tmp, { recursive: true, force: true })
     })
-    await domStack.watch({ serve: false })
+    await startWatch(t, domStack, src)
 
     const output = path.join(dest, 'index.html')
     assert.ok(!(await readFile(output, 'utf8')).includes('src="./client.js"'))
@@ -314,7 +315,7 @@ test.describe('watch', () => {
       await rm(tmp, { recursive: true, force: true })
     })
 
-    await domStack.watch({ serve: false })
+    await startWatch(t, domStack, src)
 
     const alphaOutput = path.join(dest, 'generated/alpha.html')
     const alphaRenamedOutput = path.join(dest, 'generated/alpha-renamed.html')
@@ -356,7 +357,7 @@ test.describe('watch', () => {
     })
 
     // ── Initial build ────────────────────────────────────────────────
-    const results = await domStack.watch({ serve: false })
+    const results = await startWatch(t, domStack, src)
     assert.ok(results, 'watch() returned initial build results')
     assert.ok(results.siteData, 'results include siteData')
     assert.equal(results.domstackManifest, undefined, 'watch mode does not return a domstack manifest')

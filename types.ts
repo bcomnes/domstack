@@ -14,6 +14,12 @@ import type { PageOutputsFunction as PageOutputsFunctionExport } from './lib/bui
 
 export type { DataDeps } from './lib/build-pages/data-deps.js'
 export type {
+  GlobalDataChanges,
+  GlobalDataDeltaChanges,
+  GlobalDataResetChanges,
+} from './lib/build-pages/global-data-state.js'
+export type { WatchEvent } from './lib/watch-plan.js'
+export type {
   PageOutput,
   PageOutputProvenance,
   PageOutputsFunction,

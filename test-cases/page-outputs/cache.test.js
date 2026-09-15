@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { rm, stat, utimes, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { hook, setup, settle } from './helpers.js'
+import { startWatch } from '../watch/helpers.js'
 
 // Install the guard inside each build worker; parent-side reads remain available
 // for assertions, and syncBuiltinESMExports also guards already-imported bindings.
@@ -23,7 +24,7 @@ test('watch caches identical hook bytes across workers without rereads and recre
     'page.html': 'initial main',
     'page.vars.js': companionSource,
   })
-  await site.watch({ serve: false })
+  await startWatch(t, site, src)
   assert.equal(await read('cached.txt'), 'cached bytes')
   const originalTime = await mtime('cached.txt')
   for (const content of ['first rebuild', 'second rebuild']) {
@@ -75,7 +76,7 @@ test('watch repairs same-size external edits with exactly restored mtime using c
     'page.html': 'initial main',
     'page.vars.js': 'export default {}; ' + hook('metadata.txt', 'original'),
   })
-  await site.watch({ serve: false })
+  await startWatch(t, site, src)
   const output = join(dest, 'metadata.txt')
   const original = await stat(output, { bigint: true })
   assert.equal(original.mtimeNs, BigInt(timestamp) * 1_000_000_000n)
@@ -108,7 +109,7 @@ test('watch retains cached writes before iterator failure through another failed
       { outputName: 'stale.txt', content: 'keep until recovery' },
     ]`,
   })
-  await site.watch({ serve: false })
+  await startWatch(t, site, src)
   const mainTime = await mtime('index.html')
   const existingTime = await mtime('existing.txt')
   await settle(site, logs, async () => {
@@ -157,7 +158,7 @@ for (const writer of ['template', 'page']) {
         ? "export default () => ({ outputName: 'shared.html', content: 'initial other writer' })"
         : 'initial other writer',
     })
-    await site.watch({ serve: false })
+    await startWatch(t, site, src)
     // Add the hook only after the competing output exists, avoiding concurrent
     // writes to the same destination during the initial build.
     await settle(site, logs, async () => {
