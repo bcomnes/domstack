@@ -75,55 +75,20 @@ export default buildGlobalData
 
 ## Incremental global data
 
-In watch mode, a global-data callback can retain explicit state to avoid repeating expensive indexing work for unchanged source pages.
-The callback receives `{ pages, previousState, changes, setState }`:
+In watch mode, keep an index so you only recompute entries for affected source pages.
+The callback receives four fields:
 
-- `pages` is the complete current, initialized source-backed `PageData[]` collection, not just the pages selected for output rendering.
-  Generated pages are not included, and source membership respects discovery and draft eligibility.
-- `previousState` is an isolated clone of the state retained from the last successful build, or `undefined` on reset or when no state was retained.
-- `setState(next)` immediately clones and stages an explicit state value for the next successful build.
-  The last call wins; later mutations to `next` do not alter that snapshot.
-  Mutating `previousState` alone does not stage an update: without `setState`, a delta retains the old state and a reset leaves state undefined.
-- `changes` is a discriminated union describing source inputs, independently of output-render filters:
-  - `{ kind: 'reset', reason: string, events: WatchEvent[] }` means rebuild your state from all of `pages`.
-    It has no `upserted` or `removed` fields.
-  - `{ kind: 'delta', upserted: PageData[], removed: string[], events: WatchEvent[] }` supplies current initialized pages whose inputs were invalidated or which became newly eligible, plus source IDs no longer eligible.
-    Upserts are conservative input invalidations, not a guarantee that rendered content changed.
+- `pages`: All current source pages, excluding generated pages.
+- `previousState`: Your saved state, or `undefined` when starting fresh. It is isolated and safe to modify.
+- `changes`: On `kind: 'reset'`, rebuild from `pages`. On `kind: 'delta'`, replace entries for `changes.upserted` and delete the IDs in `changes.removed`.
+- `setState(next)`: Save a snapshot for the next successful build. Always call it to retain your updates.
 
-Use the read-only `page.sourceId` getter as the identity for an upsert, for example `docs/data/README.md`.
-It is `page.pageInfo.pageFile.relname` normalized relative to the source root, with `/` separators on every platform and no checkout-specific prefix.
-`changes.removed` contains the same source IDs, not absolute paths, URLs, or output filenames.
-IDs distinguish identical filenames in different directories and stay the same when the checkout moves; a source rename is a removal plus an upsert.
-The absolute `page.pageInfo.pageFile.filepath` remains available for filesystem operations.
-Treat an upsert as replacement of that source's cached record and a removal as deletion of that key.
-If an upsert stops matching your own index filter, delete its cached record too.
-
-Both variants expose the existing raw `WatchEvent` objects through `changes.events`, with `type`, `filepath`, `name`, and `convention` fields.
-Raw event `filepath` values and internal dependency paths remain absolute; do not use them as keys in a source-ID-keyed index.
-The event list preserves batch order, duplicates, and removals rather than becoming a deduplicated page-change list; the initial reset has an empty event list.
-Use `changes.kind`, `upserted`, and `removed` to update an index rather than reconstructing page membership from raw events.
-
-### Retained state and resets
-
-State must be structured-cloneable: plain data, arrays, `Map`, `Set`, `Date`, and other isolated values supported by `structuredClone` are suitable.
-`SharedArrayBuffer` and views backed by shared memory are rejected because cloning them does not isolate their bytes; copy them into non-shared storage first.
-Store extracted records, not `PageData` instances, functions, or renderers; uncloneable state passed to `setState` throws an actionable error.
-State is private to the producer and separate from its ordinary returned data, so a retained `Map` does not itself participate in public-data fingerprints or subscriptions.
-State is session-local, not a persistent disk cache or retained module globals.
-
-Rebuild from `pages` on every reset, regardless of the diagnostic `reason` string.
-Resets cover the initial build and a new or restarted watch session, changes to the global-data producer or its tracked static imports, global vars or their tracked imports, Markdown settings or their tracked imports, broader global configuration changes, unknown or unreliable events, and recovery after build or dependency-analysis failure.
-A reset always supplies `previousState: undefined`, even if an earlier build had retained state.
-
-Only a successful page/template phase, including generated pages, followed by successful cleanup commits the staged state and source-membership baseline.
-Returning from `global.data.ts` or calling `setState` does not commit it early.
-A failed build does not advance that baseline; the next page build resets and recomputes instead of trusting a partial candidate.
-This protects retained state, not filesystem outputs: output writes and deletions are not transactional and are not rolled back after failure.
+Use `page.sourceId` as the index key: a read-only source-relative path such as `docs/data/README.md`, using `/` separators on every platform.
+`changes.removed` contains these same IDs.
 
 ### Simple documentation index
 
-This self-contained example caches each Markdown documentation page's title and URL, then returns a sorted navigation list.
-It uses only initialized page metadata: no Markdown rendering, HTML parsing, or search service is needed.
+This example caches titles and URLs for Markdown pages under `/docs/` and returns a sorted navigation list.
 
 ```typescript
 // src/global.data.ts
@@ -168,35 +133,16 @@ export default function ({
 }
 ```
 
-A reset fills the index from all pages; a delta replaces affected entries and removes deleted or newly ineligible pages.
-The exhaustive switch makes TypeScript flag any unhandled change kind.
-`previousState` is already isolated, so the delta can update that map directly; `setState(index)` stages a cloned snapshot.
 A consuming layout declares `export const vars = { dataDeps: ['docsNavigation'] }` and reads `data.docsNavigation`.
-Sorting by URL makes the public navigation independent of map insertion order, and unchanged navigation fingerprints leave its subscribers untouched.
-Caching title and URL alone is inexpensive either way; the example demonstrates the state flow, while the real site below also caches extracted headings.
+If the returned navigation is unchanged, its subscribers do not rebuild just because the index was updated.
+For a larger example that also caches heading links, see `site/globals/global.data.ts` in this repository.
 
-### How this documentation site uses the index
+### Usage notes
 
-DOMStack's own `site/globals/global.data.ts` retains an index keyed by `page.sourceId` of documentation titles, heading anchors, and ordering/group/parent metadata.
-Only upserted documentation pages are rendered and parsed; removed or newly ineligible sources are dropped from the index.
-The navigation helpers in `site/layouts/docs/navigation.js` then regenerate the ordered, nested `docsNavigation` and `docsIndexHtml` from those plain records without rendering Markdown again.
-Parent/child nesting is assembled on fresh entries rather than mutating cached heading arrays, so repeated builds do not accumulate children and deletions or parent changes take effect immediately.
-A body-only edit updates one record, but unchanged TOC fingerprints prevent other documentation pages from rebuilding.
-
-### Tracking, batching, and performance limits
-
-Dependency tracking covers relative static ESM imports and re-exports in the non-ignored watched source tree, including imported JSON files.
-It does not automatically track bare-package internals, CommonJS `require()`, dynamic imports, arbitrary filesystem reads, network responses, environment variables, or other dynamic inputs.
-When those inputs change, explicitly invalidate the relevant source input (or the producer for a full state reset), or restart the watch session; do not assume a raw event or a cached record discovers the change.
-
-Watch events can be batched while a build is running, and subsequent builds converge on the current source tree.
-A batch is not a snapshot of filesystem contents at event time, and an intermediate build may observe newer contents before queued events are processed.
-Write index updates as replacements and deletions that tolerate repeated invalidations, not as exactly-once event operations.
-
-Incremental indexing can reduce the producer's Markdown rendering work, but it does not make the entire build O(changed pages).
-All source pages are still initialized, retained state is cloned, and returned data is still fingerprinted; the example also sorts the complete index on each callback.
-For an index that renders Markdown, a counter around `renderInnerPage()` measures indexing render calls only, not total source-page initialization, downstream rendering, or filesystem output writes.
-Those are separate stages, and rendering an output does not necessarily write it when its bytes are unchanged.
+- State lasts for the current watch session and is retained only after a successful build. Always handle resets, including after producer or settings changes and failed builds.
+- Store cloneable records, arrays, or maps—not `PageData` instances, functions, or shared memory.
+- An upsert may repeat even when content is unchanged. Replace its cached entry, or delete it if the page no longer belongs in your index.
+- Relative static imports and re-exports within the watched source tree are tracked. Restart watching when other inputs change, such as arbitrary file reads, environment variables, or network data.
 
 ## Data subscriptions
 
@@ -308,9 +254,8 @@ Use `AsyncGlobalDataFunction<DerivedData>` instead when the implementation needs
 For typed source input, use `GlobalDataFunction<Result, SourceVars, SourceContent>` or its async counterpart.
 Helpers can accept `GlobalDataFunctionParams<SourceVars, SourceContent>['pages']` without recovering types from the full global-data result.
 For retained state, add the final generic: `GlobalDataFunction<Result, SourceVars, SourceContent, State>`, `AsyncGlobalDataFunction<Result, SourceVars, SourceContent, State>`, or `GlobalDataFunctionParams<SourceVars, SourceContent, State>`.
-`State` defaults to `unknown`; existing result and source generic positions are unchanged.
-`GlobalDataChanges`, `GlobalDataResetChanges`, `GlobalDataDeltaChanges`, and `WatchEvent` are also exported from `@domstack/static/types.js`.
-Manually constructed `GlobalDataFunctionParams` objects must include `previousState`, `changes`, and `setState`, even though callbacks may ignore those fields.
+`State` defaults to `unknown`.
+Use `GlobalDataChanges` from `@domstack/static/types.js` when typing a helper that handles reset or delta changes.
 
 ## Global data caveats
 
@@ -407,8 +352,7 @@ The current `page` is a `PageInfo` object with the following properties:
 - `generated`: Metadata about the `*.pages.ts` file that created a generated page, or `undefined` for a source-backed page.
 
 Each `PageData` entry supplied to `global.data.ts` exposes this object as `page.pageInfo`.
-The read-only `page.sourceId` getter provides its normalized source-relative file identity directly, without traversing `pageInfo`; it is distinct from the output URL.
-Generated `PageData` instances use their synthetic factory relname (such as `archive.pages.ts#0`), but are not part of the global-data source collection.
+Use `page.sourceId` for the source-relative index key and `page.pageInfo.url` for the output URL.
 Combine `page.pageInfo.url` with a `siteUrl` from `global.vars.ts` to build an absolute URL: `` `${vars.siteUrl}${page.pageInfo.url}` ``.
 The [RSS and JSON feed recipe](../cookbook/feeds/) uses this pattern for feed item URLs.
 
