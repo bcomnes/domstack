@@ -1,6 +1,7 @@
 /**
  * @import { TestContext } from 'node:test'
  * @import { FSWatcher } from 'chokidar'
+ * @import { IndexRow } from './fixtures/global.data.js'
  * @typedef {{ type: 'added' | 'removed' | 'change', filepath: string }} InputEvent
  * @typedef {object} ProducerCall
  * @property {'reset' | 'delta'} kind
@@ -10,11 +11,10 @@
  * @property {string[]} removed
  * @property {string[]} rendered
  * @property {string[] | null} previousKeys
- * @typedef {{ url: string, title: string, html: string }} IndexRow
  */
 import assert from 'node:assert/strict'
 import { EventEmitter } from 'node:events'
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { setImmediate as nextTurn, setTimeout as delay } from 'node:timers/promises'
 import chokidar from 'chokidar'
@@ -79,54 +79,10 @@ export async function fixture (t, { files = {} } = {}) {
     await mkdir(dirname(path), { recursive: true })
     await writeFile(path, content)
   }
-  const producer = `
-import { appendFileSync, existsSync } from 'node:fs'
-import { setTimeout as delay } from 'node:timers/promises'
-import { prefix } from './producer-middle.js'
-export default async ({ pages, previousState, changes, setState }) => {
-  const state = changes.kind === 'reset' ? new Map() : new Map(previousState)
-  const rendered = []
-  for (const sourceId of changes.removed ?? []) state.delete(sourceId)
-  for (const page of changes.kind === 'reset' ? pages : changes.upserted) {
-    if (!page.vars.article) { state.delete(page.sourceId); continue }
-    rendered.push(page.sourceId)
-    state.set(page.sourceId, {
-      url: page.pageInfo.url,
-      title: page.vars.title,
-      html: prefix + await page.renderFullPage(),
-    })
-  }
-  setState(state)
-  // Capture failure before the gate so a buffered retry can recover.
-  const fail = existsSync(${JSON.stringify(producerFailure)})
-  appendFileSync(${JSON.stringify(log)}, JSON.stringify({
-    kind: changes.kind, reason: changes.reason,
-    events: changes.events.map(({ type, filepath }) => ({ type, filepath })),
-    upserted: (changes.upserted ?? []).map(page => page.sourceId).sort(),
-    removed: [...(changes.removed ?? [])].sort(), rendered: rendered.sort(),
-    previousKeys: previousState === undefined ? null : [...previousState.keys()].sort(),
-  }) + '\\n')
-  const deadline = Date.now() + 8000
-  while (existsSync(${JSON.stringify(gate)})) {
-    if (Date.now() > deadline) throw new Error('Timed out waiting for test producer gate')
-    await delay(10)
-  }
-  if (fail) throw new Error('intentional producer failure after setState')
-  return { index: [...state.values()].sort((a, b) => a.url.localeCompare(b.url)) }
-}
-`
+  await cp(new URL('./fixtures/', import.meta.url), src, { recursive: true })
   const defaults = {
-    'global.data.js': producer,
-    'producer-middle.js': "import { prefix } from './producer-leaf.js'; export { prefix }\n",
-    'producer-leaf.js': "export const prefix = 'Search: '\n",
     'a/page.md': article('Alpha'),
     'b/page.md': article('Beta'),
-    'data.json.template.js': `import { existsSync } from 'node:fs'
-export const dataDeps = ['index']
-export default ({ data }) => {
-  if (existsSync(${JSON.stringify(renderFailure)})) throw new Error('intentional later render failure')
-  return JSON.stringify(data.index)
-}\n`,
     ...files,
   }
   await Promise.all(Object.entries(defaults).map(([name, content]) => write(name, content)))
