@@ -87,15 +87,19 @@ The callback receives `{ pages, previousState, changes, setState }`:
 - `changes` is a discriminated union describing source inputs, independently of output-render filters:
   - `{ kind: 'reset', reason: string, events: WatchEvent[] }` means rebuild your state from all of `pages`.
     It has no `upserted` or `removed` fields.
-  - `{ kind: 'delta', upserted: PageData[], removed: string[], events: WatchEvent[] }` supplies current initialized pages whose inputs were invalidated or which became newly eligible, plus source paths no longer eligible.
+  - `{ kind: 'delta', upserted: PageData[], removed: string[], events: WatchEvent[] }` supplies current initialized pages whose inputs were invalidated or which became newly eligible, plus source IDs no longer eligible.
     Upserts are conservative input invalidations, not a guarantee that rendered content changed.
 
-Use `page.pageInfo.pageFile.filepath`, a normalized absolute source path, as the identity for an upsert.
-`changes.removed` uses the same normalized absolute paths, not URLs, output filenames, or source-relative directory paths.
+Use the read-only `page.sourceId` getter as the identity for an upsert, for example `docs/data/README.md`.
+It is `page.pageInfo.pageFile.relname` normalized relative to the source root, with `/` separators on every platform and no checkout-specific prefix.
+`changes.removed` contains the same source IDs, not absolute paths, URLs, or output filenames.
+IDs distinguish identical filenames in different directories and stay the same when the checkout moves; a source rename is a removal plus an upsert.
+The absolute `page.pageInfo.pageFile.filepath` remains available for filesystem operations.
 Treat an upsert as replacement of that source's cached record and a removal as deletion of that key.
 If an upsert stops matching your own index filter, delete its cached record too.
 
 Both variants expose the existing raw `WatchEvent` objects through `changes.events`, with `type`, `filepath`, `name`, and `convention` fields.
+Raw event `filepath` values and internal dependency paths remain absolute; do not use them as keys in a source-ID-keyed index.
 The event list preserves batch order, duplicates, and removals rather than becoming a deduplicated page-change list; the initial reset has an empty event list.
 Use `changes.kind`, `upserted`, and `removed` to update an index rather than reconstructing page membership from raw events.
 
@@ -139,16 +143,16 @@ const globalData: AsyncGlobalDataFunction<SearchData, SourceVars, string, Search
   const upserted = changes.kind === 'reset' ? pages : changes.upserted
 
   if (changes.kind === 'delta') {
-    for (const filepath of changes.removed) documents.delete(filepath)
+    for (const sourceId of changes.removed) documents.delete(sourceId)
   }
 
   for (const page of upserted) {
-    const filepath = page.pageInfo.pageFile.filepath
+    const sourceId = page.sourceId
     if (page.pageInfo.type !== 'md') {
-      documents.delete(filepath)
+      documents.delete(sourceId)
       continue
     }
-    documents.set(filepath, {
+    documents.set(sourceId, {
       url: page.pageInfo.url,
       title: page.vars.title ?? page.pageInfo.url,
       html: await page.renderInnerPage(),
@@ -174,7 +178,7 @@ Stable source-key ordering avoids changing its fingerprint merely because record
 
 ### How this documentation site uses the index
 
-DOMStack's own `site/globals/global.data.ts` retains a source-keyed index of documentation titles, heading anchors, and ordering/group/parent metadata.
+DOMStack's own `site/globals/global.data.ts` retains an index keyed by `page.sourceId` of documentation titles, heading anchors, and ordering/group/parent metadata.
 Only upserted documentation pages are rendered and parsed; removed or newly ineligible sources are dropped from the index.
 The navigation helpers in `site/layouts/docs/navigation.js` then regenerate the ordered, nested `docsNavigation` and `docsIndexHtml` from those plain records without rendering Markdown again.
 Parent/child nesting is assembled on fresh entries rather than mutating cached heading arrays, so repeated builds do not accumulate children and deletions or parent changes take effect immediately.
@@ -404,6 +408,8 @@ The current `page` is a `PageInfo` object with the following properties:
 - `generated`: Metadata about the `*.pages.ts` file that created a generated page, or `undefined` for a source-backed page.
 
 Each `PageData` entry supplied to `global.data.ts` exposes this object as `page.pageInfo`.
+The read-only `page.sourceId` getter provides its normalized source-relative file identity directly, without traversing `pageInfo`; it is distinct from the output URL.
+Generated `PageData` instances use their synthetic factory relname (such as `archive.pages.ts#0`), but are not part of the global-data source collection.
 Combine `page.pageInfo.url` with a `siteUrl` from `global.vars.ts` to build an absolute URL: `` `${vars.siteUrl}${page.pageInfo.url}` ``.
 The [RSS and JSON feed recipe](../cookbook/feeds/) uses this pattern for feed item URLs.
 

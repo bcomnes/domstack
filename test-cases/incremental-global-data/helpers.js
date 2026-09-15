@@ -8,7 +8,7 @@
  * @property {'reset' | 'delta'} kind
  * @property {string} [reason]
  * @property {InputEvent[]} events
- * @property {string[]} pages
+ * @property {string[]} pages Source-root-relative POSIX IDs, as are all semantic observations below.
  * @property {string[]} upserted
  * @property {string[]} removed
  * @property {string[]} rendered
@@ -112,13 +112,14 @@ export default async ({ pages, previousState, changes, setState }) => {
   const state = changes.kind === 'reset' ? new Map() : new Map(previousState)
   const changed = changes.kind === 'reset' ? pages : changes.upserted
   const rendered = []
-  for (const path of changes.removed ?? []) state.delete(path)
+  for (const sourceId of changes.removed ?? []) state.delete(sourceId)
   for (const page of changed) {
     assert.ok(pages.includes(page), 'upserts are current initialized PageData instances')
-    const path = page.pageInfo.pageFile.filepath
-    if (!page.vars.article) { state.delete(path); continue }
-    rendered.push(path)
-    state.set(path, {
+    const sourceId = page.sourceId
+    assert.equal(typeof sourceId, 'string')
+    if (!page.vars.article) { state.delete(sourceId); continue }
+    rendered.push(sourceId)
+    state.set(sourceId, {
       url: page.pageInfo.url,
       title: page.vars.title,
       tag: page.vars.tag ?? null,
@@ -142,8 +143,8 @@ export default async ({ pages, previousState, changes, setState }) => {
   appendFileSync(${JSON.stringify(log)}, JSON.stringify({
     kind: changes.kind, reason: changes.reason,
     events: changes.events.map(({ type, filepath }) => ({ type, filepath })),
-    pages: pages.map(page => page.pageInfo.pageFile.filepath).sort(),
-    upserted: (changes.upserted ?? []).map(page => page.pageInfo.pageFile.filepath).sort(),
+    pages: pages.map(page => page.sourceId).sort(),
+    upserted: (changes.upserted ?? []).map(page => page.sourceId).sort(),
     removed: [...(changes.removed ?? [])].sort(), rendered: rendered.sort(),
     previousKeys, previousIsMap: previousState instanceof Map,
     invocation: ++invocation, threadId, publicData,

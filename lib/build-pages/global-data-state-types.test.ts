@@ -17,13 +17,13 @@ type State = { titles: Map<string, string> }
 
 export function checkGlobalDataStateTypes (pages: PageData<Vars, string, any, any>[], events: WatchEvent[]) {
   const reset: GlobalDataResetChanges = { kind: 'reset', reason: 'initial', events }
-  const delta: GlobalDataDeltaChanges<Vars, string> = { kind: 'delta', upserted: pages, removed: ['/removed.md'], events }
+  const delta: GlobalDataDeltaChanges<Vars, string> = { kind: 'delta', upserted: pages, removed: ['posts/removed.md'], events }
   const changes: GlobalDataChanges<Vars, string> = delta
   const params: GlobalDataFunctionParams<Vars, string, State> = {
     pages,
     previousState: undefined,
     changes,
-    setState (next) { next.titles.set('/page.md', 'Title') },
+    setState (next) { next.titles.set('page.md', 'Title') },
   }
   const stateful: GlobalDataFunction<Data, Vars, string, State> = ({ pages, changes, previousState, setState }) => {
     const titles = previousState?.titles ?? new Map<string, string>()
@@ -33,8 +33,13 @@ export function checkGlobalDataStateTypes (pages: PageData<Vars, string, any, an
       // @ts-expect-error Reset changes do not contain a partial upsert list.
       String(changes.upserted)
     } else {
-      changes.upserted.forEach(page => titles.set(page.pageInfo.pageFile.filepath, page.vars.title))
-      changes.removed.forEach(path => titles.delete(path))
+      changes.upserted.forEach(page => {
+        const sourceId: string = page.sourceId
+        titles.set(sourceId, page.vars.title)
+        // @ts-expect-error Source IDs are read-only.
+        page.sourceId = 'other.md'
+      })
+      changes.removed.forEach(sourceId => titles.delete(sourceId))
       // @ts-expect-error Delta changes do not have a reset reason.
       String(changes.reason)
     }
@@ -54,10 +59,17 @@ export function checkGlobalDataStateTypes (pages: PageData<Vars, string, any, an
     setState(state)
     return {}
   }
-  const baseline: GlobalDataBaseline = { state: { titles: new Map() }, sourcePaths: [] }
-  const input: GlobalDataInputChanges = { resetReason: undefined, upsertedPaths: [], events }
+  const baseline: GlobalDataBaseline = { state: { titles: new Map() }, sourceIds: ['posts/page.md'] }
+  const sourceIds: string[] = baseline.sourceIds
+  const removed: string[] = delta.removed
+  const input: GlobalDataInputChanges = { resetReason: undefined, upsertedPaths: ['/src/posts/page.md'], events }
+  const upsertedPaths: string[] = input.upsertedPaths
+  events.forEach(event => {
+    const filepath: string = event.filepath
+    upsertedPaths.push(filepath)
+  })
   const options: BuildPagesOptions = { previousGlobalDataBaseline: baseline, globalDataInputChanges: input }
   const absent: BuildPagesOptions = { previousGlobalDataBaseline: null, globalDataInputChanges: undefined }
   const report: PageBuilderReport = { pages: [], templates: [], globalDataBaseline: baseline }
-  return { reset, delta, params, stateful, asyncStateful, legacy, asyncLegacy, defaultState, options, absent, report }
+  return { reset, delta, params, stateful, asyncStateful, legacy, asyncLegacy, defaultState, options, absent, report, sourceIds, removed, upsertedPaths }
 }

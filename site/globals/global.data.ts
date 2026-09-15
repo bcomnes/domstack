@@ -7,15 +7,15 @@ export default async function ({ pages, previousState, changes, setState }: Glob
   const reset = changes.kind === 'reset' || previousState === undefined
   const index: DocsNavigationIndex = reset ? new Map() : new Map(previousState)
   if (changes.kind === 'delta') {
-    for (const filepath of changes.removed) index.delete(filepath)
+    for (const sourceId of changes.removed) index.delete(sourceId)
   }
   const inputs = changes.kind === 'delta' && !reset ? changes.upserted : pages
   await Promise.all(inputs.map(async page => {
-    const filepath = page.pageInfo.pageFile.filepath
+    const sourceId = page.sourceId
     // Excludes the data-dependent index and renders docs without their layouts.
     const record = await readDocsNavigationPage(page)
-    if (record) index.set(filepath, record)
-    else index.delete(filepath)
+    if (record) index.set(sourceId, record)
+    else index.delete(sourceId)
   }))
 
   const docsNavigation = projectDocsNavigation(index.values())

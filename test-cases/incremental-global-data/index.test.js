@@ -36,8 +36,8 @@ test('body-only edits render one producer input, preserve navigation sibling mti
   const initial = (await site.calls())[0]
   assertReset(initial)
   assert.deepEqual(initial.events, [])
-  assert.deepEqual(initial.pages, ['a/page.md', 'b/page.md', 'nav/page.js'].map(name => join(site.src, name)).sort(), 'templates and generated pages are not producer inputs')
-  assert.deepEqual(initial.rendered, ['a/page.md', 'b/page.md'].map(name => join(site.src, name)))
+  assert.deepEqual(initial.pages, ['a/page.md', 'b/page.md', 'nav/page.js'], 'templates and generated pages are not producer inputs')
+  assert.deepEqual(initial.rendered, ['a/page.md', 'b/page.md'])
 
   const untouched = ['nav/index.html', 'b/index.html', 'summary.html'].map(name => join(site.dest, name))
   const sentinel = new Date('2000-01-01T00:00:00Z')
@@ -46,11 +46,11 @@ test('body-only edits render one producer input, preserve navigation sibling mti
   const event = site.event('a/page.md')
   await site.write('a/page.md', article('Alpha', 'Only this body changed.'))
   const call = await site.rebuild([event])
-  assertDelta(call, [event.filepath])
+  assertDelta(call, ['a/page.md'])
   assert.notEqual(call.threadId, initial.threadId)
   assert.deepEqual(call.previousKeys, initial.rendered)
   assert.deepEqual(call.events, [event])
-  assert.deepEqual(call.rendered, [event.filepath])
+  assert.deepEqual(call.rendered, ['a/page.md'])
   assert.deepEqual(call.publicData.navigation, initial.publicData.navigation)
   assert.notDeepEqual(call.publicData.search, initial.publicData.search)
   assert.match(await readFile(join(site.dest, 'a/index.html'), 'utf8'), /Only this body changed/)
@@ -60,8 +60,8 @@ test('body-only edits render one producer input, preserve navigation sibling mti
   // A standalone build on the same source must not replace the live session's state.
   await site.write('b/page.md', article('Beta', 'A second edit.'))
   const second = await site.rebuild([site.event('b/page.md')])
-  assertDelta(second, [join(site.src, 'b/page.md')])
-  assert.deepEqual(second.rendered, [join(site.src, 'b/page.md')])
+  assertDelta(second, ['b/page.md'])
+  assert.deepEqual(second.rendered, ['b/page.md'])
   await site.matchesFresh()
 })
 
@@ -89,7 +89,7 @@ test('H1, frontmatter title/metadata, companion vars, and transitive page/layout
       await site.write(change.name, change.content)
       const event = site.event(change.name, /** @type {InputEvent['type']} */ (change.type ?? 'change'))
       const call = await site.rebuild([event])
-      assertDelta(call, change.inputs.map(name => join(site.src, name)))
+      assertDelta(call, change.inputs)
       assert.deepEqual(call.events, [event])
       assert.match(JSON.stringify(call.publicData), new RegExp(change.expected))
       await site.matchesFresh()
@@ -114,7 +114,7 @@ test('barrel re-export leaves upsert source pages shared with templates and rese
   await site.write('page-leaf.js', "export const content = 'Barrel two'\n")
   const event = site.event('page-leaf.js')
   const call = await site.rebuild([event])
-  const source = join(site.src, 'code/page.js')
+  const source = 'code/page.js'
   assertDelta(call, [source])
   assert.deepEqual(call.events, [event])
   assert.deepEqual(call.rendered, [source], 'a direct template consumer must not hide the source page reached through barrels')
@@ -129,7 +129,7 @@ test('barrel re-export leaves upsert source pages shared with templates and rese
   assertReset(reset)
   assert.equal(reset.reason, 'global-data-changed', 'producer barrels are recognized dependencies, not unknown-event fallbacks')
   assert.deepEqual(reset.events, [producerEvent])
-  assert.deepEqual(reset.rendered, ['a/page.md', 'b/page.md', 'code/page.js'].map(name => join(site.src, name)))
+  assert.deepEqual(reset.rendered, ['a/page.md', 'b/page.md', 'code/page.js'])
   assert.ok(reset.publicData.search.every(row => row.html.startsWith('Barrel search: ')))
   await site.matchesFresh()
 })
@@ -153,14 +153,45 @@ test('global vars, markdown settings, and producer roots and transitive imports 
       const call = await site.rebuild([event])
       assertReset(call)
       assert.deepEqual(call.events, [event])
-      assert.deepEqual(call.rendered, ['a/page.md', 'b/page.md'].map(name => join(site.src, name)))
+      assert.deepEqual(call.rendered, ['a/page.md', 'b/page.md'])
       assert.ok(JSON.stringify(call.publicData).includes(expected))
       await site.matchesFresh()
     })
   }
 })
 
-test('adds, deletes, renames, and draft eligibility reconcile absolute source identities and stale outputs', options, async t => {
+test('same-basename source IDs keep separate cache entries and removals delete only the matching state', options, async t => {
+  const site = await fixture(t)
+  await site.start()
+  const initial = (await site.calls())[0]
+  assertReset(initial)
+  assert.deepEqual(initial.pages, ['a/page.md', 'b/page.md', 'nav/page.js'])
+  assert.deepEqual(initial.rendered, ['a/page.md', 'b/page.md'])
+  assert.deepEqual(initial.publicData.navigation.map(row => row.title), ['Alpha', 'Beta'])
+
+  await rm(join(site.src, 'a/page.md'))
+  const event = site.event('a/page.md', 'removed')
+  const removed = await site.rebuild([event])
+  assertDelta(removed, [], ['a/page.md'])
+  assert.deepEqual(removed.events, [event], 'watch events retain absolute filesystem paths')
+  assert.deepEqual(removed.previousKeys, ['a/page.md', 'b/page.md'], 'same basenames occupy distinct cache entries')
+  assert.deepEqual(removed.pages, ['b/page.md', 'nav/page.js'])
+  assert.deepEqual(removed.rendered, [], 'the surviving row comes from cached state')
+  assert.deepEqual(removed.publicData.navigation, initial.publicData.navigation.filter(row => row.title === 'Beta'))
+  assert.deepEqual(removed.publicData.search, initial.publicData.search.filter(row => row.url === initial.publicData.navigation[1]?.url))
+  await assert.rejects(stat(join(site.dest, 'a/index.html')), { code: 'ENOENT' })
+  await site.matchesFresh()
+
+  await site.write('b/page.md', article('Surviving Beta'))
+  const edited = await site.rebuild([site.event('b/page.md')])
+  assertDelta(edited, ['b/page.md'])
+  assert.deepEqual(edited.previousKeys, ['b/page.md'], 'the removed ID is absent from the next committed state')
+  assert.deepEqual(edited.rendered, ['b/page.md'])
+  assert.deepEqual(edited.publicData.navigation.map(row => row.title), ['Surviving Beta'])
+  await site.matchesFresh()
+})
+
+test('adds, deletes, renames, and draft eligibility reconcile relative source IDs and stale outputs', options, async t => {
   for (const buildDrafts of [false, true]) {
     await t.test(`buildDrafts: ${buildDrafts}`, async t => {
       const site = await fixture(t, { opts: { buildDrafts } })
@@ -168,7 +199,7 @@ test('adds, deletes, renames, and draft eligibility reconcile absolute source id
       await site.write('c/page.md', article('Gamma'))
       const added = site.event('c/page.md', 'added')
       const call = await site.rebuild([added])
-      assertDelta(call, [added.filepath])
+      assertDelta(call, ['c/page.md'])
       assert.deepEqual(call.events, [added])
       await site.matchesFresh()
 
@@ -182,16 +213,16 @@ test('adds, deletes, renames, and draft eligibility reconcile absolute source id
         const call = await site.rebuild(events)
         const wasEligible = buildDrafts || !from.includes('.draft.')
         const eligible = buildDrafts || !to.includes('.draft.')
-        assertDelta(call, eligible ? [join(site.src, to)] : [], wasEligible ? [join(site.src, from)] : [])
+        assertDelta(call, eligible ? [to] : [], wasEligible ? [from] : [])
         assert.deepEqual(call.events, events)
-        assert.equal(call.pages.includes(join(site.src, to)), eligible)
+        assert.equal(call.pages.includes(to), eligible)
         assert.equal(call.publicData.navigation.some(row => row.title === 'Gamma'), eligible)
         await site.matchesFresh()
       }
       await rm(join(site.src, 'c/page.md'))
       const removed = site.event('c/page.md', 'removed')
       const deleted = await site.rebuild([removed])
-      assertDelta(deleted, [], [removed.filepath])
+      assertDelta(deleted, [], ['c/page.md'])
       assert.deepEqual(deleted.rendered, [])
       assert.deepEqual(deleted.events, [removed])
       await assert.rejects(stat(join(site.dest, 'c/index.html')), { code: 'ENOENT' })
@@ -208,7 +239,7 @@ test('one batch unions direct and transitive inputs, deduplicates upserts, and r
   await site.write('b/page.md', article('Batch Beta'))
   const events = [site.event('a/page.md'), site.event('companion-leaf.js'), site.event('a/page.md'), site.event('b/page.md')]
   const call = await site.rebuild(events)
-  const inputs = ['a/page.md', 'b/page.md'].map(name => join(site.src, name))
+  const inputs = ['a/page.md', 'b/page.md']
   assertDelta(call, inputs)
   assert.deepEqual(call.rendered, inputs)
   assert.deepEqual(call.events, events)
@@ -239,8 +270,8 @@ test('events arriving during an active producer are buffered into the next union
     await site.dom.settled()
     const calls = await site.calls()
     assert.equal(calls.length, 3, 'initial, active, and one buffered build')
-    assertDelta(calls[1], [join(site.src, 'a/page.md')])
-    assertDelta(calls[2], ['a/page.md', 'b/page.md'].map(name => join(site.src, name)))
+    assertDelta(calls[1], ['a/page.md'])
+    assertDelta(calls[2], ['a/page.md', 'b/page.md'])
     assert.deepEqual(calls[2].events, events)
     await site.matchesFresh()
   } finally {
@@ -265,7 +296,7 @@ test('watch registers before initial producer work and buffers startup changes a
     const calls = await site.calls()
     assert.equal(calls.length, 2, 'initial build followed by one buffered startup batch')
     assertReset(calls[0])
-    assertDelta(calls[1], ['a/page.md', 'c/page.md'].map(name => join(site.src, name)))
+    assertDelta(calls[1], ['a/page.md', 'c/page.md'])
     assert.deepEqual(calls[1].events, events)
     await site.matchesFresh()
   } finally {
@@ -284,7 +315,7 @@ test('setState from a failed producer or later render is not reused and recovery
       await writeFile(marker, '')
       await site.write('a/page.md', article('Alpha', 'Failed build body.'))
       const failed = await site.rebuild([site.event('a/page.md')])
-      assertDelta(failed, [join(site.src, 'a/page.md')])
+      assertDelta(failed, ['a/page.md'])
       assert.equal(await readFile(join(site.dest, 'data.json'), 'utf8'), before, 'failed phase does not publish the new public-data template')
 
       await rm(marker)
@@ -298,8 +329,8 @@ test('setState from a failed producer or later render is not reused and recovery
 
       await site.write('a/page.md', article('Alpha', 'Successful delta after recovery.'))
       const delta = await site.rebuild([site.event('a/page.md')])
-      assertDelta(delta, [join(site.src, 'a/page.md')])
-      assert.deepEqual(delta.rendered, [join(site.src, 'a/page.md')])
+      assertDelta(delta, ['a/page.md'])
+      assert.deepEqual(delta.rendered, ['a/page.md'])
       await site.matchesFresh()
     })
   }
@@ -331,7 +362,7 @@ export const pageOutputs = ({ vars }) => ({ outputName: vars.sidecar, content: v
   try {
     await site.write('a/page.md', article('Candidate Alpha', 'Candidate body.', 'sidecar: candidate.txt\n'))
     const failed = await site.rebuild([site.event('a/page.md')])
-    assertDelta(failed, [join(site.src, 'a/page.md')])
+    assertDelta(failed, ['a/page.md'])
     assert.equal(cleanupAttempts, 1, 'failure occurs in stale-output cleanup, after rendering')
     assert.equal(await readFile(stale, 'utf8'), 'Initial Alpha')
     assert.equal(await readFile(candidate, 'utf8'), 'Candidate Alpha', 'new page-owned output was already written')
@@ -375,19 +406,19 @@ test('events buffered during a failing producer batch automatically recover with
     await site.dom.settled()
     const calls = await site.calls()
     assert.equal(calls.length, 3, 'initial, failed, and one buffered recovery build')
-    assertDelta(calls[1], [activeEvent.filepath])
+    assertDelta(calls[1], ['a/page.md'])
     assert.deepEqual(calls[1].events, [activeEvent])
     assertReset(calls[2])
     assert.deepEqual(calls[2].events, events)
-    assert.deepEqual(calls[2].rendered, ['a/page.md', 'b/page.md'].map(name => join(site.src, name)))
+    assert.deepEqual(calls[2].rendered, ['a/page.md', 'b/page.md'])
     assert.ok(JSON.stringify(calls[2].publicData).includes('Body from the failing batch.'))
     assert.ok(JSON.stringify(calls[2].publicData).includes('Buffered recovery tag'))
     await site.matchesFresh()
 
     await site.write('b/page.md', article('Beta after buffered recovery'))
     const delta = await site.rebuild([site.event('b/page.md')])
-    assertDelta(delta, [join(site.src, 'b/page.md')])
-    assert.deepEqual(delta.rendered, [join(site.src, 'b/page.md')])
+    assertDelta(delta, ['b/page.md'])
+    assert.deepEqual(delta.rendered, ['b/page.md'])
     await site.matchesFresh()
   } finally {
     await rm(site.producerFailure, { force: true })
@@ -405,8 +436,9 @@ test('independent sessions and a stopped/restarted instance never inherit each o
   assertReset((await second.calls())[0])
   await second.write('b/page.md', article('Other Beta'))
   const other = await second.rebuild([second.event('b/page.md')])
-  assertDelta(other, [join(second.src, 'b/page.md')])
-  assert.ok(other.previousKeys?.every(path => path.startsWith(second.src)))
+  assertDelta(other, ['b/page.md'])
+  assert.deepEqual(other.previousKeys, ['a/page.md', 'b/page.md'])
+  assert.deepEqual(other.publicData.navigation.map(row => row.title), ['Other session', 'Other Beta'])
   assert.equal((await first.calls()).length, 2)
   await second.matchesFresh()
 
@@ -419,7 +451,7 @@ test('independent sessions and a stopped/restarted instance never inherit each o
   assert.deepEqual(restarted.events, [])
   await first.write('a/page.md', article('Restart delta'))
   const delta = await first.rebuild([first.event('a/page.md')])
-  assertDelta(delta, [join(first.src, 'a/page.md')])
+  assertDelta(delta, ['a/page.md'])
   await first.matchesFresh()
 })
 
@@ -454,7 +486,7 @@ test('native static JSON leaf edits reset producer, global-vars, and markdown-se
       for (const call of calls) {
         assertReset(call)
         assert.equal(call.reason, change.reason)
-        assert.deepEqual(call.rendered, ['a/page.md', 'b/page.md'].map(name => join(site.src, name)))
+        assert.deepEqual(call.rendered, ['a/page.md', 'b/page.md'])
         assert.ok(JSON.stringify(call.publicData).includes(change.expected))
       }
       await site.matchesFresh()
@@ -478,8 +510,8 @@ test('native atomic replacement updates one producer input and keeps watching th
   const calls = (await site.calls()).slice(beforeEdit)
   assertNativeEvents(calls, site.event('a/page.md'))
   for (const replaced of calls) {
-    assertDelta(replaced, [source])
-    assert.deepEqual(replaced.rendered, [source])
+    assertDelta(replaced, ['a/page.md'])
+    assert.deepEqual(replaced.rendered, ['a/page.md'])
   }
   assert.match(await readFile(join(site.dest, 'a/index.html'), 'utf8'), /Atomically replaced body/)
   await site.matchesFresh()
@@ -492,8 +524,8 @@ test('native atomic replacement updates one producer input and keeps watching th
   const nextCalls = (await site.calls()).slice(beforeNextEdit)
   assertNativeEvents(nextCalls, site.event('a/page.md'))
   for (const edited of nextCalls) {
-    assertDelta(edited, [source])
-    assert.deepEqual(edited.rendered, [source])
+    assertDelta(edited, ['a/page.md'])
+    assert.deepEqual(edited.rendered, ['a/page.md'])
   }
   assert.match(await readFile(join(site.dest, 'a/index.html'), 'utf8'), /Edited replacement body/)
   await site.matchesFresh()
@@ -511,8 +543,8 @@ test('native chokidar body edits reach the same incremental public API', options
   const calls = (await site.calls()).slice(beforeEdit)
   assertNativeEvents(calls, site.event('a/page.md'))
   for (const edited of calls) {
-    assertDelta(edited, [join(site.src, 'a/page.md')])
-    assert.deepEqual(edited.rendered, [join(site.src, 'a/page.md')])
+    assertDelta(edited, ['a/page.md'])
+    assert.deepEqual(edited.rendered, ['a/page.md'])
   }
   await site.matchesFresh()
 })
