@@ -77,7 +77,7 @@ const serviceWorkerInfo: ServiceWorkerInfo = {
   relname: 'globals/service-worker.js',
 }
 
-const pageData = new PageData({
+const pageData = new PageData<{ title: string }>({
   pageInfo,
   globalVars: {},
   globalStyle: undefined,
@@ -85,6 +85,15 @@ const pageData = new PageData({
   defaultStyle: null,
   defaultClient: null,
   builderOptions: {},
+})
+
+test('PageData exposes typed, named layout variable layers', () => {
+  const layers: Array<{ name: string, vars: Partial<{ title: string }> }> = pageData.layoutVars
+  assert.deepEqual(layers, [])
+  pageData.layoutVars = [{ name: 'root', vars: { title: 'Root' } }]
+  const title: string | undefined = pageData.layoutVars[0]?.vars.title
+  assert.equal(title, 'Root')
+  pageData.layoutVars = []
 })
 
 const layoutParams: LayoutFunctionParams<Record<string, any>, string, string> = {

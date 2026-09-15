@@ -279,6 +279,26 @@ Each `PageData` entry supplied to `global.data.ts` exposes this object as `page.
 Combine `page.pageInfo.url` with a `siteUrl` from `global.vars.ts` to build an absolute URL: `` `${vars.siteUrl}${page.pageInfo.url}` ``.
 The [RSS and JSON feed recipe](../cookbook/feeds/) uses this pattern for feed item URLs.
 
+### Inspecting layout variables
+
+In the current v12 beta, `PageData.layoutVars` is an `Array<{ name: string, vars: Partial<T> }>`, not a merged `Partial<T>` object.
+Entries follow the resolved layout chain from outermost to innermost.
+Each entry identifies a layout by `name` and exposes only that layout's variables in `vars`, with `dataDeps` extracted and no longer present in that object.
+Use these entries to inspect which layout contributed a value.
+
+`PageData.vars` remains the cached, shallow-frozen merged result of the full cascade: global → each layout (outermost to innermost) → page → builder.
+Later values override earlier ones; use `page.vars` when you need the final resolved value rather than an individual layout's contribution.
+
+```typescript
+// Inside global.data.ts, where pages contains PageData instances.
+for (const page of pages) {
+  console.log(page.pageInfo.url, 'resolved title:', page.vars.title)
+  for (const { name, vars } of page.layoutVars) {
+    console.log(name, 'layout title:', vars.title)
+  }
+}
+```
+
 ### Rendering page content
 
 Each `PageData` instance passed to `global.data.ts` exposes two methods for accessing rendered output.
