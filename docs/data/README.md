@@ -433,11 +433,12 @@ Helpers that process `changes` can use the exported `GlobalDataChanges` type.
 
 - State lasts for one watch session, not across process restarts.
   Always handle `changes.kind === 'reset'`, including after failed builds.
-- Markdown and HTML source edits can update individual entries.
-  Changes to watched modules, including JavaScript/TypeScript pages, helpers, browser entries, and settings, reset the saved index and rebuild the site.
+- Source-page edits and tracked helper changes can update individual entries.
+  Changes to `global.data.*` or settings inputs reset the saved index.
 - Store structured-cloneable values such as plain records, arrays, or maps—not `PageData` instances, functions, or shared memory.
 - A page can appear in `changes.upserted` even when its content is unchanged.
   Replace its cached entry, or delete it if the page no longer belongs in your index.
-- Restart watch mode after changing imported JSON, files read with `fs.readFile()`, environment variables, or other inputs outside page dependency tracking.
+- Relative static imports within the watched source tree are tracked, including imported JSON.
+  Restart watch mode after changing files read with `fs.readFile()`, environment variables, or other inputs outside page dependency tracking.
 - Static re-exports (`export … from`) are not followed by dependency tracking ([#328](https://github.com/bcomnes/domstack/issues/328)).
   Use an explicit import followed by a local export, or restart watch mode after those dependencies change.
