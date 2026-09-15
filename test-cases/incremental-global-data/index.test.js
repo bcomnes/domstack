@@ -292,8 +292,11 @@ test('a native imported JSON edit resets the producer and publishes every update
   })
   await site.start()
   assert.ok((await site.data()).every(row => row.html.startsWith('Original prefix: ')))
+  const callsBeforeEdit = (await site.calls()).length
   await site.write('prefix.json', JSON.stringify({ prefix: 'Updated prefix: ' }))
-  await waitFor(async () => (await site.data()).some(row => row.html.startsWith('Updated prefix: ')), 'native JSON edit reaches the published index')
+  await waitFor(async () => (await site.calls()).length > callsBeforeEdit, 'native JSON edit reaches the producer')
+  // The producer log precedes output writes; read the JSON only after they finish.
+  await site.dom.settled()
 
   const call = (await site.calls()).at(-1)
   assertReset(call)
