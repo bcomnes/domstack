@@ -16,9 +16,13 @@ export type ArticleVars = PageVars & {
 
 declare module '@domstack/static/types.js' {
   interface LayoutRegistry {
+    /** Article layout nested inside root; pages can derive its full chain contract. */
     child: {
+      /** Literal registered parent name; the child's awaited output must fit its accepted children. */
       parentLayout: typeof parentLayout
+      /** Async defaults are awaited, then shallowly override root defaults before page overrides. */
       vars: typeof vars
+      /** Explicit renderer contract; keep it independent of this entry to avoid circular inference. */
       render: typeof articleLayout
     }
   }

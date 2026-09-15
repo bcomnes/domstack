@@ -25,8 +25,11 @@ export interface PageVars {
 
 declare module '@domstack/static/types.js' {
   interface LayoutRegistry {
+    /** Outermost document layout; omitting parentLayout ends the chain. */
     root: {
+      /** Defaults supplied by root, shallowly overridden by child and page vars. */
       vars: typeof vars
+      /** Explicit renderer contract supplying required vars, accepted children, and output types. */
       render: typeof RootLayout
     }
   }

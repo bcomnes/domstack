@@ -83,6 +83,17 @@ export type TestBuildResult = {
  * program. Layout modules opt in through module augmentation; DOMStack does not
  * create or read this registry at runtime.
  *
+ * Each property key is a layout's runtime name, with an entry describing its exports:
+ * - `render`: Required renderer type, normally `typeof layoutRenderer`.
+ *   Supplies the accepted vars and children types and the layout's return type.
+ *   Keep the renderer explicitly typed rather than deriving it from its own entry.
+ * - `vars`: Optional defaults export type, normally `typeof vars`.
+ *   Object defaults or sync/async provider results are shallow-merged outer-to-inner,
+ *   after global vars and before page overrides. `dataDeps` is not a renderer var.
+ * - `parentLayout`: Optional single literal registered parent name, normally
+ *   `typeof parentLayout`. Omit it for an outermost layout. Helpers check that
+ *   this renderer's awaited output is accepted by the parent's children type.
+ *
  * This interface intentionally has no index signature so unknown layout and
  * parent names can be detected. Registry helpers require strictNullChecks;
  * without it they resolve to never. Existing explicit renderer APIs are unchanged.
