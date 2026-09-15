@@ -1,7 +1,11 @@
 import type { GlobalDataFunctionParams } from '../../types.ts'
 import type { DocsNavigationIndex, DocsPageVars } from '../layouts/docs/navigation.js'
+import { cpus } from 'node:os'
+import pMap from 'p-map'
 import { render } from 'fragtml'
 import { readDocsNavigationPage, projectDocsNavigation, docsIndex } from '../layouts/docs/navigation.js'
+
+const MAX_CONCURRENCY = Math.min(cpus().length, 24)
 
 export default async function ({ pages, previousState, changes, setState }: GlobalDataFunctionParams<DocsPageVars, string, DocsNavigationIndex>) {
   let index: DocsNavigationIndex
@@ -19,13 +23,13 @@ export default async function ({ pages, previousState, changes, setState }: Glob
     default:
       throw new Error('Unhandled global-data changes', { cause: changes satisfies never })
   }
-  await Promise.all(inputs.map(async page => {
+  await pMap(inputs, async page => {
     const sourceId = page.sourceId
     // Excludes the data-dependent index and renders docs without their layouts.
     const record = await readDocsNavigationPage(page)
     if (record) index.set(sourceId, record)
     else index.delete(sourceId)
-  }))
+  }, { concurrency: MAX_CONCURRENCY })
 
   const docsNavigation = projectDocsNavigation(index.values())
   const docsIndexHtml = render(docsIndex(docsNavigation))

@@ -426,4 +426,5 @@ For a larger example that also caches heading links, see `site/globals/global.da
 - State lasts for the current watch session and is retained only after a successful build. Always handle resets, including after producer or settings changes and failed builds.
 - Store cloneable records, arrays, or maps—not `PageData` instances, functions, or shared memory.
 - An upsert may repeat even when content is unchanged. Replace its cached entry, or delete it if the page no longer belongs in your index.
-- Relative static imports and re-exports within the watched source tree are tracked. Restart watching when other inputs change, such as arbitrary file reads, environment variables, or network data.
+- Relative static imports within the watched source tree are tracked. Re-exports (`export … from`) are not tracked yet ([#328](https://github.com/bcomnes/domstack/issues/328)); use an explicit import followed by a local export, or restart watching after those inputs change.
+- Restart watching when other inputs change, such as arbitrary file reads, environment variables, or network data.

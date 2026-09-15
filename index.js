@@ -38,7 +38,7 @@ import ignore from 'ignore'
 import { watch as cpxWatch } from 'cpx2'
 import { inspect } from 'util'
 import { createServer } from '@domstack/sync'
-import { findDependencies as find } from './lib/helpers/find-dependencies.js'
+import { find } from '@11ty/dependency-tree-typescript'
 
 import { assertInsideDest } from './lib/helpers/path.js'
 import { getCopyGlob } from './lib/build-static/index.js'
