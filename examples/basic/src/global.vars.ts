@@ -3,13 +3,14 @@
 //
 // These variables are available to every page, and have the lowest precedence.
 
-interface GlobalVars {
-  siteName: string;
-  [key: string]: unknown;
-}
-
-export default async function (): Promise<GlobalVars> {
+export default async function globalVars () {
   return {
     siteName: 'domstack basic',
+    locale: 'en' as const,
+    theme: 'dark' as const,
+    navigation: [
+      { label: 'Home', href: '/' },
+      { label: 'JavaScript page', href: '/js-page/' },
+    ],
   }
 }
