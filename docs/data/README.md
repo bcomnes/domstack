@@ -281,7 +281,12 @@ The [RSS and JSON feed recipe](../cookbook/feeds/) uses this pattern for feed it
 
 ### Inspecting layout variables
 
-Use `page.layoutVars` on a `PageData` instance in `global.data.ts` to inspect the variables contributed by each layout.
+Prefer the resolved variable cascade for normal application code: `page.vars` on a `PageData` instance in `global.data.ts`, or the `vars` argument in page and layout renderers.
+It includes the effective values from all sources, so your code respects layout defaults and page overrides.
+The result is cached and shallow-frozen, with a shallow merge in this order: global → each layout (outermost to innermost) → page → builder. Later values override earlier ones.
+
+`page.layoutVars` is an escape hatch for cases where you specifically need an individual layout's contribution, such as debugging where a value came from.
+Reading a layer directly bypasses the rest of the cascade, so its value may differ from the one used during rendering.
 It contains one entry per layout, ordered from outermost to innermost:
 
 - `name`: The registered layout name.
@@ -291,14 +296,13 @@ The type is `Array<{ name: string, vars: Partial<T> }>`, where `T` describes the
 Each entry preserves its own values, even when a later layout or the page overrides them.
 For example, if a root layout supplies `theme: 'light'` and an article layout supplies `theme: 'dark'`, both contributions are available in `page.layoutVars`.
 
-Use `page.vars` for the effective values used during rendering.
-It is the cached, shallow-frozen result of a shallow merge: global → each layout (outermost to innermost) → page → builder.
-Later values override earlier ones, so the effective theme in this example is `'dark'` unless page or builder variables override it.
+Read `page.vars.theme` to respect the cascade: the effective theme in this example is `'dark'` unless page or builder variables override it.
 
 ```typescript
 // Inside global.data.ts, where pages contains PageData instances.
 for (const page of pages) {
   console.log(page.pageInfo.url, 'resolved title:', page.vars.title)
+  // Inspect individual contributions only when diagnosing the cascade.
   for (const { name, vars } of page.layoutVars) {
     console.log(name, 'layout title:', vars.title)
   }
