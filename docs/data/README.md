@@ -279,6 +279,36 @@ Each `PageData` entry supplied to `global.data.ts` exposes this object as `page.
 Combine `page.pageInfo.url` with a `siteUrl` from `global.vars.ts` to build an absolute URL: `` `${vars.siteUrl}${page.pageInfo.url}` ``.
 The [RSS and JSON feed recipe](../cookbook/feeds/) uses this pattern for feed item URLs.
 
+### Inspecting layout variables
+
+Prefer the resolved variable cascade for normal application code: `page.vars` on a `PageData` instance in `global.data.ts`, or the `vars` argument in page and layout renderers.
+It includes the effective values from all sources, so your code respects layout defaults and page overrides.
+The result is cached and shallow-frozen, with a shallow merge in this order: global → each layout (outermost to innermost) → page → builder. Later values override earlier ones.
+
+`page.layoutVars` is an escape hatch for cases where you specifically need an individual layout's contribution, such as debugging where a value came from.
+Reading a layer directly bypasses the rest of the cascade, so its value may differ from the one used during rendering.
+It contains one entry per layout, ordered from outermost to innermost:
+
+- `name`: The registered layout name.
+- `vars`: That layout's resolved variables, excluding its `dataDeps` declaration. A layout without variables has an empty object.
+
+The type is `Array<{ name: string, vars: Partial<T> }>`, where `T` describes the page's variables.
+Each entry preserves its own values, even when a later layout or the page overrides them.
+For example, if a root layout supplies `theme: 'light'` and an article layout supplies `theme: 'dark'`, both contributions are available in `page.layoutVars`.
+
+Read `page.vars.theme` to respect the cascade: the effective theme in this example is `'dark'` unless page or builder variables override it.
+
+```typescript
+// Inside global.data.ts, where pages contains PageData instances.
+for (const page of pages) {
+  console.log(page.pageInfo.url, 'resolved title:', page.vars.title)
+  // Inspect individual contributions only when diagnosing the cascade.
+  for (const { name, vars } of page.layoutVars) {
+    console.log(name, 'layout title:', vars.title)
+  }
+}
+```
+
 ### Rendering page content
 
 Each `PageData` instance passed to `global.data.ts` exposes two methods for accessing rendered output.

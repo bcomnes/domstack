@@ -380,9 +380,16 @@ Update any prerelease-based code that reads global data from `vars` or accepts `
 - `renderInnerPage()` renders page content without its layout
 - `renderFullPage()` renders the complete page
 
-The resolved `page.vars` object is cached and shallow-frozen.
+Prefer `page.vars` for variable access during collection processing so your code respects the full cascade of defaults and overrides.
+This object is cached and shallow-frozen, merging global → each layout (outermost to innermost) → page → builder, with later values overriding earlier ones.
 Treat it as read-only rather than mutating it during collection processing.
+Page and layout renderers receive these resolved values through their `vars` argument.
 See [Page data and introspection](../data/#page-data-and-introspection) for examples and rendering guidance.
+
+For cases that specifically require inspecting individual contributions, `PageData.layoutVars` is an escape hatch exposing `Array<{ name: string, vars: Partial<T> }>`.
+Entries are ordered outermost to innermost, preserving each layout's values even when another source overrides them, and each entry's `vars` excludes `dataDeps`.
+Direct layer access bypasses the cascade; use it for inspecting a value's source rather than normal application variable access.
+See [Inspecting layout variables](../data/#inspecting-layout-variables) for an example.
 
 ---
 
