@@ -498,9 +498,9 @@ export class DomStack {
     const event = events[0]
     if (!event) return
     const { plan, inputChanges } = planWatchBatch(snapshot, events)
-    // Keep the existing precise bundle-membership path for a single event.
-    // Mixed batches use the conservative rediscovery plan instead.
-    const singlePlan = events.length === 1 && event.type !== 'change' && event.convention?.bundleScope
+    // Bundle replanning can skip page work, so it must not bypass a required reset.
+    const singlePlan = inputChanges.resetReason === undefined &&
+      events.length === 1 && event.type !== 'change' && event.convention?.bundleScope
       ? planWatchEvent(snapshot, event)
       : null
     await this.#executeWatchPlan(
