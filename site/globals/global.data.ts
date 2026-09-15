@@ -4,12 +4,21 @@ import { render } from 'fragtml'
 import { readDocsNavigationPage, projectDocsNavigation, docsIndex } from '../layouts/docs/navigation.js'
 
 export default async function ({ pages, previousState, changes, setState }: GlobalDataFunctionParams<DocsPageVars, string, DocsNavigationIndex>) {
-  const reset = changes.kind === 'reset' || previousState === undefined
-  const index: DocsNavigationIndex = reset ? new Map() : new Map(previousState)
-  if (changes.kind === 'delta') {
-    for (const sourceId of changes.removed) index.delete(sourceId)
+  let index: DocsNavigationIndex
+  let inputs: typeof pages
+  switch (changes.kind) {
+    case 'reset':
+      index = new Map()
+      inputs = pages
+      break
+    case 'delta':
+      index = previousState ?? new Map()
+      inputs = previousState === undefined ? pages : changes.upserted
+      for (const sourceId of changes.removed) index.delete(sourceId)
+      break
+    default:
+      throw new Error('Unhandled global-data changes', { cause: changes satisfies never })
   }
-  const inputs = changes.kind === 'delta' && !reset ? changes.upserted : pages
   await Promise.all(inputs.map(async page => {
     const sourceId = page.sourceId
     // Excludes the data-dependent index and renders docs without their layouts.

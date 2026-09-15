@@ -120,61 +120,60 @@ Returning from `global.data.ts` or calling `setState` does not commit it early.
 A failed build does not advance that baseline; the next page build resets and recomputes instead of trusting a partial candidate.
 This protects retained state, not filesystem outputs: output writes and deletions are not transactional and are not rolled back after failure.
 
-### Source-keyed Markdown search example
+### Simple documentation index
 
-This example retains one rendered Markdown document per source file for a search-index consumer.
-On reset it indexes all current Markdown pages; on a delta it renders only upserted Markdown pages and removes records that are no longer eligible.
+This self-contained example caches each Markdown documentation page's title and URL, then returns a sorted navigation list.
+It uses only initialized page metadata: no Markdown rendering, HTML parsing, or search service is needed.
 
 ```typescript
 // src/global.data.ts
-import type { AsyncGlobalDataFunction } from '@domstack/static/types.js'
+import type { GlobalDataFunctionParams } from '@domstack/static/types.js'
 
 type SourceVars = { title?: string }
-type SearchDocument = { url: string, title: string, html: string }
-type SearchData = { searchDocuments: SearchDocument[] }
-type SearchState = Map<string, SearchDocument>
+type Entry = { title: string, url: string }
+type Index = Map<string, Entry>
 
-const globalData: AsyncGlobalDataFunction<SearchData, SourceVars, string, SearchState> = async ({
+export default function ({
   pages, previousState, changes, setState,
-}) => {
-  const documents = changes.kind === 'reset'
-    ? new Map<string, SearchDocument>()
-    : previousState ?? new Map<string, SearchDocument>()
-  const upserted = changes.kind === 'reset' ? pages : changes.upserted
-
-  if (changes.kind === 'delta') {
-    for (const sourceId of changes.removed) documents.delete(sourceId)
+}: GlobalDataFunctionParams<SourceVars, string, Index>) {
+  let index: Index
+  let inputs: typeof pages
+  switch (changes.kind) {
+    case 'reset':
+      index = new Map()
+      inputs = pages
+      break
+    case 'delta':
+      index = previousState ?? new Map()
+      inputs = previousState === undefined ? pages : changes.upserted
+      for (const sourceId of changes.removed) index.delete(sourceId)
+      break
+    default:
+      throw new Error('Unhandled global-data changes', { cause: changes satisfies never })
   }
 
-  for (const page of upserted) {
-    const sourceId = page.sourceId
-    if (page.pageInfo.type !== 'md') {
-      documents.delete(sourceId)
+  for (const page of inputs) {
+    const { url, type } = page.pageInfo
+    if (type !== 'md' || !url.startsWith('/docs/')) {
+      index.delete(page.sourceId)
       continue
     }
-    documents.set(sourceId, {
-      url: page.pageInfo.url,
-      title: page.vars.title ?? page.pageInfo.url,
-      html: await page.renderInnerPage(),
-    })
+    index.set(page.sourceId, { title: page.vars.title ?? url, url })
   }
 
-  setState(documents)
+  setState(index)
   return {
-    searchDocuments: [...documents.entries()]
-      .sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)
-      .map(([, document]) => document),
+    docsNavigation: [...index.values()].sort((a, b) => a.url.localeCompare(b.url)),
   }
 }
-
-export default globalData
 ```
 
-The indexed Markdown pages must not themselves subscribe to global data when `renderInnerPage()` is called here; see [Rendering page content](#rendering-page-content).
-A search template or generated-page factory subscribes with `export const dataDeps = ['searchDocuments']` and reads `data.searchDocuments` as usual.
-The returned array of plain records is ordinary public data with the same top-level fingerprinting rules as a full recomputation.
-Stable source-key ordering avoids changing its fingerprint merely because records were inserted in a different order.
-`dataDeps` remains authoritative for consumer access and data-driven invalidation; retaining state neither adds subscriptions nor replaces output dependency tracking.
+A reset fills the index from all pages; a delta replaces affected entries and removes deleted or newly ineligible pages.
+The exhaustive switch makes TypeScript flag any unhandled change kind.
+`previousState` is already isolated, so the delta can update that map directly; `setState(index)` stages a cloned snapshot.
+A consuming layout declares `export const vars = { dataDeps: ['docsNavigation'] }` and reads `data.docsNavigation`.
+Sorting by URL makes the public navigation independent of map insertion order, and unchanged navigation fingerprints leave its subscribers untouched.
+Caching title and URL alone is inexpensive either way; the example demonstrates the state flow, while the real site below also caches extracted headings.
 
 ### How this documentation site uses the index
 
@@ -195,8 +194,8 @@ A batch is not a snapshot of filesystem contents at event time, and an intermedi
 Write index updates as replacements and deletions that tolerate repeated invalidations, not as exactly-once event operations.
 
 Incremental indexing can reduce the producer's Markdown rendering work, but it does not make the entire build O(changed pages).
-All source pages are still initialized, retained state is cloned, and returned data is still fingerprinted; this example also sorts the complete index on each callback.
-A counter around `renderInnerPage()` in this index measures indexing render calls only, not total source-page initialization, downstream rendering, or filesystem output writes.
+All source pages are still initialized, retained state is cloned, and returned data is still fingerprinted; the example also sorts the complete index on each callback.
+For an index that renders Markdown, a counter around `renderInnerPage()` measures indexing render calls only, not total source-page initialization, downstream rendering, or filesystem output writes.
 Those are separate stages, and rendering an output does not necessarily write it when its bytes are unchanged.
 
 ## Data subscriptions
