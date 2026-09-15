@@ -75,6 +75,10 @@ export default buildGlobalData
 
 ## Incremental global data
 
+> [!NOTE]
+> Most sites do not need incremental global data.
+> Start with a regular `global.data.ts` callback and consider incremental indexing when a large number of pages makes watch rebuilds slow.
+
 In watch mode, keep an index so you only recompute entries for affected source pages.
 The callback receives four fields:
 
