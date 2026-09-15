@@ -144,8 +144,9 @@ When one layout calls another layout function directly, the composing layout mus
 - Keeps global data separate from ordinary `vars`, so derived values cannot silently collide with page or layout configuration.
 - Runs inside the worker process (same as all other dynamic imports) to avoid ESM caching issues.
 - No producer callback runs if no `global.data.*` file exists.
-- In watch mode, DOMStack fingerprints each top-level returned value and rebuilds only consumers subscribed to changed keys.
-- Editing `global.data.*` or one of its tracked statically imported helpers in the watched source tree resets retained state and recomputes data; a shared helper also rebuilds its direct page, layout, template, and factory consumers.
+- During targeted watch rebuilds, DOMStack fingerprints each top-level returned value and adds only consumers subscribed to changed keys to the rebuild set.
+- Editing `global.data.*` resets retained state and recomputes data.
+  When retaining state, watched module edits conservatively reset it and trigger a full rebuild: rediscover inputs, restart esbuild, and rebuild all pages and templates.
 - Values composed of JSON-safe primitives, arrays, and plain objects get stable fingerprints; opaque values such as functions, class instances, maps, sets, or cycles conservatively invalidate their subscribers on every page build.
 - A declaration naming a missing key fails the build, and access to an existing but undeclared key throws a focused error.
 
@@ -359,13 +360,16 @@ After `global.data.ts` returns, consumers receive only the values named by their
 > Most sites do not need incremental global data.
 > Start with a regular `global.data.ts` callback and consider incremental indexing when a large number of pages makes watch rebuilds slow.
 
-In watch mode, keep an index so you only recompute entries for affected source pages.
+In watch mode, keep an index so Markdown/HTML source edits only require recomputing affected entries.
 The callback receives four fields:
 
 - `pages`: All current source pages, excluding generated pages.
-- `previousState`: Your saved state, or `undefined` when starting fresh. It is isolated and safe to modify.
-- `changes`: On `kind: 'reset'`, rebuild from `pages`. On `kind: 'delta'`, replace entries for `changes.upserted` and delete the IDs in `changes.removed`.
-- `setState(next)`: Save a snapshot for the next successful build. Always call it to retain your updates.
+- `previousState`: Your saved state, or `undefined` when starting fresh.
+  It is isolated and safe to modify.
+- `changes`: On `kind: 'reset'`, rebuild from `pages`.
+  On `kind: 'delta'`, replace entries for `changes.upserted` and delete the IDs in `changes.removed`.
+- `setState(next)`: Save a snapshot for the next successful build.
+  Always call it to retain your updates.
 
 Use `page.sourceId` as the index key: a read-only source-relative path such as `docs/data/README.md`, using `/` separators on every platform.
 `changes.removed` contains these same IDs.
@@ -418,13 +422,19 @@ export default function ({
 ```
 
 A consuming layout declares `export const vars = { dataDeps: ['docsNavigation'] }` and reads `data.docsNavigation`.
-If the returned navigation is unchanged, its subscribers do not rebuild just because the index was updated.
+On a Markdown/HTML source edit, unchanged navigation does not cause additional subscriber rebuilds.
 For a larger example that also caches heading links, see `site/globals/global.data.ts` in this repository.
 
 ### Usage notes
 
-- State lasts for the current watch session and is retained only after a successful build. Always handle resets, including after producer or settings changes and failed builds.
+- Markdown/HTML source edits can use incremental deltas.
+  When retaining state, watched module edits—including JavaScript/TypeScript pages, page-variable modules, helpers, browser entries, and settings—reset the index and trigger a full rebuild.
+  Without retained state, existing watch rebuild scopes are unchanged.
+- State lasts for the current watch session and is retained only after a successful build.
+  Always handle resets, including after producer or settings changes and failed builds.
 - Store cloneable records, arrays, or maps—not `PageData` instances, functions, or shared memory.
-- An upsert may repeat even when content is unchanged. Replace its cached entry, or delete it if the page no longer belongs in your index.
-- Relative static imports within the watched source tree are tracked. Re-exports (`export … from`) are not tracked yet ([#328](https://github.com/bcomnes/domstack/issues/328)); use an explicit import followed by a local export, or restart watching after those inputs change.
-- Restart watching when other inputs change, such as arbitrary file reads, environment variables, or network data.
+- An upsert may repeat even when content is unchanged.
+  Replace its cached entry, or delete it if the page no longer belongs in your index.
+- Dependency tracking supports relative static imports, but the page watcher observes only processed file extensions within the watched source tree, not imported JSON files.
+  Re-exports (`export … from`) are not tracked yet ([#328](https://github.com/bcomnes/domstack/issues/328)); use an explicit import followed by a local export, or restart watching after those inputs change.
+- Restart watching when imported JSON or other inputs change, such as arbitrary file reads, environment variables, or network data.

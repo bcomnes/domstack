@@ -105,15 +105,10 @@ export class DomStack {
   #pagesFileDepMap = new Map()
   /** @type {Set<string>} Imported inputs of global.data, including its entry file. */
   #globalDataDepPaths = new Set()
-  /** @type {Set<string>} */
-  #globalVarsDepPaths = new Set()
-  /** @type {Set<string>} */
-  #markdownDepPaths = new Set()
-  #dependencyAnalysisFailed = false
+
   /** @type {Set<string>} absolute filepaths of esbuild entry points */
   #esbuildEntryPoints = new Set()
-  /** @type {Set<string>} Known browser-only helpers can skip the page phase. */
-  #esbuildDepPaths = new Set()
+
   /** @type {Map<string, Set<string>>} source page or *.pages.* filepath → owned absolute output paths */
   #pageOutputMap = new Map()
   /** @type {PageOutputCache} Successful writes, including those before an iterator failure. */
@@ -343,9 +338,7 @@ export class DomStack {
     const anymatch = (/** @type {string} */name) => ig.ignores(relname(this.#src, name))
 
     const watcher = chokidar.watch(this.#src, {
-      // Observe non-page extensions too (for example statically imported JSON).
-      // Route only processed files and known dependencies after maps are ready.
-      ignored: filePath => anymatch(filePath),
+      ignored: (filePath, stats) => anymatch(filePath) || Boolean(stats?.isFile() && !isProcessedFile(filePath)),
       persistent: true,
       ignoreInitial: true,
       // Increase the atomic write window so editors that do slow atomic saves
@@ -465,46 +458,22 @@ export class DomStack {
       pagesFileDepMap: this.#pagesFileDepMap,
       pagesFileLayoutMap: this.#pagesFileLayoutMap,
       globalDataDepPaths: this.#globalDataDepPaths,
-      globalVarsDepPaths: this.#globalVarsDepPaths,
-      markdownDepPaths: this.#markdownDepPaths,
-      dependencyAnalysisFailed: this.#dependencyAnalysisFailed,
+      hasGlobalDataState: this.#watchSession?.globalDataBaseline?.state !== undefined,
       pageBuildFailed: this.#pageBuildFailed,
       esbuildEntryPoints: this.#esbuildEntryPoints,
-      esbuildDepPaths: this.#esbuildDepPaths,
     }
-  }
-
-  /** @param {WatchEvent[]} events */
-  #filterWatchEvents (events) {
-    // Unknown inputs may be needed to recover after a failed build or analysis.
-    if (this.#pageBuildFailed || this.#dependencyAnalysisFailed) return events
-
-    const dependencies = [
-      this.#globalDataDepPaths,
-      this.#globalVarsDepPaths,
-      this.#markdownDepPaths,
-      this.#layoutDepMap,
-      this.#pageDepMap,
-      this.#templateDepMap,
-      this.#pagesFileDepMap,
-      this.#esbuildDepPaths,
-    ]
-    return events.filter(({ filepath }) =>
-      isProcessedFile(filepath) || dependencies.some(paths => paths.has(filepath))
-    )
   }
 
   /** @param {WatchEvent[]} events */
   async #handleWatchBatch (events) {
     const snapshot = this.#watchSnapshot()
     if (!snapshot) return
-    events = this.#filterWatchEvents(events)
     const event = events[0]
     if (!event) return
     const { plan, inputChanges } = planWatchBatch(snapshot, events)
-    // Keep the existing precise bundle-membership path for a single event.
-    // Mixed batches use the conservative rediscovery plan instead.
-    const singlePlan = events.length === 1 && event.type !== 'change' && event.convention?.bundleScope
+    // Preserve single-event bundle routing unless retained state needs a reset.
+    const singlePlan = !(snapshot.hasGlobalDataState && inputChanges.resetReason) &&
+      events.length === 1 && event.type !== 'change' && event.convention?.bundleScope
       ? planWatchEvent(snapshot, event)
       : null
     await this.#executeWatchPlan(
@@ -739,22 +708,15 @@ export class DomStack {
     const pageDepMap = /** @type {Map<string, Set<PageInfo>>} */ (new Map())
     const templateDepMap = /** @type {Map<string, Set<TemplateInfo>>} */ (new Map())
     const pagesFileDepMap = /** @type {Map<string, Set<PagesFileInfo>>} */ (new Map())
-    let dependencyAnalysisFailed = false
-    /** @param {string | undefined} filepath */
-    const rootDependencies = async filepath => {
-      const paths = new Set(/** @type {string[]} */ ([]))
-      if (!filepath) return paths
-      paths.add(resolve(filepath))
+    const globalDataDepPaths = new Set()
+    if (siteData.globalData) {
+      globalDataDepPaths.add(siteData.globalData.filepath)
       try {
-        for (const dep of await find(filepath)) paths.add(resolve(dep))
+        for (const dep of await find(siteData.globalData.filepath)) globalDataDepPaths.add(resolve(dep))
       } catch {
-        dependencyAnalysisFailed = true
+        // Static import analysis is best-effort, as for page and layout helpers.
       }
-      return paths
     }
-    const globalDataDepPaths = await rootDependencies(siteData.globalData?.filepath)
-    const globalVarsDepPaths = await rootDependencies(siteData.globalVars?.filepath)
-    const markdownDepPaths = await rootDependencies(siteData.markdownItSettings?.filepath)
 
     // layoutFileMap: layout filepath → layoutName
     for (const layout of Object.values(siteData.layouts)) {
@@ -771,7 +733,7 @@ export class DomStack {
           layoutDepMap.get(absPath)?.add(layout.layoutName)
         }
       } catch {
-        dependencyAnalysisFailed = true
+        // dep analysis is best-effort
       }
     }
 
@@ -791,7 +753,7 @@ export class DomStack {
 
     // pageDepMap: dep filepath → Set<PageInfo>
     for (const pageInfo of siteData.pages) {
-      const filesToTrack = /\.[cm]?[jt]sx?$/.test(pageInfo.pageFile.filepath) ? [pageInfo.pageFile.filepath] : []
+      const filesToTrack = [pageInfo.pageFile.filepath]
       if (pageInfo.pageVars) filesToTrack.push(pageInfo.pageVars.filepath)
       for (const file of filesToTrack) {
         try {
@@ -802,7 +764,7 @@ export class DomStack {
             pageDepMap.get(absPath)?.add(pageInfo)
           }
         } catch {
-          dependencyAnalysisFailed = true
+          // best-effort
         }
       }
     }
@@ -817,7 +779,7 @@ export class DomStack {
           templateDepMap.get(absPath)?.add(templateInfo)
         }
       } catch {
-        dependencyAnalysisFailed = true
+        // best-effort
       }
     }
 
@@ -831,7 +793,6 @@ export class DomStack {
           pagesFileDepMap.get(absPath)?.add(pagesFileInfo)
         }
       } catch (err) {
-        dependencyAnalysisFailed = true
         const message = err instanceof Error ? err.message : String(err)
         this.#logger.debug(`Could not analyze dependencies for pages file "${pagesFileInfo.pagesFile.relname}": ${message}`)
       }
@@ -848,16 +809,6 @@ export class DomStack {
       for (const asset of layoutBundleAssets(layout)) esbuildEntryPoints.add(resolve(asset.filepath))
     }
 
-    const esbuildDepPaths = new Set(/** @type {string[]} */ ([]))
-    for (const filepath of esbuildEntryPoints) {
-      if (!/\.[cm]?[jt]sx?$/.test(filepath)) continue
-      try {
-        for (const dep of await find(filepath)) esbuildDepPaths.add(resolve(dep))
-      } catch {
-        // Unknown browser helpers still take the conservative reset path.
-      }
-    }
-
     this.#layoutDepMap = layoutDepMap
     this.#layoutPageMap = layoutPageMap
     this.#pageFileMap = pageFileMap
@@ -866,11 +817,7 @@ export class DomStack {
     this.#templateDepMap = templateDepMap
     this.#pagesFileDepMap = pagesFileDepMap
     this.#globalDataDepPaths = globalDataDepPaths
-    this.#globalVarsDepPaths = globalVarsDepPaths
-    this.#markdownDepPaths = markdownDepPaths
-    this.#dependencyAnalysisFailed = dependencyAnalysisFailed
     this.#esbuildEntryPoints = esbuildEntryPoints
-    this.#esbuildDepPaths = esbuildDepPaths
   }
 
   /**
