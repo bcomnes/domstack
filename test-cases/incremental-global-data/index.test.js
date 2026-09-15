@@ -81,6 +81,30 @@ test('a global producer dependency resets the whole index, including in a mixed 
   assert.ok(data.every(row => row.html.startsWith('New search: ')))
 })
 
+test('service-worker replacement events preserve a required global-data reset', options, async t => {
+  const site = await fixture(t, {
+    files: {
+      'producer-middle.js': "import { prefix } from './service-worker.js'; export { prefix }\n",
+      'service-worker.js': "export const prefix = 'Original prefix: '\n",
+    },
+  })
+  await site.start()
+  assert.ok((await site.data()).every(row => row.html.startsWith('Original prefix: ')))
+  await rm(join(site.src, 'service-worker.js'))
+  await site.write('service-worker.js', "export const prefix = 'Replaced prefix: '\n")
+
+  // Both notifications can arrive after the replacement exists, in separate batches.
+  for (const type of /** @type {const} */ (['removed', 'added'])) {
+    const event = site.event('service-worker.js', type)
+    const call = await site.rebuild([event])
+    assertReset(call)
+    assert.equal(call.reason, 'global-data-changed')
+    assert.deepEqual(call.events, [event])
+    assert.deepEqual(call.rendered, ['a/page.md', 'b/page.md'])
+    assert.ok((await site.data()).every(row => row.html.startsWith('Replaced prefix: ')))
+  }
+})
+
 test('helpers shared by pages and global configuration reset the index and rebuild unrelated outputs', options, async t => {
   const site = await fixture(t, {
     files: {
