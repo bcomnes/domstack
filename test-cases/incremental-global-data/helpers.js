@@ -20,6 +20,7 @@ import { setImmediate as nextTurn, setTimeout as delay } from 'node:timers/promi
 import chokidar from 'chokidar'
 import pino from 'pino'
 import { DomStack } from '../../index.js'
+import { startWatch } from '../watch/helpers.js'
 
 /** @param {string} heading @param {string} [body] @param {string} [frontmatter] */
 export function article (heading, body = 'Original body.', frontmatter = '') {
@@ -36,11 +37,12 @@ export async function waitFor (predicate, message) {
 }
 
 /**
- * Mock only source event delivery; builds, workers, rendering and cleanup are real.
+ * Deterministic tests mock only source event delivery; native tests use real watchers.
+ * Builds, workers, rendering and cleanup are real in both modes.
  * @param {TestContext} t
- * @param {{ files?: Record<string, string> }} [options]
+ * @param {{ native?: boolean, files?: Record<string, string> }} [options]
  */
-export async function fixture (t, { files = {} } = {}) {
+export async function fixture (t, { native = false, files = {} } = {}) {
   const root = await mkdtemp(join(import.meta.dirname, '.tmp-'))
   const src = join(root, 'src')
   const dest = join(root, 'public')
@@ -51,19 +53,21 @@ export async function fixture (t, { files = {} } = {}) {
   const dom = new DomStack(src, dest, { metafile: false, domstackManifest: false, logger: pino({ level: 'silent' }) })
   /** @type {FSWatcher | undefined} */
   let watcher
-  const watch = chokidar.watch
-  /** @param {Parameters<typeof watch>} args */
-  const sourceWatch = (...args) => {
-    if (args[0] !== src) return watch(...args)
-    const fake = Object.assign(new EventEmitter(), {
-      closed: false,
-      async close () { fake.closed = true },
-    })
-    watcher = /** @type {FSWatcher} */ (/** @type {unknown} */ (fake))
-    setImmediate(() => { if (!fake.closed) fake.emit('ready') })
-    return watcher
+  if (!native) {
+    const watch = chokidar.watch
+    /** @param {Parameters<typeof watch>} args */
+    const sourceWatch = (...args) => {
+      if (args[0] !== src) return watch(...args)
+      const fake = Object.assign(new EventEmitter(), {
+        closed: false,
+        async close () { fake.closed = true },
+      })
+      watcher = /** @type {FSWatcher} */ (/** @type {unknown} */ (fake))
+      setImmediate(() => { if (!fake.closed) fake.emit('ready') })
+      return watcher
+    }
+    t.mock.method(chokidar, 'watch', sourceWatch)
   }
-  t.mock.method(chokidar, 'watch', sourceWatch)
   t.after(async () => {
     await rm(gate, { force: true })
     try {
@@ -129,7 +133,7 @@ export async function fixture (t, { files = {} } = {}) {
       return call
     },
     async start () {
-      const report = await dom.watch({ serve: false })
+      const report = native ? await startWatch(t, dom, src) : await dom.watch({ serve: false })
       assert.deepEqual(report.pageBuildResults?.errors, [], 'initial page build succeeded')
       return report
     },

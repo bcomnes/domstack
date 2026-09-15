@@ -46,7 +46,7 @@ test('cached index adds, updates and removes distinct source IDs without rerende
 test.todo('re-exported page helpers shared with templates upsert affected source pages (https://github.com/bcomnes/domstack/issues/328)')
 test.todo('named, star, and namespace re-exports of global-data helpers trigger an index reset (https://github.com/bcomnes/domstack/issues/328)')
 
-test('a shared page and template helper conservatively resets the index and rebuilds both outputs', options, async t => {
+test('a shared dependency upserts a transitive source page even when a template imports it directly', options, async t => {
   const site = await fixture(t, {
     files: {
       'code/page.js': "import { content } from '../page-middle.js'; export const vars = { article: true, title: 'Code' }; export default () => content\n",
@@ -58,9 +58,8 @@ test('a shared page and template helper conservatively resets the index and rebu
   await site.start()
   await site.write('page-leaf.js', "export const content = 'Code two'\n")
   const call = await site.rebuild([site.event('page-leaf.js')])
-  assertReset(call)
-  assert.equal(call.reason, 'unknown-event')
-  assert.deepEqual(call.rendered, ['a/page.md', 'b/page.md', 'code/page.js'])
+  assertDelta(call, ['code/page.js'])
+  assert.deepEqual(call.rendered, ['code/page.js'])
   assert.equal(await readFile(join(site.dest, 'shared.txt'), 'utf8'), 'Code two')
   assert.match(await readFile(join(site.dest, 'code/index.html'), 'utf8'), /Code two/)
   assert.ok((await site.data()).some(row => row.html.includes('Code two')))
@@ -82,6 +81,30 @@ test('a global producer dependency resets the whole index, including in a mixed 
   assert.ok(data.every(row => row.html.startsWith('New search: ')))
 })
 
+test('service-worker replacement events preserve a required global-data reset', options, async t => {
+  const site = await fixture(t, {
+    files: {
+      'producer-middle.js': "import { prefix } from './service-worker.js'; export { prefix }\n",
+      'service-worker.js': "export const prefix = 'Original prefix: '\n",
+    },
+  })
+  await site.start()
+  assert.ok((await site.data()).every(row => row.html.startsWith('Original prefix: ')))
+  await rm(join(site.src, 'service-worker.js'))
+  await site.write('service-worker.js', "export const prefix = 'Replaced prefix: '\n")
+
+  // Both notifications can arrive after the replacement exists, in separate batches.
+  for (const type of /** @type {const} */ (['removed', 'added'])) {
+    const event = site.event('service-worker.js', type)
+    const call = await site.rebuild([event])
+    assertReset(call)
+    assert.equal(call.reason, 'global-data-changed')
+    assert.deepEqual(call.events, [event])
+    assert.deepEqual(call.rendered, ['a/page.md', 'b/page.md'])
+    assert.ok((await site.data()).every(row => row.html.startsWith('Replaced prefix: ')))
+  }
+})
+
 test('helpers shared by pages and global configuration reset the index and rebuild unrelated outputs', options, async t => {
   const site = await fixture(t, {
     files: {
@@ -91,6 +114,7 @@ test('helpers shared by pages and global configuration reset the index and rebui
       'markdown-it.settings.js': "import { html } from './markdown-helper.js'; export default md => md.set({ html })\n",
       'markdown-helper.js': 'export const html = true\n',
       'code/page.js': "import { site } from '../vars-helper.js'; import { html } from '../markdown-helper.js'; export default () => site + ':' + html\n",
+      'unrelated.txt.template.js': "import { randomUUID } from 'node:crypto'; export const dataDeps = []; export default () => randomUUID()\n",
       'a/page.md': article('Alpha', '<strong>Raw HTML</strong>'),
     },
   })
@@ -100,18 +124,20 @@ test('helpers shared by pages and global configuration reset the index and rebui
   await site.write('vars-helper.js', "export const site = 'Site two'\n")
   const vars = await site.rebuild([site.event('vars-helper.js')])
   assertReset(vars)
-  assert.equal(vars.reason, 'unknown-event')
+  assert.equal(vars.reason, 'global-config-changed')
   assert.ok((await site.data()).every(row => row.html.includes('<header>Site two</header>')))
   assert.match(await readFile(join(site.dest, 'b/index.html'), 'utf8'), /<header>Site two<\/header>/)
   assert.match(await readFile(join(site.dest, 'code/index.html'), 'utf8'), /Site two:true/)
 
+  const unrelated = await readFile(join(site.dest, 'unrelated.txt'), 'utf8')
   await site.write('markdown-helper.js', 'export const html = false\n')
   const markdown = await site.rebuild([site.event('markdown-helper.js')])
   assertReset(markdown)
-  assert.equal(markdown.reason, 'unknown-event')
+  assert.equal(markdown.reason, 'global-config-changed')
   assert.match((await site.data())[0]?.html ?? '', /&lt;strong&gt;Raw HTML&lt;\/strong&gt;/)
   assert.match(await readFile(join(site.dest, 'a/index.html'), 'utf8'), /&lt;strong&gt;Raw HTML&lt;\/strong&gt;/)
   assert.match(await readFile(join(site.dest, 'code/index.html'), 'utf8'), /Site two:false/)
+  assert.notEqual(await readFile(join(site.dest, 'unrelated.txt'), 'utf8'), unrelated, 'Markdown settings rerender templates without settings imports or data subscriptions')
 })
 
 test('in-flight events become one ordered batch with deduplicated inputs', options, async t => {
@@ -278,4 +304,29 @@ test('independent sessions and a stopped/restarted instance do not inherit cache
   await first.write('a/page.md', article('Restart Alpha'))
   assertDelta(await first.rebuild([first.event('a/page.md')]), ['a/page.md'])
   assert.deepEqual((await first.data()).map(row => row.title), ['Restart Alpha', 'Edited while stopped'])
+})
+
+test('a native imported JSON edit resets the producer and publishes every updated row', options, async t => {
+  const site = await fixture(t, {
+    native: true,
+    files: {
+      'producer-leaf.js': "import settings from './prefix.json' with { type: 'json' }; export const prefix = settings.prefix\n",
+      'prefix.json': JSON.stringify({ prefix: 'Original prefix: ' }),
+    },
+  })
+  await site.start()
+  assert.ok((await site.data()).every(row => row.html.startsWith('Original prefix: ')))
+  const callsBeforeEdit = (await site.calls()).length
+  await site.write('prefix.json', JSON.stringify({ prefix: 'Updated prefix: ' }))
+  await waitFor(async () => (await site.calls()).length > callsBeforeEdit, 'native JSON edit reaches the producer')
+  // The producer log precedes output writes; read the JSON only after they finish.
+  await site.dom.settled()
+
+  const call = (await site.calls()).at(-1)
+  assertReset(call)
+  assert.equal(call.reason, 'global-data-changed')
+  assert.deepEqual(call.rendered, ['a/page.md', 'b/page.md'])
+  const data = await site.data()
+  assert.deepEqual(data.map(row => row.title), ['Alpha', 'Beta'])
+  assert.ok(data.every(row => row.html.startsWith('Updated prefix: ')))
 })
