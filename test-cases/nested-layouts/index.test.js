@@ -5,6 +5,7 @@ import { mkdtemp, mkdir, writeFile, readFile, rm, stat, unlink } from 'node:fs/p
 import { dirname, join } from 'node:path'
 import pino from 'pino'
 import { DomStack } from '../../index.js'
+import { startWatch } from '../watch/helpers.js'
 
 const rootLayout = `
 import { label } from './label.js'
@@ -97,7 +98,7 @@ test('nested layouts render source and generated pages, cascade vars and preserv
 
 test('watch follows ancestor edits, imports, reparenting, and asset membership', { timeout: 60_000 }, async t => {
   const { domstack, read, write, dest, src } = await setup(t)
-  await domstack.watch({ serve: false })
+  await startWatch(t, domstack, src)
   const unrelatedTime = (await stat(join(dest, 'plain/index.html'))).mtimeMs
   const settle = async () => {
     await new Promise(resolve => setTimeout(resolve, 800))
@@ -169,7 +170,7 @@ test('manual composition preserves render values, forwarded assets, and imported
     outputName: 'manual-generated.html', vars: {layout: 'manual', title: 'Generated'},
     children: {html: '<p>Generated content</p>'}
   }`)
-  await domstack.watch({ serve: false })
+  await startWatch(t, domstack, src)
   const unrelatedTime = (await stat(join(dest, 'plain/index.html'))).mtimeMs
   assert.match(await read('manual/index.html'), /data-vars="manual:manual:Manual page"/)
   assert.match(await read('manual/index.html'), /<article>\s*<p>Manual content<\/p>/)
@@ -191,12 +192,12 @@ test('manual composition preserves render values, forwarded assets, and imported
 })
 
 test('a shared helper rebuilds layouts, pages, templates, and generated owners together', { timeout: 30_000 }, async t => {
-  const { domstack, write, read } = await setup(t)
+  const { domstack, src, write, read } = await setup(t)
   await write('plain/page.vars.js', "import {label} from '../label.js'; export default {label}")
   await write('other.layout.js', "export default ({children, vars}) => '<aside>' + vars.label + children + '</aside>'")
   await write('label.template.js', "import {label} from './label.js'; export default () => label")
   await write('label.pages.js', "import {label} from './label.js'; export default {outputName:'label.html', children:label}")
-  await domstack.watch({ serve: false })
+  await startWatch(t, domstack, src)
   await write('label.js', "export const label = 'shared-v2'")
   await new Promise(resolve => setTimeout(resolve, 800))
   await domstack.settled()
@@ -206,13 +207,13 @@ test('a shared helper rebuilds layouts, pages, templates, and generated owners t
 })
 
 test('a browser entry point also rebuilds all of its server-side consumers', { timeout: 30_000 }, async t => {
-  const { domstack, write, read, dest } = await setup(t)
+  const { domstack, src, write, read, dest } = await setup(t)
   await write('global.client.js', "export const label = 'browser-v1'")
   await write('root.layout.js', rootLayout.replace('./label.js', './global.client.js'))
   await write('typed/page.ts', "import {label} from '../global.client.js'; export default () => label")
   await write('label.template.js', "import {label} from './global.client.js'; export default () => label")
   await write('label.pages.js', "import {label} from './global.client.js'; export default {outputName:'label.html', children:label}")
-  await domstack.watch({ serve: false })
+  await startWatch(t, domstack, src)
   const unrelatedTime = (await stat(join(dest, 'plain/index.html'))).mtimeMs
   const affectedOutputs = ['source/index.html', 'typed/index.html', 'archive.html', 'label', 'label.html', 'global.client.js']
   for (const output of affectedOutputs) assert.match(await read(output), /browser-v1/)
@@ -233,9 +234,9 @@ test('watch recovers from initial layout failures before any routing state exist
   }
   for (const [name, layout] of Object.entries(failures)) {
     await t.test(name, async t => {
-      const { domstack, write, read, dest } = await setup(t)
+      const { domstack, src, write, read, dest } = await setup(t)
       await write('root.layout.js', layout)
-      const results = await domstack.watch({ serve: false })
+      const results = await startWatch(t, domstack, src)
       assert.ok(results.pageBuildResults?.errors.length, 'startup reports the layout failure without stopping watch')
       await assert.rejects(read('source/index.html'), { code: 'ENOENT' }, 'the initial failure did not produce the page')
       if (name === 'nonError') {
@@ -294,7 +295,7 @@ test('manual composition forwards declared data and rebuilds source and generate
     outputName: 'manual-generated.html', vars: { layout: 'manual', dataDeps: ['pageMessage'] },
     children: ({ data }) => '<p>' + data.pageMessage + '</p>'
   }`)
-  await domstack.watch({ serve: false })
+  await startWatch(t, domstack, src)
   const plainTime = (await stat(join(dest, 'plain/index.html'))).mtimeMs
   let currentData = globalData
   for (const [before, after, message] of /** @type {const} */ ([
@@ -374,8 +375,8 @@ test('each nested renderer gets only its own subscriptions; global data can rend
 })
 
 test('watch subscribes outputs to the full layout chain and drops old ancestor subscriptions after reparenting', { timeout: 60_000 }, async t => {
-  const { domstack, read, write, dest } = await setupSubscriptions(t)
-  await domstack.watch({ serve: false })
+  const { domstack, src, read, write, dest } = await setupSubscriptions(t)
+  await startWatch(t, domstack, src)
   const mtime = async (/** @type {string} */ name) => (await stat(join(dest, name))).mtimeMs
   const settle = async () => {
     await new Promise(resolve => setTimeout(resolve, 800))

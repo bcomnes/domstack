@@ -4,7 +4,7 @@ import { test } from 'node:test'
 import { load } from 'cheerio'
 import { render } from 'fragtml'
 import { renderMd } from '../../../lib/build-pages/page-builders/md/get-md.js'
-import { collectDocsNavigation, docsIndex, navigationHref } from './navigation.js'
+import { collectDocsNavigation, readDocsNavigationPage, projectDocsNavigation, docsIndex, navigationHref } from './navigation.js'
 import { documentationContent, navigation } from './docs.layout.js'
 
 /** @param {string} url @param {string} markdown @param {DocsPageVars} [vars] @returns {NavigationPage} */
@@ -110,6 +110,37 @@ test('navigation parents must be existing ancestor pages', async () => {
       page('/docs/other/', '# Not an ancestor'),
     ]), /Invalid documentation parent/)
   }
+})
+
+test('navigation projections reuse cloneable records without mutating cached headings or nesting', async () => {
+  let renders = 0
+  const pages = [
+    page('/docs/guide/', '# Guide\n\n## Overview\n\n### Details'),
+    page('/docs/guide/child/', '# Child\n\n## Child section', { docsParent: '/docs/guide/' }),
+    page('/docs/guide/child/grandchild/', '# Grandchild', { docsParent: '/docs/guide/child/' }),
+  ]
+  for (const source of pages) {
+    const render = source.renderInnerPage
+    source.renderInnerPage = (...args) => { renders++; return render(...args) }
+  }
+  const records = (await Promise.all(pages.map(readDocsNavigationPage))).filter(record => record !== undefined)
+  const retained = structuredClone(records)
+  const expected = projectDocsNavigation(retained)
+  for (let i = 0; i < 3; i++) {
+    assert.deepEqual(projectDocsNavigation(retained), expected)
+    assert.deepEqual(retained, records, 'projection must not attach child pages to retained heading arrays')
+  }
+  const changed = projectDocsNavigation(retained)
+  assert.ok(changed[0]?.sections[0])
+  changed[0].sections[0].title = 'Consumer mutation'
+  assert.deepEqual(projectDocsNavigation(retained), expected, 'public entries do not alias retained records')
+  assert.equal(renders, 3, 'only initial record extraction renders source pages')
+
+  const survivors = retained.filter(record => record.entry.url !== '/docs/guide/child/grandchild/')
+  assert.deepEqual(projectDocsNavigation(survivors), await collectDocsNavigation(pages.slice(0, 2)))
+  const orphans = retained.filter(record => record.entry.url !== '/docs/guide/')
+  assert.throws(() => projectDocsNavigation(orphans), /Invalid documentation parent/)
+  assert.deepEqual(retained, records, 'even a failed projection leaves the retained records unchanged')
 })
 
 test('navigation links preserve deployment prefixes for directory and flat pages', () => {

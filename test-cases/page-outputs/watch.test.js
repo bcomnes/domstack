@@ -1,21 +1,39 @@
+/**
+ * @import { TestContext } from 'node:test'
+ */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { rename, rm, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { hook, setup, settle, writeFiles } from './helpers.js'
+import { hook, setup as setupSite, settle, writeFiles } from './helpers.js'
+import { startWatch } from '../watch/helpers.js'
+
+/** @param {TestContext} t @param {Record<string, string>} files */
+async function setup (t, files) {
+  const fixture = await setupSite(t, files)
+
+  return {
+    ...fixture,
+    async startWatch () {
+      const report = await startWatch(t, fixture.site, fixture.src)
+      assert.deepEqual(fixture.logs.filter(line => JSON.parse(line).level >= 50), [], 'startup builds must not fail')
+      return report
+    },
+  }
+}
 
 const rawLayout = `export const vars = { dataDeps: ['navigation'] }
 export default ({ children, data }) => data.navigation + children
 export const pageOutputs = async ({ page }) => ({ outputName: 'source.txt', content: await page.readMarkdownContent() })`
 
 test('watch updates only changed raw content and retains unchanged ownership without a public manifest', { timeout: 30_000 }, async t => {
-  const { site, src, dest, read, mtime, logs } = await setup(t, {
+  const { site, startWatch, src, dest, read, mtime, logs } = await setup(t, {
     'global.data.js': "export default { navigation: 'Navigation one' }",
     'root.layout.js': rawLayout,
     'a/page.md': '# Article A\n',
     'b/page.md': '# Article B\n',
   })
-  await site.watch({ serve: false })
+  await startWatch()
   const siblingRaw = await mtime('b/source.txt')
   const siblingHtml = await mtime('b/index.html')
   const originalRaw = await mtime('a/source.txt')
@@ -44,8 +62,8 @@ test('watch updates only changed raw content and retains unchanged ownership wit
 })
 
 test('watch reconciles companion addition, output rename, hook removal, companion removal and re-addition', { timeout: 30_000 }, async t => {
-  const { site, src, dest, read, logs } = await setup(t, { 'article/page.html': '<p>Article</p>' })
-  await site.watch({ serve: false })
+  const { site, startWatch, src, dest, read, logs } = await setup(t, { 'article/page.html': '<p>Article</p>' })
+  await startWatch()
   const companion = join(src, 'article/page.vars.js')
   await settle(site, logs, async () => {
     await writeFile(companion, 'export default {}; ' + hook('first.txt', 'first'))
@@ -80,12 +98,12 @@ test('watch reconciles companion addition, output rename, hook removal, companio
 })
 
 test('watch removes sidecars on source rename and draft exclusion', { timeout: 30_000 }, async t => {
-  const { site, src, dest, read, logs } = await setup(t, {
+  const { site, startWatch, src, dest, read, logs } = await setup(t, {
     'root.layout.js': `export default ({ children }) => children
       export const pageOutputs = async ({ page }) => ({ outputName: page.outputName + '.txt', content: await page.readMarkdownContent() })`,
     'article.md': '# Article\n',
   })
-  await site.watch({ serve: false })
+  await startWatch()
   assert.equal(await read('article.html.txt'), '# Article\n')
   await settle(site, logs, async () => {
     await rename(join(src, 'article.md'), join(src, 'renamed.md'))
@@ -103,13 +121,13 @@ test('watch removes sidecars on source rename and draft exclusion', { timeout: 3
 })
 
 test('watch hook failure retains partial writes and recovery removes old and partial outputs', { timeout: 30_000 }, async t => {
-  const { site, src, dest, read, mtime, logs } = await setup(t, {
+  const { site, startWatch, src, dest, read, mtime, logs } = await setup(t, {
     'page.js': `export default () => 'old main'; export const pageOutputs = () => [
       { outputName: 'old.txt', content: 'old sidecar' },
       { outputName: 'stale.txt', content: 'retain until recovery' },
     ]`,
   })
-  await site.watch({ serve: false })
+  await startWatch()
   const oldHtmlTime = await mtime('index.html')
   await settle(site, logs, async () => {
     await writeFile(join(src, 'page.js'), `export default () => 'failed main'; export async function* pageOutputs () {
@@ -136,11 +154,11 @@ test('watch hook failure retains partial writes and recovery removes old and par
 
 for (const change of ['source deletion', 'draft exclusion', 'hook removal', 'companion deletion', 'companion rename']) {
   test(`watch independently cleans up after ${change}`, { timeout: 15_000 }, async t => {
-    const { site, src, dest, read, logs } = await setup(t, {
+    const { site, startWatch, src, dest, read, logs } = await setup(t, {
       'article/page.html': 'Article',
       'article/page.vars.js': 'export default {}; ' + hook('owned.txt'),
     })
-    await site.watch({ serve: false })
+    await startWatch()
     assert.equal(await read('article/owned.txt'), 'sidecar')
     const page = join(src, 'article/page.html')
     const companion = join(src, 'article/page.vars.js')
@@ -161,11 +179,11 @@ for (const change of ['source deletion', 'draft exclusion', 'hook removal', 'com
 }
 
 test('provider precedence warnings reach the configured logger on initial and incremental watch builds', { timeout: 15_000 }, async t => {
-  const { site, src, read, logs } = await setup(t, {
+  const { site, startWatch, src, read, logs } = await setup(t, {
     'page.js': "export default () => 'initial'; " + hook('selected.txt', 'page module'),
     'page.vars.js': "export default {}; export const pageOutputs = () => { throw Error('ignored companion ran') }",
   })
-  const result = await site.watch({ serve: false })
+  const result = await startWatch()
   assert.equal(result.pageBuildResults?.warnings.filter(warning => 'code' in warning && warning.code === 'DOM_STACK_WARNING_DUPLICATE_PAGE_OUTPUTS_PROVIDER').length, 1)
   const cursor = logs.length
   await settle(site, logs, async () => {
@@ -184,13 +202,13 @@ test('provider precedence warnings reach the configured logger on initial and in
 })
 
 test('hook-only data subscriptions invalidate their owner but not an unrelated sibling', { timeout: 30_000 }, async t => {
-  const { site, src, read, mtime, logs } = await setup(t, {
+  const { site, startWatch, src, read, mtime, logs } = await setup(t, {
     'global.data.js': "export default { selected: 'first', unrelated: 'unchanged' }",
     'a/page.html': 'A',
     'a/page.vars.js': "export default { dataDeps: ['selected'] }; export const pageOutputs = ({ data }) => ({ outputName: 'data.txt', content: data.selected })",
     'b/page.html': 'B',
   })
-  await site.watch({ serve: false })
+  await startWatch()
   const mainTime = await mtime('a/index.html')
   const siblingTime = await mtime('b/index.html')
   await settle(site, logs, async () => {

@@ -6,6 +6,7 @@ import * as cheerio from 'cheerio'
 import { DomStack, testBuild } from '../../index.js'
 import globalData from './src/global.data.js'
 import { DomStackDataError } from '../../lib/helpers/domstack-error.js'
+import { startWatch } from '../watch/helpers.js'
 
 const __dirname = import.meta.dirname
 const fixturePrefix = '.tmp-'
@@ -594,7 +595,7 @@ export default function indexesPages ({ data }) {
     }
   })
 
-  test('rebuilds declared subscribers when a global-data key changes', { timeout: 15_000 }, async () => {
+  test('rebuilds declared subscribers when a global-data key changes', { timeout: 15_000 }, async t => {
     await withTempFixture({
       'root.layout.js': minimalRootLayout,
       'global.vars.js': minimalGlobalVars,
@@ -630,14 +631,19 @@ export default function unrelatedPages () {
 `,
     }, async ({ src, dest }) => {
       const domstack = new DomStack(src, dest)
+      const factoryRuns = join(src, '../unrelated-factory-runs')
       try {
-        await domstack.watch({ serve: false })
+        await startWatch(t, domstack, src, {
+          serve: false,
+          async onInitialBuild () {
+            assert.equal(await readFile(factoryRuns, 'utf8'), 'run\n', 'the unrelated factory ran during the initial build')
+          },
+        })
         const initialOutputPath = join(dest, 'watch-first/index.html')
         const updatedOutputPath = join(dest, 'watch-updated/index.html')
         assert.match(await readFile(initialOutputPath, 'utf8'), /First title/)
         assert.equal(await readFile(join(dest, 'summary'), 'utf8'), 'watch-first/index.html:First title')
-        const factoryRuns = join(src, '../unrelated-factory-runs')
-        assert.equal(await readFile(factoryRuns, 'utf8'), 'run\n', 'the unrelated factory ran during the initial build')
+        const startupFactoryRuns = await readFile(factoryRuns, 'utf8')
 
         await writeFile(join(src, 'page.vars.js'), "export default { title: 'Updated title' }\n")
         await new Promise(resolve => setTimeout(resolve, 800))
@@ -648,14 +654,14 @@ export default function unrelatedPages () {
         assert.doesNotMatch(updatedOutput, /First title/)
         assert.equal(await readFile(join(dest, 'summary'), 'utf8'), 'watch-updated/index.html:Updated title')
         await assert.rejects(() => stat(initialOutputPath), { code: 'ENOENT' }, 'obsolete dependency-driven output is removed')
-        assert.equal(await readFile(factoryRuns, 'utf8'), 'run\n', 'an unrelated factory is not executed during a subscriber rebuild')
+        assert.equal(await readFile(factoryRuns, 'utf8'), startupFactoryRuns, 'an unrelated factory is not executed during a subscriber rebuild')
       } finally {
         if (domstack.watching) await domstack.stopWatching()
       }
     })
   })
 
-  test('rebuilds generated pages when Markdown settings change in watch mode', { timeout: 15_000 }, async () => {
+  test('rebuilds generated pages when Markdown settings change in watch mode', { timeout: 15_000 }, async t => {
     const markdownSettings = (/** @type {string} */ version) => `export default function (md) {
   md.renderer.rules.paragraph_open = () => '<p data-version="${version}">'
   return md
@@ -683,7 +689,7 @@ export default function ({ data }) {
       const outputPath = join(dest, 'summary/index.html')
 
       try {
-        await domstack.watch({ serve: false })
+        await startWatch(t, domstack, src)
         assert.match(await readFile(outputPath, 'utf8'), /data-version="first"/)
 
         await writeFile(join(src, 'markdown-it.settings.js'), markdownSettings('second'))
@@ -699,7 +705,7 @@ export default function ({ data }) {
     })
   })
 
-  test('rebuilds generated pages when layout assets are added or removed in watch mode', { timeout: 25_000 }, async () => {
+  test('rebuilds generated pages when layout assets are added or removed in watch mode', { timeout: 25_000 }, async t => {
     await withTempFixture({
       'root.layout.js': assetAwareRootLayout,
       'global.vars.js': minimalGlobalVars,
@@ -733,7 +739,7 @@ export default function ({ data }) {
       }
 
       try {
-        await domstack.watch({ serve: false })
+        await startWatch(t, domstack, src)
         await assertAssetReference('root.layout.css', false)
         await assertAssetReference('root.layout.client.js', false)
 
@@ -758,7 +764,7 @@ export default function ({ data }) {
     })
   })
 
-  test('removes obsolete regular and generated page outputs in watch mode', { timeout: 20_000 }, async () => {
+  test('removes obsolete regular and generated page outputs in watch mode', { timeout: 20_000 }, async t => {
     await withTempFixture({
       'root.layout.js': minimalRootLayout,
       'global.vars.js': minimalGlobalVars,
@@ -772,7 +778,7 @@ export default function ({ data }) {
     }, async ({ src, dest }) => {
       const domstack = new DomStack(src, dest)
       try {
-        await domstack.watch({ serve: false })
+        await startWatch(t, domstack, src)
         const oldOutputPath = join(dest, 'old/index.html')
         const newOutputPath = join(dest, 'new/index.html')
         const removedOutputPath = join(dest, 'removed/index.html')
@@ -812,7 +818,7 @@ export default function ({ data }) {
     })
   })
 
-  test('refreshes pages-file dependency trees in watch mode', { timeout: 15_000 }, async () => {
+  test('refreshes pages-file dependency trees in watch mode', { timeout: 15_000 }, async t => {
     await withTempFixture({
       'root.layout.js': minimalRootLayout,
       'global.vars.js': minimalGlobalVars,
@@ -825,7 +831,7 @@ export default function ({ data }) {
     }, async ({ src, dest }) => {
       const domstack = new DomStack(src, dest)
       try {
-        await domstack.watch({ serve: false })
+        await startWatch(t, domstack, src)
         const outputPath = join(dest, 'watched/index.html')
         assert.match(await readFile(outputPath, 'utf8'), /Initial value/)
 
