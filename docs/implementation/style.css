@@ -18,7 +18,8 @@
   }
 
   /* Mermaid embeds ID-scoped theme rules in each SVG. Override only its
-     surfaces and labels so diagrams follow the site's live light/dark theme. */
+     surfaces, labels, and edges so diagrams follow the site's live light/dark
+     theme without passing CSS color keywords to Mermaid's color parser. */
   .mermaid .node :is(rect, polygon, circle, path),
   .mermaid .edgeLabel rect {
     fill: var(--background) !important;
@@ -28,6 +29,15 @@
   .mermaid .cluster rect {
     fill: color-mix(in srgb, var(--text) 3%, var(--background)) !important;
     stroke: var(--site-muted) !important;
+  }
+
+  .mermaid .flowchart-link {
+    stroke: var(--text) !important;
+  }
+
+  .mermaid .marker {
+    fill: var(--text) !important;
+    stroke: var(--text) !important;
   }
 
   .mermaid text {

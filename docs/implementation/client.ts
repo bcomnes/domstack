@@ -18,7 +18,6 @@ mermaid.initialize({
     subGraphTitleMargin: { top: 8, bottom: 16 },
   },
   themeVariables: {
-    fontFamily: 'system-ui, sans-serif',
-    lineColor: 'currentColor'
+    fontFamily: 'system-ui, sans-serif'
   }
 })
