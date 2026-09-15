@@ -90,6 +90,7 @@ test('helpers shared by pages and global configuration reset the index and rebui
       'markdown-it.settings.js': "import { html } from './markdown-helper.js'; export default md => md.set({ html })\n",
       'markdown-helper.js': 'export const html = true\n',
       'code/page.js': "import { site } from '../vars-helper.js'; import { html } from '../markdown-helper.js'; export default () => site + ':' + html\n",
+      'unrelated.txt.template.js': "import { randomUUID } from 'node:crypto'; export const dataDeps = []; export default () => randomUUID()\n",
       'a/page.md': article('Alpha', '<strong>Raw HTML</strong>'),
     },
   })
@@ -99,18 +100,20 @@ test('helpers shared by pages and global configuration reset the index and rebui
   await site.write('vars-helper.js', "export const site = 'Site two'\n")
   const vars = await site.rebuild([site.event('vars-helper.js')])
   assertReset(vars)
-  assert.equal(vars.reason, 'global-vars-changed')
+  assert.equal(vars.reason, 'global-config-changed')
   assert.ok((await site.data()).every(row => row.html.includes('<header>Site two</header>')))
   assert.match(await readFile(join(site.dest, 'b/index.html'), 'utf8'), /<header>Site two<\/header>/)
   assert.match(await readFile(join(site.dest, 'code/index.html'), 'utf8'), /Site two:true/)
 
+  const unrelated = await readFile(join(site.dest, 'unrelated.txt'), 'utf8')
   await site.write('markdown-helper.js', 'export const html = false\n')
   const markdown = await site.rebuild([site.event('markdown-helper.js')])
   assertReset(markdown)
-  assert.equal(markdown.reason, 'markdown-settings-changed')
+  assert.equal(markdown.reason, 'global-config-changed')
   assert.match((await site.data())[0]?.html ?? '', /&lt;strong&gt;Raw HTML&lt;\/strong&gt;/)
   assert.match(await readFile(join(site.dest, 'a/index.html'), 'utf8'), /&lt;strong&gt;Raw HTML&lt;\/strong&gt;/)
   assert.match(await readFile(join(site.dest, 'code/index.html'), 'utf8'), /Site two:false/)
+  assert.notEqual(await readFile(join(site.dest, 'unrelated.txt'), 'utf8'), unrelated, 'Markdown settings rerender templates without settings imports or data subscriptions')
 })
 
 test('in-flight events become one ordered batch with deduplicated inputs', options, async t => {
