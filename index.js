@@ -487,7 +487,9 @@ export class DomStack {
     const { plan, inputChanges } = planWatchBatch(snapshot, events)
     // Keep the existing precise bundle-membership path for a single event.
     // Mixed batches use the conservative rediscovery plan instead.
-    const singlePlan = events.length === 1 ? planWatchEvent(snapshot, event) : null
+    const singlePlan = events.length === 1 && event.type !== 'change' && event.convention?.bundleScope
+      ? planWatchEvent(snapshot, event)
+      : null
     await this.#executeWatchPlan(
       snapshot.pageBuildFailed
         ? { kind: 'full', message: 'Rediscovering and retrying all pages after the previous build failure...' }
