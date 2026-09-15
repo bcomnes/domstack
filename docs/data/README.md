@@ -281,13 +281,19 @@ The [RSS and JSON feed recipe](../cookbook/feeds/) uses this pattern for feed it
 
 ### Inspecting layout variables
 
-In the current v12 beta, `PageData.layoutVars` is an `Array<{ name: string, vars: Partial<T> }>`, not a merged `Partial<T>` object.
-Entries follow the resolved layout chain from outermost to innermost.
-Each entry identifies a layout by `name` and exposes only that layout's variables in `vars`, with `dataDeps` extracted and no longer present in that object.
-Use these entries to inspect which layout contributed a value.
+Use `page.layoutVars` on a `PageData` instance in `global.data.ts` to inspect the variables contributed by each layout.
+It contains one entry per layout, ordered from outermost to innermost:
 
-`PageData.vars` remains the cached, shallow-frozen merged result of the full cascade: global → each layout (outermost to innermost) → page → builder.
-Later values override earlier ones; use `page.vars` when you need the final resolved value rather than an individual layout's contribution.
+- `name`: The registered layout name.
+- `vars`: That layout's resolved variables, excluding its `dataDeps` declaration. A layout without variables has an empty object.
+
+The type is `Array<{ name: string, vars: Partial<T> }>`, where `T` describes the page's variables.
+Each entry preserves its own values, even when a later layout or the page overrides them.
+For example, if a root layout supplies `theme: 'light'` and an article layout supplies `theme: 'dark'`, both contributions are available in `page.layoutVars`.
+
+Use `page.vars` for the effective values used during rendering.
+It is the cached, shallow-frozen result of a shallow merge: global → each layout (outermost to innermost) → page → builder.
+Later values override earlier ones, so the effective theme in this example is `'dark'` unless page or builder variables override it.
 
 ```typescript
 // Inside global.data.ts, where pages contains PageData instances.
