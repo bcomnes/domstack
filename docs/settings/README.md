@@ -119,6 +119,47 @@ DOMStack preserves its reserved `define` values after the override runs.
 These options also form the basis of the [service-worker](../workers/#service-workers) build.
 DOMStack replaces the service-worker entry point and filename and disables code splitting, while options such as plugins, loaders, `target`, and JSX configuration carry over.
 
+### Bundle roots
+
+Export `bundleRoots` from `esbuild.settings.ts` when parts of a site should have independent code-splitting graphs.
+This is useful for isolating an admin application from public pages so dependencies shared within the admin area are not factored into public chunks.
+Each bundle root is a directory path relative to `src`.
+
+```typescript
+import type { BuildOptions } from '@domstack/static/types.js'
+
+export const bundleRoots = ['admin', 'account/internal']
+
+export default function esbuildSettings (options: BuildOptions): BuildOptions {
+  return options
+}
+```
+
+DOMStack applies the default settings function once and then assigns its effective entry points to bundle-root builds.
+When bundle roots are configured, entry points must be explicit file paths; glob entry points and `stdin` are rejected.
+Entries outside every configured root remain together in the default build.
+When roots overlap, an entry uses the deepest matching root, so `admin/reports/client.ts` belongs to `admin/reports` rather than `admin` when both are configured.
+Matching uses path segments, so a root named `admin` does not include `administrator`.
+Absolute paths, paths outside `src`, empty roots, and duplicate normalized roots are rejected.
+
+Each non-empty group receives an independent esbuild build in production and an independent esbuild context in watch mode.
+Entry output paths remain source-relative, while a named root's generated chunks and file-loader assets are written beneath that root to avoid collisions between contexts.
+For example, the `admin` root writes its shared chunks under `admin/chunks/` instead of the default `chunks/` directory.
+The root service worker remains a separate self-contained build and is never assigned to a bundle root.
+
+DOMStack still writes one `domstack-esbuild-meta.json` containing the merged metadata from every browser group.
+Programmatic build results retain the combined `report.buildResults` and `report.outputMap` fields, the unpartitioned settings in `report.buildOpts`, and exact per-group details in `report.builds`.
+Multiple builds do not expose a combined `mangleCache`, because independently generated mappings can conflict; use each group's `buildResults.mangleCache` instead.
+A settings plugin is configured on every resulting context, so plugins with shared mutable state must support multiple `setup()` calls.
+Dependencies imported across roots are bundled independently by design, which trades some duplicate output and build work for isolation.
+Bundle roots control code splitting, not access permissions or import boundaries; explicitly shared global or layout bundles can still be loaded by pages in multiple roots.
+Restart the DOMStack process to load changes to `esbuild.settings.ts` (including `bundleRoots`) or its imported dependencies.
+Restarting watch contexts alone does not reload the settings module or its dependencies.
+Conflicting outputs from custom naming settings fail the build when reported through metafiles or in-memory `outputFiles`, but output writes are not transactional, so a failed build can leave partial output in the destination.
+With both `write: true` and `metafile: false`, esbuild exposes neither output list, so DOMStack cannot detect collisions; retain metafiles when using custom output names.
+
+### Customizing build options
+
 You can return a shallow copy that modifies the defaults when you only need a small change.
 For example, this keeps DOMStack's default asset loaders and adds a custom loader for `.wasm` files:
 

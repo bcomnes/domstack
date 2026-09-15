@@ -260,10 +260,15 @@ When a targeted build recomputes global data, DOMStack compares top-level values
 | A module imported by `*.pages.ts` | Generated outputs owned by the importing files, then refresh dependency maps |
 | `markdown-it.settings.ts` | All source-backed Markdown pages, plus subscribers of any changed global-data keys |
 | `global.data.ts` | Consumers subscribed to top-level keys whose values changed |
-| `global.vars.ts` or `esbuild.settings.ts` | Full rebuild |
+| `global.vars.ts` | Full rebuild |
+| `esbuild.settings.ts` | Full rebuild with a warning to stop and restart DOMStack to apply settings edits |
 | `domstack-manifest.settings.ts` | No rebuild. The manifest pipeline is disabled in watch mode |
 | Existing client, style, Web Worker, or service-worker entry | esbuild only, unless the same module also has server-side consumers |
 | Static asset under `src` or a file under a `--copy` directory | cpx2 copies or removes the output directly |
+
+Esbuild settings use ordinary Node.js module imports in the main DOMStack process.
+Editing an existing `esbuild.settings.*` file triggers a warning because the full rebuild restarts esbuild contexts but does not clear the settings module cache; stop and restart DOMStack to apply changes, including `bundleRoots` changes.
+Markdown settings do not require a process restart: each page build runs in a fresh worker, so edits to `markdown-it.settings.*` are loaded when the source-backed Markdown pages rebuild.
 
 Adding or removing a file changes the set of discovered build inputs:
 
