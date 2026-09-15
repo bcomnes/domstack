@@ -475,15 +475,32 @@ export class DomStack {
   }
 
   /** @param {WatchEvent[]} events */
+  #filterWatchEvents (events) {
+    // Unknown inputs may be needed to recover after a failed build or analysis.
+    if (this.#pageBuildFailed || this.#dependencyAnalysisFailed) return events
+
+    const dependencies = [
+      this.#globalDataDepPaths,
+      this.#globalVarsDepPaths,
+      this.#markdownDepPaths,
+      this.#layoutDepMap,
+      this.#pageDepMap,
+      this.#templateDepMap,
+      this.#pagesFileDepMap,
+      this.#esbuildDepPaths,
+    ]
+    return events.filter(({ filepath }) =>
+      isProcessedFile(filepath) || dependencies.some(paths => paths.has(filepath))
+    )
+  }
+
+  /** @param {WatchEvent[]} events */
   async #handleWatchBatch (events) {
     const snapshot = this.#watchSnapshot()
-    events = events.filter(event => isProcessedFile(event.filepath) || this.#pageBuildFailed || this.#dependencyAnalysisFailed ||
-      this.#globalDataDepPaths.has(event.filepath) || this.#globalVarsDepPaths.has(event.filepath) ||
-      this.#markdownDepPaths.has(event.filepath) || this.#layoutDepMap.has(event.filepath) ||
-      this.#pageDepMap.has(event.filepath) || this.#templateDepMap.has(event.filepath) ||
-      this.#pagesFileDepMap.has(event.filepath) || this.#esbuildDepPaths.has(event.filepath))
+    if (!snapshot) return
+    events = this.#filterWatchEvents(events)
     const event = events[0]
-    if (!snapshot || !event) return
+    if (!event) return
     const { plan, inputChanges } = planWatchBatch(snapshot, events)
     // Keep the existing precise bundle-membership path for a single event.
     // Mixed batches use the conservative rediscovery plan instead.

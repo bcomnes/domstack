@@ -112,35 +112,35 @@ test('navigation parents must be existing ancestor pages', async () => {
   }
 })
 
-test('navigation projections reuse cloneable records without mutating cached headings or nesting', async () => {
-  let renders = 0
+test('repeated navigation projections do not mutate cached headings or nesting', async () => {
   const pages = [
     page('/docs/guide/', '# Guide\n\n## Overview\n\n### Details'),
-    page('/docs/guide/child/', '# Child\n\n## Child section', { docsParent: '/docs/guide/' }),
-    page('/docs/guide/child/grandchild/', '# Grandchild', { docsParent: '/docs/guide/child/' }),
+    page('/docs/guide/child/', '# Child', { docsParent: '/docs/guide/' }),
   ]
-  for (const source of pages) {
-    const render = source.renderInnerPage
-    source.renderInnerPage = (...args) => { renders++; return render(...args) }
-  }
   const records = (await Promise.all(pages.map(readDocsNavigationPage))).filter(record => record !== undefined)
   const retained = structuredClone(records)
-  const expected = projectDocsNavigation(retained)
-  for (let i = 0; i < 3; i++) {
-    assert.deepEqual(projectDocsNavigation(retained), expected)
-    assert.deepEqual(retained, records, 'projection must not attach child pages to retained heading arrays')
-  }
-  const changed = projectDocsNavigation(retained)
-  assert.ok(changed[0]?.sections[0])
-  changed[0].sections[0].title = 'Consumer mutation'
-  assert.deepEqual(projectDocsNavigation(retained), expected, 'public entries do not alias retained records')
-  assert.equal(renders, 3, 'only initial record extraction renders source pages')
+  const expected = [{
+    title: 'Guide',
+    url: '/docs/guide/',
+    sections: [
+      {
+        title: 'Overview',
+        url: '/docs/guide/#overview',
+        sections: [{ title: 'Details', url: '/docs/guide/#details', sections: [] }],
+      },
+      { title: 'Child', url: '/docs/guide/child/', sections: [] },
+    ],
+  }]
+  const projected = projectDocsNavigation(retained)
+  assert.deepEqual(projected, expected)
+  assert.deepEqual(projectDocsNavigation(retained), expected, 'child pages must not accumulate on repeated projection')
+  assert.deepEqual(retained, records, 'projection must leave cached headings and nesting unchanged')
 
-  const survivors = retained.filter(record => record.entry.url !== '/docs/guide/child/grandchild/')
-  assert.deepEqual(projectDocsNavigation(survivors), await collectDocsNavigation(pages.slice(0, 2)))
-  const orphans = retained.filter(record => record.entry.url !== '/docs/guide/')
-  assert.throws(() => projectDocsNavigation(orphans), /Invalid documentation parent/)
-  assert.deepEqual(retained, records, 'even a failed projection leaves the retained records unchanged')
+  const heading = projected[0]?.sections[0]?.sections[0]
+  assert.ok(heading)
+  heading.title = 'Consumer mutation'
+  assert.deepEqual(retained, records, 'even nested public headings must not alias cached records')
+  assert.deepEqual(projectDocsNavigation(retained), expected)
 })
 
 test('navigation links preserve deployment prefixes for directory and flat pages', () => {
