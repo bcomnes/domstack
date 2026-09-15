@@ -105,10 +105,8 @@ export class DomStack {
   #pagesFileDepMap = new Map()
   /** @type {Set<string>} Imported inputs of global.data, including its entry file. */
   #globalDataDepPaths = new Set()
-  /** @type {Set<string>} */
-  #globalVarsDepPaths = new Set()
-  /** @type {Set<string>} */
-  #markdownDepPaths = new Set()
+  /** @type {Set<string>} Settings roots and imports always require a full rebuild. */
+  #settingsDepPaths = new Set()
   #dependencyAnalysisFailed = false
   /** @type {Set<string>} absolute filepaths of esbuild entry points */
   #esbuildEntryPoints = new Set()
@@ -465,8 +463,7 @@ export class DomStack {
       pagesFileDepMap: this.#pagesFileDepMap,
       pagesFileLayoutMap: this.#pagesFileLayoutMap,
       globalDataDepPaths: this.#globalDataDepPaths,
-      globalVarsDepPaths: this.#globalVarsDepPaths,
-      markdownDepPaths: this.#markdownDepPaths,
+      settingsDepPaths: this.#settingsDepPaths,
       dependencyAnalysisFailed: this.#dependencyAnalysisFailed,
       pageBuildFailed: this.#pageBuildFailed,
       esbuildEntryPoints: this.#esbuildEntryPoints,
@@ -481,8 +478,7 @@ export class DomStack {
 
     const dependencies = [
       this.#globalDataDepPaths,
-      this.#globalVarsDepPaths,
-      this.#markdownDepPaths,
+      this.#settingsDepPaths,
       this.#layoutDepMap,
       this.#pageDepMap,
       this.#templateDepMap,
@@ -740,21 +736,26 @@ export class DomStack {
     const templateDepMap = /** @type {Map<string, Set<TemplateInfo>>} */ (new Map())
     const pagesFileDepMap = /** @type {Map<string, Set<PagesFileInfo>>} */ (new Map())
     let dependencyAnalysisFailed = false
-    /** @param {string | undefined} filepath */
-    const rootDependencies = async filepath => {
+    /** @param {...(string | undefined)} filepaths */
+    const rootDependencies = async (...filepaths) => {
       const paths = new Set(/** @type {string[]} */ ([]))
-      if (!filepath) return paths
-      paths.add(resolve(filepath))
-      try {
-        for (const dep of await find(filepath)) paths.add(resolve(dep))
-      } catch {
-        dependencyAnalysisFailed = true
+      for (const filepath of filepaths) {
+        if (!filepath) continue
+        paths.add(resolve(filepath))
+        try {
+          for (const dep of await find(filepath)) paths.add(resolve(dep))
+        } catch {
+          dependencyAnalysisFailed = true
+        }
       }
       return paths
     }
     const globalDataDepPaths = await rootDependencies(siteData.globalData?.filepath)
-    const globalVarsDepPaths = await rootDependencies(siteData.globalVars?.filepath)
-    const markdownDepPaths = await rootDependencies(siteData.markdownItSettings?.filepath)
+    const settingsDepPaths = await rootDependencies(
+      siteData.globalVars?.filepath,
+      siteData.markdownItSettings?.filepath,
+      siteData.esbuildSettings?.filepath
+    )
 
     // layoutFileMap: layout filepath → layoutName
     for (const layout of Object.values(siteData.layouts)) {
@@ -866,8 +867,7 @@ export class DomStack {
     this.#templateDepMap = templateDepMap
     this.#pagesFileDepMap = pagesFileDepMap
     this.#globalDataDepPaths = globalDataDepPaths
-    this.#globalVarsDepPaths = globalVarsDepPaths
-    this.#markdownDepPaths = markdownDepPaths
+    this.#settingsDepPaths = settingsDepPaths
     this.#dependencyAnalysisFailed = dependencyAnalysisFailed
     this.#esbuildEntryPoints = esbuildEntryPoints
     this.#esbuildDepPaths = esbuildDepPaths

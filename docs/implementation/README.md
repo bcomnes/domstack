@@ -258,9 +258,8 @@ When a targeted build recomputes global data, DOMStack compares top-level values
 | Existing `*.template.ts` or a module it imports | Affected templates |
 | Existing `*.pages.ts` | Generated outputs owned by that file, then refresh dependency maps |
 | A module imported by `*.pages.ts` | Generated outputs owned by the importing files, then refresh dependency maps |
-| `markdown-it.settings.ts` | All source-backed Markdown pages, plus subscribers of any changed global-data keys |
 | `global.data.ts` | Consumers subscribed to top-level keys whose values changed |
-| `global.vars.ts` or `esbuild.settings.ts` | Full rebuild |
+| `global.vars.ts`, `markdown-it.settings.ts`, `esbuild.settings.ts`, or their tracked imports | Full rebuild and reset of retained global-data state |
 | `domstack-manifest.settings.ts` | No rebuild. The manifest pipeline is disabled in watch mode |
 | Existing client, style, Web Worker, or service-worker entry | esbuild only, unless the same module also has server-side consumers |
 | Static asset under `src` or a file under a `--copy` directory | cpx2 copies or removes the output directly |
