@@ -5,6 +5,7 @@ export default neostandard({
   ts: true,
   ignores: [
     ...resolveIgnoresFromGitignore(),
+    'lib/defaults/default.root.layout.js',
     'test-cases/build-errors/src/**/*.js',
     'test-cases/page-build-errors/src/**/*.js',
   ],

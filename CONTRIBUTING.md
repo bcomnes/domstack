@@ -15,6 +15,14 @@
 - Questions are welcome, however unless there is a official support contract established between the maintainers and the requester, support is not guaranteed.
 - Contributors reserve the right to walk away from this project at any moment with or without notice.
 
+## Generated default layout
+
+Edit `lib/defaults/default.root.layout.ts`, then run `npm run build:defaults` to regenerate `lib/defaults/default.root.layout.js`.
+The JavaScript is checked in so normal development and tests work immediately after checkout, without a declaration build or a runtime TypeScript loader.
+Do not edit the generated JavaScript directly.
+Both layouts are published, and eject copies the requested language (rewriting the TypeScript type import to the public package entry).
+Declaration cleanup and `npm run clean` deliberately preserve the generated JavaScript.
+
 ## Releasing
 
 Changelog, and releasing is automated with npm scripts and actions.  To create a release:
@@ -29,6 +37,12 @@ If for some reason that isn't working or a local release is preferred, follow th
 
 - Ensure a clean working git workspace.
 - Run `npm version {patch,minor,major}`.
-  - This wills update the version number and generate the changelog.
+  - This updates the version number, builds the default JavaScript and version-dependent manifest schema, and uses `releasearoni version --add` to stage both generated files alongside the changelog before npm creates the version commit and tag.
 - Run `npm publish`.
-  - This will push your local git branch and tags to the default remote, perform a [gh-release](https://ghub.io/gh-release), and create an npm publication
+  - `releasearoni` runs the full build before pushing the branch and tags and creating the GitHub release.
+  - The `prepack` hook cleans old declarations before regenerating the default JavaScript and declarations for both `npm pack` and `npm publish`, so tarballs include both layout languages and their types even after a full release build.
+  - Post-publish cleanup removes temporary declarations and site output, but preserves versioned JavaScript so it does not dirty the version commit.
+
+Generation belongs in `version`, not `preversion` (which runs before the version update) or `postversion` (which runs after the commit and tag).
+The release workflow's pre-version reset/clean is safe because the initial generated JavaScript is tracked and the version hook rebuilds it before staging.
+Run `npm run test:version-build` to verify generation, staging, tagging, and cleanup in a disposable repository without versioning this checkout.

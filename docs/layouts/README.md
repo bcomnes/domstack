@@ -257,7 +257,11 @@ const defaultRootLayout: LayoutFunction<RootLayoutVars, string | HtmlResult, str
 export default defaultRootLayout
 ```
 
-If your `src` folder doesn't have a `root.layout.ts` file somewhere in it, `domstack` will use the default [`default.root.layout.js`](https://github.com/bcomnes/domstack/blob/master/lib/defaults/default.root.layout.js) file it ships.
+If your `src` folder doesn't have a root layout in any supported JavaScript or TypeScript extension, `domstack` uses the JavaScript generated from its canonical [`default.root.layout.ts`](https://github.com/bcomnes/domstack/blob/master/lib/defaults/default.root.layout.ts) source.
+Both files ship in the package, but the runtime loads `default.root.layout.js` directly without TypeScript stripping or a custom loader.
+To wrap or reuse the upstream layout, import `@domstack/static/lib/defaults/default.root.layout.js`, not the `.ts` source; Node does not strip TypeScript inside `node_modules`.
+The JavaScript has no runtime imports of DOMStack's private types.
+Use [`domstack --eject --language ts` or `--language js`](../cli/README.md#ejecting-the-defaults) to customize it in your preferred language.
 The default `root` layout includes a special boolean variable called `defaultStyle` that lets you disable a default page style (provided by [mine.css](http://github.com/bcomnes/mine.css)) that it ships with.
 
 ## Layout styles

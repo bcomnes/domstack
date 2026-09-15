@@ -7,7 +7,7 @@
  * @import { BsInstance } from '@domstack/sync'
  */
 
-import { readFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { basename, resolve, join, relative } from 'node:path'
 import { parseArgs } from 'node:util'
 import { printHelpText } from 'argsclopts'
@@ -73,6 +73,15 @@ const options = {
     type: 'boolean',
     short: 'e',
     help: 'eject the DOMStack default layout, style and client into the src flag directory',
+  },
+  language: {
+    type: 'string',
+    default: 'js',
+    help: 'language for --eject: ts or js (default: js)',
+  },
+  yes: {
+    type: 'boolean',
+    help: 'skip confirmation for --eject',
   },
   watch: {
     type: 'boolean',
@@ -143,10 +152,10 @@ async function run () {
 
   // Eject task
   if (argv['eject']) {
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-    })
+    const language = argv['language']
+    if (language !== 'ts' && language !== 'js') {
+      throw new Error('--language must be ts or js')
+    }
 
     const localPkg = await packageDirectory({ cwd: src })
 
@@ -162,9 +171,10 @@ async function run () {
     const relativeSrc = relative(process.cwd(), src)
     const relativePkg = relative(process.cwd(), localPkgJson)
 
-    const targetLayoutPath = `layouts/root.layout.${targetIsModule ? 'js' : 'mjs'}`
+    const extension = language === 'ts' ? (targetIsModule ? 'ts' : 'mts') : targetIsModule ? 'js' : 'mjs'
+    const targetLayoutPath = `layouts/root.layout.${extension}`
     const targetGlobalStylePath = 'globals/global.css'
-    const targetGlobalClientPath = `globals/global.client.${targetIsModule ? 'js' : 'mjs'}`
+    const targetGlobalClientPath = `globals/global.client.${language === 'ts' ? 'ts' : extension}`
 
     const tbPkgContents = await getPkg()
     const mineVersion = tbPkgContents?.['dependencies']?.['mine.css']
@@ -185,18 +195,31 @@ domstack eject actions:
   - Add fragtml@${fragtmlVersion} to ${relativePkg}
   - Add highlight.js@${highlightVersion} to ${relativePkg}
 `)
-    const answer = await askYesNo(rl, 'Continue?')
-    if (answer === false) {
-      console.log('No action taken. Exiting.')
-      process.exit(0)
+    if (!argv['yes']) {
+      const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
+      let answer
+      try {
+        answer = await askYesNo(rl, 'Continue?')
+      } finally {
+        rl.close()
+      }
+      if (!answer) {
+        console.log('No action taken. Exiting.')
+        process.exit(0)
+      }
     }
 
-    const defaultLayoutPath = join(__dirname, 'lib/defaults/default.root.layout.js')
+    const defaultLayoutPath = join(__dirname, `lib/defaults/default.root.layout.${language}`)
     const defaultGlobalStylePath = join(__dirname, 'lib/defaults/default.style.css')
     const defaultGlobalClientPath = join(__dirname, 'lib/defaults/default.client.js')
 
+    const layoutSource = await readFile(defaultLayoutPath, 'utf8')
+    const layout = language === 'ts'
+      ? layoutSource.replace("from '#types'", "from '@domstack/static/types.js'")
+      : layoutSource
+    await mkdir(join(src, 'layouts'), { recursive: true })
     await Promise.all([
-      copyFile(defaultLayoutPath, join(src, targetLayoutPath)),
+      writeFile(join(src, targetLayoutPath), layout),
       copyFile(defaultGlobalStylePath, join(src, targetGlobalStylePath)),
       copyFile(defaultGlobalClientPath, join(src, targetGlobalClientPath)),
     ])

@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict'
 import { execFile, spawn } from 'node:child_process'
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -15,13 +16,18 @@ try {
     run('npm', ['run', 'clean:declarations-top'], projectPath),
     run('npm', ['run', 'clean:declarations-lib'], projectPath),
   ])
-  await run('npm', ['run', 'build:declaration'], projectPath)
+
   const { stdout } = await execFileAsync(
     'npm',
-    ['pack', '--json', '--ignore-scripts', '--pack-destination', temporaryPath],
+    ['pack', '--json', '--pack-destination', temporaryPath],
     { cwd: projectPath, encoding: 'utf8' }
   )
-  const [{ filename }] = JSON.parse(stdout)
+  const [{ filename, files }] = JSON.parse(stdout)
+  const packedPaths = files.map(/** @param {{ path: string }} file */ file => file.path)
+  assert.ok(packedPaths.includes('lib/defaults/default.root.layout.ts'))
+  assert.ok(packedPaths.includes('lib/defaults/default.root.layout.d.ts'))
+  assert.ok(packedPaths.includes('lib/defaults/default.root.layout.js'))
+  assert.ok(!packedPaths.includes('lib/defaults/load-layout.js'))
   const tarballPath = path.join(temporaryPath, filename)
 
   await mkdir(consumerPath)
@@ -474,6 +480,36 @@ export default articlePage
     ['install', '--ignore-scripts', '--no-audit', '--no-fund', '--no-package-lock'],
     consumerPath
   )
+  const packedBin = path.join(consumerPath, 'node_modules', '@domstack/static', 'bin.js')
+  for (const language of ['ts', 'js']) {
+    const src = `src-${language}`
+    await mkdir(path.join(consumerPath, src))
+    await writeFile(path.join(consumerPath, src, 'page.html'), '<h1>Packed defaults</h1>')
+    await run(process.execPath, [packedBin, '--eject', '--language', language, '--yes', '--src', src], consumerPath)
+    await run(process.execPath, [packedBin, '--src', src, '--dest', `public-${language}`], consumerPath)
+    assert.match(await readFile(path.join(consumerPath, `public-${language}`, 'index.html'), 'utf8'), /<h1>Packed defaults<\/h1>/)
+  }
+  const packedLayout = path.join(consumerPath, 'node_modules/@domstack/static/lib/defaults/default.root.layout.js')
+  assert.doesNotMatch(await readFile(packedLayout, 'utf8'), /#types|import type|@domstack\/static\/types/)
+  // Upstream runtime imports must work without loading the adjacent TypeScript source.
+  await rm(path.join(consumerPath, 'node_modules/@domstack/static/lib/defaults/default.root.layout.ts'))
+  await writeFile(path.join(consumerPath, 'upstream.mjs'), `import layout from '@domstack/static/lib/defaults/default.root.layout.js'
+import assert from 'node:assert/strict'
+assert.ok(layout({ vars: {}, children: '<p>Upstream</p>' }).includes('<p>Upstream</p>'))
+`)
+  await run(process.execPath, ['upstream.mjs'], consumerPath)
+  await mkdir(path.join(consumerPath, 'src-default'))
+  await writeFile(path.join(consumerPath, 'src-default', 'page.html'), '<h1>Canonical default</h1>')
+  await run(process.execPath, [packedBin, '--src', 'src-default', '--dest', 'public-default'], consumerPath)
+  assert.match(await readFile(path.join(consumerPath, 'public-default', 'index.html'), 'utf8'), /<h1>Canonical default<\/h1>/)
+  await writeFile(path.join(consumerPath, 'tsconfig-eject.json'), `${JSON.stringify({
+    extends: './tsconfig.json',
+    // fragtml currently ships a declaration with an unresolved FragmentBoundary.
+    // Still check our ejected source and its public imports, not dependency internals.
+    compilerOptions: { skipLibCheck: true },
+    include: ['src-ts/**/*.ts'],
+  }, null, 2)}\n`)
+
   // Node 26 exercises the missing alias; 24 and 22 guard against duplicate
   // declarations on supported older releases. Check each entry in isolation.
   for (const nodeVersion of [26, 24, 22]) {
@@ -484,7 +520,7 @@ export default articlePage
         consumerPath
       )
     }
-    for (const config of ['tsconfig.json', 'tsconfig-types.json', 'tsconfig-js.json', 'tsconfig-null-checks.json']) {
+    for (const config of ['tsconfig.json', 'tsconfig-types.json', 'tsconfig-js.json', 'tsconfig-null-checks.json', 'tsconfig-eject.json']) {
       console.log(`Checking TypeScript ${devDependencies.typescript}, @types/node ${nodeVersion}, ${config}`)
       await run(
         process.execPath,
