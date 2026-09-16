@@ -144,8 +144,10 @@ npx domstack
 ```
 
 The generated page is `public/index.html`, rendered with the bundled default layout and stylesheet.
-Run `npx domstack --watch` to rebuild on changes, then open the local development server's URL.
-Use `npx domstack --serve` to preview a production build.
+`npx domstack build` is an explicit alias for the default build.
+Run `npx domstack watch` to rebuild on changes, then open the local development server's URL for live reload.
+Use `npx domstack watch --no-serve` to watch without a server, or `npx domstack serve` to build once and preview production output without watching or live reload.
+See the [CLI reference](docs/cli/) for command options and ejecting the defaults.
 
 ## Links
 
