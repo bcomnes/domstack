@@ -319,14 +319,9 @@ test('serve builds once, serves production HTML on the requested port, and clean
   const port = await availablePort()
   const running = startCli(cwd, ['serve', '--port', String(port)])
   try {
-    await until(running, async () => {
-      try {
-        return (await requestHtml(port)).status === 200
-      } catch (error) {
-        if (error instanceof Error && 'code' in error && error.code === 'ECONNREFUSED') return false
-        throw error
-      }
-    }, 'HTTP server')
+    // The sync server briefly binds a TCP port probe during startup; HTTP
+    // requests to that probe can reset before the real server is listening.
+    await until(running, async () => running.output().includes('Serving public without watching.'), 'serve readiness message')
     const html = await readFile(output, 'utf8')
     assert.match(html, /<h1>Production serve fixture<\/h1>/)
     assert.deepEqual(await requestHtml(port), { status: 200, body: html }, 'production responses must not inject live reload')
