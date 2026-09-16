@@ -9,39 +9,36 @@ handlebars: false
 Use `domstack` (or its shorter alias, `dom`) to build a site, watch for changes, or preview production output.
 Use `domstack eject` to extract the bundled defaults for customization.
 
+`domstack` is a devtool.
+It's primarily a unix `bin` written for the [Node.js](https://nodejs.org) runtime that is intended to be installed from `npm` as a `devDependency` inside a `package.json` committed to a `git` repository.
+It can be used outside of this context, but it works best within it.
+
 ## Table of Contents
 
 [[toc]]
 
 ## Usage
 
-```sh
-domstack
-domstack build --src website --dest public
-domstack watch --src site
-domstack watch --no-serve
-domstack serve --port 3000
-domstack eject --language ts
-```
-
-`domstack` builds `src` into `public` by default; `domstack build` is an explicit alias for the same one-shot build.
-When using an explicit command, put the command before its options, as in `domstack watch --src site`, not `domstack --src site watch`.
-
 | Command | Behavior |
 | --- | --- |
 | `domstack` or `domstack build` | Build once and exit. |
-| `domstack watch` | Build, watch for changes, and serve with live reload using [`@domstack/sync`][domstack-sync]. |
-| `domstack watch --no-serve` | Build and watch without starting a server. |
+| `domstack watch` | Build, watch for changes, and serve with live reload. |
 | `domstack serve` | Build once, then serve production output without watching or live reload. |
 | `domstack eject` | Extract the default layout, global styles, and client files into the source directory and update dependencies in `package.json`. |
+| `domstack help [command]` | Show root or command-specific help. |
 
-Use `watch` for development and `serve` to preview production output, including manifest-driven service-worker caching.
-`serve` always builds first; it is not a server-only command for an existing destination.
+When using an explicit command, put the command before its options, as in `domstack watch --src site`, not `domstack --src site watch`.
 
+## `domstack build`
 
-### Shared build, watch, and serve options
+Build the site once and exit.
+Running `domstack` without a command performs the same build, with `src` as the source directory and `public` as the destination by default.
 
-These options are available on the default build and on the explicit `build`, `watch`, and `serve` commands.
+```sh
+domstack
+domstack build --src website --dest public
+domstack build --copy images --copy downloads
+```
 
 | Option | Description |
 | --- | --- |
@@ -50,61 +47,98 @@ These options are available on the default build and on the explicit `build`, `w
 | `--ignore <patterns>`, `-i <patterns>` | Comma-separated gitignore-style ignore patterns. |
 | `--drafts` | Include draft pages with the `.draft.{md,js,ts,html}` page suffix. |
 | `--noEsbuildMeta` | Skip writing the esbuild metafile to disk. |
-| `--domstackManifest` | Write the DOMStack manifest to disk for a one-shot build; watch mode does not finalize or write the manifest. |
+| `--domstackManifest` | Write the DOMStack manifest to disk. |
 | `--copy <path>` | Copy an additional directory into the destination; repeat for multiple directories. |
 | `--verbose` | Show debug logs, including the build tree and individual copy operations. |
+| `--help`, `-h` | Show build help; on bare `domstack`, show the command list and default build options. |
+| `--version`, `-v` | Show the installed version. |
 
-For example, `domstack build --copy images --copy downloads` copies both additional directories.
-
-### Command-specific options
-
-| Command | Option | Description |
-| --- | --- | --- |
-| `watch` | `--no-serve` | Watch and rebuild without a server, for example when another process serves the output. |
-| `serve` | `--port <number>` | Server port, an integer from `1` to `65535` (default: `3000`). |
-| `eject` | `--src <path>`, `-s <path>` | Source directory to receive the defaults (default: `src`). |
-| `eject` | `--language <language>` | Eject `js` (default) or `ts` files. |
-| `eject` | `--yes` | Skip confirmation before writing files and updating dependencies. |
-
-`--port` is available only for `serve`, not `watch` or `build`.
-Apart from help and version, `eject` accepts only `--src` / `-s`, `--language`, and `--yes`; shared build options such as `--dest` and `--verbose` are not accepted.
-
-### Help and version
-
-All commands support `--help` / `-h` and `--version` / `-v`.
-`domstack --help` and `domstack help` show the command list and the default build options.
-`domstack help <command>` is equivalent to `domstack <command> --help`, for example `domstack help watch` and `domstack watch --help`.
-
-### Legacy shortcuts
-
-Root-level mode flags remain supported for existing scripts, but prefer commands for new usage.
-
-| Legacy shortcut | Preferred command |
-| --- | --- |
-| `domstack --watch` or `domstack -w` | `domstack watch` |
-| `domstack --watch-only` | `domstack watch --no-serve` |
-| `domstack --serve` | `domstack serve` |
-| `domstack --eject` or `domstack -e` | `domstack eject` |
-
-Legacy shortcuts use the same strict option validation as their target commands.
-For example, `domstack --serve --port 4000` is valid, but `domstack --watch --port 4000` and `domstack --eject --dest public` are rejected.
-Mode flags are mutually exclusive, including `--watch` together with `--watch-only`.
-Legacy mode flags are not accepted on explicit commands, so use `domstack watch`, not `domstack build --watch`.
-
-### Build output
-
-Normal output summarizes builds, static asset startup, and server URLs.
+Normal output summarizes the build.
 Use `--verbose` to include the build tree and individual copy operations.
 Build failures retain their full diagnostics at either verbosity level.
 
-`domstack` is a devtool.
-It's primarily a unix `bin` written for the [Node.js](https://nodejs.org) runtime that is intended to be installed from `npm` as a `devDependency` inside a `package.json` committed to a `git` repository.
-It can be used outside of this context, but it works best within it.
+## `domstack watch`
 
-## Ejecting the defaults
+Build the site, watch for changes, and serve with live reload using [`@domstack/sync`][domstack-sync].
+Use `--no-serve` when another process serves the output.
+Watch mode uses stable bundle filenames rather than production hashes.
 
-The `domstack eject` command extracts DOMStack's default layout, global CSS, and client-side JavaScript into your source directory.
+```sh
+domstack watch
+domstack watch --src site --dest public
+domstack watch --no-serve
+```
+
+| Option | Description |
+| --- | --- |
+| `--src <path>`, `-s <path>` | Source directory (default: `src`). |
+| `--dest <path>`, `-d <path>` | Build destination directory (default: `public`). |
+| `--ignore <patterns>`, `-i <patterns>` | Comma-separated gitignore-style ignore patterns. |
+| `--drafts` | Include draft pages with the `.draft.{md,js,ts,html}` page suffix. |
+| `--noEsbuildMeta` | Skip writing the esbuild metafile to disk. |
+| `--domstackManifest` | Accepted, but has no effect: watch mode does not finalize or write the DOMStack manifest. |
+| `--copy <path>` | Copy and watch an additional directory in the destination; repeat for multiple directories. |
+| `--verbose` | Show debug logs, including the build tree and individual copy operations. |
+| `--no-serve` | Watch and rebuild without starting a server. |
+| `--help`, `-h` | Show watch help. |
+| `--version`, `-v` | Show the installed version. |
+
+Normal output summarizes builds, static asset startup, and server URLs.
+Build failures retain their full diagnostics at either verbosity level.
+`--port` is not available on this command.
+
+## `domstack serve`
+
+Build the site once, then serve production output without watching or live reload.
+Use this command to preview the production build, including manifest-driven service-worker caching.
+It always builds first; it is not a server-only command for an existing destination.
+
+```sh
+domstack serve
+domstack serve --src website --dest public --port 8080
+domstack serve --domstackManifest
+```
+
+| Option | Description |
+| --- | --- |
+| `--src <path>`, `-s <path>` | Source directory (default: `src`). |
+| `--dest <path>`, `-d <path>` | Build destination directory (default: `public`). |
+| `--ignore <patterns>`, `-i <patterns>` | Comma-separated gitignore-style ignore patterns. |
+| `--drafts` | Include draft pages with the `.draft.{md,js,ts,html}` page suffix. |
+| `--noEsbuildMeta` | Skip writing the esbuild metafile to disk. |
+| `--domstackManifest` | Write the DOMStack manifest to disk. |
+| `--copy <path>` | Copy an additional directory into the destination; repeat for multiple directories. |
+| `--verbose` | Show debug logs, including the build tree and individual copy operations. |
+| `--port <number>` | Server port, an integer from `1` to `65535` (default: `3000`). |
+| `--help`, `-h` | Show serve help. |
+| `--version`, `-v` | Show the installed version. |
+
+Normal output summarizes the build and server URLs.
+Build failures retain their full diagnostics at either verbosity level.
+
+## `domstack eject`
+
+Extract DOMStack's default layout, global CSS, and client-side JavaScript into your source directory and add their dependencies to `package.json`.
 This allows you to fully customize these files while maintaining the same functionality.
+
+```sh
+domstack eject
+domstack eject --language ts
+domstack eject --language ts --yes --src src
+```
+
+| Option | Description |
+| --- | --- |
+| `--src <path>`, `-s <path>` | Source directory to receive the defaults (default: `src`). |
+| `--language <language>` | Eject `js` (default) or `ts` files. |
+| `--yes` | Skip confirmation before writing files and updating dependencies. |
+| `--help`, `-h` | Show eject help. |
+| `--version`, `-v` | Show the installed version. |
+
+Without `--yes`, eject asks for confirmation before writing files or updating dependencies.
+Eject overwrites its target files, so review or back up existing customizations before proceeding.
+
+### Ejecting the defaults
 
 When you run `domstack eject`, it will:
 
@@ -132,10 +166,38 @@ The TypeScript output uses the public type-only `@domstack/static/types.js` entr
 Keep `@domstack/static` installed for those types; no runtime type import or separate TypeScript compilation step is needed.
 The client is currently comment-only, but receives a `.ts` extension when TypeScript is selected.
 
-For automation, run `domstack eject --language ts --yes --src src` to skip the confirmation prompt.
-Without `--yes`, eject asks for confirmation before writing files or updating dependencies.
-Eject overwrites its target files, so review or back up existing customizations before proceeding.
-
 It is recommended to eject early in your project so that you can customize the root layout as you see fit, and decouple yourself from potential unwanted changes in the default layout as new versions of DOMStack are released.
+
+## `domstack help`
+
+Show the command list and default build options, or pass a command name to show its full help.
+This command takes an optional command name and no flags.
+
+```sh
+domstack help
+domstack help build
+domstack help watch
+domstack help serve
+domstack help eject
+```
+
+`domstack help` is equivalent to `domstack --help`.
+`domstack help <command>` is equivalent to `domstack <command> --help`, for example `domstack help watch` and `domstack watch --help`.
+
+## Legacy shortcuts
+
+Root-level mode flags remain supported for existing scripts, but prefer commands for new usage.
+
+| Legacy shortcut | Preferred command |
+| --- | --- |
+| `domstack --watch` or `domstack -w` | `domstack watch` |
+| `domstack --watch-only` | `domstack watch --no-serve` |
+| `domstack --serve` | `domstack serve` |
+| `domstack --eject` or `domstack -e` | `domstack eject` |
+
+Legacy shortcuts use the same strict option validation as their target commands.
+For example, `domstack --serve --port 4000` is valid, but `domstack --watch --port 4000` and `domstack --eject --dest public` are rejected.
+Mode flags are mutually exclusive, including `--watch` together with `--watch-only`.
+Legacy mode flags are not accepted on explicit commands, so use `domstack watch`, not `domstack build --watch`.
 
 [domstack-sync]: https://www.npmjs.com/package/@domstack/sync
