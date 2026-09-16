@@ -1,0 +1,44 @@
+import type { LayoutFunctionParams } from '#types'
+import type { HtmlResult } from 'fragtml/types.js'
+import { html, raw, render } from 'fragtml'
+
+export type DefaultRootLayoutVars = {
+  title: string
+  siteName: string
+  defaultStyle: boolean
+  basePath: string
+}
+export default function defaultRootLayout ({
+  vars: {
+    title,
+    siteName = 'domstack',
+    basePath,
+    /* defaultStyle = true  Set this to false in global or page to disable the default style in the default layout */
+  },
+  scripts,
+  styles,
+  children,
+  /* pages */
+  /* page */
+}: LayoutFunctionParams<DefaultRootLayoutVars, string | HtmlResult>): string {
+  return render(html`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>${title ? `${title}` : ''}${title && siteName ? ' | ' : ''}${siteName}</title>
+        <meta name="viewport" content="width=device-width, user-scalable=no" />
+        <meta name="color-scheme" content="light dark" />
+        ${scripts
+          ? scripts.map(script => html`<script type="module" src="${script.startsWith('/') ? `${basePath ?? ''}${script}` : script}"></script>`)
+          : null}
+        ${styles
+          ? styles.map(style => html`<link rel="stylesheet" href="${style.startsWith('/') ? `${basePath ?? ''}${style}` : style}" />`)
+          : null}
+      </head>
+      <body class="safe-area-inset">
+        <main class="mine-layout app-main">${typeof children === 'string' ? raw(children) : children}</main>
+      </body>
+    </html>
+  `)
+}

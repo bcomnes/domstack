@@ -10,5 +10,6 @@
 - Type builds are only needed during publish time or when debugging types.
 - After running a type build, clean up the generated build files and do not leave them sitting around.
 - Use the cleanup scripts in `package.json` for generated type build files.
+- The generated `lib/defaults/default.root.layout.js` is versioned runtime code, not temporary declaration output; regenerate it with `npm run build:defaults` after editing its TypeScript source and never remove it during cleanup.
 - For formatting-only ESLint failures, use `npx eslint <path> --fix` for a quick targeted fix before rerunning lint.
 - When handling PR review comments, validate that each comment is correct before making changes; maintainer comments are almost always valid, but review bot comments may be wrong, and after addressing a comment, always reply with what was done.
