@@ -28,6 +28,7 @@ The idea is that they can be swapped out for better tools in the future if they 
 
 ## Build process flow
 
+`domstack` and `domstack build` run a one-shot build; `domstack serve` runs the same production build before serving the output without watching or live reload.
 The one-shot builder discovers inputs using the shared file conventions, then records outputs from each build phase.
 The service worker is built last so manifest hooks can provide its build-time constants.
 Side-by-side blocks run in parallel; their arrows join before the next phase starts.
@@ -180,8 +181,8 @@ It is resolved separately and projected into each consumer's `data` argument acc
 
 ## Watch mode
 
-Running `domstack --watch` or `domstack -w` performs an initial build, watches the source inputs, and serves `dest` with live reload.
-Use `domstack --watch-only` when another process serves the output.
+Running `domstack watch` performs an initial build, watches the source inputs, and serves `dest` with live reload.
+Use `domstack watch --no-serve` when another process serves the output.
 
 Watch mode coordinates three independent watchers:
 
@@ -324,7 +325,7 @@ Page HTML points to stable entry files during watch mode. esbuild can update an 
 Watch mode builds and rebundles the site service worker, but it does not finalize, return, or write the [DOMStack manifest](../../docs/workers/#domstack-manifest).
 Editing `domstack-manifest.settings.ts` does not trigger a watch rebuild unless it is also imported by server-side code.
 
-Use `domstack --serve` when testing manifest-driven cache behavior.
+Use `domstack serve` when testing manifest-driven cache behavior.
 It runs a one-shot build and serves the result without watch-mode filenames or live-reload HTML injection.
 Add `--domstackManifest` only when the service worker or test needs the public `domstack-manifest.json` file.
 

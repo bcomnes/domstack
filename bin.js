@@ -2,18 +2,16 @@
 
 /**
  * @import { BuildStepWarnings, DomStackOpts as DomStackOpts } from './lib/builder.js'
- * @import { ArgscloptsParseArgsOptionsConfig } from 'argsclopts'
+
  * @import { Logger as PinoLogger } from 'pino'
  * @import { BsInstance } from '@domstack/sync'
  */
 
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { basename, resolve, join, relative } from 'node:path'
-import { parseArgs } from 'node:util'
-import { printHelpText } from 'argsclopts'
+
 import readline from 'node:readline'
 import process from 'process'
-// @ts-expect-error
 import tree from 'pretty-tree'
 import { inspect } from 'util'
 import { createServer } from '@domstack/sync'
@@ -26,6 +24,8 @@ import { DomStackAggregateError } from './lib/helpers/domstack-aggregate-error.j
 import { generateTreeData } from './lib/helpers/generate-tree-data.js'
 import { askYesNo } from './lib/helpers/cli-prompt.js'
 import { createDomStackLogger } from './lib/logger.js'
+import { CliUsageError, parseCliArgs } from './lib/cli/args.js'
+import { formatCliHelp } from './lib/cli/help.js'
 
 const __dirname = import.meta.dirname
 
@@ -36,94 +36,8 @@ async function getPkg (pkgPath = resolve(__dirname, './package.json')) {
   return pkg
 }
 
-/** @type {ArgscloptsParseArgsOptionsConfig} */
-const options = {
-  src: {
-    type: 'string',
-    short: 's',
-    default: 'src',
-    help: 'path to source directory',
-  },
-  dest: {
-    type: 'string',
-    short: 'd',
-    default: 'public',
-    help: 'path to build destination directory',
-  },
-  ignore: {
-    type: 'string',
-    short: 'i',
-    help: 'comma separated gitignore style ignore string',
-  },
-  drafts: {
-    type: 'boolean',
-    help: 'Build draft pages with the `.draft.{md,js,html}` page suffix.',
-    default: false
-  },
-  noEsbuildMeta: {
-    type: 'boolean',
-    help: 'skip writing the esbuild metafile to disk',
-  },
-  domstackManifest: {
-    type: 'boolean',
-    help: 'write the domstack manifest to disk',
-  },
-
-  eject: {
-    type: 'boolean',
-    short: 'e',
-    help: 'eject the DOMStack default layout, style and client into the src flag directory',
-  },
-  language: {
-    type: 'string',
-    default: 'js',
-    help: 'language for --eject: ts or js (default: js)',
-  },
-  yes: {
-    type: 'boolean',
-    help: 'skip confirmation for --eject',
-  },
-  watch: {
-    type: 'boolean',
-    short: 'w',
-    help: 'build, watch and serve the site build',
-  },
-  'watch-only': {
-    type: 'boolean',
-    help: 'watch and build the src folder without serving',
-  },
-  verbose: {
-    type: 'boolean',
-    help: 'show debug logs, including the build tree and individual copy operations',
-  },
-  serve: {
-    type: 'boolean',
-    help: 'build once and serve the destination directory without watching',
-  },
-  port: {
-    type: 'string',
-    help: 'port for --serve (default: 3000)',
-  },
-  copy: {
-    type: 'string',
-    help: 'path to directories to copy into dist; can be used multiple times',
-    multiple: true
-  },
-  help: {
-    type: 'boolean',
-    short: 'h',
-    help: 'show help',
-  },
-  version: {
-    type: 'boolean',
-    short: 'v',
-    help: 'show version information',
-  },
-}
-
-const { values: argv } = parseArgs({ options })
-
 async function run () {
+  const { command, values: argv, helpCommand } = parseCliArgs(process.argv.slice(2))
   if (argv['version']) {
     const pkg = await getPkg()
     console.log(pkg.version)
@@ -132,30 +46,15 @@ async function run () {
 
   if (argv['help']) {
     const pkg = await getPkg()
-    await printHelpText({
-      options,
-      name: pkg.name,
-      version: pkg.version,
-      exampleFn: ({ name }) => '    ' + `Example: ${name} --src website --dest public\n`,
-    })
+    console.log(await formatCliHelp(helpCommand, pkg.version))
 
     process.exit(0)
   }
   const cwd = process.cwd()
-  const srcFlag = String(argv['src'])
-  const destFlag = String(argv['dest'])
-  if (!srcFlag) throw new Error('The src flag is required')
-  if (!destFlag) throw new Error('The dest flag is required')
+  const src = resolve(join(cwd, String(argv['src'])))
 
-  const src = resolve(join(cwd, srcFlag))
-  const dest = resolve(join(cwd, destFlag))
-
-  // Eject task
-  if (argv['eject']) {
+  if (command === 'eject') {
     const language = argv['language']
-    if (language !== 'ts' && language !== 'js') {
-      throw new Error('--language must be ts or js')
-    }
 
     const localPkg = await packageDirectory({ cwd: src })
 
@@ -236,6 +135,7 @@ domstack eject actions:
     process.exit(0)
   }
 
+  const dest = resolve(join(cwd, String(argv['dest'])))
   /** @type {DomStackOpts} */
   const opts = {}
 
@@ -255,13 +155,7 @@ domstack eject actions:
   /** @type {BsInstance | null} */
   let buildServer = null
 
-  if (argv['serve'] && (argv['watch'] || argv['watch-only'])) {
-    throw new Error('--serve cannot be combined with --watch or --watch-only')
-  }
-  if (argv['port'] && !argv['serve']) {
-    throw new Error('--port can only be combined with --serve')
-  }
-  const servePort = argv['port'] ? parsePort(String(argv['port'])) : undefined
+  const servePort = argv['port'] ? Number(argv['port']) : undefined
 
   process.once('SIGINT', quit)
   process.once('SIGTERM', quit)
@@ -280,14 +174,14 @@ domstack eject actions:
     process.exit(0)
   }
 
-  if (!argv['watch'] && !argv['watch-only']) {
+  if (command !== 'watch') {
     try {
       const results = await domStack.build()
-      logger.debug(tree(generateTreeData(cwd, src, dest, results)))
+      logger.info(tree(generateTreeData(cwd, src, dest, results)))
       logWarnings(logger, results?.warnings)
       logger.info(`Built ${relative(cwd, src) || '.'} → ${relative(cwd, dest) || '.'}`)
       logger.info('Build Success!')
-      if (argv['serve']) {
+      if (command === 'serve') {
         buildServer = await createServer({
           server: dest,
           files: basename(dest),
@@ -311,24 +205,13 @@ domstack eject actions:
     }
   } else {
     await domStack.watch({
-      serve: !argv['watch-only'],
+      serve: !argv['no-serve'],
       onInitialBuild: (initialResults) => {
-        logger.debug(tree(generateTreeData(cwd, src, dest, initialResults)))
+        logger.info(tree(generateTreeData(cwd, src, dest, initialResults)))
         logWarnings(logger, initialResults?.warnings)
       },
     })
   }
-}
-
-/**
- * @param {string} value
- */
-function parsePort (value) {
-  const port = Number(value)
-  if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    throw new Error('--port must be an integer between 1 and 65535')
-  }
-  return port
 }
 
 /**
@@ -363,6 +246,11 @@ function formatDiagnostic (value, colors) {
 }
 
 run().catch(err => {
+  if (err instanceof CliUsageError) {
+    console.error(`domstack: ${err.message}`)
+    console.error(`Run "domstack${err.command ? ` ${err.command}` : ''} --help" for usage.`)
+    process.exit(1)
+  }
   console.error(formatDiagnostic(
     new Error('Unhandled domstack error', { cause: err }),
     Boolean(process.stderr.isTTY)
