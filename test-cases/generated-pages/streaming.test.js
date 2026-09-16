@@ -11,6 +11,7 @@ import { DomStack } from '../../index.js'
 import { builder } from '../../lib/builder.js'
 import { DomStackAggregateError } from '../../lib/helpers/domstack-aggregate-error.js'
 import { errorText, settle, writeFiles } from '../page-outputs/helpers.js'
+import { startWatch } from '../watch/helpers.js'
 
 /** @param {TestContext} t @param {Record<string, string>} files @param {boolean} [buildDrafts] */
 async function setup (t, files, buildDrafts = false) {
@@ -275,7 +276,7 @@ for (const change of ['recovery', 'deletion', 'empty result']) {
       'stream.pages.js': watchFactory(['old', 'stale']),
       'sibling.pages.js': watchFactory(['sibling']),
     })
-    await site.watch({ serve: false })
+    await startWatch(t, site, src)
     const sibling = await read('sibling.html')
     for (const name of ['partial', 'second-partial']) {
       await settle(site, logs, async () => {
@@ -304,7 +305,7 @@ for (const change of ['recovery', 'deletion', 'empty result']) {
     const { site, src, dest, read, logs } = await setup(t, {
       'stream.pages.js': watchFactory(['partial', 'nested/partial'], 'initial stream failure'),
     })
-    const result = await site.watch({ serve: false })
+    const result = await startWatch(t, site, src)
     assert.ok(logs.some(line => JSON.parse(line).msg === 'Build Failed!'))
     assert.ok(logs.some(line => line.includes('initial stream failure')))
     for (const [index, name] of ['partial', 'nested/partial'].entries()) {

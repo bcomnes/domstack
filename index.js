@@ -2,7 +2,7 @@
 
 /**
  * @import { DomStackOpts, Results, SiteData } from './lib/builder.js'
- * @import { Stats } from 'node:fs'
+
  * @import { FSWatcher } from 'chokidar'
  * @import { WorkerBuildStepResult } from './lib/build-pages/index.js'
  * @import { PageInfo, TemplateInfo, PagesFileInfo } from './lib/identify-pages.js'
@@ -13,6 +13,7 @@
  * @import { WatchDependencyState } from './lib/build-pages/watch-dependencies.js'
  * @import { PageOutputCache } from './lib/build-pages/page-builders/page-output-writer.js'
  * @import { WatchSnapshot, WatchEvent, WatchPlan } from './lib/watch-plan.js'
+ * @import { GlobalDataBaseline, GlobalDataInputChanges } from './lib/build-pages/global-data-state.js'
  * @typedef {{ dispose: () => Promise<void> }} DisposableBuildContext
  * @typedef {{ pageFilePath: string, sourcePageFilePath?: string | undefined, pagesFilePath?: string | undefined, layoutNames: string[], outputs?: DomstackManifestRecord[] | undefined }} WatchedPageReport
  * @typedef {object} WatchSession
@@ -20,9 +21,13 @@
  * @property {AbortController} cancellation - Cancels event waits, not resource acquisition.
  * @property {Promise<unknown>} startupWork - The current resource-acquiring startup phase; never the user callback.
  * @property {Promise<void> | null} shutdown - Shared by explicit stops and startup failure cleanup.
+ * @property {WatchEvent[]} pendingEvents
+ * @property {boolean} drainScheduled
+ * @property {GlobalDataBaseline | null} globalDataBaseline
  */
 import { once } from 'events'
-import assert from 'node:assert'
+import { setImmediate } from 'node:timers/promises'
+
 import { lstat, mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import chokidar from 'chokidar'
@@ -43,7 +48,7 @@ import { builder } from './lib/builder.js'
 import { buildEsbuildWatch } from './lib/build-esbuild/index.js'
 import { buildPages } from './lib/build-pages/index.js'
 import { identifyPages } from './lib/identify-pages.js'
-import { classifyWatchEvent, planWatchEvent, planBundleChange } from './lib/watch-plan.js'
+import { classifyWatchEvent, planWatchEvent, planWatchBatch, planBundleChange } from './lib/watch-plan.js'
 import { ensureDest } from './lib/helpers/ensure-dest.js'
 import { DomStackAggregateError } from './lib/helpers/domstack-aggregate-error.js'
 import { createDomStackLogger } from './lib/logger.js'
@@ -100,8 +105,13 @@ export class DomStack {
   #pagesFileDepMap = new Map()
   /** @type {Set<string>} Imported inputs of global.data, including its entry file. */
   #globalDataDepPaths = new Set()
+  /** @type {Set<string>} Settings roots and imports always require a full rebuild. */
+  #settingsDepPaths = new Set()
+  #dependencyAnalysisFailed = false
   /** @type {Set<string>} absolute filepaths of esbuild entry points */
   #esbuildEntryPoints = new Set()
+  /** @type {Set<string>} Known browser-only helpers can skip the page phase. */
+  #esbuildDepPaths = new Set()
   /** @type {Map<string, Set<string>>} source page or *.pages.* filepath → owned absolute output paths */
   #pageOutputMap = new Map()
   /** @type {PageOutputCache} Successful writes, including those before an iterator failure. */
@@ -191,6 +201,9 @@ export class DomStack {
       cancellation: new AbortController(),
       startupWork: Promise.resolve(),
       shutdown: null,
+      pendingEvents: [],
+      drainScheduled: false,
+      globalDataBaseline: null,
     }
     this.#watchSession = session
     try {
@@ -217,11 +230,9 @@ export class DomStack {
    */
   async #startWatch (session, { serve, onInitialBuild }) {
     const { signal } = session.cancellation
-    const preparation = this.#prepareWatch(signal)
+    const preparation = this.#prepareWatch(session)
     session.startupWork = preparation
-    const { report, watcher, ready } = await preparation
-
-    await ready
+    const report = await preparation
     if (signal.aborted) return report
 
     await onInitialBuild?.(report)
@@ -234,28 +245,17 @@ export class DomStack {
     }
 
     session.state = 'watching'
-    const enqueue = (/** @type {() => Promise<unknown>} */ fn) => {
-      this.#enqueueBuild(session, fn)
-    }
-
-    watcher.on('add', path => {
-      enqueue(() => this.#handleWatchEvent(path, 'added'))
-    })
-    watcher.on('change', path => {
-      assert(this.#src)
-      assert(this.#dest)
-      enqueue(() => this.#handleWatchEvent(path, 'change'))
-    })
-    watcher.on('unlink', path => {
-      enqueue(() => this.#handleWatchEvent(path, 'removed'))
-    })
-    watcher.on('error', err => errorLogger(err, this.#logger))
+    this.#scheduleWatchBatch(session)
 
     return report
   }
 
-  /** @param {AbortSignal} signal */
-  async #prepareWatch (signal) {
+  /** @param {WatchSession} session */
+  async #prepareWatch (session) {
+    const { signal } = session.cancellation
+    // Establish observation before discovery. Initial scan adds are not edits;
+    // subsequent events stay buffered until startup and the user callback finish.
+    await this.#createSourceWatcher(session)
     // ── Initial build (inline, not via builder()) ────────────────────────
     const siteData = await identifyPages(this.#src, this.opts)
 
@@ -302,6 +302,8 @@ export class DomStack {
       this.#updatePageLayoutNames(pageBuildResults.report.pages, true)
       this.#pageBuildFailed = false
       this.#watchDependencies = pageBuildResults.report.watchDependencies ?? null
+      session.globalDataBaseline = pageBuildResults.report.globalDataBaseline ?? null
+      delete pageBuildResults.report.globalDataBaseline
       delete pageBuildResults.report.watchDependencies
       delete pageBuildResults.report.rebuiltPagesFilePaths
       buildLogger(report, this.#logger)
@@ -325,26 +327,22 @@ export class DomStack {
     const copyErrors = copyStartup.filter(result => result.status === 'rejected').map(result => result.reason)
     if (copyErrors.length) throw new AggregateError(copyErrors, 'Copy watch startup failed')
 
-    // ── Chokidar watcher ─────────────────────────────────────────────────
+    return report
+  }
+
+  /** @param {WatchSession} session */
+  #createSourceWatcher (session) {
+    const { signal } = session.cancellation
     const ig = ignore().add(this.opts.ignore ?? [])
 
     const anymatch = (/** @type {string} */name) => ig.ignores(relname(this.#src, name))
 
     const watcher = chokidar.watch(this.#src, {
-      /**
-       * Determines whether a given path should be ignored by the watcher.
-       *
-       * @param {string} filePath - The path to the file or directory.
-       * @param {Stats} [stats] - The stats object for the path (may be undefined).
-       * @returns {boolean} - Returns true if the path should be ignored.
-       */
-      ignored: (filePath, stats) => {
-        return (
-          anymatch(filePath) ||
-          Boolean((stats?.isFile() && !isProcessedFile(filePath)))
-        )
-      },
+      // Observe non-page extensions too (for example statically imported JSON).
+      // Route only processed files and known dependencies after maps are ready.
+      ignored: filePath => anymatch(filePath),
       persistent: true,
+      ignoreInitial: true,
       // Increase the atomic write window so editors that do slow atomic saves
       // (write to a temp file then rename) emit a `change` event rather than
       // `unlink` + `add`, which would otherwise trigger unnecessary full rebuilds.
@@ -352,13 +350,20 @@ export class DomStack {
     })
 
     this.#watcher = watcher
+    const record = (/** @type {string} */ path, /** @type {WatchEvent['type']} */ type) => {
+      if (session.state === 'stopping') return
+      session.pendingEvents.push(classifyWatchEvent(type, path))
+      this.#scheduleWatchBatch(session)
+    }
+    watcher.on('add', path => record(path, 'added'))
+    watcher.on('change', path => record(path, 'change'))
+    watcher.on('unlink', path => record(path, 'removed'))
+    watcher.on('error', err => errorLogger(err, this.#logger))
     // Attach the listener before returning; the watcher can become ready before
     // the caller resumes. Cancellation settles this wait even without a ready event.
-    const ready = once(watcher, 'ready', { signal }).catch(error => {
+    return once(watcher, 'ready', { signal }).catch(error => {
       if (!signal.aborted || error.name !== 'AbortError') throw error
     })
-
-    return { report, watcher, ready }
   }
 
   /**
@@ -416,7 +421,7 @@ export class DomStack {
    * Full rebuild: re-identify pages, restart esbuild, rebuild all pages, rebuild maps.
    * Used for structural changes (add/unlink), global.vars.*, esbuild.settings.*.
    */
-  async #fullRebuild () {
+  async #fullRebuild (/** @type {GlobalDataInputChanges} */ inputChanges) {
     this.#logger.info('Triggering full rebuild...')
     // Dispose the old esbuild context
     if (this.#esbuildContext) {
@@ -427,9 +432,7 @@ export class DomStack {
     const siteData = await identifyPages(this.#src, this.opts)
 
     if (siteData.errors.length > 0) {
-      this.#logger.error(`identifyPages errors:
-${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
-      return
+      throw new DomStackAggregateError(siteData.errors, 'Page discovery failed.', siteData)
     }
 
     await ensureDest(this.#dest, siteData)
@@ -438,8 +441,7 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
     this.#esbuildContext = context
     this.#siteData = siteData
 
-    await this.#runPageBuild(siteData)
-    await this.#rebuildMaps(siteData)
+    await this.#runPageBuild(siteData, null, null, null, inputChanges)
   }
 
   /** @returns {WatchSnapshot | undefined} */
@@ -456,52 +458,84 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
       pagesFileDepMap: this.#pagesFileDepMap,
       pagesFileLayoutMap: this.#pagesFileLayoutMap,
       globalDataDepPaths: this.#globalDataDepPaths,
+      settingsDepPaths: this.#settingsDepPaths,
+      dependencyAnalysisFailed: this.#dependencyAnalysisFailed,
       pageBuildFailed: this.#pageBuildFailed,
       esbuildEntryPoints: this.#esbuildEntryPoints,
+      esbuildDepPaths: this.#esbuildDepPaths,
     }
   }
 
-  /**
-   * @param {string} changedPath
-   * @param {'change' | 'added' | 'removed'} type
-   */
-  async #handleWatchEvent (changedPath, type) {
+  /** @param {WatchEvent[]} events */
+  #filterWatchEvents (events) {
+    // Unknown inputs may be needed to recover after a failed build or analysis.
+    if (this.#pageBuildFailed || this.#dependencyAnalysisFailed) return events
+
+    const dependencies = [
+      this.#globalDataDepPaths,
+      this.#settingsDepPaths,
+      this.#layoutDepMap,
+      this.#pageDepMap,
+      this.#templateDepMap,
+      this.#pagesFileDepMap,
+      this.#esbuildDepPaths,
+    ]
+    return events.filter(({ filepath }) =>
+      isProcessedFile(filepath) || dependencies.some(paths => paths.has(filepath))
+    )
+  }
+
+  /** @param {WatchEvent[]} events */
+  async #handleWatchBatch (events) {
     const snapshot = this.#watchSnapshot()
     if (!snapshot) return
-    const event = classifyWatchEvent(type, changedPath)
-    await this.#executeWatchPlan(planWatchEvent(snapshot, event), event)
+    events = this.#filterWatchEvents(events)
+    const event = events[0]
+    if (!event) return
+    const { plan, inputChanges } = planWatchBatch(snapshot, events)
+    // Bundle replanning can skip page work, so it must not bypass a required reset.
+    const singlePlan = inputChanges.resetReason === undefined &&
+      events.length === 1 && event.type !== 'change' && event.convention?.bundleScope
+      ? planWatchEvent(snapshot, event)
+      : null
+    await this.#executeWatchPlan(
+      snapshot.pageBuildFailed
+        ? { kind: 'full', message: 'Rediscovering and retrying all pages after the previous build failure...' }
+        : singlePlan?.kind === 'restart' ? singlePlan : plan,
+      event, inputChanges
+    )
   }
 
   /**
    * Keep resource ownership and successful-build state updates in the executor.
    * @param {WatchPlan} plan
    * @param {WatchEvent} event
+   * @param {GlobalDataInputChanges} inputChanges
    * @returns {Promise<void>}
    */
-  async #executeWatchPlan (plan, event) {
+  async #executeWatchPlan (plan, event, inputChanges) {
     if (plan.message) this.#logger.info(plan.message)
     if (plan.kind === 'skip') return
     if (plan.kind === 'full') {
-      await this.#fullRebuild()
+      await this.#fullRebuild(inputChanges)
       return
     }
     if (plan.kind === 'restart') {
-      await this.#restartEsbuildForEvent(event)
+      await this.#restartEsbuildForEvent(event, inputChanges)
       return
     }
     if (!this.#siteData) return
     if (plan.pages || plan.templates) {
       logRebuildTree(event.name, this.#logger, new Set(plan.pages), new Set(plan.templates))
     }
-    await this.#runPageBuild(this.#siteData, plan.pageFilterPaths, plan.templateFilterPaths, plan.pagesFileFilterPaths)
+    await this.#runPageBuild(this.#siteData, plan.pageFilterPaths, plan.templateFilterPaths, plan.pagesFileFilterPaths, inputChanges)
   }
 
-  /** @param {WatchEvent} event */
-  async #restartEsbuildForEvent (event) {
+  /** @param {WatchEvent} event @param {GlobalDataInputChanges} inputChanges */
+  async #restartEsbuildForEvent (event, inputChanges) {
     const siteData = await identifyPages(this.#src, this.opts)
     if (siteData.errors.length > 0) {
-      this.#logger.error(`identifyPages errors:\n${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
-      return
+      throw new DomStackAggregateError(siteData.errors, 'Page discovery failed.', siteData)
     }
     await ensureDest(this.#dest, siteData)
     if (this.#esbuildContext) {
@@ -517,7 +551,7 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
     // Successful page builds refresh their own maps. Service workers have no
     // HTML consumers, but their entry map still changes.
     if (plan.kind === 'skip') await this.#rebuildMaps(siteData)
-    await this.#executeWatchPlan(plan, event)
+    await this.#executeWatchPlan(plan, event, inputChanges)
   }
 
   /**
@@ -527,8 +561,9 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
    * @param {string[] | null} [pageFilterPaths]
    * @param {string[] | null} [templateFilterPaths]
    * @param {string[] | null} [pagesFileFilterPaths]
+   * @param {GlobalDataInputChanges} [inputChanges]
    */
-  async #runPageBuild (siteData, pageFilterPaths = null, templateFilterPaths = null, pagesFileFilterPaths = null) {
+  async #runPageBuild (siteData, pageFilterPaths = null, templateFilterPaths = null, pagesFileFilterPaths = null, inputChanges) {
     // Retry the complete page phase after a failure: neither subscriptions nor
     // layout routing from a failed build can safely drive an incremental retry.
     if (this.#pageBuildFailed) pageFilterPaths = templateFilterPaths = pagesFileFilterPaths = null
@@ -538,6 +573,8 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
         ...(pageFilterPaths ? { pageFilterPaths } : {}),
         ...(templateFilterPaths ? { templateFilterPaths } : {}),
         ...(pagesFileFilterPaths ? { pagesFileFilterPaths } : {}),
+        previousGlobalDataBaseline: this.#watchSession?.globalDataBaseline,
+        globalDataInputChanges: inputChanges,
         previousWatchDependencies: this.#watchDependencies,
         previousPageOutputCache: this.#pageOutputCache,
         trackWatchDependencies: true,
@@ -552,17 +589,26 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
         })
       }
       const isFiltered = pageFilterPaths !== null || templateFilterPaths !== null || pagesFileFilterPaths !== null
-      await this.#removeObsoletePageOutputs(pageBuildResults, isFiltered)
+      try {
+        await this.#removeObsoletePageOutputs(pageBuildResults, isFiltered)
+      } catch (error) {
+        // The worker's writes succeeded even if cleanup did not. Keep their
+        // ownership for recovery without committing producer/subscriber state.
+        this.#rememberPartialPageOutputs(pageBuildResults)
+        throw error
+      }
       this.#updatePageLayoutNames(pageBuildResults.report.pages, !isFiltered)
       if (!isFiltered) {
         this.#pagesFileLayoutMap = getPagesFileLayoutMap(pageBuildResults.report.pages)
       } else {
         updatePagesFileLayoutMap(this.#pagesFileLayoutMap, pageBuildResults.report.rebuiltPagesFilePaths ?? [], pageBuildResults.report.pages)
       }
+      await this.#rebuildMaps(siteData)
       this.#watchDependencies = pageBuildResults.report.watchDependencies ?? this.#watchDependencies
+      if (this.#watchSession) this.#watchSession.globalDataBaseline = pageBuildResults.report.globalDataBaseline ?? null
+      delete pageBuildResults.report.globalDataBaseline
       delete pageBuildResults.report.watchDependencies
       delete pageBuildResults.report.rebuiltPagesFilePaths
-      await this.#rebuildMaps(siteData)
       this.#pageBuildFailed = false
       buildLogger(
         isFiltered ? pageBuildResults : { warnings: pageBuildResults.warnings, siteData, pageBuildResults },
@@ -632,18 +678,27 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
     this.#templateOutputMap = templates
   }
 
-  /**
-   * @param {WatchSession} session
-   * @param {() => Promise<unknown>} fn
-   */
-  #enqueueBuild (session, fn) {
-    if (session.state !== 'watching') return
+  /** @param {WatchSession} session */
+  #scheduleWatchBatch (session) {
+    if (session.state !== 'watching' || session.drainScheduled || !session.pendingEvents.length) return
+    session.drainScheduled = true
     this.#buildLock = this.#buildLock.then(async () => {
-      if (session.state !== 'watching') return
       try {
-        await fn()
-      } catch (err) {
-        errorLogger(err, this.#logger)
+        while (session.state === 'watching' && session.pendingEvents.length) {
+          // Coalesce the current event-loop turn, then detach. Events observed
+          // during asynchronous build work belong to the next batch, never this one.
+          await setImmediate()
+          if (session.state !== 'watching') break
+          const events = session.pendingEvents.splice(0)
+          try {
+            await this.#handleWatchBatch(events)
+          } catch (err) {
+            this.#pageBuildFailed = true
+            errorLogger(err, this.#logger)
+          }
+        }
+      } finally {
+        session.drainScheduled = false
       }
     })
   }
@@ -675,15 +730,27 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
     const pageDepMap = /** @type {Map<string, Set<PageInfo>>} */ (new Map())
     const templateDepMap = /** @type {Map<string, Set<TemplateInfo>>} */ (new Map())
     const pagesFileDepMap = /** @type {Map<string, Set<PagesFileInfo>>} */ (new Map())
-    const globalDataDepPaths = new Set()
-    if (siteData.globalData) {
-      globalDataDepPaths.add(siteData.globalData.filepath)
-      try {
-        for (const dep of await find(siteData.globalData.filepath)) globalDataDepPaths.add(resolve(dep))
-      } catch {
-        // Static import analysis is best-effort, as for page and layout helpers.
+    let dependencyAnalysisFailed = false
+    /** @param {...(string | undefined)} filepaths */
+    const rootDependencies = async (...filepaths) => {
+      const paths = new Set(/** @type {string[]} */ ([]))
+      for (const filepath of filepaths) {
+        if (!filepath) continue
+        paths.add(resolve(filepath))
+        try {
+          for (const dep of await find(filepath)) paths.add(resolve(dep))
+        } catch {
+          dependencyAnalysisFailed = true
+        }
       }
+      return paths
     }
+    const globalDataDepPaths = await rootDependencies(siteData.globalData?.filepath)
+    const settingsDepPaths = await rootDependencies(
+      siteData.globalVars?.filepath,
+      siteData.markdownItSettings?.filepath,
+      siteData.esbuildSettings?.filepath
+    )
 
     // layoutFileMap: layout filepath → layoutName
     for (const layout of Object.values(siteData.layouts)) {
@@ -700,7 +767,7 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
           layoutDepMap.get(absPath)?.add(layout.layoutName)
         }
       } catch {
-        // dep analysis is best-effort
+        dependencyAnalysisFailed = true
       }
     }
 
@@ -720,7 +787,7 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
 
     // pageDepMap: dep filepath → Set<PageInfo>
     for (const pageInfo of siteData.pages) {
-      const filesToTrack = [pageInfo.pageFile.filepath]
+      const filesToTrack = /\.[cm]?[jt]sx?$/.test(pageInfo.pageFile.filepath) ? [pageInfo.pageFile.filepath] : []
       if (pageInfo.pageVars) filesToTrack.push(pageInfo.pageVars.filepath)
       for (const file of filesToTrack) {
         try {
@@ -731,7 +798,7 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
             pageDepMap.get(absPath)?.add(pageInfo)
           }
         } catch {
-          // best-effort
+          dependencyAnalysisFailed = true
         }
       }
     }
@@ -746,7 +813,7 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
           templateDepMap.get(absPath)?.add(templateInfo)
         }
       } catch {
-        // best-effort
+        dependencyAnalysisFailed = true
       }
     }
 
@@ -760,6 +827,7 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
           pagesFileDepMap.get(absPath)?.add(pagesFileInfo)
         }
       } catch (err) {
+        dependencyAnalysisFailed = true
         const message = err instanceof Error ? err.message : String(err)
         this.#logger.debug(`Could not analyze dependencies for pages file "${pagesFileInfo.pagesFile.relname}": ${message}`)
       }
@@ -776,6 +844,16 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
       for (const asset of layoutBundleAssets(layout)) esbuildEntryPoints.add(resolve(asset.filepath))
     }
 
+    const esbuildDepPaths = new Set(/** @type {string[]} */ ([]))
+    for (const filepath of esbuildEntryPoints) {
+      if (!/\.[cm]?[jt]sx?$/.test(filepath)) continue
+      try {
+        for (const dep of await find(filepath)) esbuildDepPaths.add(resolve(dep))
+      } catch {
+        // Unknown browser helpers still take the conservative reset path.
+      }
+    }
+
     this.#layoutDepMap = layoutDepMap
     this.#layoutPageMap = layoutPageMap
     this.#pageFileMap = pageFileMap
@@ -784,7 +862,10 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
     this.#templateDepMap = templateDepMap
     this.#pagesFileDepMap = pagesFileDepMap
     this.#globalDataDepPaths = globalDataDepPaths
+    this.#settingsDepPaths = settingsDepPaths
+    this.#dependencyAnalysisFailed = dependencyAnalysisFailed
     this.#esbuildEntryPoints = esbuildEntryPoints
+    this.#esbuildDepPaths = esbuildDepPaths
   }
 
   /**
@@ -830,6 +911,10 @@ ${siteData.errors.map(err => ` ${err.message}`).join('\n')}`)
       Promise.resolve().then(() => this.#esbuildContext?.dispose()),
       Promise.resolve().then(() => this.#syncServer?.exit()),
     ]))
+    session.pendingEvents = []
+    session.globalDataBaseline = null
+    this.#watchDependencies = null
+    this.#pageBuildFailed = false
     this.#watcher = null
     this.#cpxWatchers = []
     this.#esbuildContext = null

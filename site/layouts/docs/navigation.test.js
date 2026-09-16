@@ -4,7 +4,7 @@ import { test } from 'node:test'
 import { load } from 'cheerio'
 import { render } from 'fragtml'
 import { renderMd } from '../../../lib/build-pages/page-builders/md/get-md.js'
-import { collectDocsNavigation, docsIndex, navigationHref } from './navigation.js'
+import { collectDocsNavigation, readDocsNavigationPage, projectDocsNavigation, docsIndex, navigationHref } from './navigation.js'
 import { documentationContent, navigation } from './docs.layout.js'
 
 /** @param {string} url @param {string} markdown @param {DocsPageVars} [vars] @returns {NavigationPage} */
@@ -110,6 +110,37 @@ test('navigation parents must be existing ancestor pages', async () => {
       page('/docs/other/', '# Not an ancestor'),
     ]), /Invalid documentation parent/)
   }
+})
+
+test('repeated navigation projections do not mutate cached headings or nesting', async () => {
+  const pages = [
+    page('/docs/guide/', '# Guide\n\n## Overview\n\n### Details'),
+    page('/docs/guide/child/', '# Child', { docsParent: '/docs/guide/' }),
+  ]
+  const records = (await Promise.all(pages.map(readDocsNavigationPage))).filter(record => record !== undefined)
+  const retained = structuredClone(records)
+  const expected = [{
+    title: 'Guide',
+    url: '/docs/guide/',
+    sections: [
+      {
+        title: 'Overview',
+        url: '/docs/guide/#overview',
+        sections: [{ title: 'Details', url: '/docs/guide/#details', sections: [] }],
+      },
+      { title: 'Child', url: '/docs/guide/child/', sections: [] },
+    ],
+  }]
+  const projected = projectDocsNavigation(retained)
+  assert.deepEqual(projected, expected)
+  assert.deepEqual(projectDocsNavigation(retained), expected, 'child pages must not accumulate on repeated projection')
+  assert.deepEqual(retained, records, 'projection must leave cached headings and nesting unchanged')
+
+  const heading = projected[0]?.sections[0]?.sections[0]
+  assert.ok(heading)
+  heading.title = 'Consumer mutation'
+  assert.deepEqual(retained, records, 'even nested public headings must not alias cached records')
+  assert.deepEqual(projectDocsNavigation(retained), expected)
 })
 
 test('navigation links preserve deployment prefixes for directory and flat pages', () => {
