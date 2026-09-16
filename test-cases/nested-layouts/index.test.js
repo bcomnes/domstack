@@ -1,11 +1,14 @@
-/** @import { TestContext } from 'node:test' */
+/**
+ * @import { TestContext } from 'node:test'
+ * @import { Logger } from 'pino'
+ */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtemp, mkdir, writeFile, readFile, rm, stat, unlink } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import pino from 'pino'
 import { DomStack } from '../../index.js'
-import { startWatch } from '../watch/helpers.js'
+import { editAndWait, startWatch, waitForRebuild } from '../watch/helpers.js'
 
 const rootLayout = `
 import { label } from './label.js'
@@ -26,8 +29,8 @@ export const parentLayout = 'article'
 export default ({ children }) => ({ html: '<section>' + children + '</section>' })
 `
 
-/** @param {TestContext} t */
-async function setup (t) {
+/** @param {TestContext} t @param {Logger} [logger] */
+async function setup (t, logger = pino({ level: 'silent' })) {
   const dir = await mkdtemp(join(import.meta.dirname, '.tmp-'))
   const src = join(dir, 'src')
   const dest = join(dir, 'public')
@@ -62,7 +65,7 @@ async function setup (t) {
     await mkdir(dirname(join(src, name)), { recursive: true })
     await writeFile(join(src, name), contents)
   }))
-  const domstack = new DomStack(src, dest, { logger: pino({ level: 'silent' }) })
+  const domstack = new DomStack(src, dest, { logger })
   t.after(async () => {
     if (domstack.watching) await domstack.stopWatching()
     await rm(dir, { recursive: true, force: true })
@@ -100,52 +103,37 @@ test('watch follows ancestor edits, imports, reparenting, and asset membership',
   const { domstack, read, write, dest, src } = await setup(t)
   await startWatch(t, domstack, src)
   const unrelatedTime = (await stat(join(dest, 'plain/index.html'))).mtimeMs
-  const settle = async () => {
-    await new Promise(resolve => setTimeout(resolve, 800))
-    await domstack.settled()
-  }
-  await write('label.js', "export const label = 'v2'")
-  await settle()
+  await editAndWait(domstack, join(src, 'label.js'), () => write('label.js', "export const label = 'v2'"))
   for (const file of ['source/index.html', 'typed/index.html', 'markup/index.html', 'archive.html']) {
     assert.match(await read(file), /data-root="v2"/)
   }
-  await write('root.layout.js', rootLayout.replace('data-root', 'data-updated-root'))
-  await settle()
+  await editAndWait(domstack, join(src, 'root.layout.js'), () => write('root.layout.js', rootLayout.replace('data-root', 'data-updated-root')))
   assert.match(await read('archive.html'), /data-updated-root="v2"/)
   assert.equal((await stat(join(dest, 'plain/index.html'))).mtimeMs, unrelatedTime)
 
   // Import relationships also refresh when an ancestor changes its helpers.
-  await write('root.layout.js', rootLayout.replace("'./label.js'", "'./other-label.js'"))
-  await settle()
-  await write('other-label.js', "export const label = 'alternate v2'")
-  await settle()
+  await editAndWait(domstack, join(src, 'root.layout.js'), () => write('root.layout.js', rootLayout.replace("'./label.js'", "'./other-label.js'")))
+  await editAndWait(domstack, join(src, 'other-label.js'), () => write('other-label.js', "export const label = 'alternate v2'"))
   assert.match(await read('archive.html'), /data-root="alternate v2"/)
 
   // Failed builds retain the successful chain so fixing an ancestor retries it.
-  await write('root.layout.js', "export const parentLayout = 'post'; export default () => ''")
-  await settle()
+  await editAndWait(domstack, join(src, 'root.layout.js'), () => write('root.layout.js', "export const parentLayout = 'post'; export default () => ''"))
   assert.match(await read('archive.html'), /data-root="alternate v2"/)
-  await write('root.layout.js', rootLayout)
-  await settle()
+  await editAndWait(domstack, join(src, 'root.layout.js'), () => write('root.layout.js', rootLayout))
   assert.match(await read('archive.html'), /data-root="v2"/)
 
-  await unlink(join(src, 'article.layout.css'))
-  await settle()
+  await editAndWait(domstack, join(src, 'article.layout.css'), () => unlink(join(src, 'article.layout.css')))
   assert.doesNotMatch(await read('archive.html'), /article\.layout\.css/)
-  await write('article.layout.css', 'article { color: red }')
-  await settle()
+  await editAndWait(domstack, join(src, 'article.layout.css'), () => write('article.layout.css', 'article { color: red }'))
   assert.match(await read('archive.html'), /article\.layout\.css/)
 
-  await write('article.layout.js', articleLayout.replace("'root'", "'other'"))
-  await settle()
+  await editAndWait(domstack, join(src, 'article.layout.js'), () => write('article.layout.js', articleLayout.replace("'root'", "'other'")))
   assert.match(await read('source/index.html'), /<aside>/)
   assert.doesNotMatch(await read('archive.html'), /root\.layout\.(css|client\.js)/)
   const detachedTime = (await stat(join(dest, 'archive.html'))).mtimeMs
-  await write('root.layout.js', rootLayout.replace('data-root', 'data-detached-root'))
-  await settle()
+  await editAndWait(domstack, join(src, 'root.layout.js'), () => write('root.layout.js', rootLayout.replace('data-root', 'data-detached-root')))
   assert.equal((await stat(join(dest, 'archive.html'))).mtimeMs, detachedTime, 'the former ancestor no longer rebuilds this output')
-  await write('other.layout.js', "export default ({children}) => '<nav>' + children + '</nav>'")
-  await settle()
+  await editAndWait(domstack, join(src, 'other.layout.js'), () => write('other.layout.js', "export default ({children}) => '<nav>' + children + '</nav>'"))
   assert.match(await read('source/index.html'), /<nav>/)
   assert.match(await read('archive.html'), /<nav>/)
 })
@@ -183,9 +171,7 @@ test('manual composition preserves render values, forwarded assets, and imported
   assert.ok(sharedClient, 'manual client retains the shared parent client import')
   assert.match(await read(sharedClient), /root/)
 
-  await write('root.layout.js', rootLayout.replace('data-root', 'data-manual-parent'))
-  await new Promise(resolve => setTimeout(resolve, 800))
-  await domstack.settled()
+  await editAndWait(domstack, join(src, 'root.layout.js'), () => write('root.layout.js', rootLayout.replace('data-root', 'data-manual-parent')))
   assert.match(await read('manual/index.html'), /data-manual-parent/)
   assert.match(await read('manual-generated.html'), /data-manual-parent/)
   assert.equal((await stat(join(dest, 'plain/index.html'))).mtimeMs, unrelatedTime)
@@ -198,16 +184,16 @@ test('a shared helper rebuilds layouts, pages, templates, and generated owners t
   await write('label.template.js', "import {label} from './label.js'; export default () => label")
   await write('label.pages.js', "import {label} from './label.js'; export default {outputName:'label.html', children:label}")
   await startWatch(t, domstack, src)
-  await write('label.js', "export const label = 'shared-v2'")
-  await new Promise(resolve => setTimeout(resolve, 800))
-  await domstack.settled()
+  await editAndWait(domstack, join(src, 'label.js'), () => write('label.js', "export const label = 'shared-v2'"))
   for (const file of ['source/index.html', 'plain/index.html', 'label', 'label.html']) {
     assert.match(await read(file), /shared-v2/)
   }
 })
 
 test('a browser entry point also rebuilds all of its server-side consumers', { timeout: 30_000 }, async t => {
-  const { domstack, src, write, read, dest } = await setup(t)
+  const logs = /** @type {string[]} */ ([])
+  const logger = pino({ level: 'info' }, { write: line => logs.push(JSON.parse(line).msg) })
+  const { domstack, src, write, read, dest } = await setup(t, logger)
   await write('global.client.js', "export const label = 'browser-v1'")
   await write('root.layout.js', rootLayout.replace('./label.js', './global.client.js'))
   await write('typed/page.ts', "import {label} from '../global.client.js'; export default () => label")
@@ -218,9 +204,9 @@ test('a browser entry point also rebuilds all of its server-side consumers', { t
   const affectedOutputs = ['source/index.html', 'typed/index.html', 'archive.html', 'label', 'label.html', 'global.client.js']
   for (const output of affectedOutputs) assert.match(await read(output), /browser-v1/)
 
-  await write('global.client.js', "export const label = 'browser-v2'")
-  await new Promise(resolve => setTimeout(resolve, 800))
-  await domstack.settled()
+  const cursor = logs.length
+  await editAndWait(domstack, join(src, 'global.client.js'), () => write('global.client.js', "export const label = 'browser-v2'"))
+  await waitForRebuild(logs, cursor, 'JS/CSS rebuild complete')
   for (const output of affectedOutputs) assert.match(await read(output), /browser-v2/)
   assert.equal((await stat(join(dest, 'plain/index.html'))).mtimeMs, unrelatedTime)
 })
@@ -246,17 +232,13 @@ test('watch recovers from initial layout failures before any routing state exist
         assert.equal(error.cause, 'broken vars', 'the original thrown value survives the worker boundary')
       }
 
-      await write('root.layout.js', rootLayout)
-      await new Promise(resolve => setTimeout(resolve, 800))
-      await domstack.settled()
+      await editAndWait(domstack, join(src, 'root.layout.js'), () => write('root.layout.js', rootLayout))
       for (const output of ['source/index.html', 'typed/index.html', 'markup/index.html', 'archive.html']) {
         assert.match(await read(output), /data-root="v1"/)
       }
 
       const unrelatedTime = (await stat(join(dest, 'plain/index.html'))).mtimeMs
-      await write('label.js', "export const label = 'recovered'")
-      await new Promise(resolve => setTimeout(resolve, 800))
-      await domstack.settled()
+      await editAndWait(domstack, join(src, 'label.js'), () => write('label.js', "export const label = 'recovered'"))
       assert.match(await read('source/index.html'), /data-root="recovered"/)
       assert.match(await read('archive.html'), /data-root="recovered"/)
       assert.equal((await stat(join(dest, 'plain/index.html'))).mtimeMs, unrelatedTime, 'successful recovery restores targeted routing')
@@ -303,9 +285,7 @@ test('manual composition forwards declared data and rebuilds source and generate
     ['message-v1', 'manual-message-v2', 'manual-message-v2'],
   ])) {
     currentData = currentData.replace(before, after)
-    await write('global.data.js', currentData)
-    await new Promise(resolve => setTimeout(resolve, 800))
-    await domstack.settled()
+    await editAndWait(domstack, join(src, 'global.data.js'), () => write('global.data.js', currentData))
     for (const file of ['manual/index.html', 'manual-generated.html']) {
       assert.match(await read(file), /manual-nav-v2/)
       assert.match(await read(file), new RegExp(`<article>\\s*<p>${message}</p>`))
@@ -378,14 +358,9 @@ test('watch subscribes outputs to the full layout chain and drops old ancestor s
   const { domstack, src, read, write, dest } = await setupSubscriptions(t)
   await startWatch(t, domstack, src)
   const mtime = async (/** @type {string} */ name) => (await stat(join(dest, name))).mtimeMs
-  const settle = async () => {
-    await new Promise(resolve => setTimeout(resolve, 800))
-    await domstack.settled()
-  }
   const plainTime = await mtime('plain/index.html')
   let currentData = globalData
-  await write('source/page.md', '---\nlayout: post\n---\nChanged content')
-  await settle()
+  await editAndWait(domstack, join(src, 'source/page.md'), () => write('source/page.md', '---\nlayout: post\n---\nChanged content'))
   for (const file of ['markup/index.html', 'typed/index.html', 'archive.html']) {
     assert.match(await read(file), /Changed content/)
   }
@@ -393,28 +368,24 @@ test('watch subscribes outputs to the full layout chain and drops old ancestor s
 
   const archiveTime = await mtime('archive.html')
   currentData = currentData.replace('message-v1', 'message-v2')
-  await write('global.data.js', currentData)
-  await settle()
+  await editAndWait(domstack, join(src, 'global.data.js'), () => write('global.data.js', currentData))
   assert.match(await read('typed/index.html'), /message-v2/)
   assert.equal(await mtime('archive.html'), archiveTime, 'page-only data does not invalidate layouts or other pages')
 
   currentData = currentData.replace('recent-v1', 'recent-v2')
-  await write('global.data.js', currentData)
-  await settle()
+  await editAndWait(domstack, join(src, 'global.data.js'), () => write('global.data.js', currentData))
   assert.match(await read('archive.html'), /recent-v2/)
   assert.match(await read('markup/index.html'), /recent-v2/)
 
-  await write('post.layout.js', `
+  await editAndWait(domstack, join(src, 'post.layout.js'), () => write('post.layout.js', `
     export const parentLayout = 'other'
     export const vars = { dataDeps: ['footer'] }
     export default ({ children, data }) => '<section>' + data.footer + children + '</section>'
-  `)
-  await settle()
+  `))
   assert.doesNotMatch(await read('archive.html'), /nav-v1|recent-v2/)
   const detachedTime = await mtime('archive.html')
   currentData = currentData.replace('nav-v1', 'nav-v2')
-  await write('global.data.js', currentData)
-  await settle()
+  await editAndWait(domstack, join(src, 'global.data.js'), () => write('global.data.js', currentData))
   assert.equal(await mtime('archive.html'), detachedTime, 'old ancestors no longer invalidate generated outputs')
   assert.equal(await mtime('plain/index.html'), plainTime)
 })

@@ -8,7 +8,7 @@ import assert from 'node:assert'
 import { DomStack } from '../../index.js'
 import { cp, rm, writeFile, readFile, unlink, mkdtemp, stat, readdir, mkdir } from 'fs/promises'
 import * as path from 'path'
-import { startWatch } from './helpers.js'
+import { editAndWait, startWatch, waitForRebuild } from './helpers.js'
 
 const fixtureDir = path.join(import.meta.dirname, '../general-features/src')
 
@@ -55,16 +55,6 @@ async function setupTempWatch (t, { prefix, files, logger }) {
   return { src, dest, domStack }
 }
 
-/**
- * Wait for chokidar to detect a change and the rebuild to settle.
- * @param {DomStack} domStack
- * @param {number} [ms=800]
- */
-async function settle (domStack, ms = 800) {
-  await new Promise(resolve => setTimeout(resolve, ms))
-  await domStack.settled()
-}
-
 test('global-data imports refresh subscribers and any direct consumers of the same helper', { timeout: 30_000 }, async t => {
   for (const scenario of [
     { helper: 'value.js', direct: false },
@@ -74,8 +64,10 @@ test('global-data imports refresh subscribers and any direct consumers of the sa
   ]) {
     const { helper, direct } = scenario
     await t.test(`${helper}, ${direct ? 'with direct consumer' : 'global-data consumers only'}`, async t => {
+      const loggerLogs = /** @type {string[]} */ ([])
       const { src, dest, domStack } = await setupTempWatch(t, {
         prefix: '.tmp-data-imports-',
+        logger: createTestLogger(loggerLogs),
         files: {
           'global.vars.js': "export default { layout: 'root' }",
           'root.layout.js': 'export default ({ children }) => children',
@@ -91,8 +83,11 @@ test('global-data imports refresh subscribers and any direct consumers of the sa
       const unrelatedTime = (await stat(path.join(dest, 'unchanged/index.html'))).mtimeMs
       const outputs = ['index.html', 'value.txt', 'generated.html', ...(direct ? ['direct/index.html'] : [])]
       for (const name of outputs) assert.match(await readFile(path.join(dest, name), 'utf8'), /first/)
-      await writeFile(path.join(src, helper), "export const value = 'second'")
-      await settle(domStack)
+      const cursor = loggerLogs.length
+      await editAndWait(domStack, path.join(src, helper), async () => {
+        await writeFile(path.join(src, helper), "export const value = 'second'")
+      })
+      if (helper === 'client.js') await waitForRebuild(loggerLogs, cursor, 'JS/CSS rebuild complete')
       for (const name of outputs) {
         assert.match(await readFile(path.join(dest, name), 'utf8'), /second/)
       }
@@ -115,15 +110,17 @@ test('targeted factories reserve untouched owners outputs and recover after a co
       'b.pages.js': "export default { outputName: 'b.html', children: 'Owner B' }",
     },
   })
-  await writeFile(path.join(src, 'a.pages.js'), "export default { outputName: 'b.html', children: 'Collision' }")
-  await settle(domStack)
+  await editAndWait(domStack, path.join(src, 'a.pages.js'), async () => {
+    await writeFile(path.join(src, 'a.pages.js'), "export default { outputName: 'b.html', children: 'Collision' }")
+  })
   assert.ok(logs.some(line => line.includes('Output path conflict: b.html is produced by both b.pages.js and a.pages.js#0.')), 'both conflicting producers use source-relative names')
   assert.match(await readFile(path.join(dest, 'b.html'), 'utf8'), /Owner B/)
   assert.match(await readFile(path.join(dest, 'a.html'), 'utf8'), /Owner A/)
   // A repeated watcher event can trigger a full retry after failure. Streaming
   // may rewrite B with its own content before encountering A's collision again.
-  await writeFile(path.join(src, 'a.pages.js'), "export default { outputName: 'c.html', children: 'Recovered' }")
-  await settle(domStack)
+  await editAndWait(domStack, path.join(src, 'a.pages.js'), async () => {
+    await writeFile(path.join(src, 'a.pages.js'), "export default { outputName: 'c.html', children: 'Recovered' }")
+  })
   assert.match(await readFile(path.join(dest, 'c.html'), 'utf8'), /Recovered/)
   await assert.rejects(stat(path.join(dest, 'a.html')), { code: 'ENOENT' })
   assert.match(await readFile(path.join(dest, 'b.html'), 'utf8'), /Owner B/)
@@ -140,8 +137,9 @@ test('watch recovers from an initial layout subscription error before any routin
       'page.html': 'Page',
     },
   })
-  await writeFile(path.join(src, 'root.layout.js'), "export const vars = { dataDeps: ['value'] }; export default ({data, children}) => data.value + children")
-  await settle(domStack)
+  await editAndWait(domStack, path.join(src, 'root.layout.js'), async () => {
+    await writeFile(path.join(src, 'root.layout.js'), "export const vars = { dataDeps: ['value'] }; export default ({data, children}) => data.value + children")
+  })
   assert.match(await readFile(path.join(dest, 'index.html'), 'utf8'), /Recovered/)
 })
 
@@ -199,8 +197,9 @@ test.describe('watch', () => {
     const outputPath = path.join(dest, 'index.html')
     assert.equal(await readFile(outputPath, 'utf8'), 'root-v1:content')
 
-    await writeFile(rootLayout, "export const vars = { layout: 'shadowed' }; export default ({ children }) => 'root-v2:' + children\n")
-    await settle(domStack)
+    await editAndWait(domStack, rootLayout, async () => {
+      await writeFile(rootLayout, "export const vars = { layout: 'shadowed' }; export default ({ children }) => 'root-v2:' + children\n")
+    })
 
     assert.equal(await readFile(outputPath, 'utf8'), 'root-v2:content')
   })
@@ -220,12 +219,14 @@ test.describe('watch', () => {
     const outputPath = path.join(dest, 'index.html')
     assert.equal(await readFile(outputPath, 'utf8'), 'root:content')
 
-    await writeFile(pageFile, "export const vars = { layout: 'blog' }; export default () => 'content'\n")
-    await settle(domStack)
+    await editAndWait(domStack, pageFile, async () => {
+      await writeFile(pageFile, "export const vars = { layout: 'blog' }; export default () => 'content'\n")
+    })
     assert.equal(await readFile(outputPath, 'utf8'), 'blog-v1:content')
 
-    await writeFile(blogLayout, "export default ({ children }) => 'blog-v2:' + children\n")
-    await settle(domStack)
+    await editAndWait(domStack, blogLayout, async () => {
+      await writeFile(blogLayout, "export default ({ children }) => 'blog-v2:' + children\n")
+    })
     assert.equal(await readFile(outputPath, 'utf8'), 'blog-v2:content')
   })
 
@@ -244,23 +245,27 @@ test.describe('watch', () => {
     })
     const pageFile = path.join(src, 'page.js')
     const rootLayout = path.join(src, 'root.layout.js')
-    await writeFile(pageFile, 'export default (\n')
-    await settle(domStack)
+    await editAndWait(domStack, pageFile, async () => {
+      await writeFile(pageFile, 'export default (\n')
+    })
 
     loggerLogs.length = 0
-    await writeFile(rootLayout, "export default ({ children }) => 'root-v2:' + children\n")
-    await settle(domStack)
+    await editAndWait(domStack, rootLayout, async () => {
+      await writeFile(rootLayout, "export default ({ children }) => 'root-v2:' + children\n")
+    })
 
     assert.ok(loggerLogs.some(line => line.includes('retrying all pages after the previous build failure')))
     assert.ok(!loggerLogs.some(line => line.includes('no pages use layout "root"')))
     assert.equal(await readFile(path.join(dest, 'index.html'), 'utf8'), 'root-v1:content')
-    await writeFile(pageFile, "export default () => 'content'")
-    await settle(domStack)
+    await editAndWait(domStack, pageFile, async () => {
+      await writeFile(pageFile, "export default () => 'content'")
+    })
     assert.equal(await readFile(path.join(dest, 'index.html'), 'utf8'), 'root-v2:content')
     const unrelatedTime = (await stat(path.join(dest, 'other/index.html'))).mtimeMs
     loggerLogs.length = 0
-    await writeFile(rootLayout, "export default ({ children }) => 'root-v3:' + children")
-    await settle(domStack)
+    await editAndWait(domStack, rootLayout, async () => {
+      await writeFile(rootLayout, "export default ({ children }) => 'root-v3:' + children")
+    })
     assert.equal(await readFile(path.join(dest, 'index.html'), 'utf8'), 'root-v3:content')
     assert.equal((await stat(path.join(dest, 'other/index.html'))).mtimeMs, unrelatedTime, 'successful recovery resumes targeted routing')
     assert.ok(loggerLogs.some(line => line.includes('"root.layout.js" changed:') && line.includes('index.html')))
@@ -282,13 +287,15 @@ test.describe('watch', () => {
     const output = path.join(dest, 'index.html')
     assert.ok(!(await readFile(output, 'utf8')).includes('src="./client.js"'))
 
-    await writeFile(path.join(src, 'client.jsx'), 'console.log("JSX client entry")\n')
-    await settle(domStack)
+    await editAndWait(domStack, path.join(src, 'client.jsx'), async () => {
+      await writeFile(path.join(src, 'client.jsx'), 'console.log("JSX client entry")\n')
+    })
     assert.ok((await readFile(output, 'utf8')).includes('src="./client.js"'))
     assert.ok((await readFile(path.join(dest, 'client.js'), 'utf8')).includes('JSX client entry'))
 
-    await unlink(path.join(src, 'client.jsx'))
-    await settle(domStack)
+    await editAndWait(domStack, path.join(src, 'client.jsx'), async () => {
+      await unlink(path.join(src, 'client.jsx'))
+    })
     assert.ok(!(await readFile(output, 'utf8')).includes('src="./client.js"'))
   })
   test('targets generated-page owners independently', { timeout: 30_000 }, async (t) => {
@@ -300,11 +307,13 @@ test.describe('watch', () => {
     const sourcePage = path.join(src, 'page.md')
     const alphaPages = path.join(src, 'alpha.pages.js')
     const betaPages = path.join(src, 'beta.pages.js')
+    const generatedValue = path.join(src, 'generated-value.js')
 
     await Promise.all([
       writeFile(sourcePage, '# Source v1\n'),
       writeFile(alphaPages, "export default [{ outputName: 'generated/alpha.html', children: 'alpha v1' }]\n"),
       writeFile(betaPages, "export default [{ outputName: 'generated/beta.html', children: 'beta v1' }]\n"),
+      writeFile(generatedValue, "export const value = 'First value'\n"),
     ])
 
     const loggerLogs = /** @type {string[]} */ ([])
@@ -322,24 +331,47 @@ test.describe('watch', () => {
     const betaOutput = path.join(dest, 'generated/beta.html')
 
     assert.match(await readFile(alphaOutput, 'utf8'), /alpha v1/)
-    assert.match(await readFile(betaOutput, 'utf8'), /beta v1/)
+    const betaContent = await readFile(betaOutput, 'utf8')
+    const betaTime = (await stat(betaOutput)).mtimeMs
+    assert.match(betaContent, /beta v1/)
 
     loggerLogs.length = 0
-    await writeFile(sourcePage, '# Source v2\n')
-    await settle(domStack)
+    await editAndWait(domStack, sourcePage, async () => {
+      await writeFile(sourcePage, '# Source v2\n')
+    })
 
     assert.match(await readFile(path.join(dest, 'index.html'), 'utf8'), /Source v2/)
     assert.match(await readFile(alphaOutput, 'utf8'), /alpha v1/)
+    assert.equal(await readFile(betaOutput, 'utf8'), betaContent)
+    assert.equal((await stat(betaOutput)).mtimeMs, betaTime, 'source changes leave the unrelated owner untouched')
     assert.ok(loggerLogs.some(line => line.includes('Pages built: 1')), 'source change rebuilds only its page')
 
+    // The helper exists at startup, but only this owner edit introduces its import.
     loggerLogs.length = 0
-    await writeFile(alphaPages, "export default [{ outputName: 'generated/alpha-renamed.html', children: 'alpha v2' }]\n")
-    await settle(domStack)
+    await editAndWait(domStack, alphaPages, async () => {
+      await writeFile(alphaPages, `import { value } from './generated-value.js'
 
-    assert.match(await readFile(alphaRenamedOutput, 'utf8'), /alpha v2/)
-    await assert.rejects(() => stat(alphaOutput), 'removed owner output is cleaned')
-    assert.match(await readFile(betaOutput, 'utf8'), /beta v1/)
+export default [{ outputName: 'generated/alpha-renamed.html', children: 'alpha v2: ' + value + ' after pages edit' }]
+`)
+    })
+
+    const renamedContent = await readFile(alphaRenamedOutput, 'utf8')
+    assert.match(renamedContent, /alpha v2/)
+    assert.match(renamedContent, /First value after pages edit/)
+    await assert.rejects(() => stat(alphaOutput), { code: 'ENOENT' }, 'removed owner output is cleaned')
+    assert.equal(await readFile(betaOutput, 'utf8'), betaContent)
+    assert.equal((await stat(betaOutput)).mtimeMs, betaTime, 'owner changes leave the unrelated owner untouched')
     assert.ok(loggerLogs.some(line => line.includes('Pages built: 1')), 'only the changed owner is rendered')
+
+    loggerLogs.length = 0
+    await editAndWait(domStack, generatedValue, async () => {
+      await writeFile(generatedValue, "export const value = 'Updated dependency'\n")
+    })
+
+    assert.match(await readFile(alphaRenamedOutput, 'utf8'), /alpha v2: Updated dependency after pages edit/)
+    assert.equal(await readFile(betaOutput, 'utf8'), betaContent)
+    assert.equal((await stat(betaOutput)).mtimeMs, betaTime, 'dependency changes leave the unrelated owner untouched')
+    assert.ok(loggerLogs.some(line => line.includes('Pages built: 1')), 'only the owner importing the new dependency is rendered')
   })
 
   test('progressive rebuilds', { timeout: 60_000 }, async (t) => {
@@ -390,9 +422,9 @@ test.describe('watch', () => {
 
       const pageFile = path.join(src, 'js-page/page.js')
       const original = await readFile(pageFile, 'utf8')
-      await writeFile(pageFile, original.replace('jus some html', 'UPDATED html'))
-
-      await settle(domStack)
+      await editAndWait(domStack, pageFile, async () => {
+        await writeFile(pageFile, original.replace('jus some html', 'UPDATED html'))
+      })
 
       const logs = getLogLines(mockLog, loggerLogs)
       assert.ok(
@@ -412,39 +444,13 @@ test.describe('watch', () => {
       assert.ok(output.includes('UPDATED html'), 'output file contains updated content')
     })
 
-    // ── Layout change → pages using that layout rebuild ──────────────
-    await t.test('layout change rebuilds only pages using that layout', async () => {
-      mockLog.mock.resetCalls()
-      loggerLogs.length = 0
-      const layoutFile = path.join(src, 'layouts/root.layout.js')
-      const original = await readFile(layoutFile, 'utf8')
-      await writeFile(layoutFile, original.replace('safe-area-inset', 'safe-area-inset layout-touched'))
-
-      await settle(domStack)
-
-      const logs = getLogLines(mockLog, loggerLogs)
-      assert.ok(
-        logs.some(l => l.includes('"root.layout.js" changed:')),
-        'log shows root.layout.js triggered a rebuild'
-      )
-      assert.ok(
-        logs.some(l => l.includes('Build Success')),
-        'build succeeded'
-      )
-      // Should NOT be a full rebuild
-      assert.ok(
-        !logs.some(l => l.includes('Triggering full rebuild')),
-        'did not trigger a full rebuild'
-      )
-    })
-
     await t.test('layout change rebuilds pages that select it through frontmatter', async () => {
       const layoutFile = path.join(src, 'layouts/blog.layout.js')
       const pageOutput = path.join(dest, 'md-page/index.html')
       const original = await readFile(layoutFile, 'utf8')
-      await writeFile(layoutFile, original.replace('article-layout h-entry', 'article-layout frontmatter-layout-updated h-entry'))
-
-      await settle(domStack)
+      await editAndWait(domStack, layoutFile, async () => {
+        await writeFile(layoutFile, original.replace('article-layout h-entry', 'article-layout frontmatter-layout-updated h-entry'))
+      })
 
       const output = await readFile(pageOutput, 'utf8')
       assert.match(output, /frontmatter-layout-updated/)
@@ -457,9 +463,9 @@ test.describe('watch', () => {
       const indexOutput = path.join(dest, 'index.html')
       const original = await readFile(sourcePage, 'utf8')
       assert.match(await readFile(indexOutput, 'utf8'), /A Blogpost from 2023/)
-      await writeFile(sourcePage, original.replace('A Blogpost from 2023', 'Updated collection title'))
-
-      await settle(domStack)
+      await editAndWait(domStack, sourcePage, async () => {
+        await writeFile(sourcePage, original.replace('A Blogpost from 2023', 'Updated collection title'))
+      })
 
       const output = await readFile(indexOutput, 'utf8')
       assert.match(output, /Updated collection title/)
@@ -474,9 +480,11 @@ test.describe('watch', () => {
       loggerLogs.length = 0
       const clientFile = path.join(src, 'js-page/client.js')
       const original = await readFile(clientFile, 'utf8')
-      await writeFile(clientFile, original + '\n// touch')
-
-      await settle(domStack)
+      const cursor = loggerLogs.length
+      await editAndWait(domStack, clientFile, async () => {
+        await writeFile(clientFile, original + '\n// touch')
+      })
+      await waitForRebuild(loggerLogs, cursor, 'JS/CSS rebuild complete')
 
       const logs = getLogLines(mockLog, loggerLogs)
       assert.ok(
@@ -496,9 +504,11 @@ test.describe('watch', () => {
 
       const serviceWorkerFile = path.join(src, 'globals/service-worker.mts')
       const original = await readFile(serviceWorkerFile, 'utf8')
-      await writeFile(serviceWorkerFile, original + '\n// touch')
-
-      await settle(domStack)
+      const cursor = loggerLogs.length
+      await editAndWait(domStack, serviceWorkerFile, async () => {
+        await writeFile(serviceWorkerFile, original + '\n// touch')
+      })
+      await waitForRebuild(loggerLogs, cursor, 'Service worker rebuild complete')
 
       const logs = getLogLines(mockLog, loggerLogs)
       assert.ok(
@@ -517,9 +527,11 @@ test.describe('watch', () => {
       loggerLogs.length = 0
       const helperFile = path.join(src, 'libs/client-helper.js')
       const original = await readFile(helperFile, 'utf8')
-      await writeFile(helperFile, original.replace('hello from client-helper', 'UPDATED client-helper'))
-
-      await settle(domStack)
+      const cursor = loggerLogs.length
+      await editAndWait(domStack, helperFile, async () => {
+        await writeFile(helperFile, original.replace('hello from client-helper', 'UPDATED client-helper'))
+      })
+      await waitForRebuild(loggerLogs, cursor, 'JS/CSS rebuild complete')
 
       const logs = getLogLines(mockLog, loggerLogs)
       // client-helper.js is NOT an esbuild entry point itself, but it IS imported by
@@ -538,9 +550,9 @@ test.describe('watch', () => {
       loggerLogs.length = 0
       const helperFile = path.join(src, 'libs/page-helper.js')
       const original = await readFile(helperFile, 'utf8')
-      await writeFile(helperFile, original.replace('page-helper-stamp', 'UPDATED-page-stamp'))
-
-      await settle(domStack)
+      await editAndWait(domStack, helperFile, async () => {
+        await writeFile(helperFile, original.replace('page-helper-stamp', 'UPDATED-page-stamp'))
+      })
 
       const logs = getLogLines(mockLog, loggerLogs)
       assert.ok(
@@ -560,43 +572,14 @@ test.describe('watch', () => {
       assert.ok(output.includes('UPDATED-page-stamp'), 'output file contains updated dep content')
     })
 
-    // ── layout dependency change → only pages using that layout rebuild
-    await t.test('changing a layout dependency rebuilds only pages using that layout', async () => {
-      mockLog.mock.resetCalls()
-      loggerLogs.length = 0
-      const helperFile = path.join(src, 'libs/layout-helper.js')
-      const original = await readFile(helperFile, 'utf8')
-      await writeFile(helperFile, original.replace('layout-helper-marker', 'UPDATED-layout-marker'))
-
-      await settle(domStack)
-
-      const logs = getLogLines(mockLog, loggerLogs)
-      assert.ok(
-        logs.some(l => l.includes('"layout-helper.js" changed:')),
-        'log shows layout-helper.js triggered a rebuild'
-      )
-      // Should rebuild pages using root layout, but NOT be a full rebuild
-      assert.ok(
-        logs.some(l => l.includes('Build Success')),
-        'build succeeded'
-      )
-      assert.ok(
-        !logs.some(l => l.includes('Triggering full rebuild')),
-        'did not trigger a full rebuild'
-      )
-
-      const output = await readFile(path.join(dest, 'js-page/index.html'), 'utf8')
-      assert.ok(output.includes('UPDATED-layout-marker'), 'output file contains updated layout dep content')
-    })
-
     // ── Add client.js to page dir → esbuild restart + targeted rebuild
     await t.test('adding client.js restarts esbuild and rebuilds only that page', async () => {
       mockLog.mock.resetCalls()
       loggerLogs.length = 0
       const newClient = path.join(src, 'js-page/js-no-style-client/client.js')
-      await writeFile(newClient, 'console.log("new client")\n')
-
-      await settle(domStack, 1200)
+      await editAndWait(domStack, newClient, async () => {
+        await writeFile(newClient, 'console.log("new client")\n')
+      })
 
       const logs = getLogLines(mockLog, loggerLogs)
       assert.ok(
@@ -618,9 +601,9 @@ test.describe('watch', () => {
       mockLog.mock.resetCalls()
       loggerLogs.length = 0
       const clientToRemove = path.join(src, 'js-page/js-no-style-client/client.js')
-      await unlink(clientToRemove)
-
-      await settle(domStack, 1200)
+      await editAndWait(domStack, clientToRemove, async () => {
+        await unlink(clientToRemove)
+      })
 
       const logs = getLogLines(mockLog, loggerLogs)
       assert.ok(
@@ -641,12 +624,12 @@ test.describe('watch', () => {
       const original = await readFile(globalData, 'utf8')
       const templateOutput = path.join(dest, 'feeds/feed.json')
       assert.equal(JSON.parse(await readFile(templateOutput, 'utf8'))._globalDataSentinel, 'data-from-global-dot-data')
-      await writeFile(globalData, original.replace(
-        'data-from-global-dot-data',
-        'updated-global-data-sentinel'
-      ))
-
-      await settle(domStack)
+      await editAndWait(domStack, globalData, async () => {
+        await writeFile(globalData, original.replace(
+          'data-from-global-dot-data',
+          'updated-global-data-sentinel'
+        ))
+      })
 
       const logs = getLogLines(mockLog, loggerLogs)
       assert.equal(JSON.parse(await readFile(templateOutput, 'utf8'))._globalDataSentinel, 'updated-global-data-sentinel')

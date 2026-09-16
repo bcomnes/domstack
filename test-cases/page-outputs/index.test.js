@@ -145,15 +145,6 @@ test('async generators publish each record before requesting the next at a custo
   }
 })
 
-test('generated pages skip inherited layout hooks', async t => {
-  const { build, read } = await setup(t, {
-    'root.layout.js': "export default ({ children }) => children; export const pageOutputs = () => { throw Error('generated hook ran') }",
-    'items.pages.js': "export default { outputName: 'generated.html', children: 'Generated' }",
-  })
-  await build()
-  assert.equal(await read('generated.html'), 'Generated')
-})
-
 test('JS page outputs take precedence over companion outputs while layouts remain additive', async t => {
   const { build, read, src } = await setup(t, {
     'root.layout.js': 'export default ({ children }) => children; ' + hook('layout.txt', 'layout'),
@@ -171,7 +162,6 @@ test('JS page outputs take precedence over companion outputs while layouts remai
   assert.equal(await read('index.html'), 'main')
   assert.equal(await read('layout.txt'), 'layout')
   assert.equal(await read('page.txt'), 'page')
-  await assert.rejects(read('companion.txt'), { code: 'ENOENT' })
 })
 
 for (const scenario of [

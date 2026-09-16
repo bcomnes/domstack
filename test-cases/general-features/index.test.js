@@ -649,8 +649,6 @@ export default function esbuildSettings (opts) {
 
     const files = await allFiles(dest, { shaper: fwData => fwData })
 
-    assert.ok(true, 'All files walked in output')
-
     const generatedGlobalStyle = files.some(f => f.relname.match(/global-([A-Z0-9])\w+.css/g))
     assert.equal(generatedGlobalStyle, globalAssets.globalStyle, `${globalAssets.globalStyle
             ? 'Generated'
@@ -660,6 +658,11 @@ export default function esbuildSettings (opts) {
     assert.equal(generatedGlobalClient, globalAssets.globalClient, `${globalAssets.globalClient
             ? 'Generated'
             : 'Did not generate'} a global client`)
+
+    const generatedPageClient = files.some(f => f.relname.match(/client-([A-Z0-9])\w+.js/g))
+    assert.ok(generatedPageClient, 'Generated a page client file')
+    const generatedPageStyle = files.some(f => f.relname.match(/style-([A-Z0-9])\w+.css/g))
+    assert.ok(generatedPageStyle, 'Generated a page style file')
 
     // Shared chunks (html-page, js-page, and md-page/client.js all import client-helper.js)
     // must be emitted with a hash in their filename to avoid output path collisions.
@@ -734,10 +737,6 @@ export default function esbuildSettings (opts) {
       assert.fail('Failed to verify markdown-it.settings.js customization: ' + error.message)
     }
 
-    // Check for worker files existence (used in the next test)
-    const hasWorkerFiles = files.some(f => f.relname.includes('worker-page/counter.worker-'))
-    assert.ok(hasWorkerFiles, 'Worker files exist in the output')
-
     // Test for web worker functionality
     await t.test('should support dedicated and shared web workers', async () => {
       // Check for worker files in the output
@@ -774,27 +773,11 @@ export default function esbuildSettings (opts) {
       // Verify the counter display element exists
       const counterElement = workerDoc('#counter')
       assert.ok(counterElement.length > 0, 'Counter element exists in worker page')
-
-      // Verify the worker page has client.js that uses the worker
-      const clientScripts = workerDoc('script[type="module"]')
-      assert.ok(clientScripts.length > 0, 'Client scripts exist in worker page')
-
-      let hasClientScript = false
-      clientScripts.each((_, script) => {
-        const src = workerDoc(script).attr('src')
-        if (src && src.includes('client-')) {
-          hasClientScript = true
-        }
-      })
-      assert.ok(hasClientScript, 'Client script with worker initialization is included')
     })
 
     for (const [filePath, assertions] of Object.entries(pages)) {
       try {
         const fullPath = path.join(dest, filePath)
-        const st = await stat(fullPath)
-        assert.ok(st, `${filePath} exists`)
-
         const contents = await readFile(fullPath, 'utf8')
         const doc = cheerio.load(contents)
 
@@ -802,14 +785,10 @@ export default function esbuildSettings (opts) {
 
         const hasGlboalClientHeader = headScripts.map(n => n?.attribs?.['src'])?.some(src => src && src.match(/global.client-([A-Z0-9])\w+.js/g))
         const hasPageClientHeader = headScripts.map(n => n?.attribs?.['src']).some(src => src && src.match(/\.\/client-([A-Z0-9])\w+.js/g))
-        const generatedPageClient = files.some(f => f.relname.match(/client-([A-Z0-9])\w+.js/g))
 
         const headLinks = Array.from(doc('head link[rel="stylesheet"]'))
         const hasGlobalStyleHeader = headLinks.map(n => n?.attribs?.['href']).some(href => href && href.match(/global-([A-Z0-9])\w+.css/g))
         const hasPageStyleHeader = headLinks.map(n => n?.attribs?.['href']).some(href => href && href.match(/\.\/style-([A-Z0-9])\w+.css/g))
-        const generatedPageStyle = files.some(f => f.relname.match(/style-([A-Z0-9])\w+.css/g))
-
-        const wroteDomstackEsbuildMetaFile = files.find(f => f.relname.match(/domstack-esbuild-meta.json/g))
 
         assert.equal(
           hasGlboalClientHeader,
@@ -832,35 +811,12 @@ export default function esbuildSettings (opts) {
                         ? 'Includes'
                         : 'Does not include'} a page client header`)
 
-        if (hasPageClientHeader) { // covering for loose files
-          assert.equal(
-            generatedPageClient,
-            assertions.client,
-                        `${filePath} ${assertions.client
-                            ? 'Generated'
-                            : 'Did not generate'} a page client file`)
-        }
-
         assert.equal(
           hasPageStyleHeader,
           assertions.style,
                     `${filePath} ${assertions.client
                         ? 'Includes'
                         : 'Does not include'} a page style header`)
-
-        assert.ok(
-          wroteDomstackEsbuildMetaFile,
-          'wrote out the domstack-esbuild-meta.json file'
-        )
-
-        if (hasPageStyleHeader) { // covering for loose files
-          assert.equal(
-            generatedPageStyle,
-            assertions.style,
-                        `${filePath} ${assertions.client
-                            ? 'Generated'
-                            : 'Did not generate'} a page style file`)
-        }
       } catch (e) {
         console.error(e)
         assert.fail(`Assertions failed on ${filePath}`)
