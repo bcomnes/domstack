@@ -32,12 +32,14 @@ for (const level of ['debug', 'silent']) {
       'asset.txt': 'static asset',
       'esbuild.settings.js': `
         export const starts = []
+        export const ends = []
         export default opts => ({
           ...opts,
           plugins: [{
             name: 'count-starts',
             setup(build) {
               build.onStart(() => { starts.push(build.initialOptions.entryPoints) })
+              build.onEnd(() => { ends.push(build.initialOptions.entryPoints) })
             }
           }]
         })
@@ -55,8 +57,8 @@ for (const level of ['debug', 'silent']) {
       await rm(root, { recursive: true, force: true })
     })
     await site.watch({ serve: false })
-    await setTimeout(300)
     assert.equal(settings.starts.length, 2, 'one browser build and one worker build, with no startup rebuild')
+    assert.equal(settings.ends.length, 2, 'both initial builds completed')
     if (level === 'debug') {
       assert.equal(records.filter(record => record.msg.endsWith('initial build complete')).length, 2)
       assert.ok(records.some(record => record.level === 20 && record.msg.startsWith('Copy ')))
@@ -65,26 +67,26 @@ for (const level of ['debug', 'silent']) {
     }
 
     await writeFile(join(src, 'client.js'), 'import "./missing-client.js"')
-    await until(() => settings.starts.length >= 3)
+    await until(() => settings.ends.length >= 3)
     if (level === 'debug') {
       await until(() => records.some(record => record.msg === 'JS/CSS rebuild failed'))
       const failure = records.find(record => record.msg === 'JS/CSS rebuild failed')
       assert.match(failure?.errors?.[0]?.text ?? '', /missing-client/)
       assert.match(failure?.errors?.[0]?.location.lineText ?? '', /import/)
-    } else {
-      await setTimeout(300)
     }
     await writeFile(join(src, 'client.js'), 'console.log("recovered")')
-    await until(() => settings.starts.length >= 4)
+    await until(() => settings.ends.length >= 4)
     if (level === 'debug') {
       await until(() => records.some(record => record.msg === 'JS/CSS rebuild complete'))
     }
     await writeFile(join(src, 'service-worker.js'), 'console.log("updated worker")')
-    await until(() => settings.starts.length >= 5)
+    await until(() => settings.ends.length >= 5)
     if (level === 'debug') {
       await until(() => records.some(record => record.msg === 'Service worker rebuild complete'))
     }
     await site.stopWatching()
+    assert.equal(settings.starts.length, 5, 'two initial builds and three rebuilds, with no duplicates')
+    assert.equal(settings.ends.length, 5, 'all builds completed')
     if (level === 'silent') assert.deepEqual(records, [])
     assert.equal(log.mock.callCount(), 0, 'watch output must not bypass the logger')
     assert.equal(error.mock.callCount(), 0, 'watch errors must not bypass the logger')

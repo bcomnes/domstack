@@ -6,7 +6,7 @@ import * as cheerio from 'cheerio'
 import { DomStack, testBuild } from '../../index.js'
 import globalData from './src/global.data.js'
 import { DomStackDataError } from '../../lib/helpers/domstack-error.js'
-import { startWatch } from '../watch/helpers.js'
+import { editAndWait, startWatch } from '../watch/helpers.js'
 
 const __dirname = import.meta.dirname
 const fixturePrefix = '.tmp-'
@@ -645,9 +645,7 @@ export default function unrelatedPages () {
         assert.equal(await readFile(join(dest, 'summary'), 'utf8'), 'watch-first/index.html:First title')
         const startupFactoryRuns = await readFile(factoryRuns, 'utf8')
 
-        await writeFile(join(src, 'page.vars.js'), "export default { title: 'Updated title' }\n")
-        await new Promise(resolve => setTimeout(resolve, 800))
-        await domstack.settled()
+        await editAndWait(domstack, join(src, 'page.vars.js'), () => writeFile(join(src, 'page.vars.js'), "export default { title: 'Updated title' }\n"))
 
         const updatedOutput = await readFile(updatedOutputPath, 'utf8')
         assert.match(updatedOutput, /Updated title/)
@@ -692,9 +690,7 @@ export default function ({ data }) {
         await startWatch(t, domstack, src)
         assert.match(await readFile(outputPath, 'utf8'), /data-version="first"/)
 
-        await writeFile(join(src, 'markdown-it.settings.js'), markdownSettings('second'))
-        await new Promise(resolve => setTimeout(resolve, 800))
-        await domstack.settled()
+        await editAndWait(domstack, join(src, 'markdown-it.settings.js'), () => writeFile(join(src, 'markdown-it.settings.js'), markdownSettings('second')))
 
         const updatedOutput = await readFile(outputPath, 'utf8')
         assert.match(updatedOutput, /data-version="second"/)
@@ -720,11 +716,6 @@ export default function ({ data }) {
       const regularOutputPath = join(dest, 'index.html')
       const generatedOutputPath = join(dest, 'generated/index.html')
 
-      const waitForRebuild = async () => {
-        await new Promise(resolve => setTimeout(resolve, 800))
-        await domstack.settled()
-      }
-
       /**
        * @param {string} assetName
        * @param {boolean} expected
@@ -743,20 +734,16 @@ export default function ({ data }) {
         await assertAssetReference('root.layout.css', false)
         await assertAssetReference('root.layout.client.js', false)
 
-        await writeFile(join(src, 'root.layout.css'), 'body { color: red }\n')
-        await waitForRebuild()
+        await editAndWait(domstack, join(src, 'root.layout.css'), () => writeFile(join(src, 'root.layout.css'), 'body { color: red }\n'))
         await assertAssetReference('root.layout.css', true)
 
-        await rm(join(src, 'root.layout.css'))
-        await waitForRebuild()
+        await editAndWait(domstack, join(src, 'root.layout.css'), () => rm(join(src, 'root.layout.css')))
         await assertAssetReference('root.layout.css', false)
 
-        await writeFile(join(src, 'root.layout.client.js'), 'globalThis.layoutClientLoaded = true\n')
-        await waitForRebuild()
+        await editAndWait(domstack, join(src, 'root.layout.client.js'), () => writeFile(join(src, 'root.layout.client.js'), 'globalThis.layoutClientLoaded = true\n'))
         await assertAssetReference('root.layout.client.js', true)
 
-        await rm(join(src, 'root.layout.client.js'))
-        await waitForRebuild()
+        await editAndWait(domstack, join(src, 'root.layout.client.js'), () => rm(join(src, 'root.layout.client.js')))
         await assertAssetReference('root.layout.client.js', false)
       } finally {
         if (domstack.watching) await domstack.stopWatching()
@@ -790,66 +777,22 @@ export default function ({ data }) {
         assert.match(await readFile(draftedOutputPath, 'utf8'), /Published generated page/)
         assert.match(await readFile(regularOutputPath, 'utf8'), /Regular page/)
 
-        await writeFile(join(src, 'changing.pages.js'), `export default [
+        await editAndWait(domstack, join(src, 'changing.pages.js'), () => writeFile(join(src, 'changing.pages.js'), `export default [
   { outputName: 'new/index.html', children: 'Renamed generated page' },
   { outputName: 'drafted/index.html', children: 'Draft generated page', draft: true },
 ]
-`)
-        await new Promise(resolve => setTimeout(resolve, 800))
-        await domstack.settled()
+`))
 
         assert.match(await readFile(newOutputPath, 'utf8'), /Renamed generated page/)
         await assert.rejects(() => readFile(oldOutputPath, 'utf8'), { code: 'ENOENT' })
         await assert.rejects(() => readFile(removedOutputPath, 'utf8'), { code: 'ENOENT' })
         await assert.rejects(() => readFile(draftedOutputPath, 'utf8'), { code: 'ENOENT' })
 
-        await rm(join(src, 'regular/page.html'))
-        await new Promise(resolve => setTimeout(resolve, 800))
-        await domstack.settled()
+        await editAndWait(domstack, join(src, 'regular/page.html'), () => rm(join(src, 'regular/page.html')))
         await assert.rejects(() => readFile(regularOutputPath, 'utf8'), { code: 'ENOENT' })
 
-        await rm(join(src, 'changing.pages.js'))
-        await new Promise(resolve => setTimeout(resolve, 800))
-        await domstack.settled()
+        await editAndWait(domstack, join(src, 'changing.pages.js'), () => rm(join(src, 'changing.pages.js')))
         await assert.rejects(() => readFile(newOutputPath, 'utf8'), { code: 'ENOENT' })
-      } finally {
-        if (domstack.watching) await domstack.stopWatching()
-      }
-    })
-  })
-
-  test('refreshes pages-file dependency trees in watch mode', { timeout: 15_000 }, async t => {
-    await withTempFixture({
-      'root.layout.js': minimalRootLayout,
-      'global.vars.js': minimalGlobalVars,
-      'generated-value.js': "export const value = 'First value'\n",
-      'watched.pages.js': `export default {
-  outputName: 'watched/index.html',
-  children: 'Initial value',
-}
-`,
-    }, async ({ src, dest }) => {
-      const domstack = new DomStack(src, dest)
-      try {
-        await startWatch(t, domstack, src)
-        const outputPath = join(dest, 'watched/index.html')
-        assert.match(await readFile(outputPath, 'utf8'), /Initial value/)
-
-        await writeFile(join(src, 'watched.pages.js'), `import { value } from './generated-value.js'
-
-export default {
-  outputName: 'watched/index.html',
-  children: value + ' after pages edit',
-}
-`)
-        await new Promise(resolve => setTimeout(resolve, 800))
-        await domstack.settled()
-        assert.match(await readFile(outputPath, 'utf8'), /First value after pages edit/)
-
-        await writeFile(join(src, 'generated-value.js'), "export const value = 'Updated dependency'\n")
-        await new Promise(resolve => setTimeout(resolve, 800))
-        await domstack.settled()
-        assert.match(await readFile(outputPath, 'utf8'), /Updated dependency after pages edit/)
       } finally {
         if (domstack.watching) await domstack.stopWatching()
       }

@@ -10,7 +10,7 @@ import { dirname, join, resolve } from 'node:path'
 import { load } from 'cheerio'
 import pino from 'pino'
 import { DomStack } from '../../../index.js'
-import { startWatch } from '../../../test-cases/watch/helpers.js'
+import { editAndWait, startWatch } from '../../../test-cases/watch/helpers.js'
 import produceDocsData from '../../globals/global.data.ts'
 
 test('heading changes refresh shared navigation; body edits leave other pages alone', { timeout: 30_000 }, async t => {
@@ -49,9 +49,7 @@ test('heading changes refresh shared navigation; body edits leave other pages al
 
   /** @param {string} file @param {string} text */
   async function edit (file, text) {
-    await write(file, text)
-    await new Promise(resolve => setTimeout(resolve, 800))
-    await domstack.settled()
+    await editAndWait(domstack, join(src, file), () => write(file, text))
   }
   const renamed = first.replace('## Original', '## Renamed')
   await edit('docs/first/README.md', renamed)
