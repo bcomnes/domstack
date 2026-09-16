@@ -49,12 +49,12 @@ domstack build --copy images --copy downloads
 | `--noEsbuildMeta` | Skip writing the esbuild metafile to disk. |
 | `--domstackManifest` | Write the DOMStack manifest to disk. |
 | `--copy <path>` | Copy an additional directory into the destination; repeat for multiple directories. |
-| `--verbose` | Show debug logs, including the build tree and individual copy operations. |
+| `--verbose` | Show debug logs, including individual copy operations. |
 | `--help`, `-h` | Show build help; on bare `domstack`, show the command list and default build options. |
 | `--version`, `-v` | Show the installed version. |
 
-Normal output summarizes the build.
-Use `--verbose` to include the build tree and individual copy operations.
+Normal output includes the build tree and a build summary.
+Use `--verbose` to include debug logs and individual copy operations.
 Build failures retain their full diagnostics at either verbosity level.
 
 ## `domstack watch`
@@ -78,12 +78,12 @@ domstack watch --no-serve
 | `--noEsbuildMeta` | Skip writing the esbuild metafile to disk. |
 | `--domstackManifest` | Accepted, but has no effect: watch mode does not finalize or write the DOMStack manifest. |
 | `--copy <path>` | Copy and watch an additional directory in the destination; repeat for multiple directories. |
-| `--verbose` | Show debug logs, including the build tree and individual copy operations. |
+| `--verbose` | Show debug logs, including individual copy operations. |
 | `--no-serve` | Watch and rebuild without starting a server. |
 | `--help`, `-h` | Show watch help. |
 | `--version`, `-v` | Show the installed version. |
 
-Normal output summarizes builds, static asset startup, and server URLs.
+Normal output includes the initial build tree, rebuild summaries, static asset startup, and server URLs.
 Build failures retain their full diagnostics at either verbosity level.
 `--port` is not available on this command.
 
@@ -108,12 +108,12 @@ domstack serve --domstackManifest
 | `--noEsbuildMeta` | Skip writing the esbuild metafile to disk. |
 | `--domstackManifest` | Write the DOMStack manifest to disk. |
 | `--copy <path>` | Copy an additional directory into the destination; repeat for multiple directories. |
-| `--verbose` | Show debug logs, including the build tree and individual copy operations. |
+| `--verbose` | Show debug logs, including individual copy operations. |
 | `--port <number>` | Server port, an integer from `1` to `65535` (default: `3000`). |
 | `--help`, `-h` | Show serve help. |
 | `--version`, `-v` | Show the installed version. |
 
-Normal output summarizes the build and server URLs.
+Normal output includes the build tree, a build summary, and server URLs.
 Build failures retain their full diagnostics at either verbosity level.
 
 ## `domstack eject`

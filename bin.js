@@ -178,7 +178,7 @@ domstack eject actions:
   if (command !== 'watch') {
     try {
       const results = await domStack.build()
-      logger.debug(tree(generateTreeData(cwd, src, dest, results)))
+      logger.info(tree(generateTreeData(cwd, src, dest, results)))
       logWarnings(logger, results?.warnings)
       logger.info(`Built ${relative(cwd, src) || '.'} → ${relative(cwd, dest) || '.'}`)
       logger.info('Build Success!')
@@ -208,7 +208,7 @@ domstack eject actions:
     await domStack.watch({
       serve: !argv['no-serve'],
       onInitialBuild: (initialResults) => {
-        logger.debug(tree(generateTreeData(cwd, src, dest, initialResults)))
+        logger.info(tree(generateTreeData(cwd, src, dest, initialResults)))
         logWarnings(logger, initialResults?.warnings)
       },
     })

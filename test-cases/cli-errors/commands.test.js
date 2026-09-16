@@ -304,6 +304,7 @@ test('watch --no-serve rebuilds and cleans up on SIGTERM', { timeout: 30_000 }, 
     assert.doesNotMatch(running.output(), /https?:\/\/(?:localhost|127\.0\.0\.1):|\[domstack-sync\]/)
     assert.deepEqual(await stopCli(running), { code: 0, signal: null }, running.output())
     assert.match(running.output(), /Watching stopped/)
+    assert.match(running.output(), /page.html:/, 'watch prints the initial build tree without --verbose')
   } finally {
     await stopCli(running)
   }
@@ -335,6 +336,7 @@ test('serve builds once, serves production HTML on the requested port, and clean
     assert.equal(await readFile(output, 'utf8'), html)
     assert.deepEqual(await requestHtml(port), { status: 200, body: html })
     assert.deepEqual(await stopCli(running), { code: 0, signal: null }, running.output())
+    assert.match(running.output(), /page.html:/, 'serve prints the build tree without --verbose')
     assert.equal(await availablePort(port), port, 'SIGTERM releases the listening port')
   } finally {
     await stopCli(running)
