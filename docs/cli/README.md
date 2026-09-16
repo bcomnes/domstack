@@ -37,7 +37,7 @@ When using an explicit command, put the command before its options, as in `domst
 
 Use `watch` for development and `serve` to preview production output, including manifest-driven service-worker caching.
 `serve` always builds first; it is not a server-only command for an existing destination.
-There is no `dev` alias.
+
 
 ### Shared build, watch, and serve options
 
@@ -96,7 +96,6 @@ Legacy mode flags are not accepted on explicit commands, so use `domstack watch`
 Normal output summarizes builds, static asset startup, and server URLs.
 Use `--verbose` to include the build tree and individual copy operations.
 Build failures retain their full diagnostics at either verbosity level.
-
 
 `domstack` is a devtool.
 It's primarily a unix `bin` written for the [Node.js](https://nodejs.org) runtime that is intended to be installed from `npm` as a `devDependency` inside a `package.json` committed to a `git` repository.
