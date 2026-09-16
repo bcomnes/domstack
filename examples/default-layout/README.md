@@ -9,7 +9,7 @@ DOMStack provides a fallback layout system that activates when you don't explici
 ## Key Concepts
 
 When no layout is provided, DOMStack will:
-1. Display a warning message during build: `Missing a root.layout.js file. Using default layout file.`
+1. Display a warning message during build: `Missing a root layout file. Using default layout file.`
 2. Use its internal default layout, which provides a basic HTML structure
 3. Properly render your content within this default layout
 

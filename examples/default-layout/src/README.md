@@ -13,7 +13,7 @@ DOMStack ships with a built-in default layout that automatically activates when 
 When no custom layout is provided:
 
 1. DOMStack detects the absence of a `root.layout.js` file
-2. The build process shows a warning: `Missing a root.layout.js file. Using default layout file.`
+2. The build process shows a warning: `Missing a root layout file. Using default layout file.`
 3. The system automatically applies the built-in default layout
 4. Your content is properly rendered within this default HTML structure
 
@@ -67,7 +67,7 @@ To see the default layout in action:
 1. Examine the project structure - notice there's no layout file
 2. Build the project and observe the warning message:
    ```
-   Missing a root.layout.js file. Using default layout file.
+   Missing a root layout file. Using default layout file.
    ```
 3. View the generated HTML output in the `public` directory to see how the default layout wraps the content
 

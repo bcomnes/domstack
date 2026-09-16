@@ -1,11 +1,21 @@
 import { test } from 'node:test'
 import assert from 'node:assert'
 import { testBuild } from '../../index.js'
+import { identifyPages } from '../../lib/identify-pages.js'
 import * as path from 'path'
 
 const __dirname = import.meta.dirname
 
 test.describe('default-layout', () => {
+  test('warns about a missing root layout without specifying an extension', async () => {
+    const { warnings } = await identifyPages(path.join(__dirname, './src'))
+
+    assert.deepStrictEqual(warnings.find(warning => warning.code === 'DOM_STACK_WARNING_NO_ROOT_LAYOUT'), {
+      code: 'DOM_STACK_WARNING_NO_ROOT_LAYOUT',
+      message: 'Missing a root layout file. Using default layout file.',
+    })
+  })
+
   test('should build site with default layout', async (t) => {
     const src = path.join(__dirname, './src')
     const build = await testBuild(src)
