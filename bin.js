@@ -12,7 +12,6 @@ import { basename, resolve, join, relative } from 'node:path'
 
 import readline from 'node:readline'
 import process from 'process'
-// @ts-expect-error
 import tree from 'pretty-tree'
 import { inspect } from 'util'
 import { createServer } from '@domstack/sync'
