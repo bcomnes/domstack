@@ -435,7 +435,7 @@ Helpers that process `changes` can use the exported `GlobalDataChanges` type.
   Always handle `changes.kind === 'reset'`, including after failed builds.
 - Markdown and HTML source edits can update individual entries.
   Changes to watched modules, including JavaScript/TypeScript pages, helpers, browser entries, and settings, reset the saved index and rebuild the site.
-- Store structured-cloneable values such as plain records, arrays, or maps—not `PageData` instances, functions, or shared memory.
+- Store structured-cloneable values such as plain records, arrays, or maps—not `PageData` instances, functions, or native objects with shared mutable storage.
 - A page can appear in `changes.upserted` even when its content is unchanged.
   Replace its cached entry, or delete it if the page no longer belongs in your index.
 - Restart watch mode after changing imported JSON, files read with `fs.readFile()`, environment variables, or other inputs outside page dependency tracking.

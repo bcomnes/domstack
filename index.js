@@ -229,9 +229,7 @@ export class DomStack {
     const { signal } = session.cancellation
     const preparation = this.#prepareWatch(session)
     session.startupWork = preparation
-    const { report, ready } = await preparation
-
-    await ready
+    const report = await preparation
     if (signal.aborted) return report
 
     await onInitialBuild?.(report)
@@ -254,8 +252,7 @@ export class DomStack {
     const { signal } = session.cancellation
     // Establish observation before discovery. Initial scan adds are not edits;
     // subsequent events stay buffered until startup and the user callback finish.
-    const { watcher, ready } = this.#createSourceWatcher(session)
-    await ready
+    await this.#createSourceWatcher(session)
     // ── Initial build (inline, not via builder()) ────────────────────────
     const siteData = await identifyPages(this.#src, this.opts)
 
@@ -327,7 +324,7 @@ export class DomStack {
     const copyErrors = copyStartup.filter(result => result.status === 'rejected').map(result => result.reason)
     if (copyErrors.length) throw new AggregateError(copyErrors, 'Copy watch startup failed')
 
-    return { report, watcher, ready }
+    return report
   }
 
   /** @param {WatchSession} session */
@@ -359,11 +356,9 @@ export class DomStack {
     watcher.on('error', err => errorLogger(err, this.#logger))
     // Attach the listener before returning; the watcher can become ready before
     // the caller resumes. Cancellation settles this wait even without a ready event.
-    const ready = once(watcher, 'ready', { signal }).catch(error => {
+    return once(watcher, 'ready', { signal }).catch(error => {
       if (!signal.aborted || error.name !== 'AbortError') throw error
     })
-
-    return { watcher, ready }
   }
 
   /**
