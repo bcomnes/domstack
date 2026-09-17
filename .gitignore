@@ -23,4 +23,3 @@ test-results
 *.d.ts.map
 !types/**/*.d.ts
 !types/**/*.d.ts.map
-test-cases/generated-pages/.streaming

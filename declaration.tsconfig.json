@@ -8,6 +8,13 @@
   },
   "exclude": [
     "**/*.test.js",
+    "**/*.test.ts",
+    "**/*test-helpers.js",
+    "**/fixtures/**/*",
+    "lib/cli/tests/**/*",
+    "lib/watch/*-tests/**/*",
+    "type-tests/**/*",
+    "test-fixtures/**/*",
     "test-cases/**/*",
     "site/**/*",
   ]
