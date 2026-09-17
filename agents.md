@@ -11,5 +11,11 @@
 - After running a type build, clean up the generated build files and do not leave them sitting around.
 - Use the cleanup scripts in `package.json` for generated type build files.
 - The generated `lib/defaults/default.root.layout.js` is versioned runtime code, not temporary declaration output; regenerate it with `npm run build:defaults` after editing its TypeScript source and never remove it during cleanup.
+- Keep `test-cases/` focused on checked-in example sites paired with acceptance tests that build through the public API and assert on outputs or expected build errors.
+- Example sites should be understandable by browsing their source files, not reconstructed from JavaScript strings embedded in tests.
+- Put detailed behavioral and regression tests beside the subsystem they exercise under `lib/`, even when they build temporary sites or run real watchers.
+- Keep public facade tests at the repository root and public TypeScript contract tests in `type-tests/`.
+- Behavioral tests may copy example sites into temporary directories, but must not mutate checked-in fixtures or depend on another test's output directory.
+- Keep test-only files out of published packages and declaration builds; see `test-cases/README.md` for the test organization guidelines.
 - For formatting-only ESLint failures, use `npx eslint <path> --fix` for a quick targeted fix before rerunning lint.
 - When handling PR review comments, validate that each comment is correct before making changes; maintainer comments are almost always valid, but review bot comments may be wrong, and after addressing a comment, always reply with what was done.
