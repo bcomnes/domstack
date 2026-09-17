@@ -167,24 +167,6 @@ Layout subscriptions contribute to page invalidation, but each layout still rece
 Page initialization uses a concurrency limit of `min(CPUs, 24)`.
 The final page and template rendering queues run in parallel, splitting that concurrency budget between them.
 
-### Page-build module boundaries
-
-The page-build implementation lives in `lib/build-pages/`:
-
-- `index.js` launches the worker and preserves the page-build API and type exports.
-- `worker.js` invokes the direct build coordinator without importing the worker-launching facade.
-- `worker-protocol.js` defines transferable options and error metadata, strips generated rendering functions from error context, and restores domain errors in the parent thread.
-- `build.js` coordinates preparation, global-data production, subscription-based selection, rendering, and reporting.
-- `data/` keeps producer state, subscription tracking, and provider-specific data access in separate modules.
-- `generated-pages/` streams factory definitions, validates output names, filters drafts, and reserves generated-page output paths.
-- `outputs/` contains page writing, sidecar normalization, and sidecar persistence.
-- `page-builders/` contains format adapters and the template builder.
-- `page-data.js` retains the page-facing vars, layout, subscription, rendering, and output-hook interface.
-
-Output filters do not restrict the source-page collection supplied to the global-data producer.
-Generated pages remain downstream consumers, and the worker returns candidate watch state rather than committing it.
-The watch coordinator accepts that state only after a successful page build and output reconciliation.
-Writes remain non-transactional, and successful page emissions are reported even when a later output hook fails.
 
 Variable Resolution Layers, from lowest to highest precedence:
 - **Domstack defaults** - Internal defaults such as the default `layout: 'root'`.
@@ -212,18 +194,7 @@ Watch mode coordinates three independent watchers:
 
 Chokidar events pass through a pure planner before any rebuild executes.
 The planner reads an explicit snapshot of discovery, dependency maps, and the previous page-build outcome; it does not perform I/O or mutate that state.
-The public `DomStack` class in `index.js` validates and normalizes options, runs one-shot builds, and delegates its watch API to an internal `DomStackWatcher` in `lib/watch/index.js`.
-Watch coordination and its helpers live together in `lib/watch/`:
-
-- `index.js` owns the watch session, serializes events, executes plans, and releases its watchers, esbuild context, and server on shutdown.
-- `plan.js` makes pure rebuild decisions from an explicit routing snapshot.
-- `dependency-index.js` owns file-dependency maps and successful source-page and generated-page layout selections.
-- `page-output-ledger.js` owns output claims, the sidecar write cache, and safe removal of obsolete page-owned files.
-- `logging.js` formats rebuild trees, errors, and build summaries.
-
-Initial page builds and rebuilds share one acceptance path: record emitted files, reject page errors, reconcile obsolete outputs, refresh dependency routing, then commit subscriptions and the global-data baseline.
-Recording writes is separate from accepting the baseline because failed builds and failed cleanup can still leave files on disk.
-One coordinator and output ledger are retained per `DomStack` instance so output ownership survives stop/start cycles, while shutdown clears session resources and global-data state.
+DOMStack manages the watch session, queues changes, rebuilds affected outputs, and shuts down the watchers and server when stopped.
 
 <pre class="mermaid" tabindex="0" role="region" aria-label="Watch planning diagram">
 flowchart TD
