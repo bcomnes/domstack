@@ -1,7 +1,7 @@
 {
   "name": "@domstack/static",
   "description": "@domstack/static: a traditional web bakery made with html, md, css and js.",
-  "version": "12.0.0-beta.7",
+  "version": "12.0.0-beta.8",
   "type": "module",
   "main": "./index.js",
   "types": "./index.d.ts",
@@ -125,7 +125,6 @@
     "test:installed-check": "installed-check --ignore-dev --no-workspaces",
     "test:neostandard": "eslint . --ignore-pattern 'test-cases/build-errors/src/**/*.js' --ignore-pattern 'test-cases/page-build-errors/src/**/*.js'",
     "test:node-test": "node --test --experimental-test-coverage --test-reporter=dot --test-reporter=lcov --test-reporter-destination=stdout --test-reporter-destination=lcov.info",
-
     "test:playwright": "playwright test",
     "test:tsc": "tsc",
     "build-examples": "run-p example:*",
