@@ -54,6 +54,35 @@ async function fixture (t, onWatcher) {
   }
 }
 
+test('idle facade reports no watch session before startup and after shutdown', { timeout: 15_000 }, async t => {
+  const site = await fixture(t)
+  assert.equal(site.dom.watching, false)
+  await assert.doesNotReject(site.dom.settled())
+  await assert.rejects(site.dom.stopWatching(), { message: 'Not watching' })
+
+  await site.dom.watch({ serve: false })
+  await site.dom.stopWatching()
+
+  assert.equal(site.dom.watching, false)
+  await assert.doesNotReject(site.dom.settled())
+  await assert.rejects(site.dom.stopWatching(), { message: 'Not watching' })
+})
+
+test('watch uses replaced facade options before startup and across sessions', { timeout: 15_000 }, async t => {
+  const site = await fixture(t)
+  await writeFile(join(site.src, 'draft.draft.md'), '# Draft\n')
+
+  for (const buildDrafts of [true, false]) {
+    site.dom.opts = { ...site.dom.opts, buildDrafts }
+    const built = await site.dom.build()
+    const watched = await site.dom.watch({ serve: false })
+    for (const report of [built, watched]) {
+      assert.equal(report.siteData.pages.some(page => page.pageFile.relname === 'draft.draft.md'), buildDrafts)
+    }
+    await site.dom.stopWatching()
+  }
+})
+
 test('shutdown during the initial build drains startup and permits a retry', { timeout: 15_000 }, async t => {
   const site = await fixture(t)
   let callbacks = 0

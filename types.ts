@@ -18,7 +18,7 @@ export type {
   GlobalDataDeltaChanges,
   GlobalDataResetChanges,
 } from './lib/build-pages/global-data-state.js'
-export type { WatchEvent } from './lib/watch-plan.js'
+export type { WatchEvent } from './lib/watch/plan.js'
 export type {
   PageOutput,
   PageOutputProvenance,

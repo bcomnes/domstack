@@ -80,6 +80,24 @@ test('watch reconciles companion addition, output rename, hook removal, companio
   assert.match(await read('article/index.html'), /Article/)
 })
 
+test('watch retains output ownership across sessions to remove sidecars renamed while stopped', { timeout: 15_000 }, async t => {
+  const { site, src, dest, read } = await setup(t, {
+    'article/page.html': '<p>Article</p>',
+    'article/page.vars.js': 'export default {}; ' + hook('old.txt', 'old sidecar'),
+  })
+  await startWatch(t, site, src)
+  assert.equal(await read('article/old.txt'), 'old sidecar')
+
+  await site.stopWatching()
+  await writeFile(join(src, 'article/page.vars.js'), 'export default {}; ' + hook('new.txt', 'new sidecar'))
+  assert.equal(await read('article/old.txt'), 'old sidecar', 'cleanup waits until the next watch session')
+
+  await startWatch(t, site, src)
+  assert.equal(await read('article/new.txt'), 'new sidecar')
+  assert.match(await read('article/index.html'), /Article/)
+  await assert.rejects(stat(join(dest, 'article/old.txt')), { code: 'ENOENT' })
+})
+
 test('watch removes sidecars on source rename and draft exclusion', { timeout: 30_000 }, async t => {
   const { site, src, dest, read, logs } = await setup(t, {
     'root.layout.js': `export default ({ children }) => children

@@ -193,7 +193,18 @@ Watch mode coordinates three independent watchers:
 
 Chokidar events pass through a pure planner before any rebuild executes.
 The planner reads an explicit snapshot of discovery, dependency maps, and the previous page-build outcome; it does not perform I/O or mutate that state.
-`DomStack` owns the watch session, serializes events, executes plans, and releases its watchers, esbuild context, and server on shutdown.
+The public `DomStack` class in `index.js` validates and normalizes options, runs one-shot builds, and delegates its watch API to an internal `DomStackWatcher` in `lib/watch/index.js`.
+Watch coordination and its helpers live together in `lib/watch/`:
+
+- `index.js` owns the watch session, serializes events, executes plans, and releases its watchers, esbuild context, and server on shutdown.
+- `plan.js` makes pure rebuild decisions from an explicit routing snapshot.
+- `dependency-index.js` owns file-dependency maps and successful source-page and generated-page layout selections.
+- `page-output-ledger.js` owns output claims, the sidecar write cache, and safe removal of obsolete page-owned files.
+- `logging.js` formats rebuild trees, errors, and build summaries.
+
+Initial page builds and rebuilds share one acceptance path: record emitted files, reject page errors, reconcile obsolete outputs, refresh dependency routing, then commit subscriptions and the global-data baseline.
+Recording writes is separate from accepting the baseline because failed builds and failed cleanup can still leave files on disk.
+One coordinator and output ledger are retained per `DomStack` instance so output ownership survives stop/start cycles, while shutdown clears session resources and global-data state.
 
 <pre class="mermaid" tabindex="0" role="region" aria-label="Watch planning diagram">
 flowchart TD
