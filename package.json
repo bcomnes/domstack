@@ -90,6 +90,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
+    "@types/markdown-it-emoji": "^3.0.1",
     "@types/markdown-it-footnote": "^3.0.4",
     "@types/mime-types": "^3.0.1",
     "@types/node": "^26.0.1",
