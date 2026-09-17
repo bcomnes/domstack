@@ -16,7 +16,7 @@ import { builder } from './lib/builder.js'
 import { createDomStackLogger } from './lib/logger.js'
 import { DomStackWatcher } from './lib/watch/index.js'
 
-export { PageData } from './lib/build-pages/page-data.js'
+export { PageData } from './lib/build-pages/page/page-data.js'
 export {
   DOMSTACK_MANIFEST_SCHEMA_ID,
   DOMSTACK_MANIFEST_SCHEMA_PATH,
