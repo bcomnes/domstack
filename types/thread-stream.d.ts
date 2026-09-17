@@ -15,6 +15,8 @@ declare namespace ThreadStreamCompat {
 declare module 'worker_threads' {
   // An import alias keeps the duplicate-name diagnostic here, rather than in
   // Node's declarations. The packed tests check old and new Node declarations.
+  // expect-error cannot be used here: Node 26 needs this alias and has no duplicate
+  // diagnostic, so declaration checking would reject an unused expect-error.
   // @ts-ignore Node <=25 already exports this equivalent alias.
   export import TransferListItem = ThreadStreamCompat.TransferListItem
 }

@@ -14,7 +14,7 @@ import pMap from 'p-map'
 export default async function ({ pages }) {
   const blogPosts = pages
     .filter(page => page.vars?.layout === 'blog' && page.vars?.publishDate)
-    // @ts-ignore
+    // @ts-expect-error JavaScript coerces Dates to timestamps for subtraction; TypeScript requires numeric operands.
     .sort((a, b) => new Date(b.vars.publishDate) - new Date(a.vars.publishDate))
     .slice(0, 5)
 

@@ -45,4 +45,3 @@ If for some reason that isn't working or a local release is preferred, follow th
 
 Generation belongs in `version`, not `preversion` (which runs before the version update) or `postversion` (which runs after the commit and tag).
 The release workflow's pre-version reset/clean is safe because the initial generated JavaScript is tracked and the version hook rebuilds it before staging.
-Run `npm run test:version-build` to verify generation, staging, tagging, and cleanup in a disposable repository without versioning this checkout.

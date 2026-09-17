@@ -167,6 +167,7 @@ Layout subscriptions contribute to page invalidation, but each layout still rece
 Page initialization uses a concurrency limit of `min(CPUs, 24)`.
 The final page and template rendering queues run in parallel, splitting that concurrency budget between them.
 
+
 Variable Resolution Layers, from lowest to highest precedence:
 - **Domstack defaults** - Internal defaults such as the default `layout: 'root'`.
 - **Global vars** - Site-wide variables from `global.vars.js` (resolved once).
@@ -193,7 +194,7 @@ Watch mode coordinates three independent watchers:
 
 Chokidar events pass through a pure planner before any rebuild executes.
 The planner reads an explicit snapshot of discovery, dependency maps, and the previous page-build outcome; it does not perform I/O or mutate that state.
-`DomStack` owns the watch session, serializes events, executes plans, and releases its watchers, esbuild context, and server on shutdown.
+DOMStack manages the watch session, queues changes, rebuilds affected outputs, and shuts down the watchers and server when stopped.
 
 <pre class="mermaid" tabindex="0" role="region" aria-label="Watch planning diagram">
 flowchart TD

@@ -10,7 +10,7 @@ import { dirname, join, resolve } from 'node:path'
 import { load } from 'cheerio'
 import pino from 'pino'
 import { DomStack } from '../../../index.js'
-import { editAndWait, startWatch } from '../../../test-cases/watch/helpers.js'
+import { editAndWait, startWatch } from '../../../lib/watch/test-helpers.js'
 import produceDocsData from '../../globals/global.data.ts'
 
 test('heading changes refresh shared navigation; body edits leave other pages alone', { timeout: 30_000 }, async t => {

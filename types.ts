@@ -9,16 +9,16 @@ import type {
   PagesFunctionParams as PagesFunctionParamsExport,
 } from './lib/build-pages/index.js'
 
-import type { PageFunction as PageFunctionExport } from './lib/build-pages/page-builders/page-writer.js'
-import type { PageOutputsFunction as PageOutputsFunctionExport } from './lib/build-pages/page-outputs.js'
+import type { PageFunction as PageFunctionExport } from './lib/build-pages/outputs/page-writer.js'
+import type { PageOutputsFunction as PageOutputsFunctionExport } from './lib/build-pages/outputs/page-outputs.js'
 
-export type { DataDeps } from './lib/build-pages/data-deps.js'
+export type { DataDeps } from './lib/build-pages/global-data/data-deps.js'
 export type {
   GlobalDataChanges,
   GlobalDataDeltaChanges,
   GlobalDataResetChanges,
-} from './lib/build-pages/global-data-state.js'
-export type { WatchEvent } from './lib/watch-plan.js'
+} from './lib/build-pages/global-data/global-data-state.js'
+export type { WatchEvent } from './lib/watch/plan.js'
 export type {
   PageOutput,
   PageOutputProvenance,
@@ -27,7 +27,7 @@ export type {
   PageOutputsPage,
   PageOutputsResult,
   CollectedPageOutput,
-} from './lib/build-pages/page-outputs.js'
+} from './lib/build-pages/outputs/page-outputs.js'
 
 export type { BuildOptions } from 'esbuild'
 export type { DomStackOpts, Results, SiteData } from './lib/builder.js'
@@ -46,20 +46,20 @@ export type {
   LayoutFunctionParams,
   LayoutVars,
   LayoutVarsFunction,
-  PageData,
-} from './lib/build-pages/page-data.js'
+} from './lib/build-pages/layouts/resolve-layout.js'
+export type { PageData } from './lib/build-pages/page/page-data.js'
 export type {
   AsyncPageFunction,
   PageFunction,
   PageFunctionParams,
-} from './lib/build-pages/page-builders/page-writer.js'
+} from './lib/build-pages/outputs/page-writer.js'
 export type {
   AsyncTemplateFunction,
   TemplateAsyncIterator,
   TemplateFunction,
   TemplateFunctionParams,
   TemplateOutputOverride,
-} from './lib/build-pages/page-builders/template-builder.js'
+} from './lib/build-pages/templates/template-builder.js'
 export type { PageInfo, PagesFileInfo, ServiceWorkerInfo, TemplateInfo } from './lib/identify-pages.js'
 export type {
   DomstackManifest,

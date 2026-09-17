@@ -30,6 +30,11 @@ Variables are available in all pages.
 `ts` pages receive variables as part of the argument passed to them.
 See the [Variables](../../docs/pages/#variables) section for more info.
 
+DOMStack prepares each page's renderer once per build.
+HTML and Markdown source content is captured when the page initializes; repeated renders reuse that content but still receive the current render inputs.
+Watch rebuilds prepare fresh renderers, so an edit observed during a build is picked up by a subsequent build.
+The `readMarkdownContent()` helper remains a fresh read of the source file rather than a read of the prepared content.
+
 Pages can define a special variable called [`layout`](../layouts/#selecting-a-layout) that determines which layout the page is rendered into.
 
 Because pages are just directories, they nest and structure naturally as a filesystem router.

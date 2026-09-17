@@ -73,6 +73,6 @@ Options are passed through to `DomStack`, including `copy` paths.
 
 See these repository tests for complete usage:
 
-- [`test-build-helper/index.test.js`](https://github.com/bcomnes/domstack/blob/master/test-cases/test-build-helper/index.test.js) tests temporary output, `readOutput()`, copied directories, and cleanup.
+- [`test-build.test.js`](https://github.com/bcomnes/domstack/blob/master/test-build.test.js) tests temporary output, `readOutput()`, copied directories, and cleanup.
 - [`default-layout/index.test.js`](https://github.com/bcomnes/domstack/blob/master/test-cases/default-layout/index.test.js) uses `testBuild()` for a focused output assertion.
 - [`generated-pages/index.test.js`](https://github.com/bcomnes/domstack/blob/master/test-cases/generated-pages/index.test.js) uses it with generated pages, global data, and templates.
