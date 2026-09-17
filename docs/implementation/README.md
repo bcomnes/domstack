@@ -167,6 +167,25 @@ Layout subscriptions contribute to page invalidation, but each layout still rece
 Page initialization uses a concurrency limit of `min(CPUs, 24)`.
 The final page and template rendering queues run in parallel, splitting that concurrency budget between them.
 
+### Page-build module boundaries
+
+The page-build implementation lives in `lib/build-pages/`:
+
+- `index.js` launches the worker and preserves the page-build API and type exports.
+- `worker.js` invokes the direct build coordinator without importing the worker-launching facade.
+- `worker-protocol.js` defines transferable options and error metadata, strips generated rendering functions from error context, and restores domain errors in the parent thread.
+- `build.js` coordinates preparation, global-data production, subscription-based selection, rendering, and reporting.
+- `data/` keeps producer state, subscription tracking, and provider-specific data access in separate modules.
+- `generated-pages/` streams factory definitions, validates output names, filters drafts, and reserves generated-page output paths.
+- `outputs/` contains page writing, sidecar normalization, and sidecar persistence.
+- `page-builders/` contains format adapters and the template builder.
+- `page-data.js` retains the page-facing vars, layout, subscription, rendering, and output-hook interface.
+
+Output filters do not restrict the source-page collection supplied to the global-data producer.
+Generated pages remain downstream consumers, and the worker returns candidate watch state rather than committing it.
+The watch coordinator accepts that state only after a successful page build and output reconciliation.
+Writes remain non-transactional, and successful page emissions are reported even when a later output hook fails.
+
 Variable Resolution Layers, from lowest to highest precedence:
 - **Domstack defaults** - Internal defaults such as the default `layout: 'root'`.
 - **Global vars** - Site-wide variables from `global.vars.js` (resolved once).

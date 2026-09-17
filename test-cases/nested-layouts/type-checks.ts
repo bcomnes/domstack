@@ -1,7 +1,7 @@
 // Compile-time regressions exercised by npm run test:tsc, not the Node test runner.
 import type { LayoutFunction, PageData, PageFunction } from '#types'
 import type { ResolvedLayout } from '../../lib/build-pages/page-data.js'
-import { pageWriter } from '../../lib/build-pages/page-builders/page-writer.js'
+import { pageWriter } from '../../lib/build-pages/outputs/page-writer.js'
 
 type Vars = { title: string }
 type Frame = { html: string }

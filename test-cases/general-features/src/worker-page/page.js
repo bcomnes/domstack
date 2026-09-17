@@ -1,5 +1,5 @@
 /**
- * @import { AsyncPageFunction } from '../../../../lib/build-pages/page-builders/page-writer.js'
+ * @import { AsyncPageFunction } from '../../../../lib/build-pages/outputs/page-writer.js'
  */
 
 /**

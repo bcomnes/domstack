@@ -8,10 +8,10 @@ import type {
   CollectedPageOutput,
   PageData,
   DomstackManifestRecord,
-} from '../../types.ts'
+} from '../../../types.ts'
 import { normalizePageOutputs } from './page-outputs.js'
-import { writePageOutputs } from './page-builders/page-output-writer.js'
-import type { PageOutputCache } from './page-builders/page-output-writer.js'
+import { writePageOutputs } from './page-output-writer.js'
+import type { PageOutputCache } from './page-output-writer.js'
 
 // Compile-only assertions for the public type entry and the narrow hook contract.
 export function checkPageOutputsTypes (pageData: PageData<{ title: string }>, page: PageOutputsPage) {

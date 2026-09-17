@@ -1,4 +1,4 @@
-import type { AsyncGlobalDataFunction, GlobalDataFunction } from '../../types.ts'
+import type { AsyncGlobalDataFunction, GlobalDataFunction } from '../../../types.ts'
 
 type Vars = { title: string }
 type Data = { titles: string[] }
