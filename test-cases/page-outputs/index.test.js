@@ -10,7 +10,7 @@ export const pageOutputs = async ({ page }) => ({ outputName: './source.txt', co
 
 test('builder renders Markdown and exports the unrendered body from its layout at a custom destination', async t => {
   const body = '# Article\n\nKeep **Markdown**, {{ vars.title }}, and [links](./other.md).\n'
-  const { build, read, dest } = await setup(t, {
+  const { build, read, dest, src } = await setup(t, {
     'root.layout.js': rawLayout,
     'docs/page.md': '---\ntitle: Resolved title\n---\n' + body,
   })
@@ -22,6 +22,13 @@ test('builder renders Markdown and exports the unrendered body from its layout a
   assert.ok(record, 'page output is included in the page build report')
   assert.equal(record.filepath, join(dest, 'docs/source.txt'))
   assert.equal(record.sourceRelname, 'docs/page.md')
+  const pageReport = result.pageBuildResults?.report.pages.find(page => page.sourcePageFilePath === join(src, 'docs/page.md'))
+  assert.ok(pageReport)
+  assert.equal(pageReport.pageFilePath, join(dest, 'docs/index.html'))
+  assert.equal(pageReport.pagesFilePath, undefined)
+  assert.equal(pageReport.layoutName, 'root')
+  assert.deepEqual(pageReport.layoutNames, ['root'])
+  assert.ok(pageReport.outputs?.some(output => output.filepath === record.filepath))
 })
 
 test('nested hooks run outer -> inner -> companion with isolated renderer data and resolved vars', async t => {

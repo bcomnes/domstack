@@ -82,6 +82,13 @@ for (const change of ['recovery', 'source deletion', 'hook removal']) {
     assert.ok(logs.some(line => line.includes('initial ownership failure')))
     assert.equal(await read('article/partial.txt'), 'partial')
     assert.equal(await read('root-partial.txt'), 'root partial')
+    const pageReport = result.pageBuildResults?.report.pages.find(page => page.sourcePageFilePath === join(src, 'article/page.html'))
+    assert.ok(pageReport)
+    assert.equal(pageReport.pageFilePath, join(dest, 'article/index.html'))
+    assert.equal(pageReport.pagesFilePath, undefined)
+    assert.equal(pageReport.layoutName, 'root')
+    assert.deepEqual(pageReport.layoutNames, ['root'])
+    assert.deepEqual(pageReport.outputs?.map(output => output.outputRelname), ['article/partial.txt', 'root-partial.txt'])
     for (const outputRelname of ['article/partial.txt', 'root-partial.txt']) {
       const record = result.pageBuildResults?.outputs.find(output => output.outputRelname === outputRelname)
       assert.ok(record, `${outputRelname} is included in the failed page build report`)
