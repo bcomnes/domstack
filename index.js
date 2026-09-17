@@ -3,10 +3,7 @@
 /**
  * @import { DomStackOpts, Results } from './lib/builder.js'
  * @import { TestBuildResult } from './types.js'
- * @import { DisposableBuildContext as DisposableBuildContextType, WatchedPageReport as WatchedPageReportType, WatchSession as WatchSessionType } from './lib/watch/index.js'
- * @typedef {DisposableBuildContextType} DisposableBuildContext
- * @typedef {WatchedPageReportType} WatchedPageReport
- * @typedef {WatchSessionType} WatchSession
+
  */
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
