@@ -32,8 +32,6 @@ import { lstat, mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import chokidar from 'chokidar'
 import { basename, dirname, join, relative, resolve } from 'node:path'
-// @ts-expect-error
-import makeArray from 'make-array'
 import ignore from 'ignore'
 import { watch as cpxWatch } from 'cpx2'
 import { inspect } from 'util'
@@ -1058,7 +1056,7 @@ function normalizeDomStackOpts (opts, dest) {
       ...DEFAULT_IGNORES,
       basename(dest),
       ...copyDirs.map(dir => basename(dir)),
-      ...makeArray(buildOpts.ignore),
+      ...[buildOpts.ignore ?? []].flat(),
     ],
   }
 }

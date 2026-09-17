@@ -1,3 +1,4 @@
+/** @import { DomStackOpts } from '../../lib/builder.js' */
 import { test } from 'node:test'
 import assert from 'node:assert'
 import { isAbsolute, resolve, join } from 'node:path'
@@ -6,6 +7,26 @@ import { DomStack } from '../../index.js'
 
 const tmpSrc = join(tmpdir(), 'domstack-test-src')
 const tmpDest = join(tmpdir(), 'domstack-test-dest')
+
+for (const { name, options, expected } of [
+  { name: 'omitted', options: {}, expected: [] },
+  { name: 'undefined', options: { ignore: undefined }, expected: [] },
+  { name: 'null', options: { ignore: null }, expected: [] },
+  { name: 'empty array', options: { ignore: [] }, expected: [] },
+  { name: 'array', options: { ignore: ['private', '*.secret'] }, expected: ['private', '*.secret'] },
+  { name: 'single string', options: { ignore: 'private' }, expected: ['private'] },
+]) {
+  test(`DomStack constructor normalizes ${name} ignore options`, () => {
+    const defaults = new DomStack(tmpSrc, tmpDest).opts.ignore ?? []
+    // JavaScript callers have historically been able to pass null or a single string.
+    const ds = new DomStack(tmpSrc, tmpDest, /** @type {DomStackOpts} */ (options))
+    assert.deepStrictEqual(ds.opts.ignore, [...defaults, ...expected])
+    if (Array.isArray(options.ignore)) {
+      assert.deepStrictEqual(options.ignore, expected, 'the caller\'s array is not mutated')
+      assert.notStrictEqual(ds.opts.ignore, options.ignore)
+    }
+  })
+}
 
 test.describe('DomStack constructor - copy path resolution', () => {
   test('resolves a relative copy path to an absolute path', () => {
