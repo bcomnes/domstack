@@ -6,7 +6,7 @@ import * as cheerio from 'cheerio'
 import { DomStack, testBuild } from '../../index.js'
 import globalData from './src/global.data.js'
 import { DomStackDataError } from '../../lib/helpers/domstack-error.js'
-import { editAndWait, startWatch } from '../watch/helpers.js'
+import { editAndWait, startWatch } from '../../lib/watch/test-helpers.js'
 
 const __dirname = import.meta.dirname
 const fixturePrefix = '.tmp-'

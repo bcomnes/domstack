@@ -8,7 +8,7 @@ import assert from 'node:assert'
 import { DomStack } from '../../index.js'
 import { cp, rm, writeFile, readFile, unlink, mkdtemp, stat, readdir, mkdir } from 'fs/promises'
 import * as path from 'path'
-import { editAndWait, startWatch, waitForRebuild } from './helpers.js'
+import { editAndWait, startWatch, waitForRebuild } from '../../lib/watch/test-helpers.js'
 
 const fixtureDir = path.join(import.meta.dirname, '../general-features/src')
 

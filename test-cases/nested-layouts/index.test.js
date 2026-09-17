@@ -8,7 +8,7 @@ import { mkdtemp, mkdir, writeFile, readFile, rm, stat, unlink } from 'node:fs/p
 import { dirname, join } from 'node:path'
 import pino from 'pino'
 import { DomStack } from '../../index.js'
-import { editAndWait, startWatch, waitForRebuild } from '../watch/helpers.js'
+import { editAndWait, startWatch, waitForRebuild } from '../../lib/watch/test-helpers.js'
 
 const rootLayout = `
 import { label } from './label.js'

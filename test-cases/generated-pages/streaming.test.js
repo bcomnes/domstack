@@ -11,7 +11,7 @@ import { DomStack } from '../../index.js'
 import { builder } from '../../lib/builder.js'
 import { DomStackAggregateError } from '../../lib/helpers/domstack-aggregate-error.js'
 import { errorText, settle, writeFiles } from '../page-outputs/helpers.js'
-import { startWatch } from '../watch/helpers.js'
+import { startWatch } from '../../lib/watch/test-helpers.js'
 
 /** @param {TestContext} t @param {Record<string, string>} files @param {boolean} [buildDrafts] */
 async function setup (t, files, buildDrafts = false) {

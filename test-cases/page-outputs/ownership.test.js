@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdir, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { hook, setup, settle } from './helpers.js'
-import { startWatch } from '../watch/helpers.js'
+import { startWatch } from '../../lib/watch/test-helpers.js'
 
 test('data-invalidated pages replace ownership using actual reports', { timeout: 15_000 }, async t => {
   const { site, src, dest, read, logs } = await setup(t, {

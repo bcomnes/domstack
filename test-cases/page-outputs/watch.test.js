@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { rename, rm, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { hook, setup, settle, writeFiles } from './helpers.js'
-import { startWatch } from '../watch/helpers.js'
+import { startWatch } from '../../lib/watch/test-helpers.js'
 
 const rawLayout = `export const vars = { dataDeps: ['navigation'] }
 export default ({ children, data }) => data.navigation + children

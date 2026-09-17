@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { rm, stat, utimes, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { hook, setup, settle } from './helpers.js'
-import { startWatch } from '../watch/helpers.js'
+import { startWatch } from '../../lib/watch/test-helpers.js'
 
 // Install the guard inside each build worker; parent-side reads remain available
 // for assertions, and syncBuiltinESMExports also guards already-imported bindings.

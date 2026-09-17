@@ -20,7 +20,7 @@ import { setImmediate as nextTurn, setTimeout as delay } from 'node:timers/promi
 import chokidar from 'chokidar'
 import pino from 'pino'
 import { DomStack } from '../../index.js'
-import { startWatch } from '../watch/helpers.js'
+import { startWatch } from '../../lib/watch/test-helpers.js'
 
 /** @param {string} heading @param {string} [body] @param {string} [frontmatter] */
 export function article (heading, body = 'Original body.', frontmatter = '') {
