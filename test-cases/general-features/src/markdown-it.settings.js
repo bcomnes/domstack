@@ -26,7 +26,7 @@ function createTestBoxPlugin () {
   const TEST_BOX_MARKER = 'test-box'
 
   return (/** @type {InstanceType<typeof markdownIt>} */md) => {
-    // @ts-ignore
+    // @ts-expect-error This test-only block rule leaves its MarkdownIt callback parameters untyped.
     const container = (state, startLine, endLine, silent) => {
       let pos = state.bMarks[startLine] + state.tShift[startLine]
       let max = state.eMarks[startLine]

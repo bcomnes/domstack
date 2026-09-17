@@ -1,7 +1,7 @@
 /**
  * @import { TemplateAsyncIterator } from '#types'
  */
-// @ts-ignore
+// @ts-expect-error jsonfeed-to-atom does not provide TypeScript declarations.
 import jsonfeedToAtom from 'jsonfeed-to-atom'
 
 /**

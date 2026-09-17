@@ -1,7 +1,7 @@
 /**
  * @import { LayoutFunction } from '@domstack/static'
  */
-// @ts-ignore
+
 import { html } from 'htm/preact'
 import { render } from 'preact-render-to-string'
 

@@ -4,5 +4,5 @@ export default () => /* html */`
 
 // Some garbled JS syntax
 // eslint-disable-next-line
-// @ts-ignore
+
 fdsf dsf fdsaf;
