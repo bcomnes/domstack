@@ -1,11 +1,11 @@
 # Plan: reduce repeated watch-build preparation
 
-Status: in progress on `perf/334-markdown-preparation`; phase 1, the Markdown source-preparation split/cache from phases 2–3, and phase 4 fingerprint optimizations are implemented.
-See [phase 1 results](334-markdown-results.md), [source-cache results](334-markdown-cache-results.md), [Oro local-link validation](334-oro-validation.md), and [fingerprint results](334-fingerprint-results.md) for scope, validation, measurements, and limitations.
+Status: in progress on `perf/334-markdown-preparation`; phase 1, the Markdown source-preparation split/cache from phases 2–3, phase 4 fingerprint optimizations, and phase 5 dependency-analysis reuse are implemented.
+See [phase 1 results](334-markdown-results.md), [source-cache results](334-markdown-cache-results.md), [Oro local-link validation](334-oro-validation.md), [fingerprint results](334-fingerprint-results.md), and [dependency-analysis results](334-dependency-analysis-results.md) for scope, validation, measurements, and limitations.
 Oro validation is complete, including dependency-matched timing, output equivalence, work counters, and serialized payload-size observations.
 The [cache resource follow-up](334-cache-resource-results.md) now records actual-payload clone/dispatch timing, controlled live heaps, and process-wide peak RSS with attribution limits.
 The [duplicate-build investigation](334-duplicate-build-investigation.md) now reproduces a delayed truncate/write-notification mechanism on both beta.8 and the candidate and tests write stabilization without changing production defaults.
-Decision: defer source-write stabilization and proceed with fingerprint optimization.
+Decision: defer source-write stabilization; fingerprints and dependency-analysis reuse are now complete, with layout/worker experiments next.
 Chokidar's internal 50 ms throttle and our `atomic: 300` setting are already active, but `awaitWriteFinish` is not enabled.
 The experimental 50 ms stability window prevented the controlled duplicate on both implementations, but adds delay and changes event timing; no new watcher option or production behavior change is planned in this pass.
 Natural duplicate frequency remains timing-dependent, and the investigation does not establish the delay behind every earlier sample.
@@ -28,9 +28,10 @@ Completed implementation checkpoints:
 | `6d24d34` | Duplicate-event characterization and genuine in-flight edit preservation tests |
 | `20a419c` | Primitive and structured fingerprint fast paths, compatibility tests, and benchmark |
 
-The accompanying documentation checkpoint records the plan, measurement reports, and deferred stabilization decision.
+Documentation checkpoint `160195f` records the earlier plan, measurement reports, and deferred stabilization decision.
 Reports describing uncommitted work or no commits refer to their earlier measurement sessions, before these checkpoints were created.
-Phase 5 dependency-analysis reuse is the next implementation workstream and should receive its own checkpoint after validation.
+The phase 5 checkpoint accompanying this update contains dependency-analysis reuse, event/lifecycle integration, 30 added tests/subtests, and the validated measurement report.
+Phase 6A layout-chain measurement/reuse is the next workstream; worker prewarming remains a separate experiment.
 
 ## Goal
 
@@ -270,15 +271,22 @@ Primary files:
 - `lib/watch/index.js`
 - `lib/watch/plan.js`
 
-- [ ] Separate reusable import-analysis results from routing maps built from current discovery and successful layout reports.
-- [ ] Preserve existing per-rebuild entry deduplication rather than adding a redundant cache.
-- [ ] Retain verified-current successful analysis across eligible Markdown-only rebuilds.
-- [ ] Track dirtiness for every relevant event, including browser-only or otherwise skipped page-build events.
-- [ ] Reanalyze affected roots and transitive closures, with conservative refresh for structural changes, uncertain history, and recovery.
-- [ ] Preserve fresh analysis by default for direct `rebuild(siteData)` callers that supply no event history.
-- [ ] Refresh routing even when import analysis is reused, because frontmatter and generated outputs can change layout membership.
-- [ ] Preserve current discovery-object identity, previous snapshot isolation, generated-owner replacement, empty-result replacement, and role-specific failure recovery.
-- [ ] Consider shared transitive parse reuse only after simpler reuse is measured.
+- [x] Separate reusable import-analysis results from routing maps built from current discovery and successful layout reports.
+- [x] Preserve existing per-rebuild entry deduplication rather than adding a redundant cache.
+- [x] Retain verified-current successful analysis across eligible filtered rebuilds, including Markdown/HTML-only edits.
+- [x] Track dirtiness for every delivered event, including browser-only or otherwise skipped page-build events.
+- [x] Reanalyze affected roots and reported transitive closures, with conservative refresh for structural changes, uncertain history, and recovery.
+- [x] Preserve fresh analysis by default for direct `rebuild(siteData)` callers that supply no event history.
+- [x] Refresh routing even when import analysis is reused, because frontmatter and generated outputs can change layout membership.
+- [x] Preserve current discovery-object identity, previous snapshot isolation, generated-owner replacement, empty-result replacement, and role-specific failure recovery.
+- [x] Gate retention on actual watcher membership and canonical paths; cover ignored parents, atomic exclusions, external inputs, and symlinks.
+- [x] Cover in-flight invalidation, working-directory changes, sticky watcher-error distrust, and stop/restart cleanup.
+- [x] Consider shared transitive parse reuse after measurement: defer it because eligible warm Oro edits now avoid all 52 analyzer calls.
+
+The [phase 5 report](334-dependency-analysis-results.md) records a 332.67 → 314.75 ms median across 15 edits per variant, with one candidate double-build sample retained in the statistics.
+Separately profiled dependency-index time fell from 25.78 ms to 0.41 ms; initial analysis still runs and now verifies observation.
+All measured outputs passed, and the full suite passed 750 tests with the same two existing TODOs.
+Reuse is limited to the installed analyzer's supported graph; static re-exports and bare-import resolution remain unresolved under #328.
 
 Do not share a visited set in a way that drops dependencies from later roots.
 Do not rely on metadata such as file size and modification time as proof of exact content equivalence.
