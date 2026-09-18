@@ -4,6 +4,8 @@ Status: phase 1, the Markdown source-preparation split/cache from phases 2–3, 
 Phase 6 experiments are evaluated: layout-chain reuse is deferred, and speculative worker prewarming was rejected by the user and removed.
 Selective lazy default-renderer preparation and conditional Handlebars loading are implemented and measured.
 HTML source caching is now investigated and deferred for the measured workload; lazy H1/variable evaluation remains an optional follow-up.
+The [final branch review](334-pr-readiness.md) found no blocking correctness issues and records passing Node/lint/type checks, package-content checks, and two browser-test failures reproduced on the base commit.
+Proceed to PR review with those exceptions and compatibility notes; no further optimization implementation is recommended before review.
 See [phase 1 results](334-markdown-results.md), [source-cache results](334-markdown-cache-results.md), [Oro local-link validation](334-oro-validation.md), [fingerprint results](334-fingerprint-results.md), and [dependency-analysis results](334-dependency-analysis-results.md) for scope, validation, measurements, and limitations.
 Phase 6A is measured and deferred: the [layout-stage report](334-layout-results.md) finds only 0.369 ms of concrete chain traversal versus a 52.065 ms layout-loading stage that chain reuse would not remove.
 The [phase 6B report](334-prewarmed-worker-results.md) is retained as historical evidence for the removed experiment, not as a claim about the current runtime.
@@ -44,7 +46,8 @@ Documentation checkpoint `c445346` records phase 6A's measurements and the decis
 Checkpoint `abe3e48` implemented and measured phase 6B, but the user subsequently rejected speculative worker preparation.
 Removal checkpoint `2e73cad` reverses its runtime, protocol, and test changes while retaining the measurements and decision history.
 Checkpoint `3447a95` adds conditional default-renderer/Handlebars loading, regression tests, a fresh-worker benchmark, and the [lazy-preparation report](334-lazy-preparation-results.md).
-The checkpoint accompanying the [HTML investigation](334-html-preparation-results.md) records measurements and deferral only, with no production cache changes.
+Checkpoint `e8269dc` records the [HTML investigation](334-html-preparation-results.md) and deferral only, with no production cache changes.
+The checkpoint accompanying the [PR-readiness report](334-pr-readiness.md) records the final code review, validation, baseline browser-failure attribution, and release caveats without runtime changes.
 Revisiting HTML caching requires evidence from a workload where avoiding its reads produces a worthwhile end-to-end benefit.
 
 ## Goal
