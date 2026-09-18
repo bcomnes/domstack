@@ -2,10 +2,11 @@
 
 Status: in progress on `perf/334-markdown-preparation`; phase 1, the Markdown source-preparation split/cache from phases 2–3, phase 4 fingerprint optimizations, and phase 5 dependency-analysis reuse are implemented.
 See [phase 1 results](334-markdown-results.md), [source-cache results](334-markdown-cache-results.md), [Oro local-link validation](334-oro-validation.md), [fingerprint results](334-fingerprint-results.md), and [dependency-analysis results](334-dependency-analysis-results.md) for scope, validation, measurements, and limitations.
+Phase 6A is measured and deferred: the [layout-stage report](334-layout-results.md) finds only 0.369 ms of concrete chain traversal versus a 52.065 ms layout-loading stage that chain reuse would not remove.
 Oro validation is complete, including dependency-matched timing, output equivalence, work counters, and serialized payload-size observations.
 The [cache resource follow-up](334-cache-resource-results.md) now records actual-payload clone/dispatch timing, controlled live heaps, and process-wide peak RSS with attribution limits.
 The [duplicate-build investigation](334-duplicate-build-investigation.md) now reproduces a delayed truncate/write-notification mechanism on both beta.8 and the candidate and tests write stabilization without changing production defaults.
-Decision: defer source-write stabilization; fingerprints and dependency-analysis reuse are now complete, with layout/worker experiments next.
+Decision: defer source-write stabilization and layout-chain reuse; fingerprints and dependency-analysis reuse are complete, with the single-use worker prewarming experiment next.
 Chokidar's internal 50 ms throttle and our `atomic: 300` setting are already active, but `awaitWriteFinish` is not enabled.
 The experimental 50 ms stability window prevented the controlled duplicate on both implementations, but adds delay and changes event timing; no new watcher option or production behavior change is planned in this pass.
 Natural duplicate frequency remains timing-dependent, and the investigation does not establish the delay behind every earlier sample.
@@ -27,11 +28,12 @@ Completed implementation checkpoints:
 | `70fc49e` | Markdown title/renderer optimizations and watch-owned source-preparation cache, with tests and benchmark |
 | `6d24d34` | Duplicate-event characterization and genuine in-flight edit preservation tests |
 | `20a419c` | Primitive and structured fingerprint fast paths, compatibility tests, and benchmark |
+| `e30f3a8` | Observed dependency-analysis reuse, event/lifecycle integration, 30 added tests/subtests, and measurement report |
 
 Documentation checkpoint `160195f` records the earlier plan, measurement reports, and deferred stabilization decision.
 Reports describing uncommitted work or no commits refer to their earlier measurement sessions, before these checkpoints were created.
-The phase 5 checkpoint accompanying this update contains dependency-analysis reuse, event/lifecycle integration, 30 added tests/subtests, and the validated measurement report.
-Phase 6A layout-chain measurement/reuse is the next workstream; worker prewarming remains a separate experiment.
+The documentation checkpoint accompanying this update records phase 6A's measurements and the decision not to ship chain caching for a sub-millisecond observed traversal cost.
+Phase 6B single-use worker prewarming is the next experiment; it still requires a separate cost/benefit and lifecycle validation gate.
 
 ## Goal
 
@@ -294,14 +296,20 @@ Do not allow reuse to hide missing static re-export tracking covered by #328.
 
 ## Phase 6: layout and worker experiments
 
-### 6A. Build-local layout-chain reuse
+### 6A. Build-local layout-chain reuse — measured and deferred
 
-- [ ] Separate layout import/evaluation timing from async layout-vars execution and chain resolution.
-- [ ] Reuse validated layout chains within a build instead of resolving the same chain for every page.
-- [ ] Give pages their own chain arrays so mutation does not introduce new cross-page coupling.
-- [ ] Preserve fresh imports and validation of all discovered layouts, including unused chains.
+- [x] Separate outstanding layout-import waits, vars resolution, and chain traversal in three fresh Oro profiling sessions.
+- [x] Evaluate retaining validated chains: defer implementation because 605 concrete traversals take only 0.369 ms median across nine post-warm-up edits.
+- [x] Review ownership and mutation semantics: independent page arrays alone do not preserve later ancestry changes to shared mutable layout records.
+- [x] Preserve existing fresh imports and all-layout validation by leaving runtime behavior unchanged.
 
-This does not eliminate the reported layout-module loading cost.
+The [layout-stage report](334-layout-results.md) records 52.065 ms median loading time, largely covered by outstanding import waits, and 0.110 ms layout-vars resolution.
+Chain reuse would not eliminate that loading cost, and a cache must still allocate page-owned arrays and preserve generated-page/direct-call mutation behavior.
+All twelve profiled edits, including warm-ups, passed output checks and produced a single build.
+No runtime cache or uninstrumented latency improvement is claimed for this phase.
+
+Revisit only if a workload with deeper chains or more generated pages demonstrates meaningful traversal cost.
+Any future implementation must preserve fresh imports and validation of every discovered layout, independent page arrays, and current handling of within-build reparenting.
 Do not load only output-selected or previously used layouts, since current metadata and generated factories can select different layouts.
 
 ### 6B. Prewarmed, single-use workers
