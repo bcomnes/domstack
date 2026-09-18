@@ -1,14 +1,16 @@
 # Plan: reduce repeated watch-build preparation
 
-Status: core optimization work and experiments complete on `perf/334-markdown-preparation`; phase 1, the Markdown source-preparation split/cache from phases 2–3, phase 4 fingerprints, phase 5 dependency-analysis reuse, and phase 6B single-use worker prewarming are implemented.
+Status: phase 1, the Markdown source-preparation split/cache from phases 2–3, phase 4 fingerprints, and phase 5 dependency-analysis reuse remain implemented on `perf/334-markdown-preparation`.
+Phase 6 experiments are evaluated: layout-chain reuse is deferred, and speculative worker prewarming was rejected by the user and removed.
 HTML caching and further selective laziness remain optional follow-ups, not completed implementations.
 See [phase 1 results](334-markdown-results.md), [source-cache results](334-markdown-cache-results.md), [Oro local-link validation](334-oro-validation.md), [fingerprint results](334-fingerprint-results.md), and [dependency-analysis results](334-dependency-analysis-results.md) for scope, validation, measurements, and limitations.
 Phase 6A is measured and deferred: the [layout-stage report](334-layout-results.md) finds only 0.369 ms of concrete chain traversal versus a 52.065 ms layout-loading stage that chain reuse would not remove.
-The [phase 6B report](334-prewarmed-worker-results.md) records a 305.16 → 220.36 ms median for idle-separated edits, with the cold-path cost and approximately 19.27 MiB sampled idle-worker heap documented separately.
+The [phase 6B report](334-prewarmed-worker-results.md) is retained as historical evidence for the removed experiment, not as a claim about the current runtime.
 Oro validation is complete, including dependency-matched timing, output equivalence, work counters, and serialized payload-size observations.
 The [cache resource follow-up](334-cache-resource-results.md) now records actual-payload clone/dispatch timing, controlled live heaps, and process-wide peak RSS with attribution limits.
 The [duplicate-build investigation](334-duplicate-build-investigation.md) now reproduces a delayed truncate/write-notification mechanism on both beta.8 and the candidate and tests write stabilization without changing production defaults.
-Decision: defer source-write stabilization and layout-chain reuse; ship single-use worker prewarming after its latency, resource, and lifecycle validation gates.
+Decision: defer source-write stabilization and layout-chain reuse; do not ship speculative worker prewarming.
+Workers start on demand as before; no idle replacement is prepared.
 Chokidar's internal 50 ms throttle and our `atomic: 300` setting are already active, but `awaitWriteFinish` is not enabled.
 The experimental 50 ms stability window prevented the controlled duplicate on both implementations, but adds delay and changes event timing; no new watcher option or production behavior change is planned in this pass.
 Natural duplicate frequency remains timing-dependent, and the investigation does not establish the delay behind every earlier sample.
@@ -35,7 +37,8 @@ Completed implementation checkpoints:
 Documentation checkpoint `160195f` records the earlier plan, measurement reports, and deferred stabilization decision.
 Reports describing uncommitted work or no commits refer to their earlier measurement sessions, before these checkpoints were created.
 Documentation checkpoint `c445346` records phase 6A's measurements and the decision not to ship chain caching for a sub-millisecond observed traversal cost.
-The phase 6B checkpoint accompanying this update contains the single-use worker protocol/owner, watch integration, 65 new tests/subtests, transport-probe and deterministic-event test updates, and the measurement report.
+Checkpoint `abe3e48` implemented and measured phase 6B, but the user subsequently rejected speculative worker preparation.
+The removal checkpoint accompanying this update reverses its runtime, protocol, and test changes while retaining the measurements and decision history.
 No additional optimization workstream is committed by this plan; optional source-cache/laziness extensions should start with new measurements.
 
 ## Goal
@@ -315,28 +318,19 @@ Revisit only if a workload with deeper chains or more generated pages demonstrat
 Any future implementation must preserve fresh imports and validation of every discovered layout, independent page arrays, and current handling of within-build reparenting.
 Do not load only output-selected or previously used layouts, since current metadata and generated factories can select different layouts.
 
-### 6B. Prewarmed, single-use workers
+### 6B. Prewarmed, single-use workers — rejected and removed
 
-- [x] Prototype a worker that loads only DOMStack's internal runtime while idle, then accepts one build request.
-- [x] Delay DOMStack-controlled application imports until the request and retire the worker after that build.
-- [x] Introduce explicit ready/build/result message types rather than resolving a build on the first message.
-- [x] Settle requests on unexpected exits, including a clean exit before a result.
-- [x] Tie idle and active worker ownership to the watch session and preserve stop/drain behavior.
-- [x] Prevent late messages from old sessions from updating new session state.
-- [x] Discard stale environment/CWD contexts and bypass speculative warming for inherited preload/loader flags without stripping them from cold builds.
-- [x] Preserve partial-output ownership when result transport fails.
-- [x] Measure readiness savings, sender-side dispatch cloning, idle worker heap, speculative CPU, unused preparation, and shutdown behavior.
-- [x] Ship after validation: 27.8% lower median idle-separated edit latency with one additional idle worker per eligible session.
+- [x] Prototype and measure explicit readiness, single-job execution, session ownership, and shutdown behavior.
+- [x] Compare prior runtime, cold protocol, and prewarmed protocol with separate resource measurements.
+- [x] Record the user's decision not to use speculative preparation and remove the implementation.
 
-The [phase 6B report](334-prewarmed-worker-results.md) compares the prior runtime, cold protocol control, and warmed protocol independently.
-The cold control was 4.4% slower, while the warm version improved 305.16 → 220.36 ms; one double-build warm sample remains in the all-edit statistics.
-Idle worker V8 used heap was approximately 19.27 MiB, with approximately 94.45 ms thread CPU to prepare a worker; this shifts CPU off the critical path rather than eliminating it.
-The final unused worker is extra work, and idle-separated measurements do not promise the same gains for sustained bursts.
-All 45 measured edits passed output checks, and the full suite passed 815 tests with two existing TODOs.
+The experiment moved approximately 94.45 ms of worker preparation CPU ahead of an edit rather than eliminating it, retained an idle worker with approximately 19.27 MiB sampled V8 used heap, and prepared a final worker that might never be used.
+Despite the measured idle-separated latency benefit, this approach is not desired and is no longer part of the runtime.
+The [phase 6B report](334-prewarmed-worker-results.md) retains the measurements and validation of the removed prototype.
+The additional protocol/error-handling changes and their tests were reverted with it, not retained as an unrequested independent refactor.
+Do not resume prewarming or substitute persistent application workers without a new explicit decision.
 
-Prewarming cannot remove dispatch/receiver cloning or fresh application-layout execution.
-Initial and non-watch builds remain cold; no startup improvement is claimed.
-A roughly five-second parent shutdown stall was also measured in the baseline and left outside this optimization's scope.
+Remaining optional work is HTML source-preparation caching and selective laziness from phases 2–3, starting with measurements of genuinely avoidable work.
 
 ### Deferred: persistent application workers
 
@@ -475,7 +469,7 @@ Keep each change measurable and reviewable rather than combining all phases into
 - [x] Counters demonstrate avoided input preparation rather than only unchanged output-write counts.
 - [x] Cache, transfer, and worker resource costs are reported alongside latency, with explicit limits on peak attribution and multi-build comparisons.
 - [x] No new application invalidation contract or mandatory stateful-data adoption is required.
-- [x] Evaluated experiments that do not justify their cost are explicitly deferred rather than shipped to satisfy the checklist; layout-chain reuse is deferred and worker prewarming is accepted with measured tradeoffs.
+- [x] Evaluated experiments can be deferred or rejected rather than shipped to satisfy the checklist; layout-chain reuse is deferred and worker prewarming was rejected and removed.
 - [x] The first-edit double-build observation has a separate follow-up: later uninstrumented Oro runs now provide duplicate-build logs, including non-first edits, documented in the resource report.
 - [x] Trace duplicate-build event provenance and reproduce the truncate/write scheduling mechanism on both implementations, with coverage preserving real in-flight edits.
 - [x] Decide whether to expose source-write stabilization: deferred by agreement; retain current Chokidar settings and proceed with phase 4.

@@ -1,9 +1,15 @@
 # Issue 334: single-use worker prewarming results
 
-Phase 6B of the [watch-performance plan](334-watch-preparation-performance.md) is implemented and accepted for the measured latency/resource tradeoff.
-Watch sessions prepare at most one unused page worker after the current build queue drains.
-Each worker still executes application build code only once and is retired before that build settles.
-This is not persistent application-worker reuse.
+**Status: rejected by the user and removed after checkpoint `abe3e48`.**
+The user does not want speculative worker preparation, despite the measured idle-separated latency benefit.
+The runtime, protocol, and associated test changes have been reverted; workers start on demand again.
+This report preserves the experiment's historical implementation, measurements, and validation, not the current runtime behavior.
+Removal validation confirmed that `lib/` matches pre-experiment checkpoint `c445346` exactly; the restored full suite passed 750 tests with two existing TODOs, plus lint and type checking.
+The removal run is recorded in ignored `test-results/prewarm-removal-tests.log`.
+
+In the removed prototype, watch sessions prepared at most one unused page worker after the current build queue drained.
+Each worker executed application build code only once and was retired before that build settled.
+This was not persistent application-worker reuse.
 
 ## Ownership and protocol
 
@@ -183,9 +189,10 @@ No broader Oro browser/content audit was rerun for this worker-lifecycle change.
 
 ## Evidence and decision
 
-Ship single-use prewarming for eligible watch sessions: the measured idle-separated edit improvement is material, worker count is bounded by session ownership, and the resource/cold-path tradeoffs are explicit.
-Keep application execution single-use and bypass warming for inherited loading hooks.
-Do not extend this into persistent application workers or eager application imports.
+The initial ship decision was superseded by the user's explicit rejection of speculative worker prewarming.
+Remove the entire phase 6B implementation rather than merely disabling warming while retaining its cold-path overhead and additional protocol machinery.
+Measurements remain useful evidence, but do not imply this approach should be resumed.
+Do not substitute persistent application workers or eager application imports.
 
 Ignored Oro evidence includes `domstack-prewarm-{before,cold,warm}-{1,2,3}-driver.json`, separate `domstack-prewarm-profile-*` JSONL/driver reports, `domstack-shutdown-*` reports, and `domstack-prewarm-runtime-audit.json`.
 Local runners are `test-results/run-domstack-prewarm.py` and `test-results/run-domstack-shutdown.py`; they refuse to overwrite existing evidence and restore the original package in `finally` blocks.
