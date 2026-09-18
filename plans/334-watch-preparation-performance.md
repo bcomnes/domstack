@@ -2,20 +2,23 @@
 
 Status: phase 1, the Markdown source-preparation split/cache from phases 2–3, phase 4 fingerprints, and phase 5 dependency-analysis reuse remain implemented on `perf/334-markdown-preparation`.
 Phase 6 experiments are evaluated: layout-chain reuse is deferred, and speculative worker prewarming was rejected by the user and removed.
-Selective lazy default-renderer preparation and conditional Handlebars loading are now implemented and measured; HTML source caching and lazy H1/variable evaluation remain optional follow-ups.
+Selective lazy default-renderer preparation and conditional Handlebars loading are implemented and measured.
+HTML source caching is now investigated and deferred for the measured workload; lazy H1/variable evaluation remains an optional follow-up.
 See [phase 1 results](334-markdown-results.md), [source-cache results](334-markdown-cache-results.md), [Oro local-link validation](334-oro-validation.md), [fingerprint results](334-fingerprint-results.md), and [dependency-analysis results](334-dependency-analysis-results.md) for scope, validation, measurements, and limitations.
 Phase 6A is measured and deferred: the [layout-stage report](334-layout-results.md) finds only 0.369 ms of concrete chain traversal versus a 52.065 ms layout-loading stage that chain reuse would not remove.
 The [phase 6B report](334-prewarmed-worker-results.md) is retained as historical evidence for the removed experiment, not as a claim about the current runtime.
 Oro validation is complete, including dependency-matched timing, output equivalence, work counters, and serialized payload-size observations.
 The [cache resource follow-up](334-cache-resource-results.md) now records actual-payload clone/dispatch timing, controlled live heaps, and process-wide peak RSS with attribution limits.
 The [duplicate-build investigation](334-duplicate-build-investigation.md) now reproduces a delayed truncate/write-notification mechanism on both beta.8 and the candidate and tests write stabilization without changing production defaults.
-Decision: defer source-write stabilization and layout-chain reuse; do not ship speculative worker prewarming.
+Decision: defer source-write stabilization, layout-chain reuse, and HTML source caching; do not ship speculative worker prewarming.
 Workers start on demand as before; no idle replacement is prepared.
 Chokidar's internal 50 ms throttle and our `atomic: 300` setting are already active, but `awaitWriteFinish` is not enabled.
 The experimental 50 ms stability window prevented the controlled duplicate on both implementations, but adds delay and changes event timing; no new watcher option or production behavior change is planned in this pass.
 Natural duplicate frequency remains timing-dependent, and the investigation does not establish the delay behind every earlier sample.
 The [lazy-preparation report](334-lazy-preparation-results.md) records a 24-page metadata/template-only benchmark improvement from approximately 108–110 ms to 50–53 ms, but no convincing end-to-end Oro improvement.
 Custom Markdown settings remain eager; source snapshots and synchronous metadata remain available before rendering.
+The [HTML preparation investigation](334-html-preparation-results.md) found 20 repeated reads totaling approximately 100 KiB, but a local prototype eliminating them showed no consistent latency benefit.
+Its 28 ms pending-read union includes concurrent initialization and scheduling; isolated warm preparation takes only 0.24–0.26 ms and must not be confused with recoverable end-to-end time.
 Related issue: [#334 — Watch profiling: single Markdown edits still initialize all pages and parse every document for H1 titles](https://github.com/bcomnes/domstack/issues/334).
 Related correctness work: [#328 — static re-export dependency tracking](https://github.com/bcomnes/domstack/issues/328).
 
@@ -40,8 +43,9 @@ Reports describing uncommitted work or no commits refer to their earlier measure
 Documentation checkpoint `c445346` records phase 6A's measurements and the decision not to ship chain caching for a sub-millisecond observed traversal cost.
 Checkpoint `abe3e48` implemented and measured phase 6B, but the user subsequently rejected speculative worker preparation.
 Removal checkpoint `2e73cad` reverses its runtime, protocol, and test changes while retaining the measurements and decision history.
-The checkpoint accompanying the [lazy-preparation report](334-lazy-preparation-results.md) adds conditional default-renderer/Handlebars loading, regression tests, and a fresh-worker benchmark.
-Further optional HTML source-cache or metadata-laziness extensions should start with new measurements.
+Checkpoint `3447a95` adds conditional default-renderer/Handlebars loading, regression tests, a fresh-worker benchmark, and the [lazy-preparation report](334-lazy-preparation-results.md).
+The checkpoint accompanying the [HTML investigation](334-html-preparation-results.md) records measurements and deferral only, with no production cache changes.
+Revisiting HTML caching requires evidence from a workload where avoiding its reads produces a worthwhile end-to-end benefit.
 
 ## Goal
 
@@ -103,7 +107,8 @@ A synchronous metadata getter cannot transparently await file reads, imports, or
 | Responsibility | Intended handling |
 | --- | --- |
 | Source identity and discovery information | Immediately available from current discovery |
-| Markdown or HTML source preparation | Reuse private source records; refresh changed or missing entries |
+| Markdown source preparation | Reuse private source records; refresh changed or missing entries |
+| HTML source preparation | Retain current eager source capture; cross-build caching measured and deferred |
 | Companion exports, executable vars, layout selection, assets, and subscriptions | Resolve against current runtime inputs |
 | H1 inference | Cache; investigate deferred extraction only where synchronous metadata behavior is preserved |
 | Renderer construction | Separate from metadata; defer work where source snapshots and initialization behavior remain correct |
@@ -182,7 +187,10 @@ Primary files:
 - [x] Reconstruct runtime closures, subscriptions, layout bindings, hooks, and assets using current build inputs.
 - [x] Keep executable companion/global/layout vars outside the reusable source record.
 - [x] Preserve captured-source rendering and independent raw-content reads.
-- [ ] Extend the same boundary to HTML if it remains straightforward and useful.
+- [x] Investigate the HTML source-cache boundary and measure avoided work; defer production implementation because the local read-elision prototype shows no consistent Oro benefit.
+
+The [HTML investigation](334-html-preparation-results.md) records the profiling, hook-enabled A/B experiment, isolated read/clone scale checks, compatibility constraints, and integration requirements if revisited.
+HTML source caching is not implemented, and moving reads into rendering would change snapshot and error timing.
 
 ### Selective laziness
 
@@ -335,7 +343,8 @@ The [phase 6B report](334-prewarmed-worker-results.md) retains the measurements 
 The additional protocol/error-handling changes and their tests were reverted with it, not retained as an unrequested independent refactor.
 Do not resume prewarming or substitute persistent application workers without a new explicit decision.
 
-Default-renderer and optional Handlebars laziness from phase 2 are implemented; remaining optional work is HTML source-preparation caching and lazy H1/variable evaluation, starting with measurements of genuinely avoidable work.
+Default-renderer and optional Handlebars laziness from phase 2 are implemented, and HTML source-preparation caching has been measured and deferred.
+The remaining unexplored optional work is lazy H1/variable evaluation, starting with measurements of genuinely avoidable work.
 
 ### Deferred: persistent application workers
 
@@ -475,7 +484,7 @@ Keep each change measurable and reviewable rather than combining all phases into
 - [x] Counters demonstrate avoided input preparation rather than only unchanged output-write counts.
 - [x] Cache, transfer, and worker resource costs are reported alongside latency, with explicit limits on peak attribution and multi-build comparisons.
 - [x] No new application invalidation contract or mandatory stateful-data adoption is required.
-- [x] Evaluated experiments can be deferred or rejected rather than shipped to satisfy the checklist; layout-chain reuse is deferred and worker prewarming was rejected and removed.
+- [x] Evaluated experiments can be deferred or rejected rather than shipped to satisfy the checklist; layout-chain reuse and HTML source caching are deferred, and worker prewarming was rejected and removed.
 - [x] The first-edit double-build observation has a separate follow-up: later uninstrumented Oro runs now provide duplicate-build logs, including non-first edits, documented in the resource report.
 - [x] Trace duplicate-build event provenance and reproduce the truncate/write scheduling mechanism on both implementations, with coverage preserving real in-flight edits.
 - [x] Decide whether to expose source-write stabilization: deferred by agreement; retain current Chokidar settings and proceed with phase 4.
