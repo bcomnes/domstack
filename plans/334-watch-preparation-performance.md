@@ -2,7 +2,7 @@
 
 Status: phase 1, the Markdown source-preparation split/cache from phases 2–3, phase 4 fingerprints, and phase 5 dependency-analysis reuse remain implemented on `perf/334-markdown-preparation`.
 Phase 6 experiments are evaluated: layout-chain reuse is deferred, and speculative worker prewarming was rejected by the user and removed.
-HTML caching and further selective laziness remain optional follow-ups, not completed implementations.
+Selective lazy default-renderer preparation and conditional Handlebars loading are now implemented and measured; HTML source caching and lazy H1/variable evaluation remain optional follow-ups.
 See [phase 1 results](334-markdown-results.md), [source-cache results](334-markdown-cache-results.md), [Oro local-link validation](334-oro-validation.md), [fingerprint results](334-fingerprint-results.md), and [dependency-analysis results](334-dependency-analysis-results.md) for scope, validation, measurements, and limitations.
 Phase 6A is measured and deferred: the [layout-stage report](334-layout-results.md) finds only 0.369 ms of concrete chain traversal versus a 52.065 ms layout-loading stage that chain reuse would not remove.
 The [phase 6B report](334-prewarmed-worker-results.md) is retained as historical evidence for the removed experiment, not as a claim about the current runtime.
@@ -14,7 +14,8 @@ Workers start on demand as before; no idle replacement is prepared.
 Chokidar's internal 50 ms throttle and our `atomic: 300` setting are already active, but `awaitWriteFinish` is not enabled.
 The experimental 50 ms stability window prevented the controlled duplicate on both implementations, but adds delay and changes event timing; no new watcher option or production behavior change is planned in this pass.
 Natural duplicate frequency remains timing-dependent, and the investigation does not establish the delay behind every earlier sample.
-HTML caching and selective laziness remain optional experiments.
+The [lazy-preparation report](334-lazy-preparation-results.md) records a 24-page metadata/template-only benchmark improvement from approximately 108–110 ms to 50–53 ms, but no convincing end-to-end Oro improvement.
+Custom Markdown settings remain eager; source snapshots and synchronous metadata remain available before rendering.
 Related issue: [#334 — Watch profiling: single Markdown edits still initialize all pages and parse every document for H1 titles](https://github.com/bcomnes/domstack/issues/334).
 Related correctness work: [#328 — static re-export dependency tracking](https://github.com/bcomnes/domstack/issues/328).
 
@@ -38,8 +39,9 @@ Documentation checkpoint `160195f` records the earlier plan, measurement reports
 Reports describing uncommitted work or no commits refer to their earlier measurement sessions, before these checkpoints were created.
 Documentation checkpoint `c445346` records phase 6A's measurements and the decision not to ship chain caching for a sub-millisecond observed traversal cost.
 Checkpoint `abe3e48` implemented and measured phase 6B, but the user subsequently rejected speculative worker preparation.
-The removal checkpoint accompanying this update reverses its runtime, protocol, and test changes while retaining the measurements and decision history.
-No additional optimization workstream is committed by this plan; optional source-cache/laziness extensions should start with new measurements.
+Removal checkpoint `2e73cad` reverses its runtime, protocol, and test changes while retaining the measurements and decision history.
+The checkpoint accompanying the [lazy-preparation report](334-lazy-preparation-results.md) adds conditional default-renderer/Handlebars loading, regression tests, and a fresh-worker benchmark.
+Further optional HTML source-cache or metadata-laziness extensions should start with new measurements.
 
 ## Goal
 
@@ -184,15 +186,18 @@ Primary files:
 
 ### Selective laziness
 
-- [ ] Identify which operations can be deferred without changing synchronous metadata access or moving required validation out of the build.
-- [ ] Prototype lazy renderer preparation from captured source with a shared in-flight promise where necessary.
-- [ ] Verify that deferring Markdown settings execution does not silently alter relied-on side effects or error behavior.
+- [x] Identify deferrable operations: unused default Markdown rendering dependencies and optional Handlebars loading, without deferring source metadata or application validation.
+- [x] Implement lazy default-renderer preparation from captured source with build-scoped in-flight sharing and rejection eviction.
+- [x] Preserve custom Markdown settings and caller-supplied resolver execution timing by keeping them eager.
 - [ ] Investigate lazy H1 extraction when page variables are never consumed.
 - [ ] Account for `PageData.init()` currently merging variables and for later subscription registration; a title getter alone is insufficient if either forces evaluation.
 - [ ] Preserve final variable precedence, enumeration, freezing, and first-access behavior if title evaluation becomes lazy.
-- [ ] Reject a laziness change that merely shifts the same work later or requires a breaking async metadata API.
+- [x] Demonstrate genuinely skipped work in fresh-process module tests and a template-only benchmark that consumes every title; retain the synchronous metadata API.
 
-Cold or reset builds may still need eager source preparation to preserve the public contract.
+The [selective-laziness results](334-lazy-preparation-results.md) distinguish a substantial no-render benchmark benefit from effectively flat Oro watch medians.
+Oro's custom settings still initialize once per build, so it does not exercise default-renderer deferral.
+First-use default initialization errors now occur at rendering, and applications relying on Handlebars' incidental require hooks must import Handlebars explicitly.
+Source preparation remains eager on cold/reset builds to preserve the public contract.
 The main expected watch improvement comes from combining this separation with reusable source records, not from promising fully lazy pages.
 
 ## Phase 3: retain cloneable source preparation across watch builds
@@ -330,7 +335,7 @@ The [phase 6B report](334-prewarmed-worker-results.md) retains the measurements 
 The additional protocol/error-handling changes and their tests were reverted with it, not retained as an unrequested independent refactor.
 Do not resume prewarming or substitute persistent application workers without a new explicit decision.
 
-Remaining optional work is HTML source-preparation caching and selective laziness from phases 2–3, starting with measurements of genuinely avoidable work.
+Default-renderer and optional Handlebars laziness from phase 2 are implemented; remaining optional work is HTML source-preparation caching and lazy H1/variable evaluation, starting with measurements of genuinely avoidable work.
 
 ### Deferred: persistent application workers
 
@@ -346,7 +351,7 @@ Existing producer reset reasons are not sufficient executable-module invalidatio
 | Markdown semantics | Existing titles and HTML remain identical; explicit frontmatter title precedence is preserved |
 | Incremental edits | Correct HTML, raw Markdown, search, and LLM outputs; sibling HTML remains untouched when not invalidated |
 | Metadata API | Producers can synchronously inspect all pages, including non-stateful producers |
-| Work avoidance | Unchanged eligible sources avoid repeated reads/parses on the cached path; renderer initialization is deduplicated |
+| Work avoidance | Unchanged eligible sources avoid repeated reads/parses on the cached path; renderer initialization is deduplicated; metadata-only builds without custom settings skip default renderer setup |
 | Source snapshots | In-flight source edits do not alter the active renderer and are observed by the next batch |
 | Shared inputs | Settings, layout, vars, helper, and mixed-role changes retain correct broad invalidation and reload behavior |
 | Membership | Add, delete, rename, draft eligibility, and builder-type changes reconcile correctly |
@@ -355,7 +360,7 @@ Existing producer reset reasons are not sufficient executable-module invalidatio
 | Mutation isolation | Application mutation cannot alter retained source preparation or accepted producer state |
 | Fingerprints | Candidate fingerprints and invalidation results match the existing implementation |
 | Dependency reuse | Skipped events, changed imports, missing-file recovery, and empty dependency results remain correct |
-| Lifecycle | Stop/restart, independent sessions, active-build shutdown, and optional prewarming remain isolated |
+| Lifecycle | Stop/restart, independent sessions, and active-build shutdown remain isolated; workers start on demand without speculative prewarming |
 | Resource use | Cache size stays bounded by current sources; transfer and memory costs do not erase latency gains |
 
 Run focused subsystem tests for each change, followed by relevant watch integration tests, lint, type checking, and broader tests as appropriate.
@@ -366,7 +371,8 @@ Do not claim Oro performance improvements without rerunning its end-to-end workl
 
 The phase numbers indicate recommended priority, not a single mandatory implementation chain.
 Distinguish a hard implementation prerequisite from preferred sequencing, shared-file coordination, and a measurement gate.
-The dependencies below describe the chosen design; a prerequisite can be implemented in the same PR as its consumer rather than requiring a separate release.
+The dependencies below describe the original implementation design, including the now-deferred layout cache and rejected prewarming experiment; they do not authorize restarting those workstreams.
+A prerequisite can be implemented in the same PR as its consumer rather than requiring a separate release.
 
 ### Dependency matrix
 
@@ -385,7 +391,7 @@ The dependencies below describe the chosen design; a prerequisite can be impleme
 | Separate dependency analysis from routing, phase 5 | None | Source caching, fingerprints, laziness, and prewarming | Preserve fresh direct-call behavior and existing routing contracts |
 | Reuse dependency analysis across builds, phase 5 | Analysis/routing separation plus complete dirty-event tracking | Source caching, fingerprints, and prewarming | Cache and dirty tracking must ship together; include events that skip page builds |
 | Build-local layout-chain reuse, phase 6A | None | Source caching, laziness, fingerprints, dependency reuse, and prewarming | Shares `build.js` and `page-data.js` with source preparation work |
-| Single-use worker prewarming, phase 6B | Ready/job/result protocol and session-owned worker lifecycle | Source cache, lazy pages, fingerprints, and dependency reuse | Can be prototyped now; coordinate shared worker/watch integration and benchmark the final payload |
+| Single-use worker prewarming, phase 6B, rejected | Ready/job/result protocol and session-owned worker lifecycle | Source cache, lazy pages, fingerprints, and dependency reuse | Historical dependencies only; prototype removed, do not resume without a new explicit decision |
 | First-edit double-build investigation | Event/batch instrumentation | Every optimization | Separate diagnostic work, not a blocker for independently verified improvements |
 
 Measurement infrastructure is a shared validation prerequisite for claiming performance improvements, not a code dependency that must block all implementation.
