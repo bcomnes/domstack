@@ -27,7 +27,7 @@ test('heading changes refresh shared navigation; body edits leave other pages al
     'site/globals/global.data.ts',
     'site/layouts/docs/navigation.js',
     'site/layouts/docs/docs.layout.js',
-    'site/layouts/root/root.layout.js',
+    'site/layouts/root/root.layout.ts',
     'site/lib/authors.ts',
     'site/lib/blog.ts',
   ]) {
