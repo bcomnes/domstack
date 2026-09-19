@@ -43,7 +43,7 @@ export function blogIndex (posts: readonly BlogSummary[], archives: readonly Pic
                   `)}
                 </span>
                 <time datetime="${post.publishDate}">${formatBlogDate(post.publishDate)}</time>
-                ${post.draft ? html`<span>Draft</span>` : null}
+                ${post.draft ? html`<span class="blog-draft-badge">Draft</span>` : null}
               </p>
               <p class="blog-summary">${post.description}</p>
             </article>
