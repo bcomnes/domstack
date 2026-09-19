@@ -136,6 +136,7 @@
     "build:domstack": "./bin.js --src . --ignore examples,test-cases,coverage,*.tsconfig.json,fonts,/lib,/types,/scripts,/plans,/browser-tests,/test-results,/lcov.info,/tsconfig.json,/AGENTS.md,/AGENT.md,/agents.md",
     "new-blogpost": "node tools/blog/create.ts",
     "publish-draft": "node tools/blog/publish.ts",
+    "import-blog-author": "node tools/blog/import-author.ts",
     "build:declaration": "tsc -p declaration.tsconfig.json",
     "build:schema": "node scripts/domstack-manifest-schema.js",
     "watch": "npm run clean && run-p watch:*",

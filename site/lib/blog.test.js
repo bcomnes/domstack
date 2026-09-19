@@ -1,9 +1,12 @@
-/** @import { BlogPost } from './blog.ts' */
+/** @import { BlogPage, BlogPost } from './blog.ts' */
 import assert from 'node:assert/strict'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import test from 'node:test'
 import { load } from 'cheerio'
 import { atomFeed, feedHtml, jsonFeed } from './blog-feeds.ts'
-import { blogDate, projectBlog, validateBlogVars } from './blog.ts'
+import { blogDate, projectBlog, readBlogPost, validateBlogVars } from './blog.ts'
 import { resolveBlogAuthor } from './authors.ts'
 
 const site = 'https://domstack.neocities.org'
@@ -26,6 +29,27 @@ test('blog metadata validates RFC 3339 dates and resolves both Bret author IDs',
   assert.throws(() => validateBlogVars({ description: 'Summary', publishDate: '2026-01-02' }, 'sample'), /sample: title/)
   assert.throws(() => validateBlogVars({ title: 'Title', description: 'Summary', publishDate: '2026-01-02' }, 'sample'), /sample: publishDate/)
   assert.throws(() => validateBlogVars({ title: 'Title', description: 'Summary', publishDate: '2026-01-02T00:00:00Z', updatedDate: '2025-01-02T00:00:00Z' }, 'sample'), /updatedDate/)
+})
+
+test('blog posts require an explicit frontmatter title instead of an inferred H1', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'domstack-blog-'))
+  const filepath = join(directory, 'page.md')
+  /** @param {string} source @param {string} title @returns {BlogPage} */
+  const page = (source, title = 'Inferred H1') => ({
+    sourceId: source,
+    vars: { layout: 'blog', title, description: 'Summary', publishDate: '2026-01-02T00:00:00Z' },
+    pageInfo: { type: 'md', url: '/blog/2026/example/', pageFile: { filepath } },
+    renderInnerPage: async () => '<p>Content.</p>',
+  })
+  try {
+    await writeFile(filepath, '---\nlayout: blog\ndescription: Summary\npublishDate: "2026-01-02T00:00:00Z"\n---\n\n# Inferred H1\n')
+    await assert.rejects(readBlogPost(page('blog/2026/example/page.md')), /title is required in blog post frontmatter/)
+    await writeFile(filepath, '---\nlayout: blog\ntitle: Explicit title\ndescription: Summary\npublishDate: "2026-01-02T00:00:00Z"\n---\n\nContent.\n')
+    const post = await readBlogPost(page('blog/2026/example/page.md', 'Explicit title'))
+    assert.equal(post.title, 'Explicit title')
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
 })
 
 test('blog projection sorts posts, groups archives, and excludes drafts from feeds', () => {

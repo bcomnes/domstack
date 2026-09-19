@@ -1,5 +1,7 @@
 import type { PageData } from '../../types.ts'
-import { load } from 'cheerio'
+import { readFile } from 'node:fs/promises'
+import { load as parseHtml } from 'cheerio'
+import { load as parseYaml, YAML11_SCHEMA } from 'js-yaml'
 import MarkdownIt from 'markdown-it'
 import { resolveBlogAuthor, type AuthorId } from './authors.ts'
 
@@ -33,7 +35,7 @@ export interface BlogData {
 /** The supported YAML frontmatter contract for Markdown blog posts. */
 export interface BlogPostVars {
   layout: 'blog'
-  title?: string
+  title: string
   description: string
   publishDate: string
   updatedDate?: string
@@ -41,7 +43,9 @@ export interface BlogPostVars {
 }
 
 export type BlogPage = Pick<PageData<Record<string, unknown>, string>, 'sourceId' | 'vars' | 'renderInnerPage'> & {
-  pageInfo: Pick<PageData<Record<string, unknown>, string>['pageInfo'], 'url' | 'type'>
+  pageInfo: Pick<PageData<Record<string, unknown>, string>['pageInfo'], 'url' | 'type'> & {
+    pageFile: { filepath: string }
+  }
 }
 
 export function blogYear (url: string): string | undefined {
@@ -49,7 +53,27 @@ export function blogYear (url: string): string | undefined {
 }
 
 function plainTitle (value: string): string {
-  return load(markdown.renderInline(value), {}, false).text().replace(/\s+/g, ' ').trim()
+  return parseHtml(markdown.renderInline(value), {}, false).text().replace(/\s+/g, ' ').trim()
+}
+
+async function requireExplicitTitle (page: BlogPage): Promise<void> {
+  const source = await readFile(page.pageInfo.pageFile.filepath, 'utf8')
+  const match = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/.exec(source)
+  if (!match) throw new Error(`${page.sourceId}: title is required in blog post frontmatter`)
+
+  let metadata: unknown
+  try {
+    metadata = parseYaml(match[1]!, { schema: YAML11_SCHEMA })
+  } catch (error) {
+    throw new Error(`${page.sourceId}: blog post frontmatter is not valid YAML`, { cause: error })
+  }
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata) || !Object.hasOwn(metadata, 'title')) {
+    throw new Error(`${page.sourceId}: title is required in blog post frontmatter`)
+  }
+  const metadataRecord = metadata as Record<string, unknown>
+  if (typeof metadataRecord['title'] !== 'string' || !plainTitle(metadataRecord['title'])) {
+    throw new Error(`${page.sourceId}: title must contain visible text`)
+  }
 }
 
 export function blogDate (value: unknown, field: string, source: string): string {
@@ -74,7 +98,7 @@ export function blogDate (value: unknown, field: string, source: string): string
 
 export function validateBlogVars (vars: Record<string, unknown>, source: string): Omit<BlogPost, 'url' | 'html' | 'draft'> {
   const title = typeof vars['title'] === 'string' ? plainTitle(vars['title']) : ''
-  if (!title) throw new Error(`${source}: title must contain visible text (supply an H1 or explicit title)`)
+  if (!title) throw new Error(`${source}: title must contain visible text (supply an explicit title in frontmatter)`)
   if (typeof vars['description'] !== 'string' || !vars['description'].trim()) throw new Error(`${source}: description must be a non-empty string`)
   const publishDate = blogDate(vars['publishDate'], 'publishDate', source)
   const updatedDate = vars['updatedDate'] === undefined ? undefined : blogDate(vars['updatedDate'], 'updatedDate', source)
@@ -93,6 +117,7 @@ export function validateBlogVars (vars: Record<string, unknown>, source: string)
 
 export async function readBlogPost (page: BlogPage): Promise<BlogPost> {
   if (page.pageInfo.type !== 'md') throw new Error(`${page.sourceId}: blog posts must be Markdown`)
+  await requireExplicitTitle(page)
   const metadata = validateBlogVars(page.vars, page.sourceId)
   return { ...metadata, url: page.pageInfo.url, html: await page.renderInnerPage(), draft: /\.draft\.md$/.test(page.sourceId) }
 }

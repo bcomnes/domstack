@@ -27,12 +27,15 @@
   .blog-breadcrumb { margin-block-end: 1rem; }
   .blog-list { list-style: none; padding: 0; margin: 0; }
   .blog-list > li { border-block-start: 1px solid var(--site-border); padding-block: 2rem; }
-  .blog-list h2 { margin-block: 0.5rem 1rem; }
+  .blog-list h2 { margin-block: 0.5rem 0.25rem; }
   .blog-list p { margin-block: 1rem 0; }
+  .blog-list .blog-byline { margin-block-start: 0; }
   .blog-byline,
   .blog-updated { color: var(--site-muted); font-size: 0.875rem; }
   .blog-updated { display: block; margin-block-start: 0.5rem; }
   .blog-article-meta { margin-block-end: 2rem; }
+  .blog-article-meta h1 { margin-block: 1.5rem 0.5rem; }
+  .blog-article-meta .blog-byline { margin-block-start: 0; }
   .blog-article-footer { border-block-start: 1px solid var(--site-border); margin-block-start: 3rem; padding-block-start: 1.5rem; }
   .blog-prose img,
   .blog-prose video { max-inline-size: 100%; block-size: auto; }
