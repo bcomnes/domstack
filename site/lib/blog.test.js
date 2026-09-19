@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import test from 'node:test'
 import { load } from 'cheerio'
 import { atomFeed, feedHtml, jsonFeed } from './blog-feeds.ts'
+import { blogIndex } from './blog-index.ts'
 import { blogDate, projectBlog, readBlogPost, validateBlogVars } from './blog.ts'
 import { resolveBlogAuthors } from './authors.ts'
 
@@ -58,6 +59,14 @@ test('blog projection sorts posts, groups archives, and excludes drafts from fee
   assert.deepEqual(data.blogPosts.map(entry => entry.url), ['/blog/2026/draft/', '/blog/2026/example/', '/blog/2025/old/'])
   assert.deepEqual(data.blogArchives.map(archive => archive.year), ['2026', '2025'])
   assert.deepEqual(data.blogFeed.map(entry => entry.url), ['/blog/2026/example/', '/blog/2025/old/'])
+})
+
+test('blog index feed links expose icons, feed types, and alternate relations', () => {
+  const $ = load(blogIndex([post], []))
+  assert.deepEqual($('.blog-feeds a').toArray().map(element => ({ href: $(element).attr('href'), rel: $(element).attr('rel'), type: $(element).attr('type'), icon: $(element).find('img').attr('src') })), [
+    { href: '/feed.json', rel: 'alternate', type: 'application/feed+json', icon: '/blog/jsonfeed.svg' },
+    { href: '/feed.xml', rel: 'alternate', type: 'application/atom+xml', icon: '/blog/atom.svg' },
+  ])
 })
 
 test('feeds include ordered author metadata, avatars, and absolute article assets', () => {

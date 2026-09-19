@@ -48,7 +48,7 @@ export default function rootLayout ({ children, vars, page, scripts, styles }) {
         <meta name="color-scheme" content="light dark" />
         <title>${vars.title ? `${vars.title} | domstack` : 'domstack'}</title>
         <link rel="alternate" type="application/feed+json" title="DOMStack Blog — JSON Feed" href="${assetUrl('/feed.json')}" />
-        <link rel="alternate" type="application/atom+xml" title="DOMStack Blog — Atom" href="${assetUrl('/feed.xml')}" />
+        <link rel="alternate" type="application/atom+xml" title="DOMStack Blog — Atom Feed" href="${assetUrl('/feed.xml')}" />
         ${styles?.map(style => html`<link rel="stylesheet" href="${assetUrl(style)}" />`)}
         ${scripts?.map(script => html`<script type="module" src="${assetUrl(script)}"></script>`)}
       </head>
