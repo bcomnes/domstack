@@ -140,7 +140,7 @@ Stop the development server with Ctrl+C, then build the site into `public/`:
 npm run build
 ```
 
-Use `npm run preview` to build once and serve the production output.
+
 See the [starter options](https://github.com/bcomnes/create-domstack-app#options) for non-interactive setup and other choices.
 
 ### Manual setup alternative
