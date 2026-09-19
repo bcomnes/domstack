@@ -3,7 +3,8 @@ layout: blog
 title: "Hello, DOMStack"
 description: "A first look at the DOMStack blog and the ideas behind building static sites from ordinary files."
 publishDate: "2026-09-19T12:00:00Z"
-author: bret
+authors:
+  - bcomnes
 ---
 
 

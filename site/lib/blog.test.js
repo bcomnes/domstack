@@ -7,28 +7,28 @@ import test from 'node:test'
 import { load } from 'cheerio'
 import { atomFeed, feedHtml, jsonFeed } from './blog-feeds.ts'
 import { blogDate, projectBlog, readBlogPost, validateBlogVars } from './blog.ts'
-import { resolveBlogAuthor } from './authors.ts'
+import { resolveBlogAuthors } from './authors.ts'
 
 const site = 'https://domstack.neocities.org'
+const sampleAuthors = await resolveBlogAuthors(['bcomnes'], 'sample')
 /** @type {BlogPost} */
 const post = {
   url: '/blog/2026/example/',
   title: 'Example & Post',
   description: 'A summary.',
   publishDate: '2026-01-02T00:00:00.000Z',
-  authorId: 'bret',
-  authorName: 'Bret Comnes',
-  authorUrl: 'https://bret.io',
+  authors: [...sampleAuthors],
   html: '<p><a href="../other/">Other</a><img src="image.png"></p>',
 }
 
-test('blog metadata validates RFC 3339 dates and resolves both Bret author IDs', () => {
+test('blog metadata validates RFC 3339 dates and author arrays', async () => {
   assert.equal(blogDate('2024-02-29T12:00:00Z', 'publishDate', 'sample'), '2024-02-29T12:00:00.000Z')
-  assert.deepEqual(resolveBlogAuthor('bret', 'sample'), { id: 'bret', name: 'Bret Comnes', url: 'https://bret.io' })
-  assert.deepEqual(resolveBlogAuthor('bcomnes', 'sample'), { id: 'bcomnes', name: 'Bret Comnes', url: 'https://bret.io' })
-  assert.throws(() => validateBlogVars({ description: 'Summary', publishDate: '2026-01-02' }, 'sample'), /sample: title/)
-  assert.throws(() => validateBlogVars({ title: 'Title', description: 'Summary', publishDate: '2026-01-02' }, 'sample'), /sample: publishDate/)
-  assert.throws(() => validateBlogVars({ title: 'Title', description: 'Summary', publishDate: '2026-01-02T00:00:00Z', updatedDate: '2025-01-02T00:00:00Z' }, 'sample'), /updatedDate/)
+  assert.deepEqual(await resolveBlogAuthors(['bcomnes'], 'sample'), [{ username: 'bcomnes', name: 'Bret Comnes', url: 'https://bret.io/', avatar: '/authors/bcomnes/avatar.jpg' }])
+  await assert.rejects(validateBlogVars({ description: 'Summary', publishDate: '2026-01-02T00:00:00Z', authors: ['bcomnes'] }, 'sample'), /sample: title/)
+  await assert.rejects(validateBlogVars({ title: 'Title', description: 'Summary', publishDate: '2026-01-02T00:00:00Z', authors: [] }, 'sample'), /nonempty array/)
+  await assert.rejects(validateBlogVars({ title: 'Title', description: 'Summary', publishDate: '2026-01-02T00:00:00Z', authors: ['bcomnes', 'bcomnes'] }, 'sample'), /duplicate/)
+  await assert.rejects(validateBlogVars({ title: 'Title', description: 'Summary', publishDate: '2026-01-02T00:00:00Z', authors: ['bret'] }, 'sample'), /unknown author|unknown|author-meta/)
+  await assert.rejects(validateBlogVars({ title: 'Title', description: 'Summary', publishDate: '2026-01-02T00:00:00Z', authors: ['bcomnes'], updatedDate: '2025-01-02T00:00:00Z' }, 'sample'), /updatedDate/)
 })
 
 test('blog posts require an explicit frontmatter title instead of an inferred H1', async () => {
@@ -37,16 +37,17 @@ test('blog posts require an explicit frontmatter title instead of an inferred H1
   /** @param {string} source @param {string} title @returns {BlogPage} */
   const page = (source, title = 'Inferred H1') => ({
     sourceId: source,
-    vars: { layout: 'blog', title, description: 'Summary', publishDate: '2026-01-02T00:00:00Z' },
+    vars: { layout: 'blog', title, description: 'Summary', publishDate: '2026-01-02T00:00:00Z', authors: ['bcomnes'] },
     pageInfo: { type: 'md', url: '/blog/2026/example/', pageFile: { filepath } },
     renderInnerPage: async () => '<p>Content.</p>',
   })
   try {
-    await writeFile(filepath, '---\nlayout: blog\ndescription: Summary\npublishDate: "2026-01-02T00:00:00Z"\n---\n\n# Inferred H1\n')
+    await writeFile(filepath, '---\nlayout: blog\ndescription: Summary\npublishDate: "2026-01-02T00:00:00Z"\nauthors: [bcomnes]\n---\n\n# Inferred H1\n')
     await assert.rejects(readBlogPost(page('blog/2026/example/page.md')), /title is required in blog post frontmatter/)
-    await writeFile(filepath, '---\nlayout: blog\ntitle: Explicit title\ndescription: Summary\npublishDate: "2026-01-02T00:00:00Z"\n---\n\nContent.\n')
-    const post = await readBlogPost(page('blog/2026/example/page.md', 'Explicit title'))
-    assert.equal(post.title, 'Explicit title')
+    await writeFile(filepath, '---\nlayout: blog\ntitle: Explicit title\ndescription: Summary\npublishDate: "2026-01-02T00:00:00Z"\nauthors: [bcomnes]\n---\n\nContent.\n')
+    const result = await readBlogPost(page('blog/2026/example/page.md', 'Explicit title'))
+    assert.equal(result.title, 'Explicit title')
+    assert.deepEqual(result.authors, sampleAuthors)
   } finally {
     await rm(directory, { recursive: true, force: true })
   }
@@ -59,12 +60,12 @@ test('blog projection sorts posts, groups archives, and excludes drafts from fee
   assert.deepEqual(data.blogFeed.map(entry => entry.url), ['/blog/2026/example/', '/blog/2025/old/'])
 })
 
-test('feeds include author metadata and absolute article assets', () => {
+test('feeds include ordered author metadata, avatars, and absolute article assets', () => {
   const $ = load(feedHtml(post, site))
   assert.equal($('a').attr('href'), `${site}/blog/2026/other/`)
   assert.equal($('img').attr('src'), `${site}/blog/2026/example/image.png`)
   const json = JSON.parse(jsonFeed([post], site))
-  assert.equal(json.items[0].authors[0].name, 'Bret Comnes')
+  assert.deepEqual(json.items[0].authors, [{ name: 'Bret Comnes', url: 'https://bret.io/', avatar: `${site}/authors/bcomnes/avatar.jpg` }])
   assert.equal(json.items[0].content_html, feedHtml(post, site))
-  assert.match(atomFeed([post], site), /<author><name>Bret Comnes<\/name><uri>https:\/\/bret\.io<\/uri><\/author>/)
+  assert.match(atomFeed([post], site), /<author><name>Bret Comnes<\/name><uri>https:\/\/bret\.io\/<\/uri><\/author>/)
 })
