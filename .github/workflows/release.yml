@@ -78,3 +78,12 @@ jobs:
         preid: ${{ github.event.inputs['preid'] }}
         dist-tag: ${{ github.event.inputs['dist-tag'] }}
         github-token: ${{ secrets.GITHUB_TOKEN }}
+    - name: Build website
+      run: npm run build
+    - name: Deploy website to Neocities
+      uses: bcomnes/deploy-to-neocities@v3
+      with:
+        api_key: ${{ secrets.NEOCITIES_DOMSTACK_API_TOKEN }}
+        cleanup: true
+        neocities_supporter: true
+        preview_before_deploy: true

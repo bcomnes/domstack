@@ -1,0 +1,144 @@
+import type { PageData } from '../../types.ts'
+import { readFile } from 'node:fs/promises'
+import { load as parseHtml } from 'cheerio'
+import { load as parseYaml, YAML11_SCHEMA } from 'js-yaml'
+import MarkdownIt from 'markdown-it'
+import { resolveBlogAuthors, type BlogAuthor } from './authors.ts'
+
+const markdown = new MarkdownIt({ html: true })
+
+export interface BlogPost {
+  url: string
+  title: string
+  description: string
+  publishDate: string
+  updatedDate?: string
+  authors: BlogAuthor[]
+  html: string
+  draft?: boolean
+}
+
+export type BlogSummary = Omit<BlogPost, 'html'>
+export interface BlogArchive {
+  year: string
+  url: string
+  posts: BlogSummary[]
+}
+export interface BlogData {
+  blogPosts: BlogSummary[]
+  blogFeed: BlogPost[]
+  blogArchives: BlogArchive[]
+}
+
+/** The supported YAML frontmatter contract for Markdown blog posts. */
+export interface BlogPostVars {
+  layout: 'blog'
+  title: string
+  description: string
+  publishDate: string
+  updatedDate?: string
+  authors: string[]
+}
+
+export type BlogPage = Pick<PageData<Record<string, unknown>, string>, 'sourceId' | 'vars' | 'renderInnerPage'> & {
+  pageInfo: Pick<PageData<Record<string, unknown>, string>['pageInfo'], 'url' | 'type'> & {
+    pageFile: { filepath: string }
+  }
+}
+
+export function blogYear (url: string): string | undefined {
+  return /^\/blog\/(\d{4})\//.exec(url)?.[1]
+}
+
+function plainTitle (value: string): string {
+  return parseHtml(markdown.renderInline(value), {}, false).text().replace(/\s+/g, ' ').trim()
+}
+
+async function requireExplicitTitle (page: BlogPage): Promise<void> {
+  const source = await readFile(page.pageInfo.pageFile.filepath, 'utf8')
+  const match = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/.exec(source)
+  if (!match) throw new Error(`${page.sourceId}: title is required in blog post frontmatter`)
+
+  let metadata: unknown
+  try {
+    metadata = parseYaml(match[1]!, { schema: YAML11_SCHEMA })
+  } catch (error) {
+    throw new Error(`${page.sourceId}: blog post frontmatter is not valid YAML`, { cause: error })
+  }
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata) || !Object.hasOwn(metadata, 'title')) {
+    throw new Error(`${page.sourceId}: title is required in blog post frontmatter`)
+  }
+  const metadataRecord = metadata as Record<string, unknown>
+  if (typeof metadataRecord['title'] !== 'string' || !plainTitle(metadataRecord['title'])) {
+    throw new Error(`${page.sourceId}: title must contain visible text`)
+  }
+}
+
+export function blogDate (value: unknown, field: string, source: string): string {
+  const match = typeof value === 'string' && /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,3})?(Z|[+-]\d{2}:\d{2})$/.exec(value)
+  if (!match) throw new Error(`${source}: ${field} must be an RFC 3339 timestamp with an explicit timezone`)
+  const year = match[1]!
+  const month = match[2]!
+  const day = match[3]!
+  const hour = match[4]!
+  const minute = match[5]!
+  const second = match[6]!
+  const zone = match[7]!
+  const leap = +year % 4 === 0 && (+year % 100 !== 0 || +year % 400 === 0)
+  const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+  const time = Date.parse(value as string)
+  if (+month < 1 || +month > 12 || +day < 1 || +day > days[+month - 1]! || +hour > 23 || +minute > 59 || +second > 59 ||
+    (zone !== 'Z' && (+zone.slice(1, 3) > 23 || +zone.slice(4) > 59 || zone === '-00:00')) || !Number.isFinite(time)) {
+    throw new Error(`${source}: ${field} must be a valid timestamp with a known timezone`)
+  }
+  return new Date(time).toISOString()
+}
+
+export async function validateBlogVars (vars: Record<string, unknown>, source: string): Promise<Omit<BlogPost, 'url' | 'html' | 'draft'>> {
+  const title = typeof vars['title'] === 'string' ? plainTitle(vars['title']) : ''
+  if (!title) throw new Error(`${source}: title is required and must contain visible text; set title in blog post frontmatter`)
+  if (typeof vars['description'] !== 'string' || !vars['description'].trim()) throw new Error(`${source}: description must be a non-empty string`)
+  const publishDate = blogDate(vars['publishDate'], 'publishDate', source)
+  const updatedDate = vars['updatedDate'] === undefined ? undefined : blogDate(vars['updatedDate'], 'updatedDate', source)
+  if (updatedDate && Date.parse(updatedDate) < Date.parse(publishDate)) throw new Error(`${source}: updatedDate must not precede publishDate`)
+  const authors = await resolveBlogAuthors(vars['authors'], source)
+  return {
+    title,
+    description: vars['description'].trim(),
+    publishDate,
+    ...(updatedDate ? { updatedDate } : {}),
+    authors,
+  }
+}
+
+export async function readBlogPost (page: BlogPage): Promise<BlogPost> {
+  if (page.pageInfo.type !== 'md') throw new Error(`${page.sourceId}: blog posts must be Markdown`)
+  await requireExplicitTitle(page)
+  const metadata = await validateBlogVars(page.vars, page.sourceId)
+  return { ...metadata, url: page.pageInfo.url, html: await page.renderInnerPage(), draft: /\.draft\.md$/.test(page.sourceId) }
+}
+
+export function projectBlog (posts: readonly BlogPost[]): BlogData {
+  const sorted = [...posts].sort((a, b) => Date.parse(b.publishDate) - Date.parse(a.publishDate) || (a.url < b.url ? -1 : a.url > b.url ? 1 : 0))
+  const blogPosts = sorted.map(({ html: _html, ...post }) => post)
+  const years = new Map<string, BlogSummary[]>()
+  for (const post of blogPosts) {
+    const year = blogYear(post.url)
+    if (!year) continue
+    if (!years.has(year)) years.set(year, [])
+    years.get(year)!.push(post)
+  }
+  return {
+    blogPosts,
+    blogFeed: sorted.filter(post => !post.draft).slice(0, 20),
+    blogArchives: [...years].sort(([a], [b]) => b.localeCompare(a)).map(([year, posts]) => ({ year, url: `/blog/${year}/`, posts })),
+  }
+}
+
+export function formatBlogDate (value: string): string {
+  return new Intl.DateTimeFormat('en', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' }).format(new Date(value))
+}
+
+export function editUrl (sourceRelname: string): string {
+  return 'https://github.com/bcomnes/domstack/edit/master/' + sourceRelname.replace(/\\/g, '/').split('/').map(encodeURIComponent).join('/')
+}

@@ -1,0 +1,54 @@
+@layer domstack.layout {
+  .blog-main {
+    padding: 3rem max(1.25rem, env(safe-area-inset-right)) 5rem;
+  }
+
+  .blog-column {
+    max-inline-size: 72ch;
+    margin-inline: auto;
+    font-size: 1.1rem;
+    line-height: 1.65;
+    overflow-wrap: anywhere;
+  }
+
+  .blog-column h1,
+  .blog-column h2,
+  .blog-column h3 {
+    line-height: 1.2;
+  }
+
+  .blog-column h1 { font-size: clamp(2rem, 6vw, 3rem); }
+  .blog-column h2 { margin-block-start: 2.5rem; }
+  .blog-feeds,
+  .blog-years { display: flex; flex-wrap: wrap; gap: 1rem 1.5rem; }
+  .blog-feeds { margin-block: 1.5rem; }
+  .blog-feeds a { display: inline-flex; align-items: center; justify-content: center; min-inline-size: 1.5rem; min-block-size: 1.5rem; }
+  .blog-feeds img { display: block; inline-size: 1.5rem; block-size: 1.5rem; border-radius: 0.2rem; }
+  .blog-years { margin-block-end: 2rem; }
+  .blog-years [aria-current="page"] { font-weight: 700; }
+  .blog-breadcrumb { margin-block-end: 1rem; }
+  .blog-list { list-style: none; padding: 0; margin: 0; }
+  .blog-list > li { border-block-start: 1px solid var(--site-border); padding-block: 2rem; }
+  .blog-list h2 { margin-block: 0.5rem 0.25rem; }
+  .blog-list p { margin-block: 1rem 0; }
+  .blog-list .blog-byline { margin: 0 0 1rem; }
+  .blog-list .blog-summary { margin: 0; }
+  .blog-byline,
+  .blog-updated { color: var(--site-muted); font-size: 0.875rem; }
+  .blog-byline,
+  .blog-authors { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1.5rem; }
+  .blog-authors { gap: 0.5rem 1rem; }
+  .blog-author { display: inline-flex; align-items: center; gap: 0.5rem; min-width: 0; }
+  .blog-author img { flex-shrink: 0; border-radius: 50%; object-fit: cover; width: 1.5rem; height: 1.5rem; }
+  .blog-article-meta { margin-block-end: 2rem; padding-block-end: 1.5rem; border-block-end: 1px solid var(--site-border); }
+  .blog-article-meta .blog-breadcrumb { margin-block-end: 1rem; }
+  .blog-article-meta .blog-title { max-inline-size: 24ch; margin: 0 0 0.5rem; text-wrap: balance; }
+  .blog-article-meta .blog-author img { width: 2rem; height: 2rem; }
+  .blog-article-meta .blog-byline { margin: 0; }
+  .blog-article-meta .blog-updated { margin-block-start: 0.5rem; }
+  .blog-article-footer { border-block-start: 1px solid var(--site-border); margin-block-start: 3rem; padding-block-start: 1.5rem; }
+  .blog-prose img,
+  .blog-prose video { max-inline-size: 100%; block-size: auto; }
+  .blog-prose pre { overflow-x: auto; padding: 1rem; border-radius: 0.4rem; }
+  .blog-prose blockquote { margin-inline: 0; padding-inline-start: 1.5rem; border-inline-start: 4px solid var(--link-text); }
+}

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { load } from 'cheerio'
 import { html, raw } from 'fragtml'
-import rootLayout from './root.layout.js'
+import rootLayout from './root.layout.ts'
 import docsLayout from '../docs/docs.layout.js'
 
 test('site shell preserves children, escapes metadata, and creates exactly one main landmark', async () => {
