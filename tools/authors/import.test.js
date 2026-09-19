@@ -94,16 +94,14 @@ test('failed reads are retried and clearing an in-flight read does not evict its
   assert.strictEqual(registry.get('alice'), replacement)
 })
 
-test('checked-in registry resolves ordered canonical authors', async () => {
-  const authors = await resolveBlogAuthors(['jwerle', 'bcomnes'], 'post.md')
-  assert.deepEqual(authors.map(author => author.username), ['jwerle', 'bcomnes'])
-  assert.equal(authors[0].url, 'https://github.com/jwerle')
-  assert.equal(authors[1].url, 'https://bret.io/')
-  assert.equal((await resolveBlogAuthors(['oro-computer'], 'post.md'))[0].username, 'oro-computer')
+test('checked-in registry resolves the canonical DOMStack author', async () => {
+  const authors = await resolveBlogAuthors(['bcomnes'], 'post.md')
+  assert.deepEqual(authors.map(author => author.username), ['bcomnes'])
+  assert.equal(authors[0].url, 'https://bret.io/')
 })
 
 test('rejects unsafe usernames, URLs, missing authors, duplicates, and legacy aliases in arrays', async () => {
   for (const value of ['../alice', '.', 'a/b', 'Alice', '-alice', 'alice-', 'a--b', '', 'x'.repeat(40)]) assert.throws(() => validateAuthorUsername(value))
   for (const value of ['javascript:alert(1)', 'https://user:password@example.org', '//example.org', 'https://example.org/\n']) assert.throws(() => validateAuthorUrl(value))
-  for (const value of [undefined, 'bcomnes', [], ['bcomnes', 'bcomnes'], ['../bcomnes'], ['joe'], ['bret'], ['oro'], [null], ['unregistered-example']]) await assert.rejects(resolveBlogAuthors(value, 'post.md'), /post\.md:/)
+  for (const value of [undefined, 'bcomnes', [], ['bcomnes', 'bcomnes'], ['../bcomnes'], ['jwerle'], ['oro-computer'], ['joe'], ['bret'], ['oro'], [null], ['unregistered-example']]) await assert.rejects(resolveBlogAuthors(value, 'post.md'), /post\.md:/)
 })
