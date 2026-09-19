@@ -31,24 +31,13 @@
   .blog-years {
     align-items: center;
     gap: 0.5rem 1.5rem;
-    margin: 0;
-    border-block-end: 1px solid var(--site-border);
+    margin-block-end: 2rem;
     font-size: 0.875rem;
   }
 
-  .blog-years a {
-    padding-block: 0.75rem;
-    margin-block-end: -1px;
-    border-block-end: 2px solid transparent;
-  }
-
   .blog-years [aria-current="page"] {
-    border-block-end-color: var(--link-text);
     color: var(--text);
-  }
-
-  .blog-index-header + .blog-list > li:first-child {
-    border-block-start: 0;
+    font-weight: 700;
   }
 
   .blog-list > li {
