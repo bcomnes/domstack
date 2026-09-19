@@ -1,25 +1,26 @@
-/**
- * @import { LayoutFunction } from '#types'
- * @import { HtmlResult } from 'fragtml/types.js'
- */
 import { html, raw, render } from 'fragtml'
+import type { HtmlResult } from 'fragtml/types.js'
+import type { LayoutFunction } from '@domstack/static/types.js'
 import { navigationHref } from '../docs/navigation.js'
 
-function year () {
+export interface RootVars {
+  title?: string
+  layout?: string
+  lang?: string
+  basePath?: string
+  siteUrl?: string
+  [key: string]: unknown
+}
+
+function year (): number {
   return new Date().getFullYear()
 }
 
-/** @param {string} sourceRelname */
-function editUrl (sourceRelname) {
+function editUrl (sourceRelname: string): string {
   return 'https://github.com/bcomnes/domstack/edit/master/' + sourceRelname.replace(/\\/g, '/').split('/').map(encodeURIComponent).join('/')
 }
 
-/**
- * The website owns its document shell; the docs layout owns the sidebar and
- * main landmark. Other pages get a simple main landmark here instead.
- * @type {LayoutFunction<{ title?: string, layout?: string, lang?: string, basePath?: string, siteUrl?: string }, string | HtmlResult, string>}
- */
-export default function rootLayout ({ children, vars, page, scripts, styles }) {
+const rootLayout: LayoutFunction<RootVars, string | HtmlResult, string> = ({ children, vars, page, scripts, styles }) => {
   const isDocs = vars.layout === 'docs'
   const ownsMain = isDocs || vars.layout === 'blog' || vars.layout === 'blog-index'
   const content = typeof children === 'string' ? raw(children) : children
@@ -27,8 +28,7 @@ export default function rootLayout ({ children, vars, page, scripts, styles }) {
   const docs = navigationHref(page.url, '/docs/')
   const examples = navigationHref(page.url, '/docs/example-projects/')
   const blog = navigationHref(page.url, '/blog/')
-  /** @param {string} path */
-  const assetUrl = path => path.startsWith('/') ? `${vars.basePath ?? ''}${path}` : path
+  const assetUrl = (path: string): string => path.startsWith('/') ? `${vars.basePath ?? ''}${path}` : path
   const editSource = page.generated?.pagesFile.pagesFile.relname ?? page.pageFile?.relname ?? 'README.md'
 
   const menuToggle = html`
@@ -87,3 +87,5 @@ export default function rootLayout ({ children, vars, page, scripts, styles }) {
     </html>
   `)
 }
+
+export default rootLayout
