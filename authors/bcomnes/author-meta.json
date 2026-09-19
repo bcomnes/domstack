@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "username": "bcomnes",
+  "name": "Bret Comnes",
+  "profile": "https://github.com/bcomnes",
+  "website": "https://bret.io/",
+  "links": [
+    {
+      "provider": "twitter",
+      "url": "https://x.com/bcomnes"
+    },
+    {
+      "provider": "mastodon",
+      "url": "https://fosstodon.org/@bcomnes"
+    },
+    {
+      "provider": "bluesky",
+      "url": "https://bsky.app/profile/bret.io"
+    },
+    {
+      "provider": "npm",
+      "url": "https://www.npmjs.com/~bret"
+    }
+  ],
+  "avatar": "avatar.jpg",
+  "keys": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIER/jKDDJvSthkj8vbnPLik2TT+DVW0pIZZpzxFSLWc0\nssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOAuw2eZOGpbPnuicq7MQWLa03N1zLq0F0iJbWI3Dg2V\n",
+  "gpg": "-----BEGIN PGP PUBLIC KEY BLOCK-----\n\n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\n=VW1V\n-----END PGP PUBLIC KEY BLOCK-----"
+}
