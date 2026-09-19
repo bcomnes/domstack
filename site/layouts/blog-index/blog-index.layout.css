@@ -1,1 +1,94 @@
 @import '../blog/blog.layout.css';
+
+@layer domstack.layout {
+  .blog-index-header {
+    margin-block-end: 0;
+  }
+
+  .blog-index-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .blog-index-heading h1 {
+    margin: 0;
+    letter-spacing: -0.03em;
+  }
+
+  .blog-index-heading .blog-feeds {
+    flex: none;
+    margin: 0;
+  }
+
+  .blog-index-description {
+    max-inline-size: 56ch;
+    margin: 1rem 0 1.5rem;
+    color: var(--site-muted);
+  }
+
+  .blog-years {
+    align-items: center;
+    gap: 0.5rem 1.5rem;
+    margin: 0;
+    border-block-end: 1px solid var(--site-border);
+    font-size: 0.875rem;
+  }
+
+  .blog-years a {
+    padding-block: 0.75rem;
+    margin-block-end: -1px;
+    border-block-end: 2px solid transparent;
+  }
+
+  .blog-years [aria-current="page"] {
+    border-block-end-color: var(--link-text);
+    color: var(--text);
+  }
+
+  .blog-index-header + .blog-list > li:first-child {
+    border-block-start: 0;
+  }
+
+  .blog-list > li {
+    padding-block: 2rem;
+  }
+
+  .blog-list h2 {
+    margin: 0 0 0.5rem;
+    font-size: clamp(1.5rem, 3vw, 1.75rem);
+    letter-spacing: -0.02em;
+  }
+
+  .blog-list .blog-byline {
+    margin-block-end: 1rem;
+  }
+
+  .blog-list .blog-summary {
+    max-inline-size: 64ch;
+    margin: 0;
+    color: var(--site-muted);
+  }
+
+  .blog-empty {
+    margin: 0;
+    padding-block: 2rem;
+    border-block-start: 1px solid var(--site-border);
+    color: var(--site-muted);
+  }
+
+  @media (max-width: 40rem) {
+    .blog-index-heading {
+      align-items: flex-start;
+    }
+
+    .blog-index-description {
+      margin-block: 1rem 1.5rem;
+    }
+
+    .blog-years {
+      gap: 0.25rem 1rem;
+    }
+  }
+}
