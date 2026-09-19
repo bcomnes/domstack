@@ -118,7 +118,34 @@ The [documentation](docs/) covers each convention in detail.
 
 ## Installation and first build
 
-Use Node.js 22.18+ within the 22.x release line, or Node.js 24 or newer.
+Use Node.js 22.18+ within the 22.x release line, or Node.js 24 or newer, with npm 10 or newer.
+
+### Create a new app
+
+Start a new project with the [DOMStack starter](https://github.com/bcomnes/create-domstack-app#readme):
+
+```sh
+npm create @domstack/app@latest my-app
+cd my-app
+npm run dev
+```
+
+The starter prompts for TypeScript or JavaScript and optional JSX, Tailwind CSS, and deployment support.
+It installs dependencies and copies DOMStack's default layout, global stylesheet, and client script into `src/` for customization.
+Open the development server's URL and edit `src/page.md` to see changes with live reload.
+
+Stop the development server with Ctrl+C, then build the site into `public/`:
+
+```sh
+npm run build
+```
+
+Use `npm run preview` to build once and serve the production output.
+See the [starter options](https://github.com/bcomnes/create-domstack-app#options) for non-interactive setup and other choices.
+
+### Manual setup alternative
+
+To start without the generator, install DOMStack and create a page yourself.
 The v12 prerelease is published under the `beta` npm tag.
 
 In a new project directory:
