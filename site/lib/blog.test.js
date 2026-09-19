@@ -10,7 +10,7 @@ import { blogIndex } from './blog-index.ts'
 import { blogDate, projectBlog, readBlogPost, validateBlogVars } from './blog.ts'
 import { resolveBlogAuthors } from './authors.ts'
 
-const site = 'https://domstack.neocities.org'
+const site = 'https://domstack.net'
 const sampleAuthors = await resolveBlogAuthors(['bcomnes'], 'sample')
 /** @type {BlogPost} */
 const post = {
