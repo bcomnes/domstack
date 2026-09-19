@@ -154,6 +154,11 @@
     margin: 0;
   }
 
+  .page-edit {
+    margin-inline-start: auto;
+    white-space: nowrap;
+  }
+
   @media (max-width: 40rem) {
     .site-header-inner,
     .site-links {
@@ -167,6 +172,10 @@
     .site-footer-inner {
       align-items: start;
       flex-direction: column;
+    }
+
+    .page-edit {
+      margin-inline-start: 0;
     }
   }
 }

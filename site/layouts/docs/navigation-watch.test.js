@@ -28,6 +28,8 @@ test('heading changes refresh shared navigation; body edits leave other pages al
     'site/layouts/docs/navigation.js',
     'site/layouts/docs/docs.layout.js',
     'site/layouts/root/root.layout.js',
+    'site/lib/authors.ts',
+    'site/lib/blog.ts',
   ]) {
     await mkdir(dirname(join(src, file)), { recursive: true })
     await cp(join(root, file), join(src, file))
@@ -104,7 +106,7 @@ test('docs producer retains navigation while rendering only the required sources
       setState (next) { state = structuredClone(next) },
     })
     assert.deepEqual(rendered.sort(), expectedRenders, 'actual renderInnerPage calls, including duplicates')
-    assert.deepEqual(Object.keys(data).sort(), ['docsIndexHtml', 'docsNavigation'])
+    assert.deepEqual(Object.keys(data).sort(), ['blogArchives', 'blogFeed', 'blogPosts', 'docsIndexHtml', 'docsNavigation'])
     return data
   }
 
