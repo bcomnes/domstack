@@ -76,5 +76,5 @@ test('feeds include ordered author metadata, avatars, and absolute article asset
   const json = JSON.parse(jsonFeed([post], site))
   assert.deepEqual(json.items[0].authors, [{ name: 'Bret Comnes', url: 'https://bret.io/', avatar: `${site}/authors/bcomnes/avatar.jpg` }])
   assert.equal(json.items[0].content_html, feedHtml(post, site))
-  assert.match(atomFeed([post], site), /<author><name>Bret Comnes<\/name><uri>https:\/\/bret\.io\/<\/uri><\/author>/)
+  assert.match(atomFeed([post], site), /<author>\s+<name>Bret Comnes<\/name>\s+<uri>https:\/\/bret\.io\/<\/uri>\s+<\/author>/)
 })

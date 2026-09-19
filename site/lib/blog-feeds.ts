@@ -1,8 +1,31 @@
+// @ts-expect-error jsonfeed-to-atom has no published TypeScript declarations.
+import jsonfeedToAtom from 'jsonfeed-to-atom'
 import { load } from 'cheerio'
 import { projectBlog, type BlogPost } from './blog.ts'
 
-function xmlEscape (value: string): string {
-  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;')
+interface FeedAuthor {
+  name: string
+  url: string
+  avatar: string
+}
+
+interface JsonFeedItem {
+  id: string
+  url: string
+  title: string
+  summary: string
+  content_html: string
+  date_published: string
+  date_modified: string
+  authors: FeedAuthor[]
+}
+
+interface JsonFeed {
+  version: string
+  title: string
+  home_page_url: string
+  feed_url: string
+  items: JsonFeedItem[]
 }
 
 function absoluteSrcset (value: string, base: URL): string {
@@ -65,28 +88,12 @@ export function jsonFeed (posts: readonly BlogPost[], siteUrl: string): string {
 }
 
 export function atomFeed (posts: readonly BlogPost[], siteUrl: string): string {
-  const entries = projectBlog(posts).blogFeed
-  const updated = entries.reduce((latest, post) => {
-    const date = post.updatedDate ?? post.publishDate
-    return Date.parse(date) > Date.parse(latest) ? date : latest
-  }, entries.length ? entries[0]!.updatedDate ?? entries[0]!.publishDate : '1970-01-01T00:00:00.000Z')
-  const url = (path: string) => xmlEscape(new URL(path, siteUrl).href)
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<feed xmlns="http://www.w3.org/2005/Atom">
-<title>DOMStack Blog</title>
-<id>${url('/blog/')}</id>
-<link rel="alternate" href="${url('/blog/')}"/>
-<link rel="self" type="application/atom+xml" href="${url('/feed.xml')}"/>
-<updated>${xmlEscape(updated)}</updated>
-${entries.map(post => `<entry>
-<id>${url(post.url)}</id>
-<title>${xmlEscape(post.title)}</title>
-<link rel="alternate" href="${url(post.url)}"/>
-<published>${xmlEscape(post.publishDate)}</published>
-<updated>${xmlEscape(post.updatedDate ?? post.publishDate)}</updated>
-${post.authors.map(author => `<author><name>${xmlEscape(author.name)}</name><uri>${xmlEscape(author.url)}</uri></author>`).join('\n')}
-<summary>${xmlEscape(post.description)}</summary>
-<content type="html">${xmlEscape(feedHtml(post, siteUrl))}</content>
-</entry>`).join('\n')}
-</feed>\n`
+  const json = JSON.parse(jsonFeed(posts, siteUrl)) as JsonFeed
+  const atomInput = {
+    ...json,
+    version: 'https://jsonfeed.org/version/1',
+    author: json.items[0]?.authors[0],
+    items: json.items.map(({ authors, ...item }) => ({ ...item, author: authors[0] })),
+  }
+  return jsonfeedToAtom(atomInput)
 }
