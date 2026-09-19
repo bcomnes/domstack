@@ -22,6 +22,8 @@
   .blog-feeds,
   .blog-years { display: flex; flex-wrap: wrap; gap: 1rem 1.5rem; }
   .blog-feeds { margin-block: 1.5rem; }
+  .blog-feeds a { display: inline-flex; align-items: center; justify-content: center; min-inline-size: 1.5rem; min-block-size: 1.5rem; }
+  .blog-feeds img { display: block; inline-size: 1.5rem; block-size: 1.5rem; border-radius: 0.2rem; }
   .blog-years { margin-block-end: 2rem; }
   .blog-years [aria-current="page"] { font-weight: 700; }
   .blog-breadcrumb { margin-block-end: 1rem; }

@@ -7,7 +7,7 @@ export function blogIndex (posts: readonly BlogSummary[], archives: readonly Pic
       ${year ? html`<a href="/blog/">← All posts</a>` : null}
       <h1>${year ? `Blog — ${year}` : 'Blog'}</h1>
       <p>${year ? `Posts from the ${year} archive.` : 'Notes on building static websites with DOMStack.'}</p>
-      <nav class="blog-feeds" aria-label="Blog feeds"><a href="/feed.json" type="application/feed+json">JSON Feed</a><a href="/feed.xml" type="application/atom+xml">Atom feed</a></nav>
+      <nav class="blog-feeds" aria-label="Blog feeds"><a href="/feed.json" rel="alternate" type="application/feed+json" title="Subscribe via JSON Feed"><img src="/blog/jsonfeed.svg" width="24" height="24" alt="JSON Feed" /></a><a href="/feed.xml" rel="alternate" type="application/atom+xml" title="Subscribe via Atom"><img src="/blog/atom.svg" width="24" height="24" alt="Atom feed" /></a></nav>
       ${archives.length ? html`<nav class="blog-years" aria-label="Blog archives">${archives.map(archive => html`<a href="${archive.url}" ${archive.year === year ? html`aria-current="page"` : null}>${archive.year}</a>`)}</nav>` : null}
     </header>
     ${posts.length
