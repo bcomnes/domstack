@@ -33,13 +33,30 @@ test('the architecture draft renders page-scoped diagrams in both themes and on 
   }
   expect(colors.size).toBe(2)
 
-  await page.setViewportSize({ width: 375, height: 812 })
-  for (const diagram of await diagrams.all()) {
-    await expect(diagram).toHaveCSS('overflow-x', 'auto')
-    await expect(diagram).toHaveAttribute('tabindex', '0')
+  for (const width of [1440, 768, 375]) {
+    await page.setViewportSize({ width, height: 900 })
+    for (const diagram of await diagrams.all()) {
+      const dimensions = await diagram.evaluate(element => {
+        const svg = element.querySelector('svg')
+        const bounds = svg.getBoundingClientRect()
+        const viewBox = svg.viewBox.baseVal
+        return {
+          overflow: element.scrollWidth - element.clientWidth,
+          renderedRatio: bounds.width / bounds.height,
+          sourceRatio: viewBox.width / viewBox.height,
+        }
+      })
+      expect(dimensions.overflow, `diagram overflow at ${width}px`).toBeLessThanOrEqual(1)
+      expect(dimensions.renderedRatio).toBeCloseTo(dimensions.sourceRatio, 2)
+    }
+    const overflowsPage = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)
+    expect(overflowsPage).toBe(false)
   }
-  const overflowsPage = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)
-  expect(overflowsPage).toBe(false)
+
+  await page.setViewportSize({ width: 1440, height: 900 })
+  const diagramWidth = await diagrams.first().evaluate(element => element.getBoundingClientRect().width)
+  const proseWidth = await page.locator('.blog-prose > p').first().evaluate(element => element.getBoundingClientRect().width)
+  expect(diagramWidth).toBeGreaterThan(proseWidth)
   expect(errors).toEqual([])
 })
 

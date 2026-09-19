@@ -17,7 +17,7 @@ Keeping all that bookkeeping alongside a simple public API made the implementati
 The recent refactor separates the code around two questions: **who owns this state, and how long should it live?**
 This is a tour of those boundaries, from an ordinary build through an incremental watch cycle.
 The diagrams simplify scheduling to emphasize ownership and ordering; the [implementation reference](/docs/implementation/) covers the individual build phases in more detail.
-On narrow screens, diagrams scroll horizontally rather than shrinking their text.
+Diagrams use a wider area than the prose and scale to fit smaller screens.
 
 ## Keep the public API small
 
