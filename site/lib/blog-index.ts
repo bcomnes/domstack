@@ -12,8 +12,9 @@ export function blogIndex (posts: readonly BlogSummary[], archives: readonly Pic
     </header>
     ${posts.length
 ? html`<ol class="blog-list">${posts.map(post => html`<li><article>
+      <h2><a href="${post.url}">${post.title}</a></h2>
       <p class="blog-byline"><time datetime="${post.publishDate}">${formatBlogDate(post.publishDate)}</time> · <a rel="author" href="${post.authorUrl}">${post.authorName}</a>${post.draft ? ' · Draft' : ''}</p>
-      <h2><a href="${post.url}">${post.title}</a></h2><p>${post.description}</p>
+      <p>${post.description}</p>
     </article></li>`)}</ol>`
 : html`<p class="blog-empty">No posts yet. Subscribe to a feed to follow future posts.</p>`}
   `)

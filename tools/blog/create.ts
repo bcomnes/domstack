@@ -24,8 +24,7 @@ export async function createPost (title: string, options: CreatePostOptions = {}
   const draft = join(postDir, 'page.draft.md')
   await requireAbsent(join(postDir, 'page.md'))
   await mkdir(join(postDir, 'img'))
-  const heading = title.replace(/[[]|[\\`*_{}\]< >#!|~&]/g, character => character === ' ' ? ' ' : `\\${character}`)
-  await writeFile(draft, `---\nlayout: blog\nauthor: ${author}\ndescription: "A short summary of this post."\npublishDate: "${iso}"\n---\n\n# ${heading}\n\n<!-- Draft: replace the summary above and write your post here before publishing. -->\n`, { encoding: 'utf8', flag: 'wx' })
+  await writeFile(draft, `---\nlayout: blog\ntitle: ${JSON.stringify(title)}\nauthor: ${author}\ndescription: "A short summary of this post."\npublishDate: "${iso}"\n---\n\n<!-- Draft: replace the summary above and write your post here before publishing. -->\n`, { encoding: 'utf8', flag: 'wx' })
   return draft
 }
 
