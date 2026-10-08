@@ -1,0 +1,22 @@
+@import '../../../site/lib/diagrams/style.css';
+
+@layer domstack.page {
+  .blog-column {
+    max-inline-size: 72rem;
+  }
+
+  /* Give diagrams room without lengthening the prose's reading measure. */
+  .blog-article-meta,
+  .blog-article-footer,
+  .blog-prose > :not(.mermaid) {
+    max-inline-size: 72ch;
+    margin-inline: auto;
+  }
+
+  .mermaid > svg {
+    max-inline-size: 100%;
+    max-width: 100%;
+    block-size: auto;
+    height: auto;
+  }
+}
