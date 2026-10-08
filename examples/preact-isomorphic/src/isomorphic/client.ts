@@ -11,7 +11,7 @@ import { html, Component } from 'htm/preact'
 import { render } from 'preact'
 import { useCallback } from 'preact/hooks'
 import { useSignal, useComputed } from '@preact/signals'
-import type { JSX } from 'preact'
+import type { JSX, TargetedEvent } from 'preact'
 
 /**
  * Header component props
@@ -136,12 +136,12 @@ class TodoApp extends Component<TodoAppProps, TodoAppState> {
   }
 
   // Update the new todo input value
-  updateNewTodo = (e: JSX.TargetedEvent<HTMLInputElement>): void => {
+  updateNewTodo = (e: TargetedEvent<HTMLInputElement>): void => {
     this.setState({ newTodo: e.currentTarget.value })
   }
 
   // Add a new todo item
-  addTodo = (e: JSX.TargetedEvent<HTMLFormElement>): void => {
+  addTodo = (e: TargetedEvent<HTMLFormElement>): void => {
     e.preventDefault()
     const { todos, newTodo } = this.state
 
