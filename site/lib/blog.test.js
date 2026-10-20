@@ -69,6 +69,16 @@ test('blog index feed links expose icons, feed types, and alternate relations', 
   ])
 })
 
+test('blog index and archives badge only draft posts', () => {
+  const draft = { ...post, url: '/blog/2026/draft/', draft: true }
+  for (const year of [undefined, '2026']) {
+    const $ = load(blogIndex([post, draft], [{ year: '2026', url: '/blog/2026/' }], year))
+    assert.equal($('.blog-draft-badge').length, 1)
+    assert.equal($('.blog-draft-badge').text(), 'Draft')
+    assert.equal($('.blog-draft-badge').closest('article').find('h2 a').attr('href'), draft.url)
+  }
+})
+
 test('feeds include ordered author metadata, avatars, and absolute article assets', () => {
   const $ = load(feedHtml(post, site))
   assert.equal($('a').attr('href'), `${site}/blog/2026/other/`)

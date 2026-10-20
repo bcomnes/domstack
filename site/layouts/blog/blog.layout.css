@@ -38,6 +38,19 @@
   .blog-byline,
   .blog-authors { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1.5rem; }
   .blog-authors { gap: 0.5rem 1rem; }
+  .blog-draft-badge {
+    display: inline-block;
+    padding: 0.125rem 0.5rem;
+    border: 1px solid currentColor;
+    border-radius: 0.25rem;
+    color: var(--link-text);
+    background: color-mix(in srgb, var(--link-text) 10%, var(--background));
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.4;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+  }
   .blog-author { display: inline-flex; align-items: center; gap: 0.5rem; min-width: 0; }
   .blog-author img { flex-shrink: 0; border-radius: 50%; object-fit: cover; width: 1.5rem; height: 1.5rem; }
   .blog-article-meta { margin-block-end: 2rem; padding-block-end: 1.5rem; border-block-end: 1px solid var(--site-border); }
