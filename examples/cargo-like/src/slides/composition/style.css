@@ -1,0 +1,291 @@
+@import '../../page.css';
+
+/* Composition — background and poster layout
+------------------------------------------ */
+
+.slide--typography .backdrop-shade {
+  background:
+    linear-gradient(
+      120deg,
+      rgb(0 0 0 / .75),
+      rgb(0 0 0 / .48));
+}
+
+.type-composition {
+  padding-top: 8svh;
+}
+
+.type-poster {
+  position: relative;
+  min-height: 100svh;
+  padding-bottom: 14svh;
+}
+
+.type-caption {
+  margin-bottom: 7vw;
+}
+
+.type-margin {
+  position: absolute;
+  right: 0;
+  top: 0;
+  writing-mode: vertical-rl;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .16em;
+}
+
+/* Scattered lettering and overlapping serif word
+---------------------------------------------- */
+
+.type-title {
+  position: relative;
+  margin: 0;
+  font-weight: 900;
+}
+
+.type-letters {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-right: 3vw;
+  font-family: var(--sans);
+  font-size: clamp(64px, 22vw, 380px);
+  line-height: 1;
+  letter-spacing: -.035em;
+}
+
+.type-letters > span {
+  display: block;
+  transform-origin: 50% 75%;
+}
+
+.type-letters > span:nth-child(1) {
+  transform: rotate(-9deg) translateY(.05em);
+}
+
+.type-letters > span:nth-child(2) {
+  transform: rotate(10deg) translateY(.14em);
+}
+
+.type-letters > span:nth-child(3) {
+  transform: rotate(-13deg) translateY(-.05em);
+}
+
+.type-letters > span:nth-child(4) {
+  transform: rotate(6deg) translateY(.08em);
+}
+
+.type-letters > span:nth-child(5) {
+  transform: rotate(-5deg) translateY(-.04em);
+}
+
+.type-serif {
+  position: relative;
+  display: block;
+  width: max-content;
+  margin: -.08em 3vw 0 auto;
+  font-family: var(--serif);
+  font-size: clamp(96px, 25vw, 430px);
+  font-weight: 200;
+  line-height: 1.05;
+  letter-spacing: -.07em;
+  color: var(--coral);
+  transform: rotate(-7deg);
+}
+
+/* Marginal notes and ornament
+--------------------------- */
+
+.type-footnotes {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  align-items: end;
+  gap: 32px;
+  margin-top: 6vw;
+}
+
+.type-note {
+  max-width: 28ch;
+  font-size: clamp(14px, 1.2vw, 18px);
+  line-height: 1.65;
+}
+
+.type-note .eyebrow {
+  display: block;
+  margin-bottom: 16px;
+  font-size: 10px;
+}
+
+.type-footnotes > :last-child {
+  justify-self: end;
+}
+
+.type-asterisk {
+  justify-self: center;
+  font-family: var(--serif);
+  font-size: clamp(80px, 13vw, 200px);
+  line-height: .85;
+  color: var(--coral);
+}
+
+/* Second arrangement — stepped words
+---------------------------------- */
+
+.type-score {
+  position: relative;
+  isolation: isolate;
+  padding: 10svh 0 6svh;
+}
+
+.type-score-index {
+  position: relative;
+  z-index: 1;
+  margin-bottom: 8vw;
+}
+
+.type-phrase {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  margin: 0;
+  font-family: var(--serif);
+  font-weight: 200;
+  line-height: 1.1;
+  letter-spacing: -.065em;
+}
+
+.type-line {
+  display: block;
+  width: max-content;
+}
+
+.type-line--first {
+  grid-column: 1 / 10;
+  font-size: clamp(72px, 20vw, 340px);
+}
+
+.type-line--boxed {
+  grid-column: 7 / 12;
+  justify-self: center;
+  font-size: clamp(56px, 13vw, 220px);
+  border: 1px solid white;
+  padding: 0 .16em .08em;
+  margin: .08em 0 .12em;
+  transform: rotate(8deg);
+}
+
+.type-line--last {
+  grid-column: 3 / 13;
+  justify-self: end;
+  font-size: clamp(72px, 22vw, 360px);
+}
+
+/* Ribbons and pointer-following ornament
+-------------------------------------- */
+
+.type-ribbon {
+  position: absolute;
+  left: calc(-1 * var(--gutter) - 5vw);
+  width: calc(100% + 2 * var(--gutter) + 10vw);
+  height: clamp(40px, 7vw, 110px);
+  z-index: 0;
+  pointer-events: none;
+}
+
+.type-ribbon--blue {
+  top: 35%;
+  background: var(--cobalt);
+  transform: rotate(-12deg);
+}
+
+.type-ribbon--coral {
+  top: 43%;
+  background: var(--coral);
+  transform: rotate(8deg);
+  opacity: .65;
+}
+
+.type-orbit {
+  position: absolute;
+  width: clamp(80px, 15vw, 220px);
+  height: auto;
+  top: 57%;
+  left: 6%;
+  stroke: currentColor;
+  stroke-width: .6;
+  transform: rotate(var(--pointer-rotate, -15deg));
+  pointer-events: none;
+}
+
+/* Closing copy and next link
+-------------------------- */
+
+.type-outro {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 32px;
+  padding-top: 12svh;
+}
+
+/* Mobile compositions
+------------------- */
+
+@media (max-width: 700px) {
+  .type-composition {
+    padding-top: 64px;
+  }
+  .type-poster {
+    min-height: 80svh;
+    padding-bottom: 80px;
+  }
+  .type-caption {
+    max-width: 24ch;
+    margin-bottom: 64px;
+  }
+  .type-letters {
+    font-size: 21vw;
+  }
+  .type-serif {
+    font-size: 27vw;
+    margin-top: .15em;
+  }
+  .type-footnotes {
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-top: 60px;
+  }
+  .type-footnotes .type-asterisk {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: center;
+  }
+  .type-footnotes > :last-child {
+    grid-column: 2;
+  }
+  .type-score {
+    padding-top: 50px;
+  }
+  .type-score-index {
+    max-width: 25ch;
+    margin-bottom: 48px;
+  }
+  .type-line--first {
+    font-size: 22vw;
+  }
+  .type-line--boxed {
+    font-size: 18vw;
+    margin-block: .3em;
+  }
+  .type-line--last {
+    font-size: 24vw;
+  }
+  .type-outro {
+    flex-direction: column;
+    align-items: start;
+    padding-top: 80px;
+  }
+
+}

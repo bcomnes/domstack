@@ -1,0 +1,45 @@
+name: Deploy Cargo / Like to Neocities
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FORCE_COLOR: 1
+
+concurrency:
+  group: deploy-to-neocities-cargo-like
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          lfs: true
+
+      - name: Use Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: package.json
+          check-latest: true
+
+      - run: npm i
+      - run: npm run example:cargo-like
+
+      - name: Deploy to Neocities
+        uses: bcomnes/deploy-to-neocities@v3
+        with:
+          api_key: ${{ secrets.NEOCITIES_CARGO_LIKE_API_TOKEN }}
+          dist_dir: examples/cargo-like/public
+          cleanup: false
+          # The bundled background video requires a Supporter account.
+          neocities_supporter: true
+          preview_before_deploy: true

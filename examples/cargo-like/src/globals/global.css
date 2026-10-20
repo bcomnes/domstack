@@ -1,0 +1,172 @@
+/* Fonts
+----- */
+
+@font-face {
+  font-family: Inter;
+  src: url(../fonts/inter.woff2) format('woff2');
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: Fraunces;
+  src: url(../fonts/fraunces.woff2) format('woff2');
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'DSWeiss-Gotisch';
+  src: url(../fonts/DSWeiss-Gotisch.ttf) format('truetype');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+/* Design tokens and document defaults
+----------------------------------- */
+
+:root {
+  color-scheme: dark;
+  --ink: #080808;
+  --white: #fff;
+  --cobalt: #244bff;
+  --coral: #ff694b;
+  --gutter: clamp(16px, 3vw, 56px);
+  --sans:
+    Inter,
+    Helvetica,
+    Arial,
+    sans-serif;
+  --serif:
+    Fraunces,
+    Georgia,
+    serif;
+  font-family: var(--sans);
+  font-synthesis: none;
+  background: var(--ink);
+  color: var(--white);
+}
+
+/* Base elements
+------------- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  cursor: pointer;
+  color: inherit;
+}
+
+a {
+  color: inherit;
+  text-underline-offset: .15em;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Typography defaults
+------------------- */
+
+figure,
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1,
+h2 {
+  font-weight: 300;
+}
+
+p {
+  line-height: 1.5;
+}
+
+/* Selection and keyboard accessibility
+------------------------------------ */
+
+::selection {
+  background: var(--cobalt);
+  color: white;
+}
+
+:focus-visible {
+  outline: 3px solid white;
+  outline-offset: 6px;
+  box-shadow: 0 0 0 7px #080808;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 100;
+  padding: 14px 20px;
+  background: white;
+  color: black;
+  transform: translateY(-200%);
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
+/* Reduced motion
+-------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+
+}

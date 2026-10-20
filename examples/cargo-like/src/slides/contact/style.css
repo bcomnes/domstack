@@ -1,0 +1,220 @@
+@import '../../page.css';
+
+/* Contact — background and two-column layout
+------------------------------------------ */
+
+.slide--contact .backdrop-shade {
+  background: rgb(0 0 0 / .85);
+}
+
+.contact-composition {
+  display: grid;
+  grid-template-columns: .8fr 1.2fr;
+  gap: 7vw;
+  padding: 10svh 0 80px;
+  align-items: start;
+}
+
+.contact-intro > p:last-child {
+  max-width: 34ch;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.contact-title {
+  font-family: var(--serif);
+  font-weight: 200;
+  font-size: clamp(72px, 13vw, 210px);
+  letter-spacing: -.06em;
+  line-height: .95;
+  margin: 32px 0 48px;
+}
+
+.contact-title em {
+  font-style: normal;
+}
+
+/* Form structure
+-------------- */
+
+.contact-form,
+.contact-field {
+  min-width: 0;
+}
+
+.contact-form fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+
+.contact-form legend {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  padding: 0;
+  margin-bottom: 14px;
+}
+
+.contact-hint {
+  font-size: 12px;
+  color: #ccc;
+}
+
+/* Fields and labels
+----------------- */
+
+.contact-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 26px;
+  margin-top: 32px;
+}
+
+.contact-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.contact-field--wide {
+  grid-column: 1 / -1;
+}
+
+.contact-field label {
+  font-size: 13px;
+}
+
+.contact-field label span {
+  color: #ccc;
+}
+
+.contact-field input,
+.contact-field textarea {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid #aaa;
+  border-radius: 0;
+  background: transparent;
+  color: white;
+  padding: 12px 0;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.contact-field textarea {
+  resize: vertical;
+  min-height: 130px;
+}
+
+/* Validation feedback
+------------------- */
+
+.contact-field [aria-invalid] {
+  border-color: #ffab98;
+}
+
+.contact-error {
+  color: #ffab98;
+  font-size: 13px;
+}
+
+.contact-error:empty {
+  display: none;
+}
+
+/* Actions and disabled state
+-------------------------- */
+
+.contact-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 28px;
+}
+
+.contact-actions button {
+  min-height: 48px;
+  padding: 14px 20px;
+  border: 1px solid white;
+  font-size: 14px;
+  background: transparent;
+}
+
+.contact-actions button[type=submit] {
+  background: var(--cobalt);
+  border-color: var(--cobalt);
+}
+
+.contact-actions button span {
+  margin-left: 24px;
+}
+
+.contact-form fieldset:disabled {
+  opacity: .6;
+}
+
+/* Status and local message preview
+-------------------------------- */
+
+.contact-status {
+  margin-top: 24px;
+  font-size: 14px;
+}
+
+.contact-preview {
+  border-top: 1px solid #aaa;
+  margin-top: 24px;
+  padding-top: 16px;
+  overflow-wrap: anywhere;
+}
+
+.contact-preview[hidden] {
+  display: none;
+}
+
+.contact-preview h3 {
+  font-family: var(--serif);
+  font-size: 32px;
+  font-weight: 300;
+  margin: 0 0 20px;
+}
+
+.contact-preview dt {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: #ccc;
+}
+
+.contact-preview dd {
+  margin: 6px 0 18px;
+  white-space: pre-wrap;
+  font-size: 16px;
+}
+
+/* Single-column layout
+-------------------- */
+
+@media (max-width: 900px) {
+  .contact-composition {
+    grid-template-columns: 1fr;
+    gap: 48px;
+    padding-top: 64px;
+  }
+  .contact-title {
+    font-size: clamp(80px, 20vw, 160px);
+  }
+
+}
+
+/* Stacked fields
+-------------- */
+
+@media (max-width: 480px) {
+  .contact-fields {
+    grid-template-columns: 1fr;
+  }
+
+}

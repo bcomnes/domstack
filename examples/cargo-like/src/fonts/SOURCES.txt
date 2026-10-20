@@ -1,0 +1,28 @@
+Locally hosted fonts. Each family has its own accompanying license.
+Inter and Fraunces are normal-style variable Latin subsets from Google Fonts,
+licensed under SIL OFL 1.1. Unsupported characters use CSS fallback fonts.
+DS Weiss-Gotisch is not OFL/open source; see its separate license below.
+
+Inter (weight 100–900)
+Binary: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7W0Q5nw.woff2
+License: https://raw.githubusercontent.com/google/fonts/main/ofl/inter/OFL.txt
+Local license: Inter-OFL.txt
+Project: https://rsms.me/inter/
+
+Fraunces (weight 100–900, optical size 9–144)
+Binary: https://fonts.gstatic.com/s/fraunces/v38/6NU78FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0KxC9TeP2Xz5c.woff2
+License: https://raw.githubusercontent.com/google/fonts/main/ofl/fraunces/OFL.txt
+Local license: Fraunces-OFL.txt
+Project: https://github.com/undercasetype/Fraunces
+
+DS Weiss-Gotisch (regular, unmodified TrueType)
+Copied from the local DOMStack source: fonts/ds-weiss-gotisch/DSWeiss-Gotisch.ttf
+Accompanying license copied from: fonts/ds-weiss-gotisch/1001fonts-ds-weiss-gotisch-eula.txt
+Local license: DSWeiss-Gotisch-LICENSE.txt
+Upstream directory: https://github.com/bcomnes/domstack/tree/master/fonts/ds-weiss-gotisch
+License: 1001Fonts Free For Commercial Use License (FFC).
+Free personal/commercial use, but modification and publication/distribution
+have separate restrictions. Review the license before publishing the font files.
+
+Inter / Fraunces distribution stylesheet:
+https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Fraunces:opsz,wght@9..144,100..900&display=swap

@@ -1,0 +1,92 @@
+@import '../../page.css';
+
+/* Study — background and composition
+---------------------------------- */
+
+.slide--editorial .backdrop-shade {
+  background: rgb(0 0 0 / .65);
+}
+
+.editorial-composition {
+  padding-block: 12svh 8svh;
+}
+
+.editorial-title {
+  margin-block: 8svh 18svh;
+  font-family: var(--serif);
+  font-size: clamp(48px, 12.5vw, 210px);
+  font-weight: 200;
+  letter-spacing: -.065em;
+  line-height: 1.02;
+}
+
+/* Passages and drop initial
+------------------------- */
+
+.editorial-passage {
+  position: relative;
+  padding-block: 6svh;
+}
+
+.editorial-passage p {
+  position: relative;
+  z-index: 1;
+  margin-bottom: 12svh;
+  max-width: 22ch;
+  font-size: clamp(30px, 6.7vw, 110px);
+  line-height: 1.08;
+  letter-spacing: -.05em;
+}
+
+.editorial-passage .passage-bold {
+  font-weight: 800;
+  letter-spacing: -.025em;
+}
+
+.editorial-passage .passage-serif {
+  max-width: 23ch;
+  margin-left: 10%;
+  font-family: var(--serif);
+  font-weight: 300;
+}
+
+.drop-initial {
+  float: left;
+  margin: -.04em .08em -.04em 0;
+  font-family: var(--serif);
+  font-size: 2.5em;
+  font-weight: 200;
+  line-height: .9;
+}
+
+/* Diagonal color bands
+-------------------- */
+
+.editorial-band--cobalt {
+  top: 23%;
+  background: rgb(36 75 255 / .72);
+  transform: rotate(13deg);
+}
+
+.editorial-band--coral {
+  top: 31%;
+  background: rgb(255 105 75 / .76);
+  transform: rotate(-14deg);
+}
+
+/* Mobile composition
+------------------ */
+
+@media (max-width: 700px) {
+  .editorial-title {
+    font-size: clamp(44px, 12vw, 84px);
+    margin-bottom: 12svh;
+  }
+  .editorial-passage p {
+    font-size: clamp(30px, 7vw, 49px);
+  }
+  .editorial-passage .passage-serif {
+    margin-left: 4%;
+  }
+
+}

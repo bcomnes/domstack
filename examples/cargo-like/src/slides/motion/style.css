@@ -1,0 +1,56 @@
+@import '../../page.css';
+
+/* Motion — background and scrolling sequence
+------------------------------------------ */
+
+.slide--motion .backdrop-shade {
+  background:
+    linear-gradient(
+      110deg,
+      rgb(0 0 0 / .5),
+      rgb(0 0 0 / .3));
+}
+
+.motion-sequence {
+  display: flex;
+  min-height: 185svh;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 30svh;
+  padding-block: 16svh 12svh;
+}
+
+/* Title and supporting copy
+------------------------- */
+
+.motion-title {
+  margin-top: 8svh;
+  font-family: var(--serif);
+  font-size: 24vw;
+  font-weight: 200;
+  line-height: 1.1;
+  letter-spacing: -.05em;
+}
+
+.motion-title [data-fit-text] {
+  display: block;
+  white-space: nowrap;
+  font-size: var(--fit-size, inherit);
+}
+
+.motion-note {
+  max-width: 28ch;
+  margin: 5svh 0 0 auto;
+  font-size: clamp(14px, 1.5vw, 20px);
+}
+
+.motion-verse {
+  font-family: var(--serif);
+  font-size: clamp(52px, 14vw, 220px);
+  line-height: 1.1;
+  letter-spacing: -.05em;
+}
+
+.motion-ending .text-link {
+  margin-top: 8svh;
+}

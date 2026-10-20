@@ -143,6 +143,7 @@
     "build:schema": "node scripts/domstack-manifest-schema.js",
     "watch": "npm run clean && run-p watch:*",
     "watch:domstack": "npm run build:domstack -- --watch",
+    "example:cargo-like": "npm --workspace @domstack/cargo-like-example run build",
     "example:basic": "npm --workspace @domstack/basic-example run build",
     "example:string-layouts": "npm --workspace @domstack/string-layouts-example run build",
     "example:default-layout": "npm --workspace @domstack/default-layout-example run build",

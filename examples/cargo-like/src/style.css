@@ -1,0 +1,10 @@
+@import './page.css';
+
+@import './slides/opening/style.css';
+@import './slides/motion/style.css';
+@import './slides/interval/style.css';
+@import './slides/study/style.css';
+@import './slides/composition/style.css';
+@import './slides/collection/style.css';
+@import './slides/contact/style.css';
+@import './slides/colophon/style.css';

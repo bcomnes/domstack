@@ -1,0 +1,27 @@
+{
+  "name": "@domstack/cargo-like-example",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "npm run dev",
+    "dev": "domstack --watch",
+    "build": "domstack",
+    "preview": "domstack --serve",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run build && node --test tests/site.browser.mjs"
+  },
+  "dependencies": {
+    "fragtml": "^0.0.10",
+    "highlight.js": "^11.9.0",
+    "mine.css": "^11.0.6",
+    "photoswipe": "^5.4.4",
+    "photoswipe-dynamic-caption-plugin": "^1.2.7"
+  },
+  "devDependencies": {
+    "@domstack/static": "file:../../.",
+    "@types/node": "^26.0.1",
+    "playwright": "^1.61.1",
+    "typescript": "~6.0.3"
+  }
+}

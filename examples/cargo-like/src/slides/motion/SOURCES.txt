@@ -1,0 +1,9 @@
+Background-video example: flower.mp4
+Downloaded from https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4
+MDN interactive examples CC0 video collection.
+CC0 dedication: https://creativecommons.org/publicdomain/zero/1.0/
+
+The original 960x540 H.264 clip is approximately 5 seconds / 1.1 MB.
+flower-poster.jpg was extracted at 1 second with ffmpeg.
+The video is always muted when played as a decorative background.
+All media is served locally; no third-party requests are made by the site.

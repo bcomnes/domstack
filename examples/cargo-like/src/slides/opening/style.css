@@ -1,0 +1,170 @@
+@import '../../page.css';
+
+/* Opening — background and composition
+------------------------------------ */
+
+.slide--hero .backdrop-shade {
+  background:
+    linear-gradient(
+      110deg,
+      rgb(28 12 8 / .45),
+      rgb(0 0 0 / .22)),
+    linear-gradient(
+      0deg,
+      rgb(0 0 0 / .35),
+      transparent 55%);
+}
+
+.hero-sequence {
+  padding-top: 6svh;
+}
+
+.hero-band {
+  position: relative;
+  min-height: 85svh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.hero-band--first {
+  justify-content: flex-start;
+  padding-top: 2svh;
+}
+
+/* Oversized title
+--------------- */
+
+.hero-title {
+  display: flex;
+  flex-direction: column;
+  gap: 35svh;
+  width: 100%;
+  margin-block: 4svh 3svh;
+  font-family: var(--serif);
+  font-weight: 200;
+  font-size: 8.4vw;
+  letter-spacing: -.045em;
+  line-height: 1.05;
+}
+
+.hero-title > span {
+  display: block;
+  white-space: nowrap;
+  padding-bottom: .08em;
+  font-size: var(--fit-size, inherit);
+}
+
+.hero-band--first::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  top: 10svh;
+  left: calc(-1 * var(--gutter));
+  width: calc(100% + 2 * var(--gutter));
+  height: clamp(26px, 4vw, 60px);
+  background: rgb(36 75 255 / .45);
+  transform: rotate(-2deg);
+}
+
+.hero-title > span:nth-child(2) {
+  text-align: right;
+}
+
+/* Supporting copy and verse
+------------------------- */
+
+.hero-note {
+  max-width: 28ch;
+  margin-left: auto;
+  font-size: clamp(12px, 1.1vw, 16px);
+}
+
+.hero-verse {
+  position: relative;
+  z-index: 1;
+  font-family: var(--serif);
+  font-weight: 200;
+  font-size: clamp(72px, 18vw, 300px);
+  line-height: 1.02;
+  letter-spacing: -.065em;
+}
+
+.border-word {
+  display: inline-block;
+  border: 1px solid rgb(255 255 255 / .8);
+  padding: 0 .1em .08em;
+}
+
+.verse-indent {
+  display: inline-block;
+  margin-left: .5em;
+}
+
+.hero-band--last .text-link {
+  margin: 6svh 0 0 auto;
+}
+
+/* Draggable ornament
+------------------ */
+
+.drag-field {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+}
+
+.orbit-sticker {
+  position: absolute;
+  top: 12%;
+  right: 8%;
+  display: grid;
+  place-items: center;
+  width: clamp(88px, 13vw, 200px);
+  aspect-ratio: 1;
+  padding: clamp(16px, 2vw, 30px);
+  border: 1px solid white;
+  border-radius: 50%;
+  background: rgb(36 75 255 / .38);
+  color: white;
+  transform: translate(var(--drag-x, 0px), var(--drag-y, 0px));
+}
+
+.orbit-symbol {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform: rotate(var(--pointer-rotate, -15deg));
+}
+
+.orbit-symbol svg {
+  stroke: currentColor;
+  stroke-width: 1;
+}
+
+/* Mobile composition
+------------------ */
+
+@media (max-width: 700px) {
+  .hero-band {
+    min-height: 85svh;
+  }
+  .hero-title {
+    font-size: 8vw;
+    margin-top: 10svh;
+    gap: 40svh;
+  }
+  .hero-note {
+    margin-top: 5svh;
+    max-width: 24ch;
+  }
+  .hero-verse {
+    font-size: clamp(68px, 19vw, 132px);
+  }
+  .orbit-sticker {
+    top: 8%;
+    right: 4%;
+  }
+
+}

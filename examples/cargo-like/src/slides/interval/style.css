@@ -1,0 +1,96 @@
+@import '../../page.css';
+
+/* Interval — background and composition
+------------------------------------- */
+
+.slide--statement .backdrop-shade {
+  background: rgb(0 0 0 / .55);
+}
+
+.statement-composition {
+  position: relative;
+  padding-block: 14svh 10svh;
+}
+
+/* Gothic headline
+--------------- */
+
+.statement-title {
+  position: relative;
+  z-index: 1;
+  margin-top: 8svh;
+  font-family: var(--sans);
+  font-size: clamp(52px, 13.3vw, 230px);
+  font-weight: 900;
+  letter-spacing: -.075em;
+  line-height: 1.02;
+}
+
+.statement-title span {
+  display: block;
+}
+
+.statement-title--gotisch {
+  font-family: 'DSWeiss-Gotisch', serif;
+  font-weight: 400;
+  letter-spacing: -.02em;
+  line-height: 1.12;
+}
+
+.statement-outline {
+  color: transparent;
+  -webkit-text-stroke: 1px white;
+}
+
+/* Supporting copy and decorative band
+----------------------------------- */
+
+.statement-tail {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 5vw;
+  max-width: 900px;
+  margin: 10svh 0 0 auto;
+}
+
+.oversized-initial {
+  font-family: var(--serif);
+  font-size: clamp(140px, 25vw, 360px);
+  font-weight: 200;
+  line-height: .85;
+}
+
+.statement-tail p {
+  max-width: 32ch;
+  font-size: clamp(18px, 2.5vw, 36px);
+  line-height: 1.2;
+  letter-spacing: -.035em;
+}
+
+.statement-band {
+  top: 52%;
+  background: rgb(36 75 255 / .75);
+  transform: rotate(-12deg);
+}
+
+/* Mobile composition
+------------------ */
+
+@media (max-width: 700px) {
+  .statement-title {
+    font-size: clamp(44px, 12.6vw, 88px);
+  }
+  .statement-tail {
+    gap: 20px;
+    align-items: flex-start;
+  }
+  .statement-tail p {
+    font-size: clamp(18px, 4vw, 28px);
+  }
+  .oversized-initial {
+    font-size: 34vw;
+  }
+
+}

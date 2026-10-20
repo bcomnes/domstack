@@ -19,6 +19,7 @@ A collection of examples can be found in the [`./examples`](https://github.com/b
 
 - [`basic`](https://github.com/bcomnes/domstack/tree/master/examples/basic) — A broad tour of Markdown, HTML, and TypeScript pages, nested pages and layouts, variables, styles, client bundles, and static assets.
 - [`blog`](https://github.com/bcomnes/domstack/tree/master/examples/blog) — A blog with derived global data, generated archive pages, redirects, nested layouts, and feed templates.
+- [`cargo-like`](https://github.com/bcomnes/domstack/tree/master/examples/cargo-like) — [Cargo / Like live demo](https://cargo-like.neocities.org/), a Cargo Collective-inspired website with immersive typography, pinned image and video backdrops, galleries, and reusable slides rendered as both a scrolling homepage and standalone pages, demonstrating complex, highly designed websites built with DOMStack's low-overhead abstractions.
 - [`css-modules`](https://github.com/bcomnes/domstack/tree/master/examples/css-modules) — Using CSS Modules from page code alongside global and page styles.
 - [`default-layout`](https://github.com/bcomnes/domstack/tree/master/examples/default-layout) — Building a Markdown site with DOMStack's built-in default layout and no custom layout.
 - [`esbuild-settings`](https://github.com/bcomnes/domstack/tree/master/examples/esbuild-settings) — Customizing the browser build through `esbuild.settings`.
@@ -44,6 +45,9 @@ $ npm i
 # build one example workspace
 $ npm --workspace @domstack/basic-example run build
 ```
+
+The `cargo-like` example uses Git LFS for its media; run `git lfs install --local` and `git lfs pull` before building it.
+See its [README](https://github.com/bcomnes/domstack/tree/master/examples/cargo-like#readme) for slide authoring, internal APIs, and deployment instructions.
 
 ## External examples
 

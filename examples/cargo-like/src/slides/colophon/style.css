@@ -1,0 +1,82 @@
+@import '../../page.css';
+
+/* Colophon — background and composition
+------------------------------------- */
+
+.slide--closing .backdrop-shade {
+  background: rgb(0 0 0 / .6);
+}
+
+.closing-composition {
+  display: flex;
+  min-height: 110svh;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10svh;
+  padding-top: 10svh;
+}
+
+.closing-title {
+  font-family: var(--serif);
+  font-size: clamp(64px, 18vw, 300px);
+  font-weight: 200;
+  line-height: 1.02;
+  letter-spacing: -.065em;
+}
+
+.closing-title a {
+  text-decoration-thickness: 1px;
+}
+
+/* Closing copy and return link
+---------------------------- */
+
+.closing-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 32px;
+}
+
+.closing-bottom p {
+  max-width: 30ch;
+  font-size: 13px;
+}
+
+.closing-mark {
+  display: block;
+  flex: 0 0 auto;
+  width: clamp(64px, 10vw, 150px);
+  aspect-ratio: 1;
+}
+
+.closing-mark svg {
+  stroke: currentColor;
+  stroke-width: 1;
+}
+
+.closing-index {
+  text-align: right;
+}
+
+/* Mobile composition
+------------------ */
+
+@media (max-width: 700px) {
+  .closing-title {
+    font-size: clamp(60px, 17vw, 119px);
+  }
+  .closing-bottom {
+    flex-wrap: wrap;
+    gap: 28px;
+    align-items: center;
+  }
+  .closing-bottom > p:first-child {
+    max-width: none;
+    flex-basis: 100%;
+  }
+  .closing-index {
+    margin-left: auto;
+  }
+
+}
