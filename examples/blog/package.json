@@ -14,8 +14,8 @@
   "author": "Bret Comnes <bcomnes@gmail.com> (https://bret.io/)",
   "license": "MIT",
   "devDependencies": {
-    "@voxpelli/tsconfig": "^16.0.0",
-    "typescript": "~5.9.2"
+    "@voxpelli/tsconfig": "^17.0.0",
+    "typescript": "~7.0.2"
   },
   "dependencies": {
     "@domstack/static": "file:../../.",

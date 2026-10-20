@@ -20,8 +20,8 @@
     "preact-render-to-string": "^6.5.11"
   },
   "devDependencies": {
-    "@voxpelli/tsconfig": "^15.0.0",
+    "@voxpelli/tsconfig": "^17.0.0",
     "npm-run-all2": "^9.0.3",
-    "typescript": "~5.8.2"
+    "typescript": "~7.0.2"
   }
 }

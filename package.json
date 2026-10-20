@@ -98,7 +98,7 @@
     "@types/mime-types": "^3.0.1",
     "@types/node": "^26.0.1",
     "@types/pretty": "^2.0.3",
-    "@voxpelli/tsconfig": "^16.2.1",
+    "@voxpelli/tsconfig": "^17.0.0",
     "cheerio": "^1.0.0-rc.10",
     "installed-check": "^11.0.0",
     "jsonfeed-to-atom": "^1.2.5",
@@ -107,7 +107,7 @@
     "npm-run-all2": "^9.0.2",
     "preact": "^11.0.0",
     "releasearoni": "^0.2.0",
-    "typescript": "~6.0.3"
+    "typescript": "~7.0.2"
   },
   "homepage": "https://github.com/bcomnes/domstack",
   "keywords": [],
