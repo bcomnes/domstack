@@ -96,14 +96,14 @@ test('PageData exposes typed, named layout variable layers', () => {
   pageData.layoutVars = []
 })
 
-const layoutParams: LayoutFunctionParams<Record<string, any>, string, string> = {
+const layoutParams: LayoutFunctionParams<Record<string, any>, string> = {
   vars: { title: 'Hello' },
   children: 'Body',
   page: pageInfo,
   data: {},
 }
 
-const pageParams: PageFunctionParams<Record<string, any>, string> = {
+const pageParams: PageFunctionParams<Record<string, any>> = {
   vars: { title: 'Hello' },
   page: pageInfo,
   data: {},
@@ -212,7 +212,7 @@ const domstackManifestTransformContext: DomstackManifestTransformContext<Example
   entry: domstackManifestEntry,
 }
 const domstackManifestVarsTransform: DomstackManifestTransform<ExampleManifestVars, ExampleManifestVars, ExampleSourceVars> = ({ vars }) => ({ section: vars.section })
-const domstackManifestPolicyTransformContext: DomstackManifestPolicyTransformContext<ExamplePolicy, ExampleManifestVars> = {
+const domstackManifestPolicyTransformContext: DomstackManifestPolicyTransformContext<ExampleManifestVars> = {
   entries: [domstackManifestEntry],
 }
 const domstackManifestPolicyTransform: DomstackManifestPolicyTransform<ExamplePolicy, ExampleManifestVars> = () => ({ cache: 'precache' })

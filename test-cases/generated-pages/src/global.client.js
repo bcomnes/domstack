@@ -1,1 +1,1 @@
-globalThis.generatedPagesGlobalClient = true
+/** @type {typeof globalThis & { generatedPagesGlobalClient: boolean }} */ (globalThis).generatedPagesGlobalClient = true
