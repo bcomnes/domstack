@@ -20,7 +20,6 @@
     "preact-render-to-string": "^6.5.11"
   },
   "devDependencies": {
-
     "npm-run-all2": "^9.0.3",
     "typescript": "~7.0.2"
   }
