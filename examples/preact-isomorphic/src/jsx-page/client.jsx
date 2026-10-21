@@ -10,7 +10,7 @@ import { useState, useEffect } from 'preact/hooks'
  */
 
 // User profile card component
-const ProfileCard = ({ name, role, avatar, isActive }) => (
+export const ProfileCard = ({ name, role, avatar, isActive }) => (
   <div className='profile-card'>
     <div className='profile-header'>
       <img

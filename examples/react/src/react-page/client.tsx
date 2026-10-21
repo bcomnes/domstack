@@ -103,51 +103,51 @@ const SimpleForm: React.FC = () => {
 
       {isSubmitted
         ? (
-          <div className='success-message'>
-            <p>Thanks for your feedback, {formData.name}!</p>
-            <p>We'll be in touch at {formData.email}</p>
-          </div>
+            <div className='success-message'>
+              <p>Thanks for your feedback, {formData.name}!</p>
+              <p>We'll be in touch at {formData.email}</p>
+            </div>
           )
         : (
-          <form onSubmit={handleSubmit}>
-            <div>
-              <label htmlFor='name'>Name</label>
-              <input
-                type='text'
-                id='name'
-                name='name'
-                value={formData.name}
-                onChange={handleChange}
-                required
-              />
-            </div>
+            <form onSubmit={handleSubmit}>
+              <div>
+                <label htmlFor='name'>Name</label>
+                <input
+                  type='text'
+                  id='name'
+                  name='name'
+                  value={formData.name}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
 
-            <div>
-              <label htmlFor='email'>Email</label>
-              <input
-                type='email'
-                id='email'
-                name='email'
-                value={formData.email}
-                onChange={handleChange}
-                required
-              />
-            </div>
+              <div>
+                <label htmlFor='email'>Email</label>
+                <input
+                  type='email'
+                  id='email'
+                  name='email'
+                  value={formData.email}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
 
-            <div>
-              <label htmlFor='feedback'>Feedback</label>
-              <textarea
-                id='feedback'
-                name='feedback'
-                value={formData.feedback}
-                onChange={handleChange}
-                rows={3}
-                required
-              />
-            </div>
+              <div>
+                <label htmlFor='feedback'>Feedback</label>
+                <textarea
+                  id='feedback'
+                  name='feedback'
+                  value={formData.feedback}
+                  onChange={handleChange}
+                  rows={3}
+                  required
+                />
+              </div>
 
-            <button type='submit' className='button'>Submit Feedback</button>
-          </form>
+              <button type='submit' className='button'>Submit Feedback</button>
+            </form>
           )}
     </div>
   )
