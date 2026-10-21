@@ -1,1 +1,1 @@
-globalThis.generatedPagesRootLayoutClient = true
+/** @type {typeof globalThis & { generatedPagesRootLayoutClient: boolean }} */ (globalThis).generatedPagesRootLayoutClient = true
