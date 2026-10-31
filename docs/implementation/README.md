@@ -280,7 +280,7 @@ When a full page/template rebuild or targeted generated-pages rebuild no longer 
 
 ### Dependency tracking
 
-DOMStack uses [`@11ty/dependency-tree-typescript`](https://github.com/11ty/dependency-tree-typescript) to statically analyze ESM imports.
+DOMStack uses [`@11ty/dependency-tree`](https://github.com/11ty/eleventy-utils/tree/main/parse-deps) to statically analyze JavaScript and TypeScript imports and re-exports.
 The page watcher observes tracked imports within the source tree, including JSON files.
 DOMStack maintains dependency maps for:
 
