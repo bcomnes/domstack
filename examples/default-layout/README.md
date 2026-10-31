@@ -17,7 +17,7 @@ When no layout is provided, DOMStack will:
 
 ### Prerequisites
 
-- Node.js 22.18+ within the 22.x release line, or Node.js 24 or newer
+- Node.js 22.22+ within the 22.x release line, or Node.js 24 or newer
 
 ### Installation
 

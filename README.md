@@ -118,7 +118,7 @@ The [documentation](docs/) covers each convention in detail.
 
 ## Installation and first build
 
-Use Node.js 22.18+ within the 22.x release line, or Node.js 24 or newer, with npm 10 or newer.
+Use Node.js 22.22+ within the 22.x release line, or Node.js 24 or newer, with npm 10 or newer.
 
 ### Create a new app
 
