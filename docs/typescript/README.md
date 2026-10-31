@@ -15,7 +15,7 @@ Node.js strips types from server-side modules, esbuild handles browser bundles, 
 
 ## Runtime requirements
 
-- Use Node.js 22.18+ within the 22.x release line, or Node.js 24 and newer, as required by DOMStack v12.
+- Use Node.js 22.22+ within the 22.x release line, or Node.js 24 and newer, as required by DOMStack v12.
   These versions enable type stripping by default; no `NODE_OPTIONS` flag is needed.
 - Seamlessly mix `.ts`, `.mts`, `.cts` files alongside `.js`, `.mjs`, `.cjs`.
 - No explicit compilation step needed—Node.js handles type stripping at runtime.
