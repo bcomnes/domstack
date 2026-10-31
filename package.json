@@ -52,7 +52,7 @@
     "node": "^22.18.0 || >=24.0.0"
   },
   "dependencies": {
-    "@11ty/dependency-tree-typescript": "^1.0.0",
+    "@11ty/dependency-tree": "5.0.0-alpha.3",
     "@domstack/sync": "^0.0.8",
     "argsclopts": "^1.0.4",
     "async-folder-walker": "^3.0.5",
