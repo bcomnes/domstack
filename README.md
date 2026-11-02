@@ -30,7 +30,7 @@ It's built around [Node.js](https://nodejs.org/) and [esbuild](https://esbuild.g
 - [esbuild](docs/settings/#esbuildsettingsts)-based [page](docs/pages/#page-styles), [layout](docs/layouts/#layout-styles), and [global CSS bundling](docs/global-bundles/#global-styles)
 - A [global data introspection and collection pipeline](docs/data/)
 - Expressive (optional) [TypeScript support](docs/typescript/)
-- A comprehensive [build manifest](docs/workers/#domstack-manifest) (for offline MPA support)
+- A comprehensive [build manifest](docs/advanced/output-manifest/) (for offline MPA support)
 - [Service worker support](docs/workers/#service-workers)
 - [Web worker support](docs/workers/#web-workers)
 - [Page generators](docs/generation/#generated-pages) (generate pages from other pages)

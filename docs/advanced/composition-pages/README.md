@@ -37,7 +37,7 @@ There is no CLI toggle for composition.
 
 ## Automatic output
 
-Composition pages suppress all automatic page-owned output: the primary HTML file, all page and layout [`pageOutputs`](../../pages/#page-outputs) hooks, and the page's `workers.json` file.
+Composition pages suppress all automatic page-owned output: the primary HTML file, all page and layout [`pageOutputs`](../page-outputs/) hooks, and the page's `workers.json` file.
 Static asset copying and bundle generation are unchanged, including colocated styles, client bundles, and worker bundles.
 Their URLs and output paths remain metadata, not a guarantee that files are published.
 
