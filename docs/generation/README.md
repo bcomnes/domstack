@@ -145,8 +145,9 @@ export default async function * archivePages ({ data }) {
 #### Streaming and failures
 
 DOMStack consumes generated pages one at a time rather than collecting all definitions before building them.
-For each definition, it validates the definition and output path, initializes the page's variables, layouts, and declared data, then renders and writes the HTML before requesting the next definition.
-An async generator resumes after `yield` only once that page has been written, so it can release resources associated with the completed page before preparing the next one.
+For each definition, it validates the definition and output path and initializes the page's variables, layouts, and declared data before requesting the next definition.
+Standalone definitions render and write HTML; definitions with `compose: true` skip automatic page-owned output.
+An async generator resumes after `yield` only once that page has been processed, so it can release resources associated with the completed page before preparing the next one.
 Arrays and single-object results use the same per-page pipeline, although an array-producing factory necessarily creates its array before returning it.
 
 Definitions marked `draft: true` are skipped unless drafts are enabled.
@@ -189,6 +190,10 @@ This keeps factories downstream of source discovery without exposing generation 
 | `vars` | Page-level vars merged with the normal default, global, layout, and builder vars. |
 | `children` | Optional static child content or inline `PageFunction` rendered before the layout. |
 | `draft` | When `true`, the page is omitted unless the CLI uses `--drafts` or a programmatic build uses `buildDrafts: true`. |
+| `compose` | Optional boolean, defaulting to `false`; when `true`, suppresses automatic page-owned output independently of `draft`. |
+
+[Generated composition pages](../advanced/composition-pages/#generated-pages) use top-level `compose`, not `vars.compose`.
+They are created after global data and are not added to its source-backed `PageData[]` collection.
 
 Generated pages use [global bundles](../global-bundles/) and [layout assets](../layouts/#layout-styles).
 They do not have page-local `style.css`, `client.js`, or worker entries because they do not have their own source-page directory.

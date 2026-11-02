@@ -324,6 +324,11 @@ export default async () => {
 Page variable files have higher precedence than `global.vars.ts` variables, but lower precedence than frontmatter or `vars` exports from `ts` pages.
 See [Variables](../../docs/pages/#variables) for the full variable cascade.
 
+## Composition pages
+
+Use a filename such as `page.compose.md`, `page.compose.ts`, or `README.compose.md` to keep a page available for composition without automatically publishing its page-owned output.
+See [Composition pages](../advanced/composition-pages/) in the advanced guides for configuration, global-data access, and explicit rendering.
+
 ## Page outputs
 
 Use `pageOutputs` to publish extra files for a source-backed page, such as a Markdown download or a JSON metadata file alongside its HTML.
@@ -405,6 +410,7 @@ To let a page opt out of a layout's files, have the layout inspect a resolved va
 Each layout that supports the opt-out must check that variable.
 
 Hooks run only when building the owning page's output, not when collection or global-data code calls `renderInnerPage()` or `renderFullPage()`.
+[Composition pages](../advanced/composition-pages/) skip all page and layout hooks along with the page's other automatic output.
 Support for generated `*.pages.*` pages is deferred; those pages skip all `pageOutputs` hooks, including inherited layout hooks.
 
 ### Streaming results
@@ -507,6 +513,7 @@ If you add a `.draft.{md,html,ts}` suffix to any page type, the page is consider
 Draft pages are not built by default.
 If you pass the `--drafts` flag when building or watching, the draft pages will be built.
 When draft pages are omitted, they are completely ignored.
+[Composition drafts](../advanced/composition-pages/#drafts) use `.compose.draft.ext`, such as `page.compose.draft.md`; enabling drafts still does not publish their automatic page-owned output.
 
 Draft pages can be detected in layouts using the `page.draft === true` or `pages[n].draft === true` variable.
 It is a good idea to display something indicating the page is a draft in your templates so you don't get confused when working with the `--drafts` flag.

@@ -26,6 +26,7 @@ See [Supported file types](../typescript/#supported-file-types) for all availabl
 
 For data that aggregates across multiple pages — like blog indexes, sitemaps, recent-post lists, or RSS feed content — use `global.data.ts`.
 It is the only public build hook that receives the source-backed `PageData[]` collection.
+Source-backed [composition pages](../advanced/composition-pages/) remain in this collection and can be explicitly rendered; generated pages are not added to it.
 It returns an object of named, top-level values that downstream consumers can explicitly subscribe to.
 The default export can be an object or a synchronous or asynchronous function that returns one.
 
@@ -266,6 +267,7 @@ They consume values explicitly returned by `global.data.ts` instead.
 The current `page` is a `PageInfo` object with the following properties:
 
 - `type`: The page type (`md`, `html`, or `js`).
+- `compose`: A boolean fixed at discovery for source-backed pages: `true` for composition pages and `false` for standalone pages; generated pages use their definition's top-level `compose` field.
 - `path`: The source-relative directory path for the page.
 - `url`: The canonical URL path, such as `/blog/my-post/` for index pages or `/blog/loose-page.html` for loose pages.
 - `outputName`: The final output filename.
@@ -278,6 +280,7 @@ The current `page` is a `PageInfo` object with the following properties:
 
 Each `PageData` entry supplied to `global.data.ts` exposes this object as `page.pageInfo`.
 When caching entries by source page, use `page.sourceId` as the key and `page.pageInfo.url` as the output URL.
+`url`, `outputName`, and `outputRelname` remain populated when `compose` is `true`; they describe output locations, not a guarantee of publication.
 Combine `page.pageInfo.url` with a `siteUrl` from `global.vars.ts` to build an absolute URL: `` `${vars.siteUrl}${page.pageInfo.url}` ``.
 The [RSS and JSON feed recipe](../cookbook/feeds/) uses this pattern for feed item URLs.
 
@@ -321,6 +324,7 @@ This is useful when derived data needs to embed a page's content, such as the [`
 - `await page.renderFullPage()` returns the complete page output with its layout applied.
 
 Both methods are async, and rendering errors propagate and fail the build.
+Composition pages support both methods; explicit rendering returns content without publishing the page or running its `pageOutputs` hooks.
 While `global.data.ts` is resolving, `renderInnerPage()` is allowed if the page itself has no subscriptions, even when its layouts subscribe to data.
 `renderFullPage()` requires the page and its entire layout chain to be unsubscribed at that stage, because derived data does not exist yet.
 
