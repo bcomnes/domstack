@@ -4,7 +4,7 @@ import type { SiteData } from './components/slide.ts'
 
 export const vars = {
   title: 'A study in ordinary things',
-  view: 'stack',
+
   dataDeps: ['slideStack'],
 }
 

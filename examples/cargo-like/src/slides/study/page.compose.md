@@ -1,6 +1,6 @@
 ---
 title: Sed ut perspiciatis
-layout: slide
+
 slide:
   id: study
   order: 4

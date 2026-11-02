@@ -1,6 +1,6 @@
 ---
 title: Lorem ipsum
-layout: slide
+
 slide:
   id: opening
   order: 1

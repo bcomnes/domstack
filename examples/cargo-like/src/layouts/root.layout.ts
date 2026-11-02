@@ -15,7 +15,7 @@ const symbols = [
   html`<path d="M12 12C8 4 2 5 2 12s6 8 10 0 10-7 10 0-6 8-10 0Z" />`,
 ]
 
-type RootVars = { title: string; view?: 'stack' | 'slide' }
+type RootVars = { title: string }
 const rootLayout: LayoutFunction<RootVars, string, string, Pick<SiteData, 'slideNavigation'>> = ({ vars, children, scripts, styles, data }) => render(html`
   <!doctype html>
   <html lang="en">
@@ -30,14 +30,14 @@ const rootLayout: LayoutFunction<RootVars, string, string, Pick<SiteData, 'slide
       ${styles?.map(style => html`<link rel="stylesheet" href="${style}" />`)}
       ${scripts?.map(script => html`<script type="module" src="${script}"></script>`)}
     </head>
-    <body data-view="${vars.view ?? 'stack'}">
+    <body>
       <a class="skip-link" href="#main">Skip to content</a>
       <div class="scroll-progress" aria-hidden="true"></div>
       <header class="site-header">
         <a class="brand" href="/" aria-label="Cargo / Like home">Cargo / Like<span class="brand-dot" aria-hidden="true"><svg class="asterisk-icon" viewBox="0 0 100 100" focusable="false"><path d="M50 8v84M8 50h84M20 20l60 60M20 80l60-60" fill="none" stroke="currentColor" stroke-width="10" /></svg></span></a>
         <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="chapter-nav">Chapters <span aria-hidden="true">+</span></button>
         <nav id="chapter-nav" class="chapter-nav" aria-label="Chapters">
-          ${data.slideNavigation.map((slide, i) => html`<a href="/#${slide.id}" aria-label="${slide.label}"><span class="nav-symbol" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">${symbols[i % symbols.length]}</svg></span><span class="nav-label">${slide.label}</span><span class="nav-index" aria-hidden="true">${String(i + 1).padStart(2, '0')}</span></a>`)}
+          ${data.slideNavigation.map((slide, i) => html`<a href="${slide.url}" aria-label="${slide.label}"><span class="nav-symbol" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">${symbols[i % symbols.length]}</svg></span><span class="nav-label">${slide.label}</span><span class="nav-index" aria-hidden="true">${String(i + 1).padStart(2, '0')}</span></a>`)}
         </nav>
       </header>
       <main id="main" tabindex="-1">${raw(children)}</main>

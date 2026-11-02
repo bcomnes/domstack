@@ -1,6 +1,6 @@
 ---
 title: Say hello
-layout: slide
+
 slide:
   id: contact
   order: 7

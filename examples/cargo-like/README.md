@@ -5,7 +5,7 @@ DOMStack's low-overhead abstractions make it an ideal tool for implementing comp
 
 Eight chapters form one continuous scrolling page: Opening, Motion, Interval, Study, Composition, Collection, Contact, and Colophon.
 Oversized typography and interactive compositions scroll over pinned architectural images and video.
-Each chapter also has a standalone page for development and preview.
+Each chapter is authored as a composition page and appears only in the homepage sequence; no standalone slide HTML is published.
 Assets are local, scrolling uses native anchors, and essential content remains readable without JavaScript.
 
 ## Run
@@ -22,7 +22,8 @@ npm --workspace @domstack/cargo-like-example run dev
 The example uses the local DOMStack workspace.
 Use `npm run example:cargo-like` to build, or the example's `typecheck` and `test` scripts to validate it.
 Browser tests require Playwright Chromium (`npx playwright install chromium`).
-Build output goes to `public/` inside the example; test screenshots go to its ignored `artifacts/` directory.
+The build script cleans `public/` inside the example before building, so previously generated standalone slide pages cannot remain in the output.
+Test screenshots go to its ignored `artifacts/` directory.
 Media uses Git LFS, so deployment and CI checkouts must fetch LFS objects too.
 
 ## Deploy to Neocities
@@ -31,21 +32,22 @@ Add the target site's API key as the repository Actions secret `NEOCITIES_CARGO_
 **Deploy Cargo / Like to Neocities** runs on pushes to `master` and can also be started manually from GitHub Actions (`.github/workflows/neocities-cargo-like.yml`).
 The workflow fetches LFS assets, builds this example, and uploads `examples/cargo-like/public` without deleting existing remote files.
 The bundled MP4 requires a Neocities Supporter account.
+When upgrading an existing deployment, manually remove the old `/slides/<slug>/index.html` files because this workflow does not delete remote files.
 
 ## How slides work
 
-Each `src/slides/<slug>/page.md` contains metadata and a Markdown/HTML composition.
-DOMStack builds it at `/slides/<slug>/`, while the homepage embeds its inner content at `/#<id>`.
-Standalone previews use the same section renderer and include a “View in sequence” link.
+Each `src/slides/<slug>/page.compose.md` contains metadata and a Markdown/HTML composition.
+The `.compose` filename marks it as a [composition page](../../docs/advanced/composition-pages/), so DOMStack exposes `page.pageInfo.compose === true` without publishing standalone HTML.
+The homepage embeds its inner content at `/#<id>`, and all chapter navigation points to these anchors.
+Assets remain available under `/slides/<slug>/`.
 
 | File | Responsibility |
 | --- | --- |
-| `src/global.data.ts` | Collects slide pages, validates IDs and ordering, renders inner content, and exports `slideStack` and `slideNavigation`. |
+| `src/global.data.ts` | Collects composition pages under `slides/`, validates IDs and ordering, renders inner content, and exports `slideStack` and `slideNavigation`. |
 | `src/page.ts` | Subscribes to `slideStack` and renders the homepage sequence. |
-| `src/components/slide.ts` | Defines the slide types and shared `renderSlide()` wrapper. |
-| `src/layouts/slide.layout.ts` | Renders an individual slide. |
+| `src/components/slide.ts` | Defines the slide types and `renderSlide()` section wrapper. |
 | `src/layouts/root.layout.ts` | Supplies the document shell and subscribes to `slideNavigation` for chapter links. |
-| `src/globals/global.client.ts` | Initializes progressive browser interactions for both views. |
+| `src/globals/global.client.ts` | Initializes progressive browser interactions for the homepage sequence. |
 
 Slides are sorted by numeric `order`, then alphabetically by ID for ties.
 The section number displays `order`; navigation numbering reflects sequence position.
@@ -58,20 +60,19 @@ Types are exported from `src/components/slide.ts`:
 
 - `SlideMeta`: the `slide` frontmatter fields documented below.
 - `SlideVars`: `{ title: string; slide: SlideMeta }`.
-- `SlideRecord`: `SlideMeta` plus `title`, the page `url`, and rendered HTML `content`.
+- `SlideRecord`: `SlideMeta` plus `title`, the homepage anchor `url`, and rendered HTML `content`.
 - `NavigationItem`: a record's `id`, `label`, and `url`.
 - `SiteData`: `{ slideStack: SlideRecord[]; slideNavigation: NavigationItem[] }`.
-- `renderSlide(slide: SlideRecord, standalone = false): string`: renders the section, backdrop, metadata, and authored body.
-  Standalone mode adds the return link and a visually hidden `h1` if the content has none.
+- `renderSlide(slide: SlideRecord): string`: renders the section, backdrop, metadata, and authored body.
 
 ## Add a slide
 
-Create `src/slides/<slug>/page.md`:
+Create `src/slides/<slug>/page.compose.md`:
 
 ```yaml
 ---
 title: Chapter title
-layout: slide
+
 slide:
   id: chapter-slug
   order: 9
@@ -94,7 +95,7 @@ Write Markdown or HTML below the frontmatter, using an existing slide as a compo
 | `background` | Optional decorative image URL; omit for a plain section. |
 | `backgroundMode` | `sticky` (default) or `fixed`; fixed images remain viewport-anchored during entry and exit, clipped to the section. |
 | `video` | Optional `{ src, poster }`; both URLs are required, and video takes precedence over `background`. |
-| `includeInStack` | Set to `false` to retain the standalone page but omit it from the homepage and navigation. |
+| `includeInStack` | Set to `false` to omit the composition from the homepage and navigation; no standalone page is published. |
 
 Use root-relative asset URLs such as `/slides/<slug>/image.jpg`.
 The example assumes deployment at a domain root.
@@ -102,11 +103,11 @@ The example assumes deployment at a domain root.
 ### Styles and assets
 
 Create a `style.css` beside the new page, importing `../../page.css` before its composition rules.
-Add an explicit import for that stylesheet to `src/style.css` so the homepage includes it too.
+Add an explicit import for that stylesheet to `src/style.css` so the homepage includes the composition rules.
 
 - `src/globals/global.css`: fonts, tokens, base styles, focus utilities, and reduced-motion defaults.
 - `src/page.css`: shared page shell, navigation, backdrops, text utilities, and interaction styles.
-- `src/slides/<slug>/style.css`: the slide's layout and responsive rules; also its standalone stylesheet entry point.
+- `src/slides/<slug>/style.css`: the slide's layout and responsive rules, imported by the homepage stylesheet.
 - `src/style.css`: homepage entry point importing the shared styles and every slide stylesheet.
 
 Embedding inner content does not automatically include its page-local styles or client scripts.
@@ -175,7 +176,7 @@ The locally bundled viewer supports zoom, arrow-key navigation, Escape to close,
 ### Contact preview
 
 Contact is a local preview demo: it does not send requests, navigate, or persist entered data.
-Use `kind: contact` and copy `src/slides/contact/page.md`, preserving these contracts:
+Use `kind: contact` and copy `src/slides/contact/page.compose.md`, preserving these contracts:
 
 - `form[data-contact-form]` uses `method="dialog"` as a non-navigation fallback.
 - `fieldset[data-contact-fields]` starts `disabled` in source HTML; initialization enables it.

@@ -6,7 +6,7 @@
   "scripts": {
     "start": "npm run dev",
     "dev": "domstack --watch",
-    "build": "domstack",
+    "build": "rm -rf public && domstack",
     "preview": "domstack --serve",
     "typecheck": "tsc --noEmit",
     "test": "npm run build && node --test tests/site.browser.mjs"

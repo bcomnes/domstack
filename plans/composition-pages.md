@@ -10,7 +10,7 @@
 
 Allow source-backed pages to supply content to other pages without automatically generating standalone page output.
 The motivating example is `examples/cargo-like`, where the homepage collects slide bodies through `renderInnerPage()`.
-Its intentional standalone preview pages remain unchanged.
+At the user's request, its eight slides now use composition filenames and appear only in the homepage sequence.
 
 ## Final public contract
 
@@ -119,6 +119,16 @@ Update the status, decision log, and validation log when a phase changes.
 - [x] Update cross-references and add tests for checked-in guide navigation, preserved core anchors, and rendered local links.
 - [x] Validate the documentation tests, site build, TypeScript checks, and repository-wide lint.
 
+### Cargo / Like follow-up in the same PR
+
+- [x] Rename all eight slide sources to `page.compose.md` and collect them using `pageInfo.compose`.
+- [x] Point slide record/navigation URLs at homepage anchors rather than unpublished page URLs.
+- [x] Remove the standalone slide layout, renderer mode, return links, and view-specific CSS/client behavior.
+- [x] Clean generated example output before builds so old standalone HTML cannot linger locally.
+- [x] Update the README and document removal of old remote slide HTML on deployments that disable cleanup.
+- [x] Migrate browser coverage to homepage anchors and assert missing HTML files and HTTP 404s for all former slide routes.
+- [x] Validate the clean build, all 24 browser tests, example/root typechecks, and example lint.
+
 ### Phase 5: Validation
 
 - [x] Run focused discovery, generated-page, composition, watch, and acceptance tests.
@@ -141,7 +151,7 @@ Update the status, decision log, and validation log when a phase changes.
 ## Scope boundaries
 
 Do not add automatic child-page stylesheet or script aggregation.
-Do not change cargo-like's standalone preview behavior without an explicit request.
+Cargo / Like's standalone previews are removed in this PR following the user's explicit request; keep its homepage compositions and interactions intact.
 Do not add unrelated destination cleanup for ordinary non-clean builds.
 Do not hand-edit the changelog or update the lockfile as part of this feature.
 
@@ -156,6 +166,7 @@ Do not hand-edit the changelog or update the lockfile as part of this feature.
 | 2026-11-02 | Generated definitions use top-level `compose`. | Match existing top-level draft metadata without introducing var inheritance. |
 | 2026-11-02 | Main docs belong in Advanced. | Pages should link to the specialized guide rather than carry its full details. |
 | 2026-11-02 | Do not hand-edit the changelog. | The repository generates it from commits. |
+| 2026-11-02 | Migrate Cargo / Like to composition-only slides. | The user requested no separate slide pages; chapters remain accessible through homepage anchors. |
 | 2026-11-02 | Move specialized output, incremental-data, and typing guides into Advanced in this PR. | Core references retain concise introductions and links instead of detailed specialist contracts. |
 
 ## Validation log
@@ -174,6 +185,8 @@ Do not hand-edit the changelog or update the lockfile as part of this feature.
 | 2026-11-02 | Docs navigation, layout, watch, and advanced-guide tests | 20 tests passed, including rendered link and preserved-anchor checks. |
 | 2026-11-02 | `npm run build:domstack` after documentation reorganization | Site build passed with all Advanced guides included. |
 | 2026-11-02 | `npm run test:tsc && npm run test:neostandard && git --no-pager diff --check` after documentation reorganization | All passed. |
+| 2026-11-02 | `npm --workspace @domstack/cargo-like-example test` after seeding stale slide HTML | Clean build and all 24 browser tests passed, including absent HTML and HTTP 404 checks for the eight old slide routes. |
+| 2026-11-02 | Example `typecheck`, root `test:tsc`, example ESLint, and diff whitespace checks | All passed after the Cargo / Like migration. |
 
 ## Implementation notes
 

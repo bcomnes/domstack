@@ -17,13 +17,13 @@ export type SlideRecord = SlideMeta & { title: string; url: string; content: str
 export type NavigationItem = Pick<SlideRecord, 'id' | 'label' | 'url'>
 export type SiteData = { slideStack: SlideRecord[]; slideNavigation: NavigationItem[] }
 
-export function renderSlide (slide: SlideRecord, standalone = false): string {
+export function renderSlide (slide: SlideRecord): string {
   return render(html`
     <section id="${slide.id}" class="slide slide--${slide.kind}" data-theme="${slide.theme}" data-background-mode="${slide.background && !slide.video ? slide.backgroundMode ?? 'sticky' : 'sticky'}" aria-label="${slide.title}" tabindex="-1">
       ${slide.video || slide.background
 ? html`
         <div class="slide-backdrop" aria-hidden="true">
-          <div class="backdrop-image"><img src="${slide.video?.poster ?? slide.background}" alt="" loading="${standalone || slide.order === 1 ? 'eager' : 'lazy'}" fetchpriority="${standalone || slide.order === 1 ? 'high' : 'auto'}" decoding="async" /></div>
+          <div class="backdrop-image"><img src="${slide.video?.poster ?? slide.background}" alt="" loading="${slide.order === 1 ? 'eager' : 'lazy'}" fetchpriority="${slide.order === 1 ? 'high' : 'auto'}" decoding="async" /></div>
                     ${slide.video ? html`<video id="${slide.id}-video" class="backdrop-video" data-background-video data-src="${slide.video.src}" poster="${slide.video.poster}" muted loop playsinline preload="none" tabindex="-1"></video>` : null}
           <div class="backdrop-shade"></div>
         </div>
@@ -34,9 +34,7 @@ export function renderSlide (slide: SlideRecord, standalone = false): string {
       <div class="slide-meta">
         <span class="slide-number">${String(slide.order).padStart(2, '0')}</span>
         <span class="slide-label">${slide.label}</span>
-        ${standalone ? html`<a class="slide-permalink" href="/#${slide.id}">View in sequence ↗</a>` : null}
       </div>
-      ${standalone && !/<h1[\s>]/i.test(slide.content) ? html`<h1 class="sr-only">${slide.title}</h1>` : null}
       <div class="slide-body">${raw(slide.content)}</div>
       </div>
     </section>

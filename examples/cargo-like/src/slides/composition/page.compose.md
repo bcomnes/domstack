@@ -1,6 +1,6 @@
 ---
 title: Lorem ipsum, in pieces
-layout: slide
+
 slide:
   id: composition
   order: 5
