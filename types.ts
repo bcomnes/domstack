@@ -281,7 +281,7 @@ type GeneratedLayoutDefinition<
   SuppliedVars,
   ResolvedVars extends AnyVars,
   Data extends object
-> = Pick<GeneratedPageDefinitionExport, 'outputName' | 'draft'>
+> = Pick<GeneratedPageDefinitionExport, 'outputName' | 'draft' | 'compose'>
   & { vars: SuppliedVars }
   & GeneratedLayoutChildren<LayoutPageOutput<Name>, ResolvedVars, Data>
 
