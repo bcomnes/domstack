@@ -1,6 +1,6 @@
 ---
 title: Variations on a theme
-layout: slide
+
 slide:
   id: collection
   order: 6

@@ -1,6 +1,6 @@
 ---
 title: In motu
-layout: slide
+
 slide:
   id: motion
   order: 2

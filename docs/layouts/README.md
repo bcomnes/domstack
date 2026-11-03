@@ -63,7 +63,7 @@ DOMStack recognizes these exports from a layout module:
 | `default` | Yes | A synchronous or asynchronous [layout render function](#layout-render-function). |
 | `vars` | No | An object, or a sync/async function returning an object, providing [layout defaults](#layout-variables). |
 | `parentLayout` | No | A non-empty string naming the immediate outer layout; see [Declaring nested layouts](#declaring-nested-layouts). |
-| `pageOutputs` | No | A build-only function returning [extra files for each source page](../pages/#page-outputs), such as Markdown downloads or JSON metadata. |
+| `pageOutputs` | No | A build-only function returning [extra files for each source page](../advanced/page-outputs/), such as Markdown downloads or JSON metadata. |
 
 ## Declaring nested layouts
 
@@ -127,37 +127,14 @@ export async function pageOutputs ({ page, vars }) {
 
 The filename is relative to the current page's output directory, not the layout directory.
 Using the page's HTML filename helps keep destinations unique when several loose Markdown pages share a directory.
-Exact duplicate destinations produce best-effort build warnings, not an override contract; avoid sharing output paths between pages or hooks.
 Set `rawExport: false` in a page's frontmatter or vars to opt out of this layout's Markdown download.
 Returning `[]` from a page hook does not suppress layout files; the layout itself must check the opt-out variable.
 
 Nested hooks run outermost layout → innermost layout → selected page-level hook, and their files are additive.
-If a JS/TS page module and its vars companion both export `pageOutputs`, the page module's hook wins with a warning; layout hooks still run.
 Each layout hook receives the fully resolved page `vars` and only that layout renderer's `vars.dataDeps` subscriptions in `data`.
-Declare data needed by the hook in the same subscriptions used by the layout render function.
-The hook's `page` is a restricted read-only `PageOutputsPage` handle with source metadata and `readMarkdownContent()`, not the renderer's full page object or its rendering methods.
-
-Use `PageOutputsForRenderer<typeof layoutRenderer>` to derive a hook's resolved vars and own subscribed data contract from an explicitly typed layout renderer, or `PageOutputsForRenderer<ArticlePage>` for a page renderer type such as the one below.
-This helper reuses the renderer's vars and data types but keeps the hook's restricted page handle; it does not combine data from other renderers or create runtime subscriptions.
-When a layout renderer declares only a subset of the fully resolved page vars, the derived hook type exposes only that declared contract.
-For example, alongside the `ArticlePage` renderer below:
-
-```ts
-import type { PageOutputsForRenderer } from '@domstack/static/types.js'
-
-export const pageOutputs: PageOutputsForRenderer<ArticlePage> = ({ page, vars, data }) => ({
-  outputName: './article.json',
-  content: JSON.stringify({ title: vars.title, url: page.url, body: data.articleBody }),
-})
-```
-
-Hooks may return a `{ outputName, content }` record, an array of records, or an async iterable of records, directly or through a promise.
-DOMStack validates and processes each file before requesting the next record, writing it or retaining an unchanged file during watch rebuilds.
-A later hook runs only after the preceding hook's files have been processed.
-Files are written directly, without transactions or rollback; if a later record or hook fails, earlier writes remain in the destination.
-Watch mode tracks these files for cleanup after a successful rebuild or source removal.
-Support for generated `*.pages.*` pages is deferred; they skip these hooks, including inherited layout hooks.
-See [Page outputs](../pages/#page-outputs) for the complete arguments, public types, path rules, and watch behavior.
+Generated `*.pages.*` pages skip these hooks, including inherited layout hooks.
+See [Page outputs](../advanced/page-outputs/) for complete arguments, public types, path rules, processing and failure behavior, and watch cleanup.
+See [Page-output hook contracts](../advanced/layout-registry/#page-output-hook-contracts) to derive a hook type from a typed renderer.
 
 ## Layout variables
 
@@ -347,198 +324,13 @@ export default articleLayout
 
 ### Inferring registered layout chains
 
-TypeScript projects can optionally register layouts through module augmentation.
-Registry helpers require `strictNullChecks: true` in the site's TypeScript configuration (`strict: true` enables it unless explicitly overridden).
-Without it, TypeScript cannot distinguish optional or nullish contracts reliably, so chain-dependent registry helpers consistently resolve to `never`.
-The existing explicit `LayoutFunction`, `PageFunction`, `GeneratedPageDefinition`, and `PagesFunction` APIs remain available without this setting.
-The registry is type-only: it does not replace filesystem discovery, create runtime imports, or change DOMStack's runtime validation.
-Annotate each renderer with the existing explicit `LayoutFunction` API first, then register the actual exports with `typeof` so the renderer does not recursively depend on its own registry entry.
-
-```ts
-// root.layout.ts
-import type { LayoutFunction } from '@domstack/static/types.js'
-
-export type RootVars = {
-  siteName: string
-  title: string
-}
-
-export type Frame = { html: string }
-
-const rootLayout: LayoutFunction<RootVars, Frame, string> = ({ children }) => {
-  return `<!doctype html><html><body>${children.html}</body></html>`
-}
-
-export default rootLayout
-
-declare module '@domstack/static/types.js' {
-  interface LayoutRegistry {
-    root: {
-      render: typeof rootLayout
-    }
-  }
-}
-```
-
-```ts
-// article.layout.ts
-import type { LayoutFunction } from '@domstack/static/types.js'
-import type { Frame, RootVars } from './root.layout.ts'
-
-export const parentLayout = 'root'
-export const vars = { showSidebar: true }
-
-export type ArticleVars = RootVars & {
-  showSidebar: boolean
-}
-
-const articleLayout: LayoutFunction<ArticleVars, string, Frame> = ({ children }) => ({
-  html: `<article>${children}</article>`,
-})
-
-export default articleLayout
-
-declare module '@domstack/static/types.js' {
-  interface LayoutRegistry {
-    article: {
-      parentLayout: typeof parentLayout
-      vars: typeof vars
-      render: typeof articleLayout
-    }
-  }
-}
-```
-
-A page can then derive its renderer contract from the selected innermost layout:
-
-```ts
-import type { DataDeps, PageForLayout } from '@domstack/static/types.js'
-
-type PageData = { articleBody: string }
-
-export const vars = {
-  layout: 'article',
-  title: 'My article',
-  dataDeps: ['articleBody'] satisfies DataDeps<PageData>,
-}
-
-type ArticlePage = PageForLayout<
-  'article',
-  typeof vars,             // page/frontmatter/builder vars known here
-  PageData,                // this page's data only
-  { siteName: string }      // global vars known here
->
-
-const page: ArticlePage = ({ vars, data }) => {
-  vars.siteName
-  vars.title
-  vars.showSidebar
-  data.articleBody
-  return '<p>Article body</p>'
-}
-
-export default page
-```
-
-The registry helpers are:
-
-| Type | Result |
-| --- | --- |
-| `LayoutRegistryName` | Registered names in the current TypeScript program. |
-| `LayoutChain<Name>` | Names from the outermost to innermost layout. |
-| `LayoutProvidedVars<Name>` | Layout defaults merged outer-to-inner with shallow override semantics, excluding `dataDeps` metadata. |
-| `LayoutRequiredVars<Name>` | Required renderer vars not definitely supplied by layout defaults. |
-| `LayoutChainVars<Name, GlobalVars, PageVars>` | Final known vars after global, layout, and page override precedence. |
-| `LayoutPageOutput<Name>` | Children type accepted by the innermost layout. |
-| `LayoutResult<Name>` | Awaited output of the outermost renderer, before DOMStack converts it to the final HTML string. |
-| `PageForLayout<Name, PageVars, Data, GlobalVars>` | A `PageFunction` with inferred vars and page output. `Data` remains the page's own data contract and never includes layout data. |
-| `PageOutputsForRenderer<Renderer>` | A page-output hook deriving vars and the renderer's own data contract, with a restricted read-only page handle. |
-| `ValidatePageVars<Name, PageVars, GlobalVars>` | The original supplied `PageVars` if actual known sources satisfy every renderer, otherwise `never`. |
-| `GeneratedPageForLayout<Name, PageVars, Data, GlobalVars>` | A strictly checked generated definition with supplied vars, a required literal layout selector, and correctly typed static or inline children. |
-| `PagesForLayout<Name, PageVars, GlobalVars, FactoryData, PageData>` | A factory or async generator producing checked definitions, with separate factory and inline-page data contracts. |
-
-These types describe contracts; they do not supply missing values or select a layout at runtime.
-Required vars without registered defaults still need a global, page, or builder source.
-Use `LayoutRequiredVars` to inspect those obligations; the global-vars type above assumes a matching global vars export.
-For union-shaped defaults, a renderer alternative may be satisfied differently by each defaults branch; the helper reports only obligations needed across all possible branches.
-For example, when both renderer vars and defaults are `{ a: string } | { b: number }`, nothing remains required externally, so `LayoutRequiredVars` is `{}`.
-If different defaults branches leave different fields missing, the external vars must cover every branch rather than just one.
-`LayoutVars<T>` retains its existing meaning as the type of a layout vars export.
-Registry-provided, required, and renderer vars exclude the reserved `dataDeps` property; it stays in raw exports for subscription handling but is not passed to renderers.
-A renderer that requires `vars.dataDeps` is incompatible with that runtime boundary, and global vars containing `dataDeps` are rejected just as they are at runtime.
-
-The helpers await each layout's return type and verify it is accepted by the immediate parent.
-They also reject statically known incompatible vars overrides.
-Unknown names, missing parents, cycles, widened or union parent names, malformed entries, incompatible renderer boundaries, and chains deeper than 32 layouts resolve to `never`.
-DOMStack still performs runtime checks because Markdown frontmatter, dynamic modules, and JavaScript values are not guaranteed by TypeScript.
-The selected name must be a single string literal; a union of selected names also resolves to `never` rather than accepting a page that only works for one alternative.
-Use the existing `LayoutFunction` and `PageFunction` APIs for unregistered layouts or dynamic/union layout selections.
-Explicit `any` contracts, generic renderers, and overloaded functions can reduce inference precision; prefer concrete `LayoutFunction` annotations for registered renderers.
-
-Registry declarations are global to one TypeScript program.
-Use one program per site or site-specific layout names when several sites share a program, otherwise common names such as `root` can collide.
-Every file containing an augmentation must be included by that site's `tsconfig.json`.
-
-JavaScript/JSDoc projects can opt in with an included companion declaration file:
-
-```ts
-// src/layout-registry.d.ts
-import type rootLayout from './layouts/root.layout.js'
-import type articleLayout from './layouts/article.layout.js'
-import type { parentLayout, vars } from './layouts/article.layout.js'
-
-declare module '@domstack/static/types.js' {
-  interface LayoutRegistry {
-    root: {
-      render: typeof rootLayout
-    }
-    article: {
-      parentLayout: typeof parentLayout
-      vars: typeof vars
-      render: typeof articleLayout
-    }
-  }
-}
-```
-
-These imports are erased and do not become runtime or watch dependencies.
+Optionally register layouts to infer page vars and compatible children types across a nested chain.
+See [Inferring registered layout chains](../advanced/layout-registry/#inferring-registered-layout-chains) for configuration requirements, examples, and helper contracts.
 
 ### Validating supplied page vars
 
-`PageForLayout` describes a renderer contract but does not prove that your exports supply all required vars.
-Use `ValidatePageVars` at the export boundary for that stronger check:
-
-```ts
-import type { ValidatePageVars } from '@domstack/static/types.js'
-import type globalVars from './global.vars.ts'
-
-const supplied = {
-  layout: 'article' as const,
-  title: 'My article',
-}
-
-export const vars = supplied satisfies ValidatePageVars<
-  'article',
-  typeof supplied,
-  Awaited<ReturnType<typeof globalVars>>
->
-```
-
-For the registered layouts above, this succeeds if the global provider supplies `siteName`; the article layout supplies `showSidebar`.
-Removing `title` from `supplied`, or omitting `siteName` from the globals, makes the validation type `never` and the export fails to type-check.
-The local `supplied` binding avoids circular inference from checking `typeof vars` within its own initializer.
-JavaScript can use the equivalent `@satisfies {ValidatePageVars<...>}` annotation on `export const vars = supplied`.
-
-Validation uses only actual known sources, without adding renderer requirements as assumed values.
-It merges global vars, outer-to-inner layout defaults, and the supplied page vars, then checks the final object against every renderer.
-`dataDeps` stays in the original page export but is stripped from page/layout vars during validation, matching runtime subscription handling; global vars must not contain `dataDeps`.
-The generic inputs are resolved object types, so use `Awaited<ReturnType<typeof provider>>` for function exports.
-If page vars and frontmatter are separate sources, pass their final shallow-merged shape; TypeScript does not inspect frontmatter automatically.
-Built-in defaults are not inferred automatically: include any relied-on built-ins in the known effective global-vars type.
-
-The name selects the chain to validate, not the runtime layout: keep the actual `layout` export consistent with it.
-These checks cannot prove the accuracy of manually asserted types or validate arbitrary dynamic modules.
-[Registry-aware generated definitions](../generation/#registered-layouts-for-generated-pages) additionally require a matching literal `vars.layout` and validate supplied vars automatically.
+Use `ValidatePageVars` to check that known global, layout, and page sources supply every renderer's required vars.
+See [Validating supplied page vars](../advanced/layout-registry/#validating-supplied-page-vars) for export-boundary checks and their limits.
 
 ## Custom layout renderers
 

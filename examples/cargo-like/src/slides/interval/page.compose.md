@@ -1,6 +1,6 @@
 ---
 title: Dolor sit amet
-layout: slide
+
 slide:
   id: interval
   order: 3

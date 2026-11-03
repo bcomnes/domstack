@@ -63,6 +63,7 @@ const pageInfo: PageInfo = {
   outputName: 'index.html',
   outputRelname: 'index.html',
   draft: false,
+  compose: false,
 }
 
 const templateInfo: TemplateInfo = {
@@ -124,13 +125,23 @@ const globalDataParams: GlobalDataFunctionParams = {
 
 const layoutFunction: LayoutFunction<{ title: string }, string, string> = ({ vars, children }) => `${vars.title}: ${children}`
 const asyncLayoutFunction: AsyncLayoutFunction<{ title: string }, string, string> = async ({ vars, children }) => `${vars.title}: ${children}`
-const pageFunction: PageFunction<{ title: string }, string> = ({ vars }) => vars.title
+const pageFunction: PageFunction<{ title: string }, string> = ({ vars, page }) => {
+  const compose: boolean = page.compose
+  assert.equal(typeof compose, 'boolean')
+  return vars.title
+}
 const asyncPageFunction: AsyncPageFunction<{ title: string }, string> = async ({ vars }) => vars.title
 const templateFunction: TemplateFunction<{ siteName: string }> = async ({ vars }) => vars.siteName
 const templateAsyncIterator: TemplateAsyncIterator<{ siteName: string }> = async function * ({ vars }) {
   yield { content: vars.siteName, outputName: 'site-name.txt' }
 }
-const globalDataFunction: GlobalDataFunction<{ generated: true }> = () => ({ generated: true })
+const globalDataFunction: GlobalDataFunction<{ generated: true }> = ({ pages }) => {
+  for (const page of pages) {
+    const compose: boolean = page.pageInfo.compose
+    assert.equal(typeof compose, 'boolean')
+  }
+  return { generated: true }
+}
 const asyncGlobalDataFunction: AsyncGlobalDataFunction<{ generated: true }> = async () => ({ generated: true })
 
 const generatedPageWithoutChildren: GeneratedPageDefinition<{ layout: string }> = {

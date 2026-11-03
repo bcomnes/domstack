@@ -112,6 +112,9 @@ export type _NoFactoryDataInheritance = Expect<Equal<
 
 export const supplied: Article['vars'] = { layout: 'genArticle', slug: 'hello', theme: 'light', dataDeps: ['body'] }
 export const staticPage: Article = { outputName: 'hello.html', draft: false, vars: supplied, children: 'Hello' }
+export const compositionPage: Article = { vars: supplied, compose: true }
+export const publishedPage = { vars: supplied, compose: false } satisfies Article
+export type _OptionalCompose = Expect<Equal<Article['compose'], boolean | undefined>>
 export const omittedPage: Article = { vars: supplied }
 export const nullPage: Article = { vars: supplied, children: null }
 export const undefinedPage: Article = { vars: supplied, children: undefined }
@@ -151,6 +154,8 @@ export const wrongAsyncInline: Article = { vars: supplied, children: async () =>
 export const staticPromise: Article = { vars: supplied, children: Promise.resolve('hello') }
 // @ts-expect-error Output filenames are strings.
 export const wrongOutputName: Article = { vars: supplied, outputName: 42 }
+// @ts-expect-error Composition flags must be booleans.
+export const wrongCompose: Article = { vars: supplied, compose: 'true' }
 
 export type NullPage = GeneratedPageForLayout<'genNull'>
 export const renderedNull: NullPage = { vars: { layout: 'genNull' }, children: () => null }

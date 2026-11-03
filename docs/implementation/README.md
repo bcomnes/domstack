@@ -323,7 +323,7 @@ Page HTML points to stable entry files during watch mode. esbuild can update an 
 
 ### Manifest behavior
 
-Watch mode builds and rebundles the site service worker, but it does not finalize, return, or write the [DOMStack manifest](../../docs/workers/#domstack-manifest).
+Watch mode builds and rebundles the site service worker, but it does not finalize, return, or write the [DOMStack manifest](../advanced/output-manifest/).
 Editing `domstack-manifest.settings.ts` does not trigger a watch rebuild unless it is also imported by server-side code.
 
 Use `domstack serve` when testing manifest-driven cache behavior.

@@ -45,7 +45,12 @@ async function openPage (options = {}, path = '/', prepare) {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, ...options })
   page.on('pageerror', error => failures.push(error.message))
   page.on('response', response => { if (response.status() >= 400) failures.push(`${response.status()} ${response.url()}`) })
-  page.on('requestfailed', request => failures.push(`Failed ${request.url()}`))
+  page.on('requestfailed', request => {
+    const error = request.failure()?.errorText
+    // Chromium can cancel media range requests as playback or scroll visibility changes.
+    if (request.resourceType() === 'media' && error === 'net::ERR_ABORTED') return
+    failures.push(`Failed ${request.url()}: ${error} on ${page.url()}`)
+  })
   page.on('request', request => {
     if (!request.url().startsWith(origin)) failures.push(`Unexpected external request: ${request.url()}`)
   })
@@ -77,11 +82,13 @@ test('desktop: sections, local assets, navigation, lightbox and keyboard draggin
     assert.equal(await wordmark.getAttribute('href'), 'https://domstack.net')
     assert.match(await wordmark.evaluate(el => getComputedStyle(el).fontFamily), /DSWeiss-Gotisch/)
     assert.equal(await wordmark.evaluate(el => getComputedStyle(el).textTransform), 'none')
-    assert.equal(await page.locator('section.slide').count(), 8)
+    const ids = ['opening', 'motion', 'interval', 'study', 'composition', 'collection', 'contact', 'colophon']
+    assert.deepEqual(await page.locator('section.slide').evaluateAll(slides => slides.map(slide => slide.id)), ids)
     assert.equal(await page.locator('h1').count(), 1)
-    assert.equal(await page.locator('.chapter-nav a').count(), 8)
-    assert.equal(await page.locator('a[href^="/slides/"][href$="/"]').count(), 0)
-    assert.equal(await page.locator('.slide-permalink').count(), 0)
+    assert.deepEqual(await page.locator('.chapter-nav a').evaluateAll(links => links.map(link => link.getAttribute('href'))), ids.map(id => `/#${id}`))
+    for (const id of ids) {
+      assert.ok(await page.locator(`#${id}`).getByRole('heading').count() > 0, `${id} must have a heading`)
+    }
     assert.ok(await page.evaluate(() => ['Inter', 'Fraunces'].every(family =>
       [...document.fonts].some(face => face.family === family && face.status === 'loaded')
     )))
@@ -206,7 +213,7 @@ test('gallery: natural dimensions, arrow controls, keyboard navigation, zoom and
 })
 
 test('gallery: arrow keys animate between slides when motion is allowed', async () => {
-  const page = await openPage({ reducedMotion: 'no-preference' }, '/slides/collection/')
+  const page = await openPage({ reducedMotion: 'no-preference' }, '/#collection')
   try {
     const cards = page.locator('.photo-grid a[data-lightbox]')
     await cards.first().click()
@@ -260,53 +267,29 @@ test('gallery: captions and alt fallbacks are inert text, never HTML', async () 
   }
 })
 
-test('gallery: standalone collection opens, navigates and restores focus', async () => {
-  const page = await openPage({ reducedMotion: 'reduce' }, '/slides/collection/')
+test('gallery: no-JavaScript cards remain direct image links', async () => {
+  const page = await openPage({ javaScriptEnabled: false }, '/#collection')
   try {
     const cards = page.locator('.photo-grid a.photo-card[data-lightbox]')
+    assert.ok(await cards.count() >= 2)
+    for (const card of await cards.all()) {
+      assert.ok((await card.getAttribute('href')).startsWith('/slides/') && (await card.getAttribute('href')).endsWith('.jpg'))
+      assert.ok(await card.locator('img').getAttribute('alt'))
+    }
+    const href = await cards.first().getAttribute('href')
     await cards.first().click()
-    const viewer = page.locator('.pswp')
-    await viewer.waitFor({ state: 'visible' })
-    assert.equal(await viewer.getAttribute('role'), 'dialog')
-    await viewer.getByRole('button', { name: 'Next photograph', exact: true }).click()
-    await viewer.getByText(await cards.nth(1).getAttribute('data-caption'), { exact: true }).waitFor({ state: 'visible' })
-    await viewer.getByRole('button', { name: 'Close photograph viewer', exact: true }).click()
-    await viewer.waitFor({ state: 'detached' })
-    assert.equal(await cards.first().evaluate(el => el === document.activeElement), true)
+    await page.waitForURL(origin + href)
+    assert.equal(await page.locator('.pswp').count(), 0)
   } finally { await page.close() }
 })
 
-test('gallery: no-JavaScript cards remain direct image links on both views', async () => {
-  for (const path of ['/', '/slides/collection/']) {
-    const page = await openPage({ javaScriptEnabled: false }, path)
-    try {
-      const cards = page.locator('.photo-grid a.photo-card[data-lightbox]')
-      assert.ok(await cards.count() >= 2)
-      for (const card of await cards.all()) {
-        assert.ok((await card.getAttribute('href')).startsWith('/slides/') && (await card.getAttribute('href')).endsWith('.jpg'))
-        assert.ok(await card.locator('img').getAttribute('alt'))
-      }
-      const href = await cards.first().getAttribute('href')
-      await cards.first().click()
-      await page.waitForURL(origin + href)
-      assert.equal(await page.locator('.pswp').count(), 0)
-    } finally { await page.close() }
-  }
-})
-
-test('standalone chapters have one slide, a heading and working return links', async () => {
+test('slide assets have no standalone HTML pages or routes', async () => {
   for (const id of ['opening', 'motion', 'interval', 'study', 'composition', 'collection', 'contact', 'colophon']) {
-    const page = await openPage({ reducedMotion: 'reduce' }, `/slides/${id}/`)
-    try {
-      assert.equal(await page.locator('section.slide').count(), 1)
-      assert.equal(await page.locator('h1').count(), 1)
-      assert.equal(await page.locator('body').getAttribute('data-view'), 'slide')
-      const back = page.getByRole('link', { name: 'View in sequence' })
-      assert.equal(await back.getAttribute('href'), `/#${id}`)
-      await back.click()
-      await page.waitForURL(`${origin}/#${id}`)
-      assert.equal(await page.locator('section.slide').count(), 8)
-    } finally { await page.close() }
+    await assert.rejects(readFile(resolve(root, `slides/${id}/index.html`)), { code: 'ENOENT' })
+    // Intentional 404s must not enter openPage's browser failure logger.
+    const response = await fetch(`${origin}/slides/${id}/`)
+    assert.equal(response.status, 404, `${id} must not have a standalone route`)
+    await response.arrayBuffer()
   }
 })
 
@@ -357,7 +340,7 @@ test('normal motion: reveals settle and pointer dragging is bounded', async () =
   } finally { await page.close() }
 })
 
-test('homepage and standalone stylesheets supply slide compositions outside the shared global CSS', async () => {
+test('homepage stylesheets supply slide compositions outside the shared global CSS', async () => {
   const globalCSS = await readFile(resolve(exampleRoot, 'src/globals/global.css'), 'utf8')
   assert.doesNotMatch(globalCSS, /\.(?:type-|contact-)[\w-]+|\.slide\b|\.site-header\b|\.field-gallery\b|\.video-controls\b/)
   const pageCSS = await readFile(resolve(exampleRoot, 'src/page.css'), 'utf8')
@@ -366,7 +349,6 @@ test('homepage and standalone stylesheets supply slide compositions outside the 
   assert.match(await readFile(resolve(exampleRoot, 'src/style.css'), 'utf8'), /@import '\.\/page\.css'/)
   for (const id of ['opening', 'motion', 'interval', 'study', 'composition', 'collection', 'contact', 'colophon']) {
     const slideCSS = await readFile(resolve(exampleRoot, `src/slides/${id}/style.css`), 'utf8')
-    assert.match(slideCSS, /@import '\.\.\/\.\.\/page\.css'/)
     assert.doesNotMatch(slideCSS, /@import ['"]\.\/slide\.css['"]/)
     assert.ok((await readFile(resolve(exampleRoot, 'src/style.css'), 'utf8')).includes(`@import './slides/${id}/style.css';`))
   }
@@ -380,19 +362,14 @@ test('homepage and standalone stylesheets supply slide compositions outside the 
     ['#contact .contact-composition', 'display', 'grid'],
     ['#colophon .closing-composition', 'display', 'flex'],
   ]
-  for (const id of [null, 'opening', 'motion', 'interval', 'study', 'composition', 'collection', 'contact', 'colophon']) {
-    const path = id ? `/slides/${id}/` : '/'
-    const page = await openPage({ reducedMotion: 'reduce' }, path)
-    try {
-      for (const [selector, property, expected] of checks) {
-        if (id && !selector.startsWith(`#${id} `)) continue
-        const actual = await page.locator(selector).first().evaluate((el, property) => getComputedStyle(el)[property], property)
-        const message = `${path}: ${selector}`
-        if (expected instanceof RegExp) assert.match(actual, expected, message)
-        else assert.equal(actual, expected, message)
-      }
-    } finally { await page.close() }
-  }
+  const page = await openPage({ reducedMotion: 'reduce' })
+  try {
+    for (const [selector, property, expected] of checks) {
+      const actual = await page.locator(selector).first().evaluate((el, property) => getComputedStyle(el)[property], property)
+      if (expected instanceof RegExp) assert.match(actual, expected, selector)
+      else assert.equal(actual, expected, selector)
+    }
+  } finally { await page.close() }
 })
 
 test('immersive layout: pinned backdrops, fitted type and top-right dock', async () => {
@@ -430,79 +407,73 @@ test('immersive layout: pinned backdrops, fitted type and top-right dock', async
 })
 
 test('Interval type study loads the local DOMStack font without clipping', async () => {
-  for (const path of ['/', '/slides/interval/']) {
-    const page = await openPage({ reducedMotion: 'reduce' }, path)
-    try {
-      const heading = page.locator('#interval .statement-title')
-      assert.match(await heading.evaluate(el => getComputedStyle(el).fontFamily), /DSWeiss-Gotisch/)
-      assert.ok(await page.evaluate(() => [...document.fonts].some(face =>
-        face.family.replaceAll('"', '') === 'DSWeiss-Gotisch' && face.status === 'loaded'
-      )))
-      for (const width of [320, 390, 768, 1440]) {
-        await page.setViewportSize({ width, height: 844 })
-        assert.ok(await heading.locator('span').evaluateAll(lines => lines.every(el => {
-          const range = document.createRange()
-          range.selectNodeContents(el)
-          return range.getBoundingClientRect().width <= el.clientWidth
-        })), `Type study should fit at ${width}px`)
-      }
-      if (path === '/') {
-        await page.setViewportSize({ width: 390, height: 844 })
-        await page.locator('#interval').evaluate(el => el.scrollIntoView({ behavior: 'instant', block: 'start' }))
-        await page.locator('#interval .backdrop-image img').evaluate(image => image.decode())
-        await page.screenshot({ path: resolve(artifacts, 'mobile-interval.png') })
-      }
-    } finally { await page.close() }
-  }
+  const page = await openPage({ reducedMotion: 'reduce' }, '/#interval')
+  try {
+    const heading = page.locator('#interval .statement-title')
+    assert.match(await heading.evaluate(el => getComputedStyle(el).fontFamily), /DSWeiss-Gotisch/)
+    assert.ok(await page.evaluate(() => [...document.fonts].some(face =>
+      face.family.replaceAll('"', '') === 'DSWeiss-Gotisch' && face.status === 'loaded'
+    )))
+    for (const width of [320, 390, 768, 1440]) {
+      await page.setViewportSize({ width, height: 844 })
+      assert.ok(await heading.locator('span').evaluateAll(lines => lines.every(el => {
+        const range = document.createRange()
+        range.selectNodeContents(el)
+        return range.getBoundingClientRect().width <= el.clientWidth
+      })), `Type study should fit at ${width}px`)
+    }
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.locator('#interval').evaluate(el => el.scrollIntoView({ behavior: 'instant', block: 'start' }))
+    await page.locator('#interval .backdrop-image img').evaluate(image => image.decode())
+    await page.screenshot({ path: resolve(artifacts, 'mobile-interval.png') })
+  } finally { await page.close() }
 })
 
 test('Composition: semantic titles, decorative glyphs, sticky backdrop and next link', async () => {
-  for (const path of ['/', '/slides/composition/']) {
-    const page = await openPage({ reducedMotion: 'reduce' }, path)
-    try {
-      const slide = page.locator('#composition')
-      assert.equal(await slide.getAttribute('aria-label'), 'Lorem ipsum, in pieces')
-      assert.ok(await slide.evaluate(el => el.classList.contains('slide--typography')))
-      assert.equal((await slide.locator('.slide-number').textContent()).trim(), '05')
-      assert.equal((await slide.locator('.slide-label').textContent()).trim(), 'Composition')
-      assert.equal(await slide.getAttribute('data-background-mode'), 'sticky')
-      assert.equal(await slide.locator('.slide-backdrop').evaluate(el => getComputedStyle(el).position), 'sticky')
-      assert.equal(await slide.locator('.backdrop-image img').getAttribute('src'), '/slides/opening/architecture.jpg')
-      assert.equal(await slide.locator('.type-poster').count(), 1)
-      assert.equal(await slide.locator('.type-score').count(), 1)
-      assert.ok(await slide.evaluate(el => Boolean(el.querySelector('.type-poster').compareDocumentPosition(el.querySelector('.type-score')) & Node.DOCUMENT_POSITION_FOLLOWING)))
-      const title = slide.locator('.type-poster h2.type-title')
-      assert.equal(await title.count(), 1)
-      assert.equal(await slide.getByRole('heading', { level: 2, name: 'Lorem ipsum.', exact: true }).count(), 1)
-      assert.equal((await title.locator('.sr-only').textContent()).trim(), 'Lorem ipsum.')
-      assert.equal(await slide.locator('.type-score').getByRole('heading', { level: 3, name: 'Dolor sit amet.', exact: true }).count(), 1)
-      for (const decoration of await title.locator('.type-letters, .type-serif').all()) {
-        assert.ok(await decoration.evaluate(el => Boolean(el.closest('[aria-hidden="true"]'))))
-      }
-      const glyphs = title.locator('.type-letters span')
-      assert.ok(await glyphs.count() > 1)
-      assert.ok(await glyphs.evaluateAll(elements => elements.every(el => [...el.textContent.trim()].length === 1)))
-      const rotations = await glyphs.evaluateAll(elements => elements.map(el => {
-        const style = getComputedStyle(el)
-        const matrix = new DOMMatrixReadOnly(style.transform === 'none' ? undefined : style.transform)
-        return `${Math.atan2(matrix.b, matrix.a).toFixed(3)}:${style.rotate}`
-      }))
-      assert.ok(new Set(rotations).size > 1, 'Individual glyphs should have varied CSS rotations')
-      assert.equal(await title.locator('.type-serif').count(), 1)
-      assert.ok(await slide.locator('.type-score .type-line').count() > 0)
-      assert.ok(await slide.locator('.type-note').count() > 0)
-      const orbit = slide.locator('svg.type-orbit')
-      assert.equal(await orbit.count(), 1)
-      assert.ok(await orbit.evaluate(el => Boolean(el.closest('[aria-hidden="true"]'))))
-      assert.ok(await orbit.evaluate(el => el.hasAttribute('data-pointer-rotate') || Boolean(el.querySelector('[data-pointer-rotate]'))))
-      assert.ok(await slide.locator('[data-reveal]').evaluateAll(elements => elements.every(el => Boolean(el.closest('.type-note')))))
-      assert.equal(await slide.locator('.type-title[data-reveal], .type-title [data-reveal], .type-line[data-reveal], .type-line [data-reveal]').count(), 0)
-      const next = slide.locator('a.type-next')
-      assert.equal(await next.getAttribute('href'), '/#collection')
-      await next.click()
-      await page.waitForURL(`${origin}/#collection`)
-    } finally { await page.close() }
-  }
+  const page = await openPage({ reducedMotion: 'reduce' }, '/#composition')
+  try {
+    const slide = page.locator('#composition')
+    assert.equal(await slide.getAttribute('aria-label'), 'Lorem ipsum, in pieces')
+    assert.ok(await slide.evaluate(el => el.classList.contains('slide--typography')))
+    assert.equal((await slide.locator('.slide-number').textContent()).trim(), '05')
+    assert.equal((await slide.locator('.slide-label').textContent()).trim(), 'Composition')
+    assert.equal(await slide.getAttribute('data-background-mode'), 'sticky')
+    assert.equal(await slide.locator('.slide-backdrop').evaluate(el => getComputedStyle(el).position), 'sticky')
+    assert.equal(await slide.locator('.backdrop-image img').getAttribute('src'), '/slides/opening/architecture.jpg')
+    assert.equal(await slide.locator('.type-poster').count(), 1)
+    assert.equal(await slide.locator('.type-score').count(), 1)
+    assert.ok(await slide.evaluate(el => Boolean(el.querySelector('.type-poster').compareDocumentPosition(el.querySelector('.type-score')) & Node.DOCUMENT_POSITION_FOLLOWING)))
+    const title = slide.locator('.type-poster h2.type-title')
+    assert.equal(await title.count(), 1)
+    assert.equal(await slide.getByRole('heading', { level: 2, name: 'Lorem ipsum.', exact: true }).count(), 1)
+    assert.equal((await title.locator('.sr-only').textContent()).trim(), 'Lorem ipsum.')
+    assert.equal(await slide.locator('.type-score').getByRole('heading', { level: 3, name: 'Dolor sit amet.', exact: true }).count(), 1)
+    for (const decoration of await title.locator('.type-letters, .type-serif').all()) {
+      assert.ok(await decoration.evaluate(el => Boolean(el.closest('[aria-hidden="true"]'))))
+    }
+    const glyphs = title.locator('.type-letters span')
+    assert.ok(await glyphs.count() > 1)
+    assert.ok(await glyphs.evaluateAll(elements => elements.every(el => [...el.textContent.trim()].length === 1)))
+    const rotations = await glyphs.evaluateAll(elements => elements.map(el => {
+      const style = getComputedStyle(el)
+      const matrix = new DOMMatrixReadOnly(style.transform === 'none' ? undefined : style.transform)
+      return `${Math.atan2(matrix.b, matrix.a).toFixed(3)}:${style.rotate}`
+    }))
+    assert.ok(new Set(rotations).size > 1, 'Individual glyphs should have varied CSS rotations')
+    assert.equal(await title.locator('.type-serif').count(), 1)
+    assert.ok(await slide.locator('.type-score .type-line').count() > 0)
+    assert.ok(await slide.locator('.type-note').count() > 0)
+    const orbit = slide.locator('svg.type-orbit')
+    assert.equal(await orbit.count(), 1)
+    assert.ok(await orbit.evaluate(el => Boolean(el.closest('[aria-hidden="true"]'))))
+    assert.ok(await orbit.evaluate(el => el.hasAttribute('data-pointer-rotate') || Boolean(el.querySelector('[data-pointer-rotate]'))))
+    assert.ok(await slide.locator('[data-reveal]').evaluateAll(elements => elements.every(el => Boolean(el.closest('.type-note')))))
+    assert.equal(await slide.locator('.type-title[data-reveal], .type-title [data-reveal], .type-line[data-reveal], .type-line [data-reveal]').count(), 0)
+    const next = slide.locator('a.type-next')
+    assert.equal(await next.getAttribute('href'), '/#collection')
+    await next.click()
+    await page.waitForURL(`${origin}/#collection`)
+  } finally { await page.close() }
 })
 
 test('Composition: CSS-only readability, responsive text bounds and poster screenshots', async () => {
@@ -580,7 +551,7 @@ test('background video: lazy, muted playback; pause, resume and offscreen suspen
 test('background video: reduced motion, data saving and no-JS use a poster without downloading video', async () => {
   for (const mode of ['reduced', 'save-data', 'no-js']) {
     const requests = []
-    const page = await openPage({ reducedMotion: mode === 'reduced' ? 'reduce' : 'no-preference', javaScriptEnabled: mode !== 'no-js' }, '/slides/motion/', async page => {
+    const page = await openPage({ reducedMotion: mode === 'reduced' ? 'reduce' : 'no-preference', javaScriptEnabled: mode !== 'no-js' }, '/#motion', async page => {
       page.on('request', request => { if (request.url().endsWith('.mp4')) requests.push(request.url()) })
       if (mode === 'save-data') {
         await page.addInitScript(() => {
@@ -590,13 +561,13 @@ test('background video: reduced motion, data saving and no-JS use a poster witho
     })
     try {
       assert.deepEqual(requests, [])
-      assert.equal(await page.locator('video').getAttribute('src'), null)
-      assert.equal(await page.locator('video').evaluate(el => el.paused), true)
-      assert.ok(await page.locator('.backdrop-image img').evaluate(el => el.complete && el.naturalWidth > 0))
-      assert.equal(await page.locator('[data-video-toggle]').isVisible(), mode !== 'no-js')
+      assert.equal(await page.locator('#motion video').getAttribute('src'), null)
+      assert.equal(await page.locator('#motion video').evaluate(el => el.paused), true)
+      assert.ok(await page.locator('#motion .backdrop-image img').evaluate(el => el.complete && el.naturalWidth > 0))
+      assert.equal(await page.locator('#motion [data-video-toggle]').isVisible(), mode !== 'no-js')
       if (mode === 'reduced') {
         await page.getByRole('button', { name: 'Play background video' }).click()
-        await page.waitForFunction(() => document.querySelector('video').currentTime > 0.2)
+        await page.waitForFunction(() => document.querySelector('#motion video').currentTime > 0.2)
         await page.getByRole('button', { name: 'Pause background video' }).click()
       }
     } finally { await page.close() }
@@ -604,7 +575,7 @@ test('background video: reduced motion, data saving and no-JS use a poster witho
 })
 
 test('background video: mobile inline playback and autoplay rejection fallback', async () => {
-  const page = await openPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true }, '/slides/motion/', async page => {
+  const page = await openPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true }, '/#motion', async page => {
     await page.addInitScript(() => {
       const play = HTMLMediaElement.prototype.play
       HTMLMediaElement.prototype.play = function () {
@@ -614,11 +585,11 @@ test('background video: mobile inline playback and autoplay rejection fallback',
     })
   })
   try {
-    const video = page.locator('video')
+    const video = page.locator('#motion video')
     assert.equal(await video.evaluate(el => el.paused), true)
     assert.equal(await video.evaluate(el => getComputedStyle(el).opacity), '0')
     await page.getByRole('button', { name: 'Play background video' }).click()
-    await page.waitForFunction(() => document.querySelector('video').currentTime > 0.2)
+    await page.waitForFunction(() => document.querySelector('#motion video').currentTime > 0.2)
     assert.equal(await video.evaluate(el => el.playsInline), true)
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
     await page.screenshot({ path: resolve(artifacts, 'mobile-motion.png') })
@@ -626,19 +597,19 @@ test('background video: mobile inline playback and autoplay rejection fallback',
 })
 
 test('background video: decoder failure retains the poster and disables playback', async () => {
-  const page = await openPage({}, '/slides/motion/', async page => {
+  const page = await openPage({}, '/#motion', async page => {
     await page.route('**/slides/motion/flower.mp4', route => route.fulfill({ contentType: 'video/mp4', body: 'Invalid video for fallback test' }))
   })
   try {
-    await page.waitForFunction(() => document.querySelector('video').error !== null)
+    await page.waitForFunction(() => document.querySelector('#motion video').error !== null)
     assert.equal(await page.getByRole('button', { name: 'Video unavailable' }).isDisabled(), true)
-    assert.equal(await page.locator('video').evaluate(el => getComputedStyle(el).opacity), '0')
-    assert.ok(await page.locator('.backdrop-image img').evaluate(el => el.complete && el.naturalWidth > 0))
+    assert.equal(await page.locator('#motion video').evaluate(el => getComputedStyle(el).opacity), '0')
+    assert.ok(await page.locator('#motion .backdrop-image img').evaluate(el => el.complete && el.naturalWidth > 0))
   } finally { await page.close() }
 })
 
 test('contact: accessible validation, safe preview, edits and reset without side effects', async () => {
-  const page = await openPage({ reducedMotion: 'reduce' }, '/slides/contact/')
+  const page = await openPage({ reducedMotion: 'reduce' }, '/#contact')
   try {
     const form = page.locator('form[data-contact-form]')
     const preview = page.locator('[data-contact-preview]')
@@ -724,10 +695,10 @@ test('contact: accessible validation, safe preview, edits and reset without side
 })
 
 test('contact: no-JS form is disabled in source HTML and cannot submit', async () => {
-  const html = await readFile(resolve(root, 'slides/contact/index.html'), 'utf8')
+  const html = await readFile(resolve(root, 'index.html'), 'utf8')
   assert.match(html, /<fieldset\b[^>]*data-contact-fields[^>]*>/)
   assert.match(html.match(/<fieldset\b[^>]*data-contact-fields[^>]*>/)[0], /\bdisabled(?:\s|=|>)/)
-  const page = await openPage({ javaScriptEnabled: false }, '/slides/contact/')
+  const page = await openPage({ javaScriptEnabled: false }, '/#contact')
   try {
     const form = page.locator('form[data-contact-form]')
     assert.equal(await form.getAttribute('method'), 'dialog')
@@ -770,7 +741,7 @@ test('contact: sequence, desktop screenshot and mobile preview overflow', async 
   } finally { await mobile.close() }
 })
 
-test('scrolling updates the hash without adding history or changing standalone URLs', async () => {
+test('scrolling updates the hash without adding history and preserves the query', async () => {
   const page = await openPage({ reducedMotion: 'reduce' }, '/?demo=1#study')
   try {
     await page.waitForFunction(() => location.hash === '#study' && document.querySelector('.chapter-nav a[href="/#study"]').hasAttribute('aria-current'))
@@ -784,10 +755,6 @@ test('scrolling updates the hash without adding history or changing standalone U
       assert.equal(new URL(page.url()).search, '?demo=1')
       assert.equal(await page.locator(`.chapter-nav a[href="/#${id}"]`).getAttribute('aria-current'), 'location')
     }
-    await page.goto(`${origin}/slides/collection/`)
-    await page.evaluate(() => scrollTo(0, 500))
-    await page.waitForTimeout(300)
-    assert.equal(new URL(page.url()).hash, '')
   } finally { await page.close() }
 })
 

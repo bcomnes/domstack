@@ -316,9 +316,6 @@
   padding: 24px var(--gutter) 80px;
 }
 
-body[data-view=slide] .slide-content {
-  padding-top: calc(110px + env(safe-area-inset-top));
-}
 
 .slide-meta {
   display: grid;
@@ -334,14 +331,6 @@ body[data-view=slide] .slide-content {
   font-variant-numeric: tabular-nums;
 }
 
-.slide-permalink {
-  padding: 6px 0;
-  text-decoration: none;
-}
-
-.slide-permalink:hover {
-  text-decoration: underline;
-}
 
 .slide-body,
 .slide-body > * {

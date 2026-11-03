@@ -1,6 +1,6 @@
 ---
 title: Ad infinitum
-layout: slide
+
 slide:
   id: colophon
   order: 8

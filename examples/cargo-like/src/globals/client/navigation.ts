@@ -43,7 +43,7 @@ export function initializeActiveChapter () {
   const sections = [...document.querySelectorAll<HTMLElement>('section.slide[id]')]
   const links = [...document.querySelectorAll<HTMLAnchorElement>('.chapter-nav a')]
 
-  // Keep native anchor history and focus behavior; standalone links must still navigate home.
+  // Keep native anchor history and focus behavior.
   function linkTarget (link: HTMLAnchorElement) {
     const url = new URL(link.href, location.href)
     if (url.origin !== location.origin) return null
@@ -51,10 +51,8 @@ export function initializeActiveChapter () {
   }
   let activeId: string | undefined
   let hashTimer: ReturnType<typeof setTimeout> | undefined
-  const isStack = document.body.dataset['view'] === 'stack'
 
   function scheduleHashUpdate () {
-    if (!isStack) return
     clearTimeout(hashTimer)
     // Wait for scrolling to settle so native smooth anchor navigation keeps its target.
     hashTimer = setTimeout(() => {
@@ -66,7 +64,7 @@ export function initializeActiveChapter () {
       history.replaceState(history.state, '', url)
     }, 150)
   }
-  if (isStack) window.addEventListener('scroll', scheduleHashUpdate, { passive: true })
+  window.addEventListener('scroll', scheduleHashUpdate, { passive: true })
 
   function setActive (id: string) {
     activeId = id
