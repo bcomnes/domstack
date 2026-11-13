@@ -108,7 +108,7 @@
     "preact": "^11.0.0",
     "releasearoni": "^0.2.0",
     "typescript": "npm:@typescript/typescript6",
-    "typescript7": "npm:typescript@~7.0.2"
+    "typescript7": "npm:typescript@7.1.0-beta"
   },
   "homepage": "https://github.com/bcomnes/domstack",
   "keywords": [],
