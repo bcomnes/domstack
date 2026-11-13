@@ -9,6 +9,7 @@ export interface RootVars {
   lang?: string
   basePath?: string
   siteUrl?: string
+  ahrefsAnalyticsKey?: string
   [key: string]: unknown
 }
 
@@ -49,6 +50,7 @@ const rootLayout: LayoutFunction<RootVars, string | HtmlResult, string> = ({ chi
         <title>${vars.title ? `${vars.title} | domstack` : 'domstack'}</title>
         <link rel="alternate" type="application/feed+json" title="DOMStack Blog — JSON Feed" href="${assetUrl('/feed.json')}" />
         <link rel="alternate" type="application/atom+xml" title="DOMStack Blog — Atom Feed" href="${assetUrl('/feed.xml')}" />
+        ${vars.ahrefsAnalyticsKey ? html`<script src="https://analytics.ahrefs.com/analytics.js" data-key="${vars.ahrefsAnalyticsKey}" async></script>` : null}
         ${styles?.map(style => html`<link rel="stylesheet" href="${assetUrl(style)}" />`)}
         ${scripts?.map(script => html`<script type="module" src="${assetUrl(script)}"></script>`)}
       </head>
