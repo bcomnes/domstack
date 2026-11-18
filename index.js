@@ -13,6 +13,7 @@ import { builder } from './lib/builder.js'
 import { createDomStackLogger } from './lib/logger.js'
 import { DomStackWatcher } from './lib/watch/index.js'
 
+export { domstackBanner } from './lib/cli/banner.js'
 export { PageData } from './lib/build-pages/page/page-data.js'
 export {
   DOMSTACK_MANIFEST_SCHEMA_ID,

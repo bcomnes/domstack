@@ -7,25 +7,22 @@
  * @import { BsInstance } from '@domstack/sync'
  */
 
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { readFile } from 'node:fs/promises'
 import { basename, resolve, join, relative } from 'node:path'
 
-import readline from 'node:readline'
 import process from 'process'
 import tree from 'pretty-tree'
 import { inspect } from 'util'
 import { createServer } from '@domstack/sync'
-import { packageDirectory } from 'package-directory'
 
-import { copyFile } from './lib/helpers/copy-file.js'
-import { addPackageDependencies } from './lib/helpers/add-package-dependencies.js'
 import { DomStack } from './index.js'
 import { DomStackAggregateError } from './lib/helpers/domstack-aggregate-error.js'
 import { generateTreeData } from './lib/helpers/generate-tree-data.js'
-import { askYesNo } from './lib/helpers/cli-prompt.js'
+
 import { createDomStackLogger } from './lib/logger.js'
 import { CliUsageError, parseCliArgs } from './lib/cli/args.js'
 import { formatCliHelp } from './lib/cli/help.js'
+import { eject } from './lib/cli/eject.js'
 
 const __dirname = import.meta.dirname
 
@@ -54,84 +51,13 @@ async function run () {
   const src = resolve(join(cwd, String(argv['src'])))
 
   if (command === 'eject') {
-    const language = argv['language']
-
-    const localPkg = await packageDirectory({ cwd: src })
-
-    if (!localPkg) {
-      console.error('Can\'t locate package.json, exiting without making changes')
-      process.exit(1)
-    }
-
-    const localPkgJson = join(localPkg, 'package.json')
-    const localPkgJsonContents = await getPkg(localPkgJson)
-    const targetIsModule = localPkgJsonContents.type === 'module'
-
-    const relativeSrc = relative(process.cwd(), src)
-    const relativePkg = relative(process.cwd(), localPkgJson)
-
-    const extension = language === 'ts' ? (targetIsModule ? 'ts' : 'mts') : targetIsModule ? 'js' : 'mjs'
-    const targetLayoutPath = `layouts/root.layout.${extension}`
-    const targetGlobalStylePath = 'globals/global.css'
-    const targetGlobalClientPath = `globals/global.client.${language === 'ts' ? 'ts' : extension}`
-
-    const tbPkgContents = await getPkg()
-    const mineVersion = tbPkgContents?.['dependencies']?.['mine.css']
-    const fragtmlVersion = tbPkgContents?.['dependencies']?.['fragtml']
-    const highlightVersion = tbPkgContents?.['dependencies']?.['highlight.js']
-
-    if (!mineVersion || !fragtmlVersion || !highlightVersion) {
-      console.error('Unable to resolve ejected dependency versions. Exiting...')
-      process.exit(1)
-    }
-
-    console.log(`
-domstack eject actions:
-  - Write ${join(relativeSrc, targetLayoutPath)}
-  - Write ${join(relativeSrc, targetGlobalStylePath)}
-  - Write ${join(relativeSrc, targetGlobalClientPath)}
-  - Add mine.css@${mineVersion} to ${relativePkg}
-  - Add fragtml@${fragtmlVersion} to ${relativePkg}
-  - Add highlight.js@${highlightVersion} to ${relativePkg}
-`)
-    if (!argv['yes']) {
-      const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
-      let answer
-      try {
-        answer = await askYesNo(rl, 'Continue?')
-      } finally {
-        rl.close()
-      }
-      if (!answer) {
-        console.log('No action taken. Exiting.')
-        process.exit(0)
-      }
-    }
-
-    const defaultLayoutPath = join(__dirname, `lib/defaults/default.root.layout.${language}`)
-    const defaultGlobalStylePath = join(__dirname, 'lib/defaults/default.style.css')
-    const defaultGlobalClientPath = join(__dirname, 'lib/defaults/default.client.js')
-
-    const layoutSource = await readFile(defaultLayoutPath, 'utf8')
-    const layout = language === 'ts'
-      ? layoutSource.replace("from '#types'", "from '@domstack/static/types.js'")
-      : layoutSource
-    await mkdir(join(src, 'layouts'), { recursive: true })
-    await Promise.all([
-      writeFile(join(src, targetLayoutPath), layout),
-      copyFile(defaultGlobalStylePath, join(src, targetGlobalStylePath)),
-      copyFile(defaultGlobalClientPath, join(src, targetGlobalClientPath)),
-    ])
-
-    await addPackageDependencies(
-      localPkgJson,
-      {
-        'mine.css': mineVersion,
-        fragtml: fragtmlVersion,
-        'highlight.js': highlightVersion,
-      })
-
-    console.log('Done ejecting files!')
+    await eject({
+      src,
+      yes: Boolean(argv['yes']),
+      language: /** @type {'js' | 'ts'} */ (argv['language']),
+      framework: /** @type {'none' | 'preact' | 'react'} */ (argv['framework']),
+      css: /** @type {'mine' | 'tailwind' | 'none'} */ (argv['css']),
+    })
     process.exit(0)
   }
 

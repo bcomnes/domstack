@@ -18,6 +18,7 @@
   "files": [
     "CHANGELOG.md",
     "CONTRIBUTING.md",
+    "eject-deps/package.json",
     "bin.js",
     "bin.d.ts",
     "bin.d.ts.map",
@@ -136,7 +137,7 @@
     "clean-node_modules": "rm -rf node_modules && rm -rf examples/*/node_modules",
     "build": "npm run clean && npm run build:defaults && run-p build:domstack build:declaration build:schema",
     "build:defaults": "node scripts/build-defaults.js",
-    "build:domstack": "./bin.js --src . --ignore examples,test-cases,test-fixtures,type-tests,coverage,*.tsconfig.json,fonts,/lib,/types,/scripts,/plans,/browser-tests,/test-results,/lcov.info,/tsconfig.json,/AGENTS.md,/AGENT.md,/agents.md",
+    "build:domstack": "./bin.js --src . --ignore examples,/eject-deps,test-cases,test-fixtures,type-tests,coverage,*.tsconfig.json,fonts,/lib,/types,/scripts,/plans,/browser-tests,/test-results,/lcov.info,/tsconfig.json,/AGENTS.md,/AGENT.md,/agents.md",
     "new-blogpost": "node tools/blog/create.ts",
     "publish-draft": "node tools/blog/publish.ts",
     "import-author": "node tools/authors/import.ts",
@@ -163,6 +164,7 @@
     "esbuild@0.28.1": true
   },
   "workspaces": [
-    "examples/*"
+    "examples/*",
+    "eject-deps"
   ]
 }

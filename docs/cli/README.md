@@ -125,18 +125,28 @@ This allows you to fully customize these files while maintaining the same functi
 domstack eject
 domstack eject --language ts
 domstack eject --language ts --yes --src src
+domstack eject --css tailwind --framework preact
+domstack eject --tailwind --framework react --language ts
+domstack eject --css none --src website
 ```
 
 | Option | Description |
 | --- | --- |
 | `--src <path>`, `-s <path>` | Source directory to receive the defaults (default: `src`). |
 | `--language <language>` | Eject `js` (default) or `ts` files. |
+| `--css <preset>` | Global CSS preset: `mine` (default), `tailwind`, or `none`. |
+| `--tailwind` | Shorthand for `--css tailwind`; conflicts with an explicit `--css mine` or `--css none`. |
+| `--framework <framework>` | JSX integration: `none` (default), `preact`, or `react`. |
 | `--yes` | Skip confirmation before writing files and updating dependencies. |
 | `--help`, `-h` | Show eject help. |
 | `--version`, `-v` | Show the installed version. |
 
 Without `--yes`, eject asks for confirmation before writing files or updating dependencies.
-Eject overwrites its target files, so review or back up existing customizations before proceeding.
+Eject overwrites its default layout, global CSS, and client target files, so review or back up existing customizations before proceeding.
+Existing dependencies and settings are not removed when switching presets.
+When a preset needs esbuild settings, eject refuses conflicting settings anywhere under the source directory before changing any files or package metadata.
+An identical generated settings file at the expected path can be reused; other locations or extensions must be reconciled manually to avoid duplicate settings.
+Plain eject does not generate or change settings.
 
 ### Ejecting the defaults
 
@@ -156,7 +166,7 @@ When you run `domstack eject`, it will:
 
 Use `domstack eject --language ts` to write `layouts/root.layout.ts` and `globals/global.client.ts` instead.
 For packages without `"type": "module"`, the TypeScript layout uses `.mts` so Node loads it as ESM without changing your package type.
-The CSS and added dependencies are the same for both languages.
+The CSS preset is independent of the selected language.
 JavaScript remains the default (`--language js`), with `.js` files in module packages and `.mjs` files otherwise.
 Only `ts` and `js` are accepted language values.
 
@@ -165,6 +175,27 @@ Both files are published; the runtime loads JavaScript directly without a custom
 The TypeScript output uses the public type-only `@domstack/static/types.js` entry instead of DOMStack's private `#types` alias.
 Keep `@domstack/static` installed for those types; no runtime type import or separate TypeScript compilation step is needed.
 The client is currently comment-only, but receives a `.ts` extension when TypeScript is selected.
+
+### CSS and framework presets
+
+`--css mine` copies the bundled `default.style.css` and adds `mine.css`, `highlight.js`, and `fragtml` as dependencies.
+This is the default and preserves the behavior of plain `domstack eject`.
+
+`--css tailwind` (or `--tailwind`) writes `@import "tailwindcss" source("../");` to `globals/global.css` and adds `esbuild-plugin-tailwindcss` as a development dependency.
+The source path is relative to the generated CSS file, so it scans your source directory even with a custom `--src`.
+It does not add `mine.css` or `highlight.js`.
+
+`--css none` writes a comment-only `globals/global.css` to suppress bundled global styling without adding CSS dependencies.
+All presets add `fragtml`, which the ejected root layout requires.
+
+`--framework preact` adds `preact`; `--framework react` adds `react` and `react-dom`.
+React with `--language ts` also adds `@types/react` and `@types/react-dom` as development dependencies.
+Both frameworks configure esbuild's automatic JSX transform and the matching JSX import source; they do not generate sample components or a TypeScript configuration.
+
+Eject generates `globals/esbuild.settings.js` only when selecting a framework or Tailwind.
+The settings use `.ts` with `--language ts`, or `.mjs`/`.mts` for packages without `"type": "module"`.
+The Tailwind integration appends its plugin without dropping other build plugins.
+Eject updates `package.json` but does not install packages or update your lockfile; run your package manager's install command afterward.
 
 It is recommended to eject early in your project so that you can customize the root layout as you see fit, and decouple yourself from potential unwanted changes in the default layout as new versions of DOMStack are released.
 

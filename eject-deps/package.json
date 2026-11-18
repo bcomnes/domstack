@@ -1,0 +1,16 @@
+{
+  "name": "@domstack/eject-dependencies",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Dependency ranges for DOMStack's ejected integrations; not a runtime package.",
+  "dependencies": {
+    "preact": "^10.29.6",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.10",
+    "@types/react-dom": "^19.1.7",
+    "esbuild-plugin-tailwindcss": "2.2.0"
+  }
+}
