@@ -7,7 +7,7 @@ export interface BlogOptions {
   now?: Date
 }
 
-export const BLOG_DIR = fileURLToPath(new URL('../../blog/', import.meta.url))
+export const BLOG_DIR = fileURLToPath(new URL('../../../blog/', import.meta.url))
 
 export function context (options: BlogOptions) {
   const now = options.now ?? new Date()

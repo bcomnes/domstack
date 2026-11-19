@@ -5,10 +5,10 @@ export function blogIndex (posts: readonly BlogSummary[], archives: readonly Pic
   const feeds = html`
     <nav class="blog-feeds" aria-label="Blog feeds">
       <a href="/feed.json" rel="alternate" type="application/feed+json" title="Subscribe via JSON Feed">
-        <img src="/blog/jsonfeed.svg" width="24" height="24" alt="JSON Feed" />
+        <img src="/site/assets/jsonfeed.svg" width="24" height="24" alt="JSON Feed" />
       </a>
       <a href="/feed.xml" rel="alternate" type="application/atom+xml" title="Subscribe via Atom">
-        <img src="/blog/atom.svg" width="24" height="24" alt="Atom feed" />
+        <img src="/site/assets/atom.svg" width="24" height="24" alt="Atom feed" />
       </a>
     </nav>
   `

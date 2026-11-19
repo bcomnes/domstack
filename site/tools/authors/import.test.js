@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
 import { importAuthor } from './import.ts'
-import { AuthorRegistry, resolveBlogAuthors, validateAuthorMeta, validateAuthorUrl, validateAuthorUsername } from '../../site/lib/authors.ts'
+import { AuthorRegistry, resolveBlogAuthors, validateAuthorMeta, validateAuthorUrl, validateAuthorUsername } from '../../lib/authors.ts'
 
 const png = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 0])
 function fakeFetch (options = {}) {
@@ -29,7 +29,7 @@ test('imports, loads, and preserves previous data on failed refresh', async () =
     assert.equal(meta.website, 'https://example.org/')
     assert.equal(meta.keys, '')
     assert.equal(meta.gpg, '')
-    assert.deepEqual(await new AuthorRegistry(directory).get('alice'), { username: 'alice', name: 'Alice Example', url: 'https://example.org/', avatar: '/authors/alice/avatar.png' })
+    assert.deepEqual(await new AuthorRegistry(directory).get('alice'), { username: 'alice', name: 'Alice Example', url: 'https://example.org/', avatar: '/site/authors/alice/avatar.png' })
 
     const before = await readFile(join(directory, 'alice', 'author-meta.json'), 'utf8')
     for (const fail of ['/users/alice', 'avatars.githubusercontent.com', '.keys', '.gpg']) {

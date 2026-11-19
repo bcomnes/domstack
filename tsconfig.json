@@ -23,6 +23,7 @@
   ],
   "exclude": [
     "node_modules",
+    "site/tools/**/*",
     "test-cases/build-errors",
     "test-cases/page-build-errors",
     "test-cases/**/public"

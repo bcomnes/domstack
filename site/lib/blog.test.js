@@ -24,7 +24,7 @@ const post = {
 
 test('blog metadata validates RFC 3339 dates and author arrays', async () => {
   assert.equal(blogDate('2024-02-29T12:00:00Z', 'publishDate', 'sample'), '2024-02-29T12:00:00.000Z')
-  assert.deepEqual(await resolveBlogAuthors(['bcomnes'], 'sample'), [{ username: 'bcomnes', name: 'Bret Comnes', url: 'https://bret.io/', avatar: '/authors/bcomnes/avatar.jpg' }])
+  assert.deepEqual(await resolveBlogAuthors(['bcomnes'], 'sample'), [{ username: 'bcomnes', name: 'Bret Comnes', url: 'https://bret.io/', avatar: '/site/authors/bcomnes/avatar.jpg' }])
   await assert.rejects(validateBlogVars({ description: 'Summary', publishDate: '2026-01-02T00:00:00Z', authors: ['bcomnes'] }, 'sample'), /sample: title/)
   await assert.rejects(validateBlogVars({ title: 'Title', description: 'Summary', publishDate: '2026-01-02T00:00:00Z', authors: [] }, 'sample'), /nonempty array/)
   await assert.rejects(validateBlogVars({ title: 'Title', description: 'Summary', publishDate: '2026-01-02T00:00:00Z', authors: ['bcomnes', 'bcomnes'] }, 'sample'), /duplicate/)
@@ -64,8 +64,8 @@ test('blog projection sorts posts, groups archives, and excludes drafts from fee
 test('blog index feed links expose icons, feed types, and alternate relations', () => {
   const $ = load(blogIndex([post], []))
   assert.deepEqual($('.blog-feeds a').toArray().map(element => ({ href: $(element).attr('href'), rel: $(element).attr('rel'), type: $(element).attr('type'), icon: $(element).find('img').attr('src') })), [
-    { href: '/feed.json', rel: 'alternate', type: 'application/feed+json', icon: '/blog/jsonfeed.svg' },
-    { href: '/feed.xml', rel: 'alternate', type: 'application/atom+xml', icon: '/blog/atom.svg' },
+    { href: '/feed.json', rel: 'alternate', type: 'application/feed+json', icon: '/site/assets/jsonfeed.svg' },
+    { href: '/feed.xml', rel: 'alternate', type: 'application/atom+xml', icon: '/site/assets/atom.svg' },
   ])
 })
 
@@ -74,7 +74,7 @@ test('feeds include ordered author metadata, avatars, and absolute article asset
   assert.equal($('a').attr('href'), `${site}/blog/2026/other/`)
   assert.equal($('img').attr('src'), `${site}/blog/2026/example/image.png`)
   const json = JSON.parse(jsonFeed([post], site))
-  assert.deepEqual(json.items[0].authors, [{ name: 'Bret Comnes', url: 'https://bret.io/', avatar: `${site}/authors/bcomnes/avatar.jpg` }])
+  assert.deepEqual(json.items[0].authors, [{ name: 'Bret Comnes', url: 'https://bret.io/', avatar: `${site}/site/authors/bcomnes/avatar.jpg` }])
   assert.equal(json.items[0].content_html, feedHtml(post, site))
   assert.match(atomFeed([post], site), /<author>\s+<name>Bret Comnes<\/name>\s+<uri>https:\/\/bret\.io\/<\/uri>\s+<\/author>/)
 })

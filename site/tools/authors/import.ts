@@ -1,8 +1,8 @@
 import { mkdir, mkdtemp, lstat, rename, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { authorRegistryDirectory, validateAuthorMeta, validateAuthorUrl, validateAuthorUsername } from '../../site/lib/authors.ts'
-import type { AuthorMeta } from '../../site/lib/authors.ts'
+import { authorRegistryDirectory, validateAuthorMeta, validateAuthorUrl, validateAuthorUsername } from '../../lib/authors.ts'
+import type { AuthorMeta } from '../../lib/authors.ts'
 
 type Request = typeof fetch
 

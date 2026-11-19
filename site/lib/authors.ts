@@ -20,7 +20,7 @@ export interface AuthorMeta {
   gpg: string
 }
 
-export const authorRegistryDirectory = join(import.meta.dirname, '../../authors')
+export const authorRegistryDirectory = join(import.meta.dirname, '../authors')
 
 export function validateAuthorUsername (value: unknown): string {
   if (typeof value !== 'string' || !/^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$/.test(value) || value.includes('--')) {
@@ -114,7 +114,7 @@ export class AuthorRegistry {
       const meta = validateAuthorMeta(JSON.parse(await readFile(metaPath, 'utf8')), username)
       const avatar = await lstat(join(directory, meta.avatar))
       if (!avatar.isFile() || avatar.isSymbolicLink() || !avatar.size) throw new Error('avatar must be a nonempty regular file')
-      return Object.freeze({ username, name: meta.name, url: meta.website || meta.profile, avatar: `/authors/${username}/${meta.avatar}` })
+      return Object.freeze({ username, name: meta.name, url: meta.website || meta.profile, avatar: `/site/authors/${username}/${meta.avatar}` })
     } catch (error) {
       throw new Error(`${metaPath}: ${error instanceof Error ? error.message : String(error)}`)
     }
