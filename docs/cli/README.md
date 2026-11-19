@@ -126,7 +126,7 @@ domstack eject
 domstack eject --language ts
 domstack eject --language ts --yes --src src
 domstack eject --css tailwind --framework preact
-domstack eject --tailwind --framework react --language ts
+domstack eject --css tailwind --framework react --language ts
 domstack eject --css none --src website
 ```
 
@@ -135,7 +135,7 @@ domstack eject --css none --src website
 | `--src <path>`, `-s <path>` | Source directory to receive the defaults (default: `src`). |
 | `--language <language>` | Eject `js` (default) or `ts` files. |
 | `--css <preset>` | Global CSS preset: `mine` (default), `tailwind`, or `none`. |
-| `--tailwind` | Shorthand for `--css tailwind`; conflicts with an explicit `--css mine` or `--css none`. |
+
 | `--framework <framework>` | JSX integration: `none` (default), `preact`, or `react`. |
 | `--yes` | Skip confirmation before writing files and updating dependencies. |
 | `--help`, `-h` | Show eject help. |
@@ -181,7 +181,7 @@ The client is currently comment-only, but receives a `.ts` extension when TypeSc
 `--css mine` copies the bundled `default.style.css` and adds `mine.css`, `highlight.js`, and `fragtml` as dependencies.
 This is the default and preserves the behavior of plain `domstack eject`.
 
-`--css tailwind` (or `--tailwind`) writes `@import "tailwindcss" source("../");` to `globals/global.css` and adds `esbuild-plugin-tailwindcss` as a development dependency.
+`--css tailwind` writes `@import "tailwindcss" source("../");` to `globals/global.css` and adds `esbuild-plugin-tailwindcss` as a development dependency.
 The source path is relative to the generated CSS file, so it scans your source directory even with a custom `--src`.
 It does not add `mine.css` or `highlight.js`.
 
