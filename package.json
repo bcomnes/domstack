@@ -18,7 +18,7 @@
   "files": [
     "CHANGELOG.md",
     "CONTRIBUTING.md",
-    "eject-deps/package.json",
+
     "bin.js",
     "bin.d.ts",
     "bin.d.ts.map",
@@ -121,9 +121,9 @@
   "scripts": {
     "prepublishOnly": "releasearoni",
     "postpublish": "npm run clean",
-    "version": "run-p build:defaults build:schema && releasearoni version --add lib/defaults/default.root.layout.js --add lib/domstack-manifest/schema.json",
+    "version": "run-p build:defaults build:schema && releasearoni version --add lib/defaults/default.root.layout.js --add lib/defaults/eject-deps.json --add lib/domstack-manifest/schema.json",
     "prepack": "run-p clean:declarations-top clean:declarations-lib && npm run build:defaults && npm run build:declaration",
-    "test": "npm run clean && run-s test:*",
+    "test": "npm run clean && npm run build:defaults && run-s test:*",
     "test:installed-check": "installed-check --ignore-dev --no-workspaces",
     "test:neostandard": "eslint . --ignore-pattern 'test-cases/build-errors/src/**/*.js' --ignore-pattern 'test-cases/page-build-errors/src/**/*.js'",
     "test:node-test": "node --test --experimental-test-coverage --test-reporter=dot --test-reporter=lcov --test-reporter-destination=stdout --test-reporter-destination=lcov.info",

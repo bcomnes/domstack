@@ -6,6 +6,8 @@ import { neostandard } from 'neostandard'
 
 const sourceURL = new URL('../lib/defaults/default.root.layout.ts', import.meta.url)
 const outputURL = new URL('../lib/defaults/default.root.layout.js', import.meta.url)
+const ejectDependenciesSourceURL = new URL('../eject-deps/package.json', import.meta.url)
+const ejectDependenciesOutputURL = new URL('../lib/defaults/eject-deps.json', import.meta.url)
 
 /** @param {string} source */
 export async function generateDefaultRootLayout (source) {
@@ -31,7 +33,20 @@ export async function generateDefaultRootLayout (source) {
   return result.output ?? generated
 }
 
+/** @param {string} source */
+export function generateEjectDependencies (source) {
+  const manifest = JSON.parse(source)
+  const ranges = { ...manifest.dependencies, ...manifest.devDependencies }
+  return `${JSON.stringify(Object.fromEntries(Object.keys(ranges).sort().map(name => [name, ranges[name]])), null, 2)}\n`
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const source = await readFile(sourceURL, 'utf8')
-  await writeFile(outputURL, await generateDefaultRootLayout(source))
+  const [source, ejectDependenciesSource] = await Promise.all([
+    readFile(sourceURL, 'utf8'),
+    readFile(ejectDependenciesSourceURL, 'utf8'),
+  ])
+  await Promise.all([
+    writeFile(outputURL, await generateDefaultRootLayout(source)),
+    writeFile(ejectDependenciesOutputURL, generateEjectDependencies(ejectDependenciesSource)),
+  ])
 }
