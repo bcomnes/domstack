@@ -1,7 +1,7 @@
 {
   "name": "@domstack/static",
   "description": "@domstack/static: a traditional web bakery made with html, md, css and js.",
-  "version": "12.0.1",
+  "version": "12.1.0",
   "type": "module",
   "main": "./index.js",
   "types": "./index.d.ts",
@@ -18,7 +18,6 @@
   "files": [
     "CHANGELOG.md",
     "CONTRIBUTING.md",
-
     "bin.js",
     "bin.d.ts",
     "bin.d.ts.map",
