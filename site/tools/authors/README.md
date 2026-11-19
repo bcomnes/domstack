@@ -4,7 +4,7 @@ Import or refresh a public GitHub profile:
 
 ```sh
 npm run import-author -- bcomnes
-node --test tools/authors/import.test.js
+node --test site/tools/authors/import.test.js
 ```
 
 Importing makes bounded HTTPS requests to `api.github.com` for the profile and social accounts, `avatars.githubusercontent.com` for the avatar, and `github.com` for public SSH/GPG keys. GitHub rate limits apply. An optional `GITHUB_TOKEN` environment variable is sent only to `api.github.com` and is never written to metadata.
@@ -13,7 +13,7 @@ Redirects are rejected, no token is needed for public profiles, and network fail
 
 ## Files and schema
 
-Each `authors/<lowercase-github-username>/` directory contains `author-meta.json` and `avatar.jpg`, `avatar.png`, `avatar.gif`, or `avatar.webp`.
+Each `site/authors/<lowercase-github-username>/` directory contains `author-meta.json` and `avatar.jpg`, `avatar.png`, `avatar.gif`, or `avatar.webp`.
 
 Metadata schema version 1 contains:
 
@@ -35,7 +35,7 @@ Only public data is stored. These files are intended to be checked in; do not ad
 
 `AuthorRegistry` lazily reads one username at a time, shares in-flight and successful reads, evicts failed reads for retry, returns frozen author objects, and supports `clear(username?)`. `resolveBlogAuthors` requires a nonempty array of unique registered GitHub usernames and preserves input order. It has no default and rejects legacy aliases such as `bret`, `joe`, and `oro`.
 
-Resolved author URLs prefer the imported website and fall back to the GitHub profile. Avatar URLs are local `/authors/<username>/<filename>` paths so builds do not contact GitHub.
+Resolved author URLs prefer the imported website and fall back to the GitHub profile. Avatar URLs are local `/site/authors/<username>/<filename>` paths so builds do not contact GitHub.
 
 The registry reads metadata through `fs`, so DOMStack does not automatically invalidate pages when registry files change. Restart the watch process after importing authors or manually editing metadata, or run a fresh build.
 

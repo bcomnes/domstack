@@ -16,10 +16,10 @@ Local license: Fraunces-OFL.txt
 Project: https://github.com/undercasetype/Fraunces
 
 DS Weiss-Gotisch (regular, unmodified TrueType)
-Copied from the local DOMStack source: fonts/ds-weiss-gotisch/DSWeiss-Gotisch.ttf
-Accompanying license copied from: fonts/ds-weiss-gotisch/1001fonts-ds-weiss-gotisch-eula.txt
+Copied from the local DOMStack source: site/fonts/ds-weiss-gotisch/DSWeiss-Gotisch.ttf
+Accompanying license copied from: site/fonts/ds-weiss-gotisch/1001fonts-ds-weiss-gotisch-eula.txt
 Local license: DSWeiss-Gotisch-LICENSE.txt
-Upstream directory: https://github.com/bcomnes/domstack/tree/master/fonts/ds-weiss-gotisch
+Upstream directory: https://github.com/bcomnes/domstack/tree/master/site/fonts/ds-weiss-gotisch
 License: 1001Fonts Free For Commercial Use License (FFC).
 Free personal/commercial use, but modification and publication/distribution
 have separate restrictions. Review the license before publishing the font files.

@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
-import { resolveBlogAuthors } from '../../site/lib/authors.ts'
+import { resolveBlogAuthors } from '../../lib/authors.ts'
 import { context, directory, postParts, reportError, requireAbsent, type BlogOptions } from './shared.ts'
 
 export interface CreatePostOptions extends BlogOptions { authors?: string[] }
