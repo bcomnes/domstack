@@ -64,8 +64,8 @@ test('blog projection sorts posts, groups archives, and excludes drafts from fee
 test('blog index feed links expose icons, feed types, and alternate relations', () => {
   const $ = load(blogIndex([post], []))
   assert.deepEqual($('.blog-feeds a').toArray().map(element => ({ href: $(element).attr('href'), rel: $(element).attr('rel'), type: $(element).attr('type'), icon: $(element).find('img').attr('src') })), [
-    { href: '/feed.json', rel: 'alternate', type: 'application/feed+json', icon: '/site/assets/jsonfeed.svg' },
-    { href: '/feed.xml', rel: 'alternate', type: 'application/atom+xml', icon: '/site/assets/atom.svg' },
+    { href: '/feed.json', rel: 'alternate', type: 'application/feed+json', icon: '/blog/jsonfeed.svg' },
+    { href: '/feed.xml', rel: 'alternate', type: 'application/atom+xml', icon: '/blog/atom.svg' },
   ])
 })
 
