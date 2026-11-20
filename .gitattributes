@@ -1,0 +1,5 @@
+/site/logos/*.png filter=lfs diff=lfs merge=lfs -text
+/site/logos/*.jpg filter=lfs diff=lfs merge=lfs -text
+/site/logos/*.webp filter=lfs diff=lfs merge=lfs -text
+/site/icons/*.png filter=lfs diff=lfs merge=lfs -text
+/favicon.ico filter=lfs diff=lfs merge=lfs -text

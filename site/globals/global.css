@@ -16,6 +16,25 @@
     font-family: var(--system-serif, ui-serif, serif);
   }
 
+  .readme-logo-cycle {
+    display: grid;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    cursor: pointer;
+  }
+
+  .readme-logo-cycle picture {
+    grid-area: 1 / 1;
+    min-width: 0;
+  }
+
+  .readme-logo-cycle img {
+    display: block;
+  }
+
   h1, h2, h3, h4, h5, h6 {
     font-family: 'DSWeiss-Gotisch', serif;
   }

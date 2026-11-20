@@ -1,4 +1,4 @@
-name: Deploy domstack website to neociteis
+name: Deploy DOMStack website to Neocities
 
 on:
   push:
@@ -18,6 +18,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v7
+      with:
+        lfs: true
 
     - name: Use Node.js
       uses: actions/setup-node@v7
@@ -25,12 +27,7 @@ jobs:
         node-version-file: package.json
         check-latest: true
     - run: npm i
-    - run: npm run build
-
-    - name: Deploy to neocities
-      uses: bcomnes/deploy-to-neocities@v3
-      with:
-        api_key: ${{ secrets.NEOCITIES_DOMSTACK_API_TOKEN }}
-        cleanup: true
-        neocities_supporter: true
-        preview_before_deploy: true
+    - name: Deploy website to Neocities
+      run: npm run deploy
+      env:
+        NEOCITIES_API_TOKEN: ${{ secrets.NEOCITIES_DOMSTACK_API_TOKEN }}

@@ -5,6 +5,7 @@ import { navigationHref } from '../docs/navigation.js'
 
 export interface RootVars {
   title?: string
+  description?: string
   layout?: string
   lang?: string
   basePath?: string
@@ -30,6 +31,8 @@ const rootLayout: LayoutFunction<RootVars, string | HtmlResult, string> = ({ chi
   const examples = navigationHref(page.url, '/docs/example-projects/')
   const blog = navigationHref(page.url, '/blog/')
   const assetUrl = (path: string): string => path.startsWith('/') ? `${vars.basePath ?? ''}${path}` : path
+  const title = vars.title ? `${vars.title} | domstack` : 'domstack'
+  const description = vars.description || 'DOMStack builds static websites and multi-page apps from HTML, Markdown, CSS, and JavaScript.'
   const editSource = page.generated?.pagesFile.pagesFile.relname ?? page.pageFile?.relname ?? 'README.md'
 
   const menuToggle = html`
@@ -47,7 +50,26 @@ const rootLayout: LayoutFunction<RootVars, string | HtmlResult, string> = ({ chi
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="color-scheme" content="light dark" />
-        <title>${vars.title ? `${vars.title} | domstack` : 'domstack'}</title>
+        <title>${title}</title>
+        <link rel="icon" href="${assetUrl('/favicon.ico')}" sizes="16x16 32x32 48x48" />
+        <link rel="icon" type="image/png" sizes="32x32" href="${assetUrl('/site/icons/favicon-light.png')}" media="(prefers-color-scheme: light)" />
+        <link rel="icon" type="image/png" sizes="32x32" href="${assetUrl('/site/icons/favicon-dark.png')}" media="(prefers-color-scheme: dark)" />
+        ${[152, 167, 180].map(size => html`<link rel="apple-touch-icon" sizes="${size}x${size}" href="${assetUrl(`/site/icons/apple-touch-icon-${size}.png`)}" />`)}
+        <meta property="og:site_name" content="DOMStack" />
+        <meta property="og:title" content="${title}" />
+        <meta property="og:type" content="${vars.layout === 'blog' ? 'article' : 'website'}" />
+        <meta property="og:description" content="${description}" />
+        ${vars.siteUrl
+? html`
+          <meta property="og:url" content="${new URL(assetUrl(page.url), vars.siteUrl).href}" />
+          <meta property="og:image" content="${new URL(assetUrl('/site/logos/domstack-bosch-penwork-og.jpg'), vars.siteUrl).href}" />
+          <meta property="og:image:type" content="image/jpeg" />
+          <meta property="og:image:width" content="1200" />
+          <meta property="og:image:height" content="630" />
+          <meta property="og:image:alt" content="A heron and two beetles hold a parchment banner with tiny ink-drawn creatures woven through the domstack lettering." />
+          <meta name="twitter:card" content="summary_large_image" />
+        `
+: null}
         <link rel="alternate" type="application/feed+json" title="DOMStack Blog — JSON Feed" href="${assetUrl('/feed.json')}" />
         <link rel="alternate" type="application/atom+xml" title="DOMStack Blog — Atom Feed" href="${assetUrl('/feed.xml')}" />
         ${vars.ahrefsAnalyticsKey ? html`<script src="https://analytics.ahrefs.com/analytics.js" data-key="${vars.ahrefsAnalyticsKey}" async></script>` : null}
@@ -77,6 +99,7 @@ const rootLayout: LayoutFunction<RootVars, string | HtmlResult, string> = ({ chi
             <nav class="site-links" aria-label="Footer">
               <a href="${docs}">Docs</a>
               <a href="${blog}">Blog</a>
+              <a href="${navigationHref(page.url, '/logos/')}">Logos</a>
               <a href="${assetUrl('/feed.json')}">JSON Feed</a>
               <a href="https://www.npmjs.com/package/@domstack/static">npm</a>
               <a href="https://github.com/bcomnes/domstack">GitHub</a>

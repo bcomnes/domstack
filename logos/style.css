@@ -1,0 +1,33 @@
+@import 'photoswipe/style.css';
+@import 'photoswipe-dynamic-caption-plugin/photoswipe-dynamic-caption-plugin.css';
+
+.artwork-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+  gap: 1.5rem 1rem;
+  padding: 0;
+  list-style: none;
+}
+
+.artwork-grid a {
+  display: block;
+}
+
+.artwork-grid img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1200 / 630;
+  object-fit: scale-down;
+  background: color-mix(in srgb, currentColor 5%, transparent);
+}
+
+.artwork-grid picture:has(source) img {
+  background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pswp .pswp__dynamic-caption {
+    transition: none !important;
+  }
+}

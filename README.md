@@ -1,4 +1,4 @@
-# domstack
+<h1 id="domstack"><picture><source media="(prefers-color-scheme: dark)" srcset="./site/logos/domstack-bosch-penwork-night-og.jpg"><img src="./site/logos/domstack-bosch-penwork-og.jpg" alt="domstack" width="1200"></picture></h1>
 
 [![npm version](https://img.shields.io/npm/v/@domstack/static/latest.svg)](https://www.npmjs.com/package/@domstack/static/v/latest)
 [![npm beta version](https://img.shields.io/npm/v/@domstack/static/beta.svg?label=beta)](https://www.npmjs.com/package/@domstack/static?activeTab=versions)

@@ -23,6 +23,15 @@ Do not edit the generated JavaScript directly.
 Both layouts are published, and eject copies the requested language (rewriting the TypeScript type import to the public package entry).
 Declaration cleanup and `npm run clean` deliberately preserve the generated JavaScript.
 
+## Deploying domstack.net
+
+Use Node.js 24 or newer and run `npm install` and `git lfs pull` from the repository root.
+Run `npm run deploy:preview` to build the website and compare it with the Neocities site.
+Run `npm run deploy` to build, preview, and publish, including removal of remote files absent from the local build.
+
+The CLI uses the `domstack` site in `deploy-to-neocities.json` and prompts for authentication on first use.
+For noninteractive deploys, supply the site's API token through `NEOCITIES_API_TOKEN`.
+
 ## Releasing
 
 Changelog, and releasing is automated with npm scripts and actions.  To create a release:
