@@ -4,7 +4,7 @@
   "private": true,
   "description": "Dependency ranges for DOMStack's ejected integrations; not a runtime package.",
   "dependencies": {
-    "preact": "^10.29.6",
+    "preact": "^11.2.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
   },
