@@ -14,7 +14,7 @@ The release sequence is at the [bottom of this plan](#phase-2--open-merge-and-pu
 | --- | --- | --- | --- |
 | [1. Race-free port fallback](#pr-1--sync-race-free-port-fallback) | `domstack-sync` | [#42](https://github.com/bcomnes/domstack-sync/pull/42) | Open for review |
 | [2. Local session discovery](#pr-2--sync-local-session-discovery) | `domstack-sync` | [#43](https://github.com/bcomnes/domstack-sync/pull/43) | Open for review; stacked on #42 |
-| [3a. Copy lifecycle prerequisite](#pr-3a--cpx2-drain-copy-writes) | `cpx2` | [#199](https://github.com/bcomnes/cpx2/pull/199) | Open for review; linked locally |
+| [3a. Copy lifecycle prerequisite](#pr-3a--cpx2-drain-copy-writes) | `cpx2` | [#199](https://github.com/bcomnes/cpx2/pull/199) | Merged and released as `9.1.0` |
 | [3. Destination ownership](#pr-3--domstack-destination-ownership) | `domstack` | — | Validated with local links; Linux CI pending |
 | [4. Watch introspection](#pr-4--domstack-watch-introspection) | `domstack` | — | Validated locally on `feat/watch-introspection` |
 | [5. Delegated rebuilds](#pr-5--domstack-delegated-rebuilds) | `domstack` | — | Validated locally on `feat/delegated-rebuilds` |
@@ -30,8 +30,9 @@ Use `gh stack init` and `gh stack add` to track the stack locally, one branch pe
 
 ### Local linked setup
 
-- DOMStack currently resolves both dependencies to builds under `node_modules/.domstack-link-stage` in the respective upstream checkouts, using a workspace-local npm link prefix so the existing global links are untouched.
-- The linked builds are snapshots of `cpx2` `86cb245` and Sync `1be3605`; rebuild the corresponding stage after changing either upstream checkout.
+- DOMStack now uses the published `cpx2` `9.1.0` package; the ownership layer requires `^9.1.0`.
+- `@domstack/sync` remains linked to snapshot `1be3605` in `domstack-sync/node_modules/.domstack-link-stage`, using a workspace-local npm link prefix so the existing global links are untouched.
+- Rebuild the Sync stage after changing that upstream checkout.
 - Verify module resolution before integration tests, especially after an install, because `npm install` can replace the links.
 - The full DOMStack Node suite and TypeScript passed with both links in place.
 - A subprocess smoke test verified two DOMStack watchers serve different ports, standalone Sync is discoverable through the linked registry, a build conflicts while its watcher owns the destination, and it succeeds after that watcher stops without affecting the other site.
@@ -290,7 +291,8 @@ Use native GitHub stacks via `gh stack`, not just PRs that target one another's 
 
 ### PR and release dependencies
 
-Arrows show dependencies, not the order of independent tasks; follow the numbered rollout below.
+Arrows show dependencies, not the order of independent tasks; follow the numbered rollout below for the remaining work.
+The human maintainer completed the independent `cpx2` release while Sync was still waiting on CI.
 
 ```mermaid
 flowchart TD
@@ -323,8 +325,10 @@ When opening the DOMStack stack, add a **PR and release dependencies** section t
 
 1. [ ] **Sync:** Land [#42](https://github.com/bcomnes/domstack-sync/pull/42) (port fallback), then [#43](https://github.com/bcomnes/domstack-sync/pull/43) (discovery) from native stack `#44`.
 2. [ ] **Sync:** Publish a version that contains both changes and record the npm version in the plan.
-3. [ ] **cpx2:** Land [#199](https://github.com/bcomnes/cpx2/pull/199) (opt-in watcher drain and one-shot copy draining), then publish a compatible version and record the npm version.
-4. [ ] **DOMStack:** Update `package.json` to use released `cpx2` on PR 3 (ownership) and released `@domstack/sync` on PR 4 (introspection), then propagate the changes up the local stack.
+3. [x] **cpx2:** [#199](https://github.com/bcomnes/cpx2/pull/199) landed and [v9.1.0](https://github.com/bcomnes/cpx2/releases/tag/v9.1.0) was published.
+4. [ ] **DOMStack:** Use the released upstream versions in `package.json` and propagate the changes up the local stack.
+   - [x] Require `cpx2` `^9.1.0` on PR 3 (ownership) and validate with the published package.
+   - [ ] Require the released `@domstack/sync` version on PR 4 (introspection).
 5. [ ] **DOMStack:** Remove the `npm link` overrides and reinstall from the registry; rerun end-to-end tests with the published dependencies and do not commit a generated lockfile or any link reference.
 6. [ ] **DOMStack:** Use `gh stack submit` to open the native stack in order: PR 3 (ownership) → PR 4 (introspection) → PR 5 (delegation) → PR 6 (replacement), and add linked dependencies to each PR description.
 7. [ ] **DOMStack:** Verify Linux and macOS CI and review each layer; the human maintainer merges bottom-up in the same order, keeping the remaining PRs based on the correct branches as each lands.
