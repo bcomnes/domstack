@@ -125,6 +125,8 @@ DOMStack can prototype locking in parallel, but it must not rely on claim releas
 Validation: `npm test` passed 114 `cpx2` tests on macOS, including the packed declaration consumer test.
 After adding the startup-cleanup regression, all 16 focused tests, lint, and TypeScript passed.
 Against a temporary local build, 27 DOMStack facade, lifecycle, and drain tests plus TypeScript passed; the original dependency installation was restored afterward.
+The first GitHub matrix run exposed test-fixture races on Linux and invalid synthetic queue paths on Windows; `9c238af` seeds files before watcher startup and uses normalized queue keys.
+The 16 focused tests, lint, and TypeScript passed locally after that correction; the new GitHub matrix result is pending.
 
 ## PR 3 — DOMStack: Destination ownership
 
@@ -134,7 +136,8 @@ At the end of this PR, a conflict fails clearly; it does not delegate, stop a wa
 **Progress notes**
 
 - A macOS prototype using `fs-native-extensions` passed same-process exclusivity, ancestor conflict and sibling concurrency, paused-owner blocking, and release after `SIGKILL`; it used shared locks on ancestors and an exclusive lock on the destination.
-- The prototype did not add a dependency or enable destination claims; Linux validation is still pending.
+- An isolated claim module now uses shared ancestor locks and an exclusive destination lock via `fs-native-extensions`, without adding a coordinator file or enabling claims at production entry points.
+- Targeted macOS tests cover aliases, nested conflicts in both directions, siblings, a paused claimant, and release after a crash; Linux validation is still pending.
 - DOMStack-owned build fan-outs now wait for settled writes before surfacing errors; focused tests, TypeScript, and targeted lint passed.
 - The installed `cpx2` release still lacks the drain guarantees; the verified fix is in PR 3a, and DOMStack has not switched its watch teardown to the new API yet.
 
@@ -147,7 +150,7 @@ At the end of this PR, a conflict fails clearly; it does not delegate, stop a wa
 **Implementation**
 
 - [ ] Canonicalize source and destination consistently across processes, including relative paths, symlink aliases, and destinations not yet on disk.
-- [ ] Prototype OS-backed locks: use a short-lived coordination lock for the atomic conflict check and claim, and a separate lock for the writer's lifetime; record a conservative alternative if the prototype cannot meet the platform or crash-recovery requirements.
+- [ ] Validate OS-backed claims: acquire a shared lock at each ancestor and an exclusive lock at the destination, root first, and unwind partial claims on conflict; record a conservative alternative if platform or crash-recovery checks fail.
 - [ ] Check conflicts by path component, acquire before any output mutation, and hold until all writes drain; expose the same guard to watch, one-shot builds, the build phase of `serve`, and library writers.
 - [ ] Keep claims separate from discovery leases and socket responsiveness, and identify the owner when possible in conflict errors.
 - [ ] Use `cpx2`'s `closeAndDrain()` in `lib/watch/index.js`, and await it before releasing claims on failure, startup cancellation, or normal shutdown.

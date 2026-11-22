@@ -61,6 +61,7 @@
     "cpx2": "^9.0.3",
     "esbuild": "^0.28.1",
     "fragtml": "^0.0.10",
+    "fs-native-extensions": "^1.5.4",
     "handlebars": "^4.7.8",
     "highlight.js": "^11.9.0",
     "ignore": "^7.0.0",
