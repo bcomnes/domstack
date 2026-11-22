@@ -31,7 +31,7 @@ Use `gh stack init` and `gh stack add` to track the stack locally, one branch pe
 ### Local linked setup
 
 - DOMStack currently resolves both dependencies to builds under `node_modules/.domstack-link-stage` in the respective upstream checkouts, using a workspace-local npm link prefix so the existing global links are untouched.
-- The linked builds are snapshots of `cpx2` `86cb245` and Sync `4382899`; rebuild the corresponding stage after changing either upstream checkout.
+- The linked builds are snapshots of `cpx2` `86cb245` and Sync `5857b9f`; rebuild the corresponding stage after changing either upstream checkout.
 - Verify module resolution before integration tests, especially after an install, because `npm install` can replace the links.
 - The full DOMStack Node suite and TypeScript passed with both links in place.
 - A subprocess smoke test verified two DOMStack watchers serve different ports, standalone Sync is discoverable through the linked registry, a build conflicts while its watcher owns the destination, and it succeeds after that watcher stops without affecting the other site.
