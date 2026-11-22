@@ -274,8 +274,30 @@ Add `stop` to the control protocol and make replacement opt-in through `domstack
 ## Phase 2 — Open, merge, and publish after local sign-off
 
 Do not start this phase until the Phase 1 checklist is complete and the local feature set has been reviewed.
+**The human maintainer performs all merges and publishes all releases.**
+The agent may prepare branches and dependency updates, open or update PRs with `gh stack`, and report validation, but must not merge PRs, enable auto-merge, or trigger release workflows.
 Use native GitHub stacks via `gh stack`, not just PRs that target one another's branches.
-Follow this order:
+
+### PR and release dependencies
+
+Arrows show dependencies, not the order of independent tasks; follow the numbered rollout below.
+
+```mermaid
+flowchart TD
+    Local[Local npm link sign-off] --> Sync42[Sync PR 42: port fallback]
+    Local --> Cpx199[cpx2 PR 199: drain writes]
+    Sync42 --> Sync43[Sync PR 43: session discovery]
+    Sync43 --> SyncRelease[Sync npm release]
+    Cpx199 --> CpxRelease[cpx2 npm release]
+    CpxRelease --> Ownership[DOMStack PR 3: destination ownership]
+    SyncRelease --> Introspection[DOMStack PR 4: watch introspection]
+    Ownership --> Introspection
+    Introspection --> Delegation[DOMStack PR 5: delegated rebuilds]
+    Delegation --> Replacement[DOMStack PR 6: watcher replacement]
+    Replacement --> DomstackRelease[DOMStack npm release]
+```
+
+### Rollout order
 
 1. [ ] **Sync:** Land [#42](https://github.com/bcomnes/domstack-sync/pull/42) (port fallback), then [#43](https://github.com/bcomnes/domstack-sync/pull/43) (discovery) from native stack `#44`.
 2. [ ] **Sync:** Publish a version that contains both changes and record the npm version in the plan.
@@ -283,5 +305,5 @@ Follow this order:
 4. [ ] **DOMStack:** Update `package.json` to use released `cpx2` on PR 3 (ownership) and released `@domstack/sync` on PR 4 (introspection), then propagate the changes up the local stack.
 5. [ ] **DOMStack:** Remove the `npm link` overrides and reinstall from the registry; rerun end-to-end tests with the published dependencies and do not commit a generated lockfile or any link reference.
 6. [ ] **DOMStack:** Use `gh stack submit` to open the native stack in order: PR 3 (ownership) → PR 4 (introspection) → PR 5 (delegation) → PR 6 (replacement).
-7. [ ] **DOMStack:** Verify Linux and macOS CI and review each layer, then merge bottom-up in the same order, keeping the remaining PRs based on the correct branches as each lands.
-8. [ ] **DOMStack:** Publish only after the entire stack lands and the release is approved.
+7. [ ] **DOMStack:** Verify Linux and macOS CI and review each layer; the human maintainer merges bottom-up in the same order, keeping the remaining PRs based on the correct branches as each lands.
+8. [ ] **DOMStack:** The human maintainer publishes only after the entire stack lands and the release is approved.
