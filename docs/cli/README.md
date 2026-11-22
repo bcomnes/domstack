@@ -21,7 +21,7 @@ It can be used outside of this context, but it works best within it.
 
 | Command | Behavior |
 | --- | --- |
-| `domstack` or `domstack build` | Build once and exit. |
+| `domstack` or `domstack build` | Build once, or ask the matching watcher to rebuild. |
 | `domstack watch` | Build, watch for changes, and serve with live reload. |
 | `domstack serve` | Build once, then serve production output without watching or live reload. |
 | `domstack sessions [id]` | List active local watch sessions or inspect one by ID. |
@@ -34,8 +34,12 @@ When using an explicit command, put the command before its options, as in `domst
 
 Build the site once and exit.
 Running `domstack` without a command performs the same build, with `src` as the source directory and `public` as the destination by default.
-A build fails if another DOMStack build or watcher already owns the destination or a directory above or below it.
-Use separate, non-overlapping output directories for concurrent builds or stop the watcher before building to its destination.
+On macOS and Linux, if the active watcher has the same source and destination, `domstack build` requests a full watch-mode rebuild and waits for the result without stopping the watcher.
+This works with `--no-serve` and does not start a second writer.
+The rebuild uses the watcher's settings and keeps its detailed logs in the watch process; to use different build flags, stop the watcher first.
+Static and extra-copy watchers work independently, so a successful delegated build does not guarantee an asset-only edit has already been copied.
+Other destination conflicts still fail, including nested destinations and an active watcher with a different source.
+Use separate, non-overlapping output directories for concurrent writers.
 
 ```sh
 domstack

@@ -17,7 +17,7 @@ The release sequence is at the [bottom of this plan](#phase-2--open-merge-and-pu
 | [3a. Copy lifecycle prerequisite](#pr-3a--cpx2-drain-copy-writes) | `cpx2` | [#199](https://github.com/bcomnes/cpx2/pull/199) | Open for review; linked locally |
 | [3. Destination ownership](#pr-3--domstack-destination-ownership) | `domstack` | — | Validated with local links; Linux CI pending |
 | [4. Watch introspection](#pr-4--domstack-watch-introspection) | `domstack` | — | Validated locally on `feat/watch-introspection` |
-| [5. Delegated rebuilds](#pr-5--domstack-delegated-rebuilds) | `domstack` | — | Not started |
+| [5. Delegated rebuilds](#pr-5--domstack-delegated-rebuilds) | `domstack` | — | Validated locally on `feat/delegated-rebuilds` |
 | [6. Explicit watcher replacement](#pr-6--domstack-explicit-watcher-replacement) | `domstack` | — | Not started |
 
 Update this table when work starts, a local branch is validated, or its review status changes.
@@ -41,7 +41,7 @@ Use `gh stack init` and `gh stack add` to track the stack locally, one branch pe
 
 - [x] Run against both linked upstream packages and verify port fallback, discovery from another project, and separate outputs for simultaneous watchers, including `--no-serve` discovery.
 - [x] Verify local ownership blocks overlapping builds, stays held during write draining, and releases after a crashed lock holder exits.
-- [ ] From the top of the stack, run plain `domstack build` against a matching watcher and verify it delegates, reports the real rebuild result, and leaves the watcher running.
+- [x] Run plain `domstack build` against a matching watcher and verify it delegates, reports the real rebuild result, and leaves the watcher running.
 - [ ] Run `domstack build --replace-watch` against a matching watcher and verify it drains, transfers ownership, cleans the destination, and builds locally without interrupting an unrelated watcher.
 - [ ] Run the relevant upstream suites and DOMStack's full Node suite and type checks against the final linked stack, and record the results here.
 - [ ] Review the local end-to-end result and the ownership, crash-recovery, and write-draining evidence before starting Phase 2.
@@ -170,7 +170,7 @@ At the end of this PR, a conflict fails clearly; it does not delegate, stop a wa
 **Implementation**
 
 - [x] Canonicalize destination claims, including relative paths, symlink aliases, and destinations not yet on disk.
-- [ ] Reuse the same canonical path helper for source identity when delegation is added in PR 5.
+- [x] Reuse the same canonical path helper for source identity in PR 5.
 - [ ] Validate OS-backed claims: acquire a shared lock at each ancestor and an exclusive lock at the destination, root first, and unwind partial claims on conflict; record a conservative alternative if platform or crash-recovery checks fail.
 - [x] Check conflicts by path component, acquire before any output mutation, and hold until all writes drain; expose the same guard to watch, one-shot builds, the build phase of `serve`, and library writers.
 - [x] Keep claims separate from discovery leases and socket responsiveness, and identify the owner when possible in conflict errors.
@@ -223,27 +223,31 @@ Introduce `rebuild` only; callers still cannot stop watchers or clean destinatio
 
 **Refactor first**
 
-- [ ] Make the existing watch queue accept explicit jobs alongside filesystem work, with a per-request result and without allowing a rejected job to break later queue entries.
-- [ ] Separate page-build outcomes from event-driven logging and recovery so the same executor can report truthful results to a delegated caller without duplicating build logic.
-- [ ] Separate the CLI's build routing from the one-shot execution path, and keep socket transport and protocol handling out of the builder.
+- [x] Make the existing watch queue accept explicit jobs alongside filesystem work, with a per-request result and without allowing a rejected job to break later queue entries.
+- [x] Separate page-build outcomes from event-driven logging and recovery so the same executor can report truthful results to a delegated caller without duplicating build logic.
+- [x] Separate the CLI's build routing from the one-shot execution path, and keep socket transport and protocol handling out of the builder.
 
 **Implementation**
 
-- [ ] Put a private per-session control socket in `lib/watch/`, independent of Sync listeners: use an owner-only Unix socket directory on macOS and Linux, and a named pipe with verified same-user access controls if Windows is supported.
-- [ ] Verify the expected session ID and keep control credentials out of discovery output; set a short connection timeout and fail clearly on unreachable owners rather than falling back to local writes.
-- [ ] Route plain `domstack build` to an exact canonical source/destination match by default for both CLI and embedded watchers; reject nested conflicts and different sources for the same destination.
-- [ ] Log `Rebuilding via active watch session … (watch mode)` and queue one full watch rebuild per request; reject new requests while starting or stopping and let the caller retry startup conflicts.
-- [ ] Use the watcher's settings and artifacts, leave detailed logs with the watcher, and return a short success or failure result and corresponding CLI exit status without coalescing requests or merging settings.
-- [ ] Reject explicitly supplied output-affecting flags rather than silently ignoring them; point callers to `--replace-watch` once that flag lands in PR 6.
-- [ ] Return a real result without breaking recovery: `#runPageBuild()` currently logs page errors without propagating them, so awaiting `#fullRebuild()` alone is not enough.
-- [ ] Reset incremental input state for explicit rebuilds; reconcile static copies before reporting success or document the first-release freshness limitation if they remain outside the queue.
+- [x] Put a private per-session control socket in `lib/watch/`, independent of Sync listeners: use an owner-only Unix socket directory on macOS and Linux; Windows keeps destination conflict handling without remote watch control until same-user named-pipe access can be verified.
+- [x] Verify the expected session ID and keep control credentials out of discovery output; set a short connection timeout and fail clearly on unreachable owners rather than falling back to local writes.
+- [x] Route plain `domstack build` to an exact canonical source/destination match by default for both CLI and embedded watchers; reject nested conflicts and different sources for the same destination.
+- [x] Log `Rebuilding via active watch session … (watch mode)` and queue one full watch rebuild per request; reject new requests while starting or stopping and let the caller retry startup conflicts.
+- [x] Use the watcher's settings and artifacts, leave detailed logs with the watcher, and return a short success or failure result and corresponding CLI exit status without coalescing requests or merging settings.
+- [x] Reject explicitly supplied output-affecting flags rather than silently ignoring them; point callers to `--replace-watch` once that flag lands in PR 6.
+- [x] Return a real result without breaking recovery: `#runPageBuild()` currently logs page errors without propagating them, so awaiting `#fullRebuild()` alone is not enough.
+- [x] Reset incremental input state for explicit rebuilds; reconcile static copies before reporting success or document the first-release freshness limitation if they remain outside the queue.
 
 **Exit criteria**
 
-- [ ] Test subprocess delegation with `--no-serve` and with an embedded watcher without opt-in; verify requests serialize, no second writer starts, a failed page returns nonzero, and the watcher remains alive.
-- [ ] Test an unobserved global-data edit, an asset-only edit, explicit output-affecting flags, and the watch-mode handoff message.
-- [ ] Test startup/rebuilding/stopping responses, wrong session IDs, and unreachable owners; validate the local socket on macOS as well as Linux.
-- [ ] Document delegation, watcher-owned output, and any asset freshness limitation in the CLI docs.
+- [x] Test subprocess delegation with `--no-serve` and with an embedded watcher without opt-in; verify requests serialize, no second writer starts, a failed page returns nonzero, and the watcher remains alive.
+- [x] Test an unobserved global-data edit, an asset-only edit, explicit output-affecting flags, and the watch-mode handoff message.
+- [x] Test startup/rebuilding/stopping responses, wrong session IDs, and unreachable owners on macOS.
+- [ ] Verify the same socket tests in Linux CI during rollout.
+- [x] Document delegation, watcher-owned output, and any asset freshness limitation in the CLI docs.
+
+Validation: The full Node suite, TypeScript, and targeted lint passed against the linked upstream packages on macOS.
+The subprocess tests covered ordinary and embedded no-server watchers, queued requests, failures and recovery, unobserved data changes, and independent asset copying.
 
 ## PR 6 — DOMStack: Explicit watcher replacement
 

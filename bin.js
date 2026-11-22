@@ -25,6 +25,8 @@ import { CliUsageError, parseCliArgs } from './lib/cli/args.js'
 import { formatCliHelp } from './lib/cli/help.js'
 import { eject } from './lib/cli/eject.js'
 import { showWatchSessions } from './lib/cli/sessions.js'
+import { delegateWatchBuild } from './lib/cli/watch-build.js'
+import { WatchControlError } from './lib/watch/control.js'
 
 const __dirname = import.meta.dirname
 
@@ -130,7 +132,10 @@ async function run () {
         logger.info(`Serving ${relative(cwd, dest)} without watching. Press Ctrl-C to stop.`)
       }
     } catch (err) {
-      if (err instanceof DestinationConflictError) throw err
+      if (err instanceof DestinationConflictError) {
+        if (command === 'build' && !quitting && await delegateWatchBuild(src, err.destination, argv)) return
+        throw err
+      }
       if (!(err instanceof Error || err instanceof AggregateError)) throw new Error('Non-error thrown', { cause: err })
       if (err instanceof DomStackAggregateError) {
         if (err?.results?.siteData?.pages) {
@@ -186,7 +191,7 @@ function formatDiagnostic (value, colors) {
 }
 
 run().catch(err => {
-  if (err instanceof DestinationConflictError) {
+  if (err instanceof DestinationConflictError || err instanceof WatchControlError) {
     console.error(`domstack: ${err.message}`)
     process.exitCode = 1
     return
