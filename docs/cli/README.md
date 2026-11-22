@@ -33,6 +33,8 @@ When using an explicit command, put the command before its options, as in `domst
 
 Build the site once and exit.
 Running `domstack` without a command performs the same build, with `src` as the source directory and `public` as the destination by default.
+A build fails if another DOMStack build or watcher already owns the destination or a directory above or below it.
+Use separate, non-overlapping output directories for concurrent builds or stop the watcher before building to its destination.
 
 ```sh
 domstack

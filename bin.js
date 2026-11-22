@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 
 /**
- * @import { BuildStepWarnings, DomStackOpts as DomStackOpts } from './lib/builder.js'
+ * @import { BuildStepWarnings, DomStackOpts as DomStackOpts, Results } from './lib/builder.js'
 
  * @import { Logger as PinoLogger } from 'pino'
  * @import { BsInstance } from '@domstack/sync'
  */
 
 import { readFile } from 'node:fs/promises'
-import { basename, resolve, join, relative } from 'node:path'
+import { basename, resolve, relative } from 'node:path'
 
 import process from 'process'
 import tree from 'pretty-tree'
@@ -16,6 +16,7 @@ import { inspect } from 'util'
 import { createServer } from '@domstack/sync'
 
 import { DomStack } from './index.js'
+import { DestinationConflictError } from './lib/destination-claim.js'
 import { DomStackAggregateError } from './lib/helpers/domstack-aggregate-error.js'
 import { generateTreeData } from './lib/helpers/generate-tree-data.js'
 
@@ -48,7 +49,7 @@ async function run () {
     process.exit(0)
   }
   const cwd = process.cwd()
-  const src = resolve(join(cwd, String(argv['src'])))
+  const src = resolve(cwd, String(argv['src']))
 
   if (command === 'eject') {
     await eject({
@@ -61,7 +62,7 @@ async function run () {
     process.exit(0)
   }
 
-  const dest = resolve(join(cwd, String(argv['dest'])))
+  const dest = resolve(cwd, String(argv['dest']))
   /** @type {DomStackOpts} */
   const opts = {}
 
@@ -80,6 +81,9 @@ async function run () {
   const domStack = new DomStack(src, dest, opts)
   /** @type {BsInstance | null} */
   let buildServer = null
+  /** @type {Promise<Results> | undefined} */
+  let buildWork
+  let quitting = false
 
   const servePort = argv['port'] ? Number(argv['port']) : undefined
 
@@ -87,6 +91,9 @@ async function run () {
   process.once('SIGTERM', quit)
 
   async function quit () {
+    if (quitting) return
+    quitting = true
+    await buildWork?.catch(() => {})
     if (domStack.watching) {
       await domStack.stopWatching()
       logger.info('Watching stopped')
@@ -102,7 +109,9 @@ async function run () {
 
   if (command !== 'watch') {
     try {
-      const results = await domStack.build()
+      buildWork = domStack.build()
+      const results = await buildWork
+      if (quitting) return
       logger.info(tree(generateTreeData(cwd, src, dest, results)))
       logWarnings(logger, results?.warnings)
       logger.info(`Built ${relative(cwd, src) || '.'} → ${relative(cwd, dest) || '.'}`)
@@ -118,6 +127,7 @@ async function run () {
         logger.info(`Serving ${relative(cwd, dest)} without watching. Press Ctrl-C to stop.`)
       }
     } catch (err) {
+      if (err instanceof DestinationConflictError) throw err
       if (!(err instanceof Error || err instanceof AggregateError)) throw new Error('Non-error thrown', { cause: err })
       if (err instanceof DomStackAggregateError) {
         if (err?.results?.siteData?.pages) {
@@ -172,6 +182,11 @@ function formatDiagnostic (value, colors) {
 }
 
 run().catch(err => {
+  if (err instanceof DestinationConflictError) {
+    console.error(`domstack: ${err.message}`)
+    process.exitCode = 1
+    return
+  }
   if (err instanceof CliUsageError) {
     console.error(`domstack: ${err.message}`)
     console.error(`Run "domstack${err.command ? ` ${err.command}` : ''} --help" for usage.`)

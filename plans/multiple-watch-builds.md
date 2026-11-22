@@ -9,7 +9,7 @@ Issue: [bcomnes/domstack#352](https://github.com/bcomnes/domstack/issues/352)
 | [1. Race-free port fallback](#pr-1--sync-race-free-port-fallback) | `domstack-sync` | [#42](https://github.com/bcomnes/domstack-sync/pull/42) | Open for review |
 | [2. Local session discovery](#pr-2--sync-local-session-discovery) | `domstack-sync` | [#43](https://github.com/bcomnes/domstack-sync/pull/43) | Open for review; stacked on #42 |
 | [3a. Copy lifecycle prerequisite](#pr-3a--cpx2-drain-copy-writes) | `cpx2` | [#199](https://github.com/bcomnes/cpx2/pull/199) | Open for review; release pending |
-| [3. Destination ownership](#pr-3--domstack-destination-ownership) | `domstack` | — | In progress; depends on 3a |
+| [3. Destination ownership](#pr-3--domstack-destination-ownership) | `domstack` | — | Validated locally; awaiting `cpx2` release and Linux CI |
 | [4. Watch introspection](#pr-4--domstack-watch-introspection) | `domstack` | — | Not started |
 | [5. Delegated rebuilds](#pr-5--domstack-delegated-rebuilds) | `domstack` | — | Not started |
 | [6. Explicit watcher replacement](#pr-6--domstack-explicit-watcher-replacement) | `domstack` | — | Not started |
@@ -120,13 +120,13 @@ DOMStack can prototype locking in parallel, but it must not rely on claim releas
 - [x] Fail one file in a one-shot batch while a sibling write is gated, and exercise a stream error with an open output; verify that rejection waits for writers and output handles to finish closing.
 - [x] Run focused and full `cpx2` tests and type/lint checks, then test DOMStack with a temporary local build without committing the dependency reference.
 - [x] Open the upstream PR: [bcomnes/cpx2#199](https://github.com/bcomnes/cpx2/pull/199).
-- [ ] Record the released `cpx2` version here and update DOMStack's dependency and lockfile before merging PR 3.
+- [ ] Record the released `cpx2` version here and update DOMStack's `package.json` before publishing PR 3.
 
 Validation: `npm test` passed 114 `cpx2` tests on macOS, including the packed declaration consumer test.
 After adding the startup-cleanup regression, all 16 focused tests, lint, and TypeScript passed.
 Against a temporary local build, 27 DOMStack facade, lifecycle, and drain tests plus TypeScript passed; the original dependency installation was restored afterward.
 The first GitHub matrix run exposed test-fixture races on Linux and invalid synthetic queue paths on Windows; `9c238af` seeds files before watcher startup and uses normalized queue keys.
-The 16 focused tests, lint, and TypeScript passed locally after that correction; the new GitHub matrix result is pending.
+The 16 focused tests, lint, and TypeScript passed locally after that correction, and GitHub reported 24 passing checks with two skips and no failures.
 
 ## PR 3 — DOMStack: Destination ownership
 
@@ -136,34 +136,38 @@ At the end of this PR, a conflict fails clearly; it does not delegate, stop a wa
 **Progress notes**
 
 - A macOS prototype using `fs-native-extensions` passed same-process exclusivity, ancestor conflict and sibling concurrency, paused-owner blocking, and release after `SIGKILL`; it used shared locks on ancestors and an exclusive lock on the destination.
-- An isolated claim module now uses shared ancestor locks and an exclusive destination lock via `fs-native-extensions`, without adding a coordinator file or enabling claims at production entry points.
+- Destination claims use shared ancestor locks and an exclusive destination lock via `fs-native-extensions`, without a coordinator file.
+- One-shot builds, the build phase of `serve`, and watch sessions now acquire claims before writing; watcher copy work drains through the upstream `closeAndDrain()` API before release.
+- Verified 79 targeted Node tests, TypeScript, and targeted lint on macOS with a temporary build of `cpx2` PR #199; the installed dependency was restored afterward and watch shutdown on this checkpoint requires the new API.
+- This checkpoint stays local until a released `cpx2` dependency is available; then run Linux CI and the added macOS CI job before the ownership review.
 - Targeted macOS tests cover aliases, nested conflicts in both directions, siblings, a paused claimant, and release after a crash; Linux validation is still pending.
 - DOMStack-owned build fan-outs now wait for settled writes before surfacing errors; focused tests, TypeScript, and targeted lint passed.
-- The installed `cpx2` release still lacks the drain guarantees; the verified fix is in PR 3a, and DOMStack has not switched its watch teardown to the new API yet.
+- The installed `cpx2` release still lacks the drain guarantees; DOMStack's dependency must be bumped to the release containing PR 3a before publishing the ownership PR.
 
 **Refactor first**
 
-- [ ] Trace the public build, serve, and watch paths to their first output mutation; give one-shot builds and watch startup a single ownership boundary per writer so no path claims twice or starts work unguarded.
-- [ ] Separate stopping producers from waiting for their writes to finish; give watch shutdown and failed one-shot builds an explicit drain point before adding claim release.
-- [ ] Keep canonical-path matching and cross-process claims in DOMStack core; keep watch queue and resource cleanup in `lib/watch/` instead of introducing a second lifecycle coordinator.
+- [x] Trace the public build, serve, and watch paths to their first output mutation; give one-shot builds and watch startup a single ownership boundary per writer so no path claims twice or starts work unguarded.
+- [x] Separate stopping producers from waiting for their writes to finish; give watch shutdown and failed one-shot builds an explicit drain point before adding claim release.
+- [x] Keep canonical-path matching and cross-process claims in DOMStack core; keep watch queue and resource cleanup in `lib/watch/` instead of introducing a second lifecycle coordinator.
 
 **Implementation**
 
-- [ ] Canonicalize source and destination consistently across processes, including relative paths, symlink aliases, and destinations not yet on disk.
+- [x] Canonicalize destination claims, including relative paths, symlink aliases, and destinations not yet on disk.
+- [ ] Reuse the same canonical path helper for source identity when delegation is added in PR 5.
 - [ ] Validate OS-backed claims: acquire a shared lock at each ancestor and an exclusive lock at the destination, root first, and unwind partial claims on conflict; record a conservative alternative if platform or crash-recovery checks fail.
-- [ ] Check conflicts by path component, acquire before any output mutation, and hold until all writes drain; expose the same guard to watch, one-shot builds, the build phase of `serve`, and library writers.
-- [ ] Keep claims separate from discovery leases and socket responsiveness, and identify the owner when possible in conflict errors.
-- [ ] Use `cpx2`'s `closeAndDrain()` in `lib/watch/index.js`, and await it before releasing claims on failure, startup cancellation, or normal shutdown.
+- [x] Check conflicts by path component, acquire before any output mutation, and hold until all writes drain; expose the same guard to watch, one-shot builds, the build phase of `serve`, and library writers.
+- [x] Keep claims separate from discovery leases and socket responsiveness, and identify the owner when possible in conflict errors.
+- [x] Use `cpx2`'s `closeAndDrain()` in `lib/watch/index.js`, and await it before releasing claims on failure, startup cancellation, or normal shutdown.
 - [x] Update DOMStack-owned write fan-outs to wait for sibling writes on failure.
-- [ ] Verify the upstream one-shot `copy()` drain through DOMStack's static and extra-copy build paths, then replace any local link with the released `cpx2` dependency and lockfile update.
+- [ ] Pin the released `cpx2` version and revalidate static and extra-copy paths against it; DOMStack ignores `package-lock.json`, so do not commit a generated lockfile.
 
 **Exit criteria**
 
-- [ ] Verify identical and aliased paths conflict, nested paths conflict in both acquisition orders, and siblings or string-prefix lookalikes can run concurrently.
+- [x] Verify identical and aliased paths conflict, nested paths conflict in both acquisition orders, and siblings or string-prefix lookalikes can run concurrently.
 - [ ] Verify a paused writer still blocks claims, a crashed writer does not leave a permanent claim, and stale or missing discovery cannot bypass a live claim.
-- [ ] Hold a real watched copy or removal open during shutdown and force a one-shot step to fail while a sibling is still writing; verify neither claim is released early.
+- [x] Hold a real watched copy or removal open during shutdown and force a one-shot step to fail while a sibling is still writing; verify neither claim is released early.
 - [ ] Validate the ownership mechanism on Linux and macOS; current CI is Ubuntu-only, so add a targeted macOS check.
-- [ ] Document separate, non-overlapping output directories in the DOMStack CLI/API docs.
+- [x] Document separate, non-overlapping output directories in the DOMStack CLI/API docs.
 
 ## PR 4 — DOMStack: Watch introspection
 
@@ -177,7 +181,7 @@ Add a separate snapshot without changing that return value or the initial build 
 
 **Implementation**
 
-- [ ] Adopt the released `@domstack/sync` version and update the lockfile.
+- [ ] Adopt the released `@domstack/sync` version in DOMStack's `package.json`.
 - [ ] Add `watch({ port })` and `domstack watch --port` through `lib/cli/options.js`, `lib/cli/args.js`, help, and `bin.js`; pass the preference to Sync only when serving.
 - [ ] Expose a typed `watchInfo` snapshot in `index.js` and publish one `domstack-watch` record per session from `lib/watch/index.js`, with absolute source/destination paths, lifecycle state, and nullable bound URLs and ports.
 - [ ] Update records on lifecycle transitions and dispose them on normal stop, cancellation, and startup failure; registry write failures warn without stopping a build or hiding in-process `watchInfo`.
