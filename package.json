@@ -53,7 +53,7 @@
   },
   "dependencies": {
     "@11ty/dependency-tree": "5.0.0-alpha.3",
-    "@domstack/sync": "^0.0.8",
+    "@domstack/sync": "^0.1.0",
     "argsclopts": "^1.0.4",
     "async-folder-walker": "^3.0.5",
     "chokidar": "^6.0.0",
