@@ -306,6 +306,18 @@ flowchart TD
     Replacement --> DomstackRelease[DOMStack npm release]
 ```
 
+### Dependency notes for PR descriptions
+
+The open Sync and `cpx2` PR descriptions carry the cross-repository chain and the local sign-off gate.
+When opening the DOMStack stack, add a **PR and release dependencies** section to every description, link the actual PR numbers after submission, and record the published upstream versions.
+
+| DOMStack layer | Dependency to name in the PR description |
+| --- | --- |
+| PR 3: Destination ownership | [cpx2 #199](https://github.com/bcomnes/cpx2/pull/199) and the `cpx2` release that provides the drain API. |
+| PR 4: Watch introspection | DOMStack PR 3 and the `@domstack/sync` release containing [#42](https://github.com/bcomnes/domstack-sync/pull/42) and [#43](https://github.com/bcomnes/domstack-sync/pull/43). |
+| PR 5: Delegated rebuilds | DOMStack PR 4, with exclusive destination ownership inherited from PR 3. |
+| PR 6: Watcher replacement | DOMStack PR 5; this is the final layer required before publishing DOMStack. |
+
 ### Rollout order
 
 1. [ ] **Sync:** Land [#42](https://github.com/bcomnes/domstack-sync/pull/42) (port fallback), then [#43](https://github.com/bcomnes/domstack-sync/pull/43) (discovery) from native stack `#44`.
@@ -313,6 +325,6 @@ flowchart TD
 3. [ ] **cpx2:** Land [#199](https://github.com/bcomnes/cpx2/pull/199) (opt-in watcher drain and one-shot copy draining), then publish a compatible version and record the npm version.
 4. [ ] **DOMStack:** Update `package.json` to use released `cpx2` on PR 3 (ownership) and released `@domstack/sync` on PR 4 (introspection), then propagate the changes up the local stack.
 5. [ ] **DOMStack:** Remove the `npm link` overrides and reinstall from the registry; rerun end-to-end tests with the published dependencies and do not commit a generated lockfile or any link reference.
-6. [ ] **DOMStack:** Use `gh stack submit` to open the native stack in order: PR 3 (ownership) → PR 4 (introspection) → PR 5 (delegation) → PR 6 (replacement).
+6. [ ] **DOMStack:** Use `gh stack submit` to open the native stack in order: PR 3 (ownership) → PR 4 (introspection) → PR 5 (delegation) → PR 6 (replacement), and add linked dependencies to each PR description.
 7. [ ] **DOMStack:** Verify Linux and macOS CI and review each layer; the human maintainer merges bottom-up in the same order, keeping the remaining PRs based on the correct branches as each lands.
 8. [ ] **DOMStack:** The human maintainer publishes only after the entire stack lands and the release is approved.
