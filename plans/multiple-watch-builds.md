@@ -8,7 +8,7 @@ Issue: [bcomnes/domstack#352](https://github.com/bcomnes/domstack/issues/352)
 | --- | --- | --- | --- |
 | [1. Race-free port fallback](#pr-1--sync-race-free-port-fallback) | `domstack-sync` | [#42](https://github.com/bcomnes/domstack-sync/pull/42) | Open for review |
 | [2. Local session discovery](#pr-2--sync-local-session-discovery) | `domstack-sync` | [#43](https://github.com/bcomnes/domstack-sync/pull/43) | Open for review; stacked on #42 |
-| [3a. Copy lifecycle prerequisite](#pr-3a--cpx2-drain-copy-writes) | `cpx2` | — | Not started |
+| [3a. Copy lifecycle prerequisite](#pr-3a--cpx2-drain-copy-writes) | `cpx2` | [#199](https://github.com/bcomnes/cpx2/pull/199) | Open for review; release pending |
 | [3. Destination ownership](#pr-3--domstack-destination-ownership) | `domstack` | — | In progress; depends on 3a |
 | [4. Watch introspection](#pr-4--domstack-watch-introspection) | `domstack` | — | Not started |
 | [5. Delegated rebuilds](#pr-5--domstack-delegated-rebuilds) | `domstack` | — | Not started |
@@ -103,23 +103,28 @@ DOMStack can prototype locking in parallel, but it must not rely on claim releas
 
 **Refactor first**
 
-- [ ] Read `cpx2/agents.md` and trace initial and steady-state copy/removal work in `lib/utils/watcher.js`, one-shot fan-out in `lib/utils/apply-action.js`, and stream completion and failure in `lib/utils/copy-file.js`.
-- [ ] Put tracking at the shared watcher copy/removal boundary so it covers startup scans and queued events without relying on emitted notifications.
-- [ ] Use a single all-settled strategy for parallel one-shot writes, and keep the established copy report and callback behavior.
+- [x] Read `cpx2/agents.md` and trace initial and steady-state copy/removal work in `lib/utils/watcher.js`, one-shot fan-out in `lib/utils/apply-action.js`, and stream completion and failure in `lib/utils/copy-file.js`.
+- [x] Put tracking at the shared watcher copy/removal boundary so it covers startup scans and queued events without relying on emitted notifications.
+- [x] Use a single all-settled strategy for parallel one-shot writes, and keep the established copy report and callback behavior.
 
 **Implementation**
 
-- [ ] Add awaitable `closeAndDrain()` that immediately stops producers and cancels queued work, then waits for every copy or removal already in flight, including initial copies.
-- [ ] Preserve synchronous `close()` for callers that do not need to wait, and make repeated `closeAndDrain()` calls safe without losing track of work after `close()`.
-- [ ] Make `copy()` surface a failed file only after started sibling copies settle, including closing any output stream already opened when an error occurs.
-- [ ] Document the drain guarantees and cover the new watcher method in the public type declarations.
+- [x] Add awaitable `closeAndDrain()` that immediately stops producers and cancels queued work, then waits for every copy or removal already in flight, including initial copies.
+- [x] Preserve synchronous `close()` for callers that do not need to wait, and make repeated `closeAndDrain()` calls safe without losing track of work after `close()`.
+- [x] Make `copy()` surface a failed file only after started sibling copies settle, including closing any output stream already opened when an error occurs.
+- [x] Document the drain guarantees and cover the new watcher method in the public type declarations.
 
 **Exit criteria**
 
-- [ ] Gate actual initial and steady-state copy I/O and a removal during shutdown; verify that `closeAndDrain()` stays pending, no new writes begin after close, and no writes remain after it resolves.
-- [ ] Fail one file in a one-shot batch while a sibling write is gated, and exercise a stream error with an open output; verify that rejection waits for writers and output handles to finish closing.
-- [ ] Run focused and full `cpx2` tests and type/lint checks, then test DOMStack with a local `npm link` or packed build without committing the temporary dependency reference.
-- [ ] Open the upstream PR and record the released `cpx2` version here; update DOMStack's dependency and lockfile to that version before merging PR 3.
+- [x] Gate actual initial and steady-state copy I/O and a removal during shutdown; verify that `closeAndDrain()` stays pending, no new writes begin after close, and no writes remain after it resolves.
+- [x] Fail one file in a one-shot batch while a sibling write is gated, and exercise a stream error with an open output; verify that rejection waits for writers and output handles to finish closing.
+- [x] Run focused and full `cpx2` tests and type/lint checks, then test DOMStack with a temporary local build without committing the dependency reference.
+- [x] Open the upstream PR: [bcomnes/cpx2#199](https://github.com/bcomnes/cpx2/pull/199).
+- [ ] Record the released `cpx2` version here and update DOMStack's dependency and lockfile before merging PR 3.
+
+Validation: `npm test` passed 114 `cpx2` tests on macOS, including the packed declaration consumer test.
+After adding the startup-cleanup regression, all 16 focused tests, lint, and TypeScript passed.
+Against a temporary local build, 27 DOMStack facade, lifecycle, and drain tests plus TypeScript passed; the original dependency installation was restored afterward.
 
 ## PR 3 — DOMStack: Destination ownership
 
@@ -131,7 +136,7 @@ At the end of this PR, a conflict fails clearly; it does not delegate, stop a wa
 - A macOS prototype using `fs-native-extensions` passed same-process exclusivity, ancestor conflict and sibling concurrency, paused-owner blocking, and release after `SIGKILL`; it used shared locks on ancestors and an exclusive lock on the destination.
 - The prototype did not add a dependency or enable destination claims; Linux validation is still pending.
 - DOMStack-owned build fan-outs now wait for settled writes before surfacing errors; focused tests, TypeScript, and targeted lint passed.
-- The installed `cpx2` still needs its own drain guarantee for watch closure and failed one-shot copy batches before claims can be wired in safely.
+- The installed `cpx2` release still lacks the drain guarantees; the verified fix is in PR 3a, and DOMStack has not switched its watch teardown to the new API yet.
 
 **Refactor first**
 
