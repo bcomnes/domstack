@@ -2,7 +2,13 @@
 
 Issue: [bcomnes/domstack#352](https://github.com/bcomnes/domstack/issues/352)
 
-## Progress
+## Phase 1 — Implement and verify end to end locally
+
+Finish the full feature set in the local stack with `npm link` builds of `cpx2` and `@domstack/sync`.
+Keep the published dependency ranges unchanged and the existing upstream PRs open; do not open the DOMStack PRs, merge branches, or publish packages during this phase.
+The release sequence is at the [bottom of this plan](#phase-2--open-merge-and-publish-after-local-sign-off).
+
+### Progress
 
 | Step | Repository | PR | Status |
 | --- | --- | --- | --- |
@@ -14,17 +20,13 @@ Issue: [bcomnes/domstack#352](https://github.com/bcomnes/domstack/issues/352)
 | [5. Delegated rebuilds](#pr-5--domstack-delegated-rebuilds) | `domstack` | — | Not started |
 | [6. Explicit watcher replacement](#pr-6--domstack-explicit-watcher-replacement) | `domstack` | — | Not started |
 
-Update this table when work starts, a PR opens, or a PR merges.
+Update this table when work starts, a local branch is validated, or its review status changes.
 Check off refactoring, implementation, and verification separately; record the test command or CI run and any unresolved gate in the relevant PR section.
 Start each PR by running or adding focused coverage for the behavior being moved, then keep behavior-preserving refactors reviewable separately from feature changes within that PR.
 Refactor only the code needed by the current PR; leave broader cleanup out of the stack unless it blocks a stated exit criterion.
 Make focused checkpoint commits as each coherent change is validated, and check the Git status in each touched repository before pausing or handing off.
 Leave the index and working tree clean at checkpoints, without staging unrelated user changes or temporary dependency links.
-Use GitHub's `gh stack` extension to create and manage a native stack in each repository, not just a chain of PR base branches.
-Use `gh stack init` or `gh stack add` locally and `gh stack submit` to publish; land the PRs bottom-up.
-The Sync PRs are linked in native GitHub stack `#44`.
-Do not merge or release upstream packages during local end-to-end development.
-Use `npm link` with local builds of `cpx2` and `@domstack/sync` to work through the DOMStack stack, and leave published dependency ranges unchanged until the release phase.
+Use `gh stack init` and `gh stack add` to track the stack locally, one branch per implementation step.
 
 ### Local linked setup
 
@@ -35,11 +37,14 @@ Use `npm link` with local builds of `cpx2` and `@domstack/sync` to work through 
 - A subprocess smoke test verified two DOMStack watchers serve different ports, standalone Sync is discoverable through the linked registry, a build conflicts while its watcher owns the destination, and it succeeds after that watcher stops without affecting the other site.
 - DOMStack watch discovery passed its linked subprocess test in PR 4; add delegation and replacement to the local smoke test as PRs 5–6 land.
 
-### Review checkpoints
+### Local sign-off checklist
 
-- [x] **After PRs 1–2:** Pause for review of Sync's port binding and public registry API before proceeding with the DOMStack work.
-- [ ] **After PR 3:** Pause for review of destination ownership, crash recovery, and write-draining evidence before proceeding to PRs 4–6.
-- After both reviews, work through PRs 4–6 in order without a scheduled pause; stop if a validation gate fails or implementation requires a design change.
+- [x] Run against both linked upstream packages and verify port fallback, discovery from another project, and separate outputs for simultaneous watchers, including `--no-serve` discovery.
+- [x] Verify local ownership blocks overlapping builds, stays held during write draining, and releases after a crashed lock holder exits.
+- [ ] From the top of the stack, run plain `domstack build` against a matching watcher and verify it delegates, reports the real rebuild result, and leaves the watcher running.
+- [ ] Run `domstack build --replace-watch` against a matching watcher and verify it drains, transfers ownership, cleans the destination, and builds locally without interrupting an unrelated watcher.
+- [ ] Run the relevant upstream suites and DOMStack's full Node suite and type checks against the final linked stack, and record the results here.
+- [ ] Review the local end-to-end result and the ownership, crash-recovery, and write-draining evidence before starting Phase 2.
 
 ## Agreed behavior and boundaries
 
@@ -101,14 +106,14 @@ The registry is usable without an HTTP listener, so DOMStack can register build-
 
 - [x] Test same-PID and cross-process registration, lookup by ID, empty or malformed records, crash expiry, and credential-free JSON with an isolated registry directory.
 - [x] Document discovery in the Sync README.
-- [ ] After review and merge, release a Sync version containing PRs 1 and 2 for DOMStack to adopt in PR 4.
+
 
 Validation: `node --test --test-timeout=15000` passed 173 tests; `npm run test:playwright` passed 31 Chromium tests; `npm run test:tsc` and `npm run test:lint` passed.
 The subprocess discovery and signal tests ran on macOS; Windows access controls and signal behavior were not verified.
 
 ## PR 3a — cpx2: Drain copy writes
 
-Use the linked upstream prerequisite for local validation; release and adopt it only when ready to merge the DOMStack stack.
+Use the linked upstream prerequisite for local validation.
 DOMStack can prototype locking in parallel, but it must not rely on claim release until the copy drain guarantees are verified.
 
 **Refactor first**
@@ -130,7 +135,7 @@ DOMStack can prototype locking in parallel, but it must not rely on claim releas
 - [x] Fail one file in a one-shot batch while a sibling write is gated, and exercise a stream error with an open output; verify that rejection waits for writers and output handles to finish closing.
 - [x] Run focused and full `cpx2` tests and type/lint checks, then test DOMStack with a temporary local build without committing the dependency reference.
 - [x] Open the upstream PR: [bcomnes/cpx2#199](https://github.com/bcomnes/cpx2/pull/199).
-- [ ] Record the released `cpx2` version here and update DOMStack's `package.json` before publishing PR 3.
+
 
 Validation: `npm test` passed 114 `cpx2` tests on macOS, including the packed declaration consumer test.
 After adding the startup-cleanup regression, all 16 focused tests, lint, and TypeScript passed.
@@ -151,10 +156,10 @@ At the end of this PR, a conflict fails clearly; it does not delegate, stop a wa
 - Destination claims use shared ancestor locks and an exclusive destination lock via `fs-native-extensions`, without a coordinator file.
 - One-shot builds, the build phase of `serve`, and watch sessions now acquire claims before writing; watcher copy work drains through the upstream `close({ drain: true })` API before release.
 - Verified 79 targeted Node tests, TypeScript, and targeted lint on macOS with a temporary build of `cpx2` PR #199; the installed dependency was restored afterward and watch shutdown on this checkpoint requires the new API.
-- This checkpoint stays local while the package releases are deferred; review the local macOS evidence now and run Linux and macOS CI once the published dependencies are available.
+
 - Targeted macOS tests cover aliases, nested conflicts in both directions, siblings, a paused claimant, and release after a crash; Linux validation is still pending.
 - DOMStack-owned build fan-outs now wait for settled writes before surfacing errors; focused tests, TypeScript, and targeted lint passed.
-- The installed `cpx2` release still lacks the drain guarantees; DOMStack's dependency must be bumped to the release containing PR 3a before publishing the ownership PR.
+
 
 **Refactor first**
 
@@ -173,7 +178,7 @@ At the end of this PR, a conflict fails clearly; it does not delegate, stop a wa
 - [x] Fail closed if an older `cpx2` silently ignores the drain option and does not return a promise.
 - [x] Update DOMStack-owned write fan-outs to wait for sibling writes on failure.
 - [x] Verify that failed one-shot static and extra-copy batches both retain the destination claim while a sibling write is active.
-- [ ] Pin the released `cpx2` version and rerun validation against it; DOMStack ignores `package-lock.json`, so do not commit a generated lockfile.
+
 
 **Exit criteria**
 
@@ -196,7 +201,7 @@ Add a separate snapshot without changing that return value or the initial build 
 **Implementation**
 
 - [x] Develop and validate with the linked `@domstack/sync` build.
-- [ ] Adopt the released `@domstack/sync` version in `package.json` during the release phase.
+
 - [x] Add `watch({ port })` and `domstack watch --port` through `lib/cli/options.js`, `lib/cli/args.js`, help, and `bin.js`; pass the preference to Sync only when serving.
 - [x] Expose a typed `watchInfo` snapshot in `index.js` and publish one `domstack-watch` record per session from `lib/watch/index.js`, with absolute source/destination paths, lifecycle state, and nullable bound URLs and ports.
 - [x] Update records on lifecycle transitions and dispose them on normal stop, cancellation, and startup failure; registry write failures warn without stopping a build or hiding in-process `watchInfo`.
@@ -248,7 +253,7 @@ Add `stop` to the control protocol and make replacement opt-in through `domstack
 
 - [ ] Route CLI signals and accepted control stops through the existing shared watch shutdown; keep process exit a CLI decision and keep the control connection available long enough to return the shutdown result.
 - [ ] Reuse the existing one-shot execution path for replacement by adding a guarded cleanup step under the same destination claim, not a separate build implementation.
-- [ ] Delete temporary delegation guidance or transitional code only where PR 6 replaces it, and rerun the prior PRs' overlap and lifecycle regressions before merging.
+- [ ] Delete temporary delegation guidance or transitional code only where PR 6 replaces it, and rerun the prior branches' overlap and lifecycle regressions as part of local sign-off.
 
 **Implementation**
 
@@ -265,3 +270,18 @@ Add `stop` to the control protocol and make replacement opt-in through `domstack
 - [ ] Verify the matching watch CLI exits while an embedded host and its other sessions stay alive.
 - [ ] Test repeated stop, startup cancellation, stop during an active rebuild, caller disconnect and timeout, unsafe cleanup targets, different sources and nested conflicts, and a competing ownership claim.
 - [ ] Document the flag and its destructive cleanup behavior, and update the delegation error to point to `--replace-watch`.
+
+## Phase 2 — Open, merge, and publish after local sign-off
+
+Do not start this phase until the Phase 1 checklist is complete and the local feature set has been reviewed.
+Use native GitHub stacks via `gh stack`, not just PRs that target one another's branches.
+Follow this order:
+
+1. [ ] **Sync:** Land [#42](https://github.com/bcomnes/domstack-sync/pull/42) (port fallback), then [#43](https://github.com/bcomnes/domstack-sync/pull/43) (discovery) from native stack `#44`.
+2. [ ] **Sync:** Publish a version that contains both changes and record the npm version in the plan.
+3. [ ] **cpx2:** Land [#199](https://github.com/bcomnes/cpx2/pull/199) (opt-in watcher drain and one-shot copy draining), then publish a compatible version and record the npm version.
+4. [ ] **DOMStack:** Update `package.json` to use released `cpx2` on PR 3 (ownership) and released `@domstack/sync` on PR 4 (introspection), then propagate the changes up the local stack.
+5. [ ] **DOMStack:** Remove the `npm link` overrides and reinstall from the registry; rerun end-to-end tests with the published dependencies and do not commit a generated lockfile or any link reference.
+6. [ ] **DOMStack:** Use `gh stack submit` to open the native stack in order: PR 3 (ownership) → PR 4 (introspection) → PR 5 (delegation) → PR 6 (replacement).
+7. [ ] **DOMStack:** Verify Linux and macOS CI and review each layer, then merge bottom-up in the same order, keeping the remaining PRs based on the correct branches as each lands.
+8. [ ] **DOMStack:** Publish only after the entire stack lands and the release is approved.
