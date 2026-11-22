@@ -109,14 +109,14 @@ DOMStack can prototype locking in parallel, but it must not rely on claim releas
 
 **Implementation**
 
-- [x] Add awaitable `closeAndDrain()` that immediately stops producers and cancels queued work, then waits for every copy or removal already in flight, including initial copies.
-- [x] Preserve synchronous `close()` for callers that do not need to wait, and make repeated `closeAndDrain()` calls safe without losing track of work after `close()`.
+- [x] Add awaitable `close({ drain: true })` that immediately stops producers and cancels queued work, then waits for copies and removals already in flight, including initial copies.
+- [x] Keep no-argument `close()` synchronous and returning `undefined`, and allow repeat calls with `drain: true` without losing track of work after `close()`.
 - [x] Make `copy()` surface a failed file only after started sibling copies settle, including closing any output stream already opened when an error occurs.
-- [x] Document the drain guarantees and cover the new watcher method in the public type declarations.
+- [x] Document the drain guarantees and cover both `close()` signatures in the public type declarations.
 
 **Exit criteria**
 
-- [x] Gate actual initial and steady-state copy I/O and a removal during shutdown; verify that `closeAndDrain()` stays pending, no new writes begin after close, and no writes remain after it resolves.
+- [x] Gate actual initial and steady-state copy I/O and a removal during shutdown; verify that `close({ drain: true })` stays pending, no new writes begin after close, and no writes remain after it resolves.
 - [x] Fail one file in a one-shot batch while a sibling write is gated, and exercise a stream error with an open output; verify that rejection waits for writers and output handles to finish closing.
 - [x] Run focused and full `cpx2` tests and type/lint checks, then test DOMStack with a temporary local build without committing the dependency reference.
 - [x] Open the upstream PR: [bcomnes/cpx2#199](https://github.com/bcomnes/cpx2/pull/199).
@@ -127,6 +127,7 @@ After adding the startup-cleanup regression, all 16 focused tests, lint, and Typ
 Against a temporary local build, 27 DOMStack facade, lifecycle, and drain tests plus TypeScript passed; the original dependency installation was restored afterward.
 The first GitHub matrix run exposed test-fixture races on Linux and invalid synthetic queue paths on Windows; `9c238af` seeds files before watcher startup and uses normalized queue keys.
 The 16 focused tests, lint, and TypeScript passed locally after that correction, and GitHub reported 24 passing checks with two skips and no failures.
+After replacing the separate drain method with `close({ drain: true })` in `bf1fa60`, `npm test` passed all 115 `cpx2` tests and the DOMStack integration rerun passed all 79 targeted tests, TypeScript, and targeted lint.
 
 ## PR 3 — DOMStack: Destination ownership
 
@@ -137,7 +138,7 @@ At the end of this PR, a conflict fails clearly; it does not delegate, stop a wa
 
 - A macOS prototype using `fs-native-extensions` passed same-process exclusivity, ancestor conflict and sibling concurrency, paused-owner blocking, and release after `SIGKILL`; it used shared locks on ancestors and an exclusive lock on the destination.
 - Destination claims use shared ancestor locks and an exclusive destination lock via `fs-native-extensions`, without a coordinator file.
-- One-shot builds, the build phase of `serve`, and watch sessions now acquire claims before writing; watcher copy work drains through the upstream `closeAndDrain()` API before release.
+- One-shot builds, the build phase of `serve`, and watch sessions now acquire claims before writing; watcher copy work drains through the upstream `close({ drain: true })` API before release.
 - Verified 79 targeted Node tests, TypeScript, and targeted lint on macOS with a temporary build of `cpx2` PR #199; the installed dependency was restored afterward and watch shutdown on this checkpoint requires the new API.
 - This checkpoint stays local until a released `cpx2` dependency is available; then run Linux CI and the added macOS CI job before the ownership review.
 - Targeted macOS tests cover aliases, nested conflicts in both directions, siblings, a paused claimant, and release after a crash; Linux validation is still pending.
@@ -157,7 +158,8 @@ At the end of this PR, a conflict fails clearly; it does not delegate, stop a wa
 - [ ] Validate OS-backed claims: acquire a shared lock at each ancestor and an exclusive lock at the destination, root first, and unwind partial claims on conflict; record a conservative alternative if platform or crash-recovery checks fail.
 - [x] Check conflicts by path component, acquire before any output mutation, and hold until all writes drain; expose the same guard to watch, one-shot builds, the build phase of `serve`, and library writers.
 - [x] Keep claims separate from discovery leases and socket responsiveness, and identify the owner when possible in conflict errors.
-- [x] Use `cpx2`'s `closeAndDrain()` in `lib/watch/index.js`, and await it before releasing claims on failure, startup cancellation, or normal shutdown.
+- [x] Use `cpx2`'s `close({ drain: true })` in `lib/watch/index.js`, and await it before releasing claims on failure, startup cancellation, or normal shutdown.
+- [x] Fail closed if an older `cpx2` silently ignores the drain option and does not return a promise.
 - [x] Update DOMStack-owned write fan-outs to wait for sibling writes on failure.
 - [ ] Pin the released `cpx2` version and revalidate static and extra-copy paths against it; DOMStack ignores `package-lock.json`, so do not commit a generated lockfile.
 
