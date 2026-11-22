@@ -45,25 +45,37 @@ try {
 `new DomStack(src, dest, opts)` accepts filesystem path strings, with relative paths resolved from the current working directory, including `opts.copy` paths.
 `build()` creates the destination as needed, writes the site output, and resolves with a `Results` object containing discovery data, build-step results, and warnings.
 Build failures reject the promise, so the example reports the error and sets a nonzero exit code.
-On the same machine and under the same user, cooperating DOMStack processes that share the lock directory reject writes to identical or nested destinations, including aliases resolved through symlinks.
-On macOS and Linux, the lock directory is shared across shells regardless of `TMPDIR`.
-An ownership conflict rejects with `code: 'DOMSTACK_DESTINATION_IN_USE'`.
-Watch sessions retain their claim until their writes drain on shutdown; use separate output directories for concurrent writers.
-This does not guard writes outside the configured destination or writes from tools that do not take DOMStack claims.
+If you're running more than one DOMStack build or watcher at a time, use separate output folders that aren't inside one another.
+If another DOMStack build or watcher is already using an overlapping folder, `build()` rejects with the error code `DOMSTACK_DESTINATION_IN_USE` rather than asking the watcher to rebuild.
+This check only coordinates DOMStack processes run by the same user on the same machine.
 The `DomStackOpts` and `Results` types are available from the type-only `@domstack/static/types.js` entry.
 
 ## Watch sessions
 
-`await site.watch({ port: 8080 })` starts a watcher and returns its initial build report.
-`port` is a preference; read `site.watchInfo` for the actual bound port and URL rather than assuming the requested port was available.
-Use `watch({ serve: false })` to build and watch without a server.
+Use `site.watch()` when your script or test needs a running preview that rebuilds as you edit.
+`watch()` returns the first build report, but the watcher keeps running until you stop it.
 
-`watchInfo` is a fresh read-only snapshot of the current session, or `null` while idle.
-It includes the session ID, process ID, start time, lifecycle state, project and build paths, and actual site and UI addresses when serving.
-During early startup, the ID may still be `null`; when no server is running the addresses and ports are `null`.
+```js
+import { DomStack } from '@domstack/static'
+
+const site = new DomStack('./src', './public')
+await site.watch({ port: 8080 })
+
+try {
+  console.log(`Preview: ${site.watchInfo?.url}`)
+  // Run your browser tests or other work here.
+} finally {
+  await site.stopWatching()
+}
+```
+
+If `8080` is busy, DOMStack picks a free port, so use `watchInfo.url` to get the actual address.
+For automatic rebuilds without a server, use `site.watch({ serve: false })`; the URL will be `null`.
+
+Read `site.watchInfo` for the current session's state, ID, and preview URLs, or `null` when nothing is running.
+The ID can be `null` while the watcher is still starting.
+`await site.stopWatching()` waits for the watcher to finish writing so you can safely reuse the output folder.
 The `WatchInfo` and `WatchOptions` types are exported from `@domstack/static/types.js`.
-Discovery failures do not stop the watcher or prevent reading its in-process snapshot.
-Call `await site.stopWatching()` to finish cleanup and remove the session from discovery.
 
 ## Test builds
 

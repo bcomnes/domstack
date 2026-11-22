@@ -9,9 +9,8 @@ handlebars: false
 Use `domstack` (or its shorter alias, `dom`) to build a site, watch for changes, or preview production output.
 Use `domstack eject` to extract the bundled defaults for customization.
 
-`domstack` is a devtool.
-It's primarily a unix `bin` written for the [Node.js](https://nodejs.org) runtime that is intended to be installed from `npm` as a `devDependency` inside a `package.json` committed to a `git` repository.
-It can be used outside of this context, but it works best within it.
+DOMStack runs on [Node.js](https://nodejs.org).
+Install it as a development dependency in your project's `package.json` so everyone working on the site uses the same version.
 
 ## Table of Contents
 
@@ -21,11 +20,10 @@ It can be used outside of this context, but it works best within it.
 
 | Command | Behavior |
 | --- | --- |
-| `domstack` or `domstack build` | Build once, or ask the matching watcher to rebuild. |
-| `domstack build --replace-watch` | Stop the matching watcher, empty its destination, then build once. |
+| `domstack` or `domstack build` | Build the site. |
 | `domstack watch` | Build, watch for changes, and serve with live reload. |
 | `domstack serve` | Build once, then serve production output without watching or live reload. |
-| `domstack sessions [id]` | List active local watch sessions or inspect one by ID. |
+| `domstack sessions [id]` | Find your running watch sessions and their preview URLs. |
 | `domstack eject` | Extract the default layout, global styles, and client files into the source directory and update dependencies in `package.json`. |
 | `domstack help [command]` | Show root or command-specific help. |
 
@@ -33,20 +31,14 @@ When using an explicit command, put the command before its options, as in `domst
 
 ## `domstack build`
 
-Build the site once unless a matching watch session already owns the destination.
-Running `domstack` without a command performs the same build, with `src` as the source directory and `public` as the destination by default.
-On macOS and Linux, if the active watcher has the same source and destination, `domstack build` requests a full watch-mode rebuild and waits for the result without stopping the watcher.
-This works with `--no-serve` and does not start a second writer.
-The rebuild uses the watcher's settings and keeps its detailed logs in the watch process; use `--replace-watch` if you need a one-shot build or different output options.
-Static and extra-copy watchers work independently, so a successful delegated build does not guarantee an asset-only edit has already been copied.
-Other destination conflicts still fail, including nested destinations and an active watcher with a different source.
-Use separate, non-overlapping output directories for concurrent writers.
+Use `domstack build` to build your site without starting a server.
+By default, it reads from `src` and writes to `public`.
+Running `domstack` with no command does the same thing.
 
 ```sh
 domstack
 domstack build --src website --dest public
 domstack build --copy images --copy downloads
-domstack build --replace-watch --src website --dest public
 ```
 
 | Option | Description |
@@ -59,7 +51,7 @@ domstack build --replace-watch --src website --dest public
 | `--domstackManifest` | Write the DOMStack manifest to disk. |
 | `--copy <path>` | Copy an additional directory into the destination; repeat for multiple directories. |
 | `--verbose` | Show debug logs, including individual copy operations. |
-| `--replace-watch` | Stop the matching watcher, empty its destination, then run a one-shot build (macOS and Linux). |
+| `--replace-watch` | [Stop watching and build once](#stop-watching-and-build-once) (macOS and Linux). |
 | `--help`, `-h` | Show build help; on bare `domstack`, show the command list and default build options. |
 | `--version`, `-v` | Show the installed version. |
 
@@ -67,15 +59,47 @@ Normal output includes the build tree and a build summary.
 Use `--verbose` to include debug logs and individual copy operations.
 Build failures retain their full diagnostics at either verbosity level.
 
-`--replace-watch` empties the existing destination, including files not created by DOMStack, **only** when it replaces a matching watcher.
-If no writer owns the destination, the flag runs an ordinary one-shot build without emptying it.
-If the watcher cannot stop, the destination is unsafe, or another writer claims it first, the command fails without cleaning or building.
+### Build while watch is running
+
+On macOS and Linux, you can ask a running watcher to rebuild by using the same source and output folders:
+
+```sh
+# In the first terminal:
+domstack watch --src website --dest public
+
+# In the second terminal:
+domstack build --src website --dest public
+```
+
+The build waits for the result, then exits without stopping the watcher.
+It uses the watcher's settings, and detailed logs stay in the first terminal.
+This also works with `watch --no-serve`.
+If you only changed an image or another copied file, it may still be copying when the build command returns.
+
+If a different site is already writing to that output folder, choose another folder or stop the other watch session first.
+Output folders must not be inside one another when builds are running at the same time.
+
+### Stop watching and build once
+
+On macOS and Linux, use `--replace-watch` when you want to end the watch session and run a fresh build, for example with different build options.
+DOMStack stops only the watcher for the same source and output folders and waits for it to finish writing.
+
+**When replacing a watcher, this deletes everything in the output folder before rebuilding, including files you put there yourself.**
+Only use it with a folder you can safely empty.
+
+```sh
+domstack build --replace-watch --src website --dest public
+```
+
+If DOMStack can't stop the watcher, it leaves the output folder alone.
+If the folder isn't in use, `--replace-watch` runs a normal build without emptying it.
 
 ## `domstack watch`
 
-Build the site, watch for changes, and serve with live reload using [`@domstack/sync`][domstack-sync].
-Use `--no-serve` when another process serves the output.
-Watch mode uses stable bundle filenames rather than production hashes.
+Run `domstack watch` while you edit your site.
+Open the site URL printed in your terminal; DOMStack rebuilds on changes and refreshes the browser for you using [`@domstack/sync`][domstack-sync].
+Press Ctrl+C in that terminal to stop.
+Use `--no-serve` if you want automatic builds without a preview server.
 
 ```sh
 domstack watch
@@ -98,25 +122,26 @@ domstack watch --no-serve
 | `--help`, `-h` | Show watch help. |
 | `--version`, `-v` | Show the installed version. |
 
-Normal output includes the initial build tree, rebuild summaries, static asset startup, the session ID, and actual server URLs.
-If the preferred port is already in use, watch uses an available port assigned by the OS.
-With `--no-serve`, the port preference has no effect.
-Build failures retain their full diagnostics at either verbosity level.
+### Watch more than one site
 
-## `domstack sessions [id]`
+Run each watcher in its own terminal and give each site a separate output folder.
+You don't have to pick a different port for each watcher: if the requested port is busy, DOMStack picks a free one and prints the URL to open.
+Use [`domstack sessions`](#domstack-sessions) to find those URLs again.
 
-List DOMStack watch sessions for the current user on this machine, including sessions started with `--no-serve`.
-Run this from any directory; it does not need a project in the current working directory.
+## `domstack sessions`
+
+Not sure which port a site is using, or which projects you left running?
+Run `domstack sessions` from any directory to see your active watchers on this machine, including ones started with `--no-serve`.
+Pass a session ID from the list to see details for that watcher.
 
 ```sh
 domstack sessions
-domstack sessions --json
-domstack sessions <id> --json
+domstack sessions SESSION_ID
 ```
 
-JSON output is an array for a list and an object for a lookup, with an ID, process and lifecycle information, project and build paths, and actual site and UI ports and URLs when serving.
-An empty list is successful; an unknown or inactive ID exits nonzero.
-A non-default discovery directory set through `DOMSTACK_SESSION_DIR` must be shared by the watchers and commands that list them.
+For scripts, add `--json` to get an array of sessions or a single object when looking up an ID.
+The list is empty when nothing is running, and a lookup for a session that isn't running exits with an error.
+If you set `DOMSTACK_SESSION_DIR`, use the same value when starting and listing watchers.
 
 ## `domstack serve`
 
@@ -258,7 +283,7 @@ Root-level mode flags remain supported for existing scripts, but prefer commands
 | `domstack --eject` or `domstack -e` | `domstack eject` |
 
 Legacy shortcuts use the same strict option validation as their target commands.
-For example, `domstack --serve --port 4000` is valid, but `domstack --watch --port 4000` and `domstack --eject --dest public` are rejected.
+For example, `domstack --serve --port 4000` and `domstack --watch --port 4000` are valid, but `domstack --eject --dest public` is rejected.
 Mode flags are mutually exclusive, including `--watch` together with `--watch-only`.
 Legacy mode flags are not accepted on explicit commands, so use `domstack watch`, not `domstack build --watch`.
 
