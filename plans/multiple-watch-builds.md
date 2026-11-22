@@ -18,7 +18,7 @@ The release sequence is at the [bottom of this plan](#phase-2--open-merge-and-pu
 | [3. Destination ownership](#pr-3--domstack-destination-ownership) | `domstack` | — | Validated with local links; Linux CI pending |
 | [4. Watch introspection](#pr-4--domstack-watch-introspection) | `domstack` | — | Validated locally on `feat/watch-introspection` |
 | [5. Delegated rebuilds](#pr-5--domstack-delegated-rebuilds) | `domstack` | — | Validated locally on `feat/delegated-rebuilds` |
-| [6. Explicit watcher replacement](#pr-6--domstack-explicit-watcher-replacement) | `domstack` | — | Not started |
+| [6. Explicit watcher replacement](#pr-6--domstack-explicit-watcher-replacement) | `domstack` | — | Validated locally on `feat/replace-watch` |
 
 Update this table when work starts, a local branch is validated, or its review status changes.
 Check off refactoring, implementation, and verification separately; record the test command or CI run and any unresolved gate in the relevant PR section.
@@ -35,15 +35,17 @@ Use `gh stack init` and `gh stack add` to track the stack locally, one branch pe
 - Verify module resolution before integration tests, especially after an install, because `npm install` can replace the links.
 - The full DOMStack Node suite and TypeScript passed with both links in place.
 - A subprocess smoke test verified two DOMStack watchers serve different ports, standalone Sync is discoverable through the linked registry, a build conflicts while its watcher owns the destination, and it succeeds after that watcher stops without affecting the other site.
-- DOMStack watch discovery passed its linked subprocess test in PR 4; add delegation and replacement to the local smoke test as PRs 5–6 land.
+- The final linked subprocess smoke test starts two watch sessions on the same preferred port, looks them up, delegates a build, then replaces one without interrupting the other.
 
 ### Local sign-off checklist
 
 - [x] Run against both linked upstream packages and verify port fallback, discovery from another project, and separate outputs for simultaneous watchers, including `--no-serve` discovery.
 - [x] Verify local ownership blocks overlapping builds, stays held during write draining, and releases after a crashed lock holder exits.
 - [x] Run plain `domstack build` against a matching watcher and verify it delegates, reports the real rebuild result, and leaves the watcher running.
-- [ ] Run `domstack build --replace-watch` against a matching watcher and verify it drains, transfers ownership, cleans the destination, and builds locally without interrupting an unrelated watcher.
-- [ ] Run the relevant upstream suites and DOMStack's full Node suite and type checks against the final linked stack, and record the results here.
+- [x] Run `domstack build --replace-watch` against a matching watcher and verify it drains, transfers ownership, cleans the destination, and builds locally without interrupting an unrelated watcher.
+- [x] Run the relevant upstream tests and DOMStack's full Node suite and type checks against the final linked stack.
+- Final local validation on macOS: DOMStack full Node suite, TypeScript, and targeted lint passed; Sync full Node suite, TypeScript, lint, and 31 Chromium tests passed on a separate run.
+- `cpx2` passed 17 focused copy, watch lifecycle, and declaration tests plus TypeScript and lint; the final parallel full-suite rerun hit its command time limit, while the previous full suite passed 115 tests before the TODO-only commit.
 - [ ] Review the local end-to-end result and the ownership, crash-recovery, and write-draining evidence before starting Phase 2.
 
 ## Agreed behavior and boundaries
@@ -255,25 +257,28 @@ Add `stop` to the control protocol and make replacement opt-in through `domstack
 
 **Refactor first**
 
-- [ ] Route CLI signals and accepted control stops through the existing shared watch shutdown; keep process exit a CLI decision and keep the control connection available long enough to return the shutdown result.
-- [ ] Reuse the existing one-shot execution path for replacement by adding a guarded cleanup step under the same destination claim, not a separate build implementation.
-- [ ] Delete temporary delegation guidance or transitional code only where PR 6 replaces it, and rerun the prior branches' overlap and lifecycle regressions as part of local sign-off.
+- [x] Route CLI signals and accepted control stops through the existing shared watch shutdown; keep process exit a CLI decision and keep the control connection available long enough to return the shutdown result.
+- [x] Reuse the existing one-shot execution path for replacement by adding a guarded cleanup step under the same destination claim, not a separate build implementation.
+- [x] Delete temporary delegation guidance or transitional code only where PR 6 replaces it, and rerun the prior branches' overlap and lifecycle regressions as part of local sign-off.
 
 **Implementation**
 
-- [ ] Add the build-only flag in `lib/cli/options.js` and route it in `bin.js`; with no owner it behaves like an ordinary one-shot build.
-- [ ] Require an exact canonical source/destination match, validate the cleanup target before requesting shutdown or deleting files, and reject roots, the source, and ancestors of the source.
-- [ ] Log which session is being stopped and call its existing shutdown path; accept `stop` during startup once the socket is available, reject queued rebuilds, drain active writes, and share cleanup across repeated stop requests.
-- [ ] Use a longer shutdown timeout than the connection timeout; finish accepted shutdown even if the caller disconnects or times out, but have a failed caller exit without cleaning or building.
-- [ ] Stop only the matching session; the watch CLI exits after cleanup, but an embedded host and unrelated sessions stay alive.
-- [ ] After a successful stop, acquire the destination claim, clean the output contents, and run the one-shot build in the invoking process; if another writer wins the claim, fail without cleaning, building, or stopping the new owner.
+- [x] Add the build-only flag in `lib/cli/options.js` and route it in `bin.js`; with no owner it behaves like an ordinary one-shot build.
+- [x] Require an exact canonical source/destination match, validate the cleanup target before requesting shutdown or deleting files, and reject roots, the source, and ancestors of the source.
+- [x] Log which session is being stopped and call its existing shutdown path; accept `stop` during startup once the socket is available, reject queued rebuilds, drain active writes, and share cleanup across repeated stop requests.
+- [x] Use a longer shutdown timeout than the connection timeout; finish accepted shutdown even if the caller disconnects or times out, but have a failed caller exit without cleaning or building.
+- [x] Stop only the matching session; the watch CLI exits after cleanup, but an embedded host and unrelated sessions stay alive.
+- [x] After a successful stop, acquire the destination claim, clean the output contents, and run the one-shot build in the invoking process; if another writer wins the claim, fail without cleaning, building, or stopping the new owner.
 
 **Exit criteria**
 
-- [ ] Test replacement with and without a watcher; verify draining and ownership transfer happen before cleanup or one-shot writes and that watch-only artifacts are gone after successful takeover.
-- [ ] Verify the matching watch CLI exits while an embedded host and its other sessions stay alive.
-- [ ] Test repeated stop, startup cancellation, stop during an active rebuild, caller disconnect and timeout, unsafe cleanup targets, different sources and nested conflicts, and a competing ownership claim.
-- [ ] Document the flag and its destructive cleanup behavior, and update the delegation error to point to `--replace-watch`.
+- [x] Test replacement with and without a watcher; verify draining and ownership transfer happen before cleanup or one-shot writes and that watch-only artifacts are gone after successful takeover.
+- [x] Verify the matching watch CLI exits while an embedded host and its other sessions stay alive.
+- [x] Test repeated stop, startup cancellation, stop during an active rebuild, caller disconnect and timeout, unsafe cleanup targets, different sources and nested conflicts, and a competing ownership claim.
+- [x] Document the flag and its destructive cleanup behavior, and update the delegation error to point to `--replace-watch`.
+
+Validation: Tested replacement with and without an owner on macOS, including an embedded watcher with a blocked rebuild, an accepted stop whose caller timed out, startup cancellation, unsafe cleanup destinations, and a competing claim.
+The matching CLI watcher exits, the unrelated watch session still rebuilds, and cleanup never starts before ownership transfers.
 
 ## Phase 2 — Open, merge, and publish after local sign-off
 

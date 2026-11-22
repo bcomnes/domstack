@@ -25,7 +25,7 @@ import { CliUsageError, parseCliArgs } from './lib/cli/args.js'
 import { formatCliHelp } from './lib/cli/help.js'
 import { eject } from './lib/cli/eject.js'
 import { showWatchSessions } from './lib/cli/sessions.js'
-import { delegateWatchBuild } from './lib/cli/watch-build.js'
+import { delegateWatchBuild, replaceWatchBuild } from './lib/cli/watch-build.js'
 import { WatchControlError } from './lib/watch/control.js'
 
 const __dirname = import.meta.dirname
@@ -86,7 +86,7 @@ async function run () {
   const domStack = new DomStack(src, dest, opts)
   /** @type {BsInstance | null} */
   let buildServer = null
-  /** @type {Promise<Results> | undefined} */
+  /** @type {Promise<Results | undefined> | undefined} */
   let buildWork
   let quitting = false
 
@@ -112,11 +112,24 @@ async function run () {
     process.exit(0)
   }
 
+  async function buildSite () {
+    try {
+      return await domStack.build()
+    } catch (error) {
+      if (!(error instanceof DestinationConflictError) || command !== 'build' || quitting) throw error
+      if (argv['replace-watch']) {
+        const results = await replaceWatchBuild(src, dest, error.destination, domStack.opts)
+        if (results) return results
+      } else if (await delegateWatchBuild(src, error.destination, argv)) return
+      throw error
+    }
+  }
+
   if (command !== 'watch') {
     try {
-      buildWork = domStack.build()
+      buildWork = buildSite()
       const results = await buildWork
-      if (quitting) return
+      if (!results || quitting) return
       logger.info(tree(generateTreeData(cwd, src, dest, results)))
       logWarnings(logger, results?.warnings)
       logger.info(`Built ${relative(cwd, src) || '.'} → ${relative(cwd, dest) || '.'}`)
@@ -132,10 +145,7 @@ async function run () {
         logger.info(`Serving ${relative(cwd, dest)} without watching. Press Ctrl-C to stop.`)
       }
     } catch (err) {
-      if (err instanceof DestinationConflictError) {
-        if (command === 'build' && !quitting && await delegateWatchBuild(src, err.destination, argv)) return
-        throw err
-      }
+      if (err instanceof DestinationConflictError || err instanceof WatchControlError) throw err
       if (!(err instanceof Error || err instanceof AggregateError)) throw new Error('Non-error thrown', { cause: err })
       if (err instanceof DomStackAggregateError) {
         if (err?.results?.siteData?.pages) {

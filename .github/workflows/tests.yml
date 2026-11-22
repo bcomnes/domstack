@@ -45,7 +45,7 @@ jobs:
         with:
           node-version: lts/*
       - run: npm i
-      - run: node --test --test-timeout=30000 lib/destination-claim.test.js lib/watch/lifecycle-tests/index.test.js
+      - run: node --test --test-timeout=30000 lib/destination-claim.test.js lib/watch/control.test.js lib/watch/lifecycle-tests/index.test.js lib/cli/tests/commands.test.js
 
   coverage:
     needs: test

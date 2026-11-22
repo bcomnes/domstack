@@ -22,6 +22,7 @@ It can be used outside of this context, but it works best within it.
 | Command | Behavior |
 | --- | --- |
 | `domstack` or `domstack build` | Build once, or ask the matching watcher to rebuild. |
+| `domstack build --replace-watch` | Stop the matching watcher, empty its destination, then build once. |
 | `domstack watch` | Build, watch for changes, and serve with live reload. |
 | `domstack serve` | Build once, then serve production output without watching or live reload. |
 | `domstack sessions [id]` | List active local watch sessions or inspect one by ID. |
@@ -32,11 +33,11 @@ When using an explicit command, put the command before its options, as in `domst
 
 ## `domstack build`
 
-Build the site once and exit.
+Build the site once unless a matching watch session already owns the destination.
 Running `domstack` without a command performs the same build, with `src` as the source directory and `public` as the destination by default.
 On macOS and Linux, if the active watcher has the same source and destination, `domstack build` requests a full watch-mode rebuild and waits for the result without stopping the watcher.
 This works with `--no-serve` and does not start a second writer.
-The rebuild uses the watcher's settings and keeps its detailed logs in the watch process; to use different build flags, stop the watcher first.
+The rebuild uses the watcher's settings and keeps its detailed logs in the watch process; use `--replace-watch` if you need a one-shot build or different output options.
 Static and extra-copy watchers work independently, so a successful delegated build does not guarantee an asset-only edit has already been copied.
 Other destination conflicts still fail, including nested destinations and an active watcher with a different source.
 Use separate, non-overlapping output directories for concurrent writers.
@@ -45,6 +46,7 @@ Use separate, non-overlapping output directories for concurrent writers.
 domstack
 domstack build --src website --dest public
 domstack build --copy images --copy downloads
+domstack build --replace-watch --src website --dest public
 ```
 
 | Option | Description |
@@ -57,12 +59,17 @@ domstack build --copy images --copy downloads
 | `--domstackManifest` | Write the DOMStack manifest to disk. |
 | `--copy <path>` | Copy an additional directory into the destination; repeat for multiple directories. |
 | `--verbose` | Show debug logs, including individual copy operations. |
+| `--replace-watch` | Stop the matching watcher, empty its destination, then run a one-shot build (macOS and Linux). |
 | `--help`, `-h` | Show build help; on bare `domstack`, show the command list and default build options. |
 | `--version`, `-v` | Show the installed version. |
 
 Normal output includes the build tree and a build summary.
 Use `--verbose` to include debug logs and individual copy operations.
 Build failures retain their full diagnostics at either verbosity level.
+
+`--replace-watch` empties the existing destination, including files not created by DOMStack, **only** when it replaces a matching watcher.
+If no writer owns the destination, the flag runs an ordinary one-shot build without emptying it.
+If the watcher cannot stop, the destination is unsafe, or another writer claims it first, the command fails without cleaning or building.
 
 ## `domstack watch`
 
