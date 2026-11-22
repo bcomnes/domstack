@@ -52,6 +52,19 @@ Watch sessions retain their claim until their writes drain on shutdown; use sepa
 This does not guard writes outside the configured destination or writes from tools that do not take DOMStack claims.
 The `DomStackOpts` and `Results` types are available from the type-only `@domstack/static/types.js` entry.
 
+## Watch sessions
+
+`await site.watch({ port: 8080 })` starts a watcher and returns its initial build report.
+`port` is a preference; read `site.watchInfo` for the actual bound port and URL rather than assuming the requested port was available.
+Use `watch({ serve: false })` to build and watch without a server.
+
+`watchInfo` is a fresh read-only snapshot of the current session, or `null` while idle.
+It includes the session ID, process ID, start time, lifecycle state, project and build paths, and actual site and UI addresses when serving.
+During early startup, the ID may still be `null`; when no server is running the addresses and ports are `null`.
+The `WatchInfo` and `WatchOptions` types are exported from `@domstack/static/types.js`.
+Discovery failures do not stop the watcher or prevent reading its in-process snapshot.
+Call `await site.stopWatching()` to finish cleanup and remove the session from discovery.
+
 ## Test builds
 
 Use the top-level `testBuild` helper to build into a temporary directory from tests without managing setup and cleanup yourself.

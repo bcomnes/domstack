@@ -24,6 +24,7 @@ import { createDomStackLogger } from './lib/logger.js'
 import { CliUsageError, parseCliArgs } from './lib/cli/args.js'
 import { formatCliHelp } from './lib/cli/help.js'
 import { eject } from './lib/cli/eject.js'
+import { showWatchSessions } from './lib/cli/sessions.js'
 
 const __dirname = import.meta.dirname
 
@@ -35,7 +36,7 @@ async function getPkg (pkgPath = resolve(__dirname, './package.json')) {
 }
 
 async function run () {
-  const { command, values: argv, helpCommand } = parseCliArgs(process.argv.slice(2))
+  const { command, values: argv, helpCommand, sessionId } = parseCliArgs(process.argv.slice(2))
   if (argv['version']) {
     const pkg = await getPkg()
     console.log(pkg.version)
@@ -48,6 +49,8 @@ async function run () {
 
     process.exit(0)
   }
+  if (command === 'sessions') return showWatchSessions(sessionId, Boolean(argv['json']))
+
   const cwd = process.cwd()
   const src = resolve(cwd, String(argv['src']))
 
@@ -85,7 +88,7 @@ async function run () {
   let buildWork
   let quitting = false
 
-  const servePort = argv['port'] ? Number(argv['port']) : undefined
+  const preferredPort = argv['port'] ? Number(argv['port']) : undefined
 
   process.once('SIGINT', quit)
   process.once('SIGTERM', quit)
@@ -121,7 +124,7 @@ async function run () {
           server: dest,
           files: basename(dest),
           logger: logger.child({ component: 'sync', logPrefix: '[domstack-sync]' }),
-          ...(servePort ? { port: servePort } : {}),
+          ...(preferredPort === undefined ? {} : { port: preferredPort }),
           snippet: false,
         })
         logger.info(`Serving ${relative(cwd, dest)} without watching. Press Ctrl-C to stop.`)
@@ -142,6 +145,7 @@ async function run () {
   } else {
     await domStack.watch({
       serve: !argv['no-serve'],
+      ...(preferredPort === undefined ? {} : { port: preferredPort }),
       onInitialBuild: (initialResults) => {
         logger.info(tree(generateTreeData(cwd, src, dest, initialResults)))
         logWarnings(logger, initialResults?.warnings)

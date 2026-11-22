@@ -10,7 +10,7 @@ Issue: [bcomnes/domstack#352](https://github.com/bcomnes/domstack/issues/352)
 | [2. Local session discovery](#pr-2--sync-local-session-discovery) | `domstack-sync` | [#43](https://github.com/bcomnes/domstack-sync/pull/43) | Open for review; stacked on #42 |
 | [3a. Copy lifecycle prerequisite](#pr-3a--cpx2-drain-copy-writes) | `cpx2` | [#199](https://github.com/bcomnes/cpx2/pull/199) | Open for review; linked locally |
 | [3. Destination ownership](#pr-3--domstack-destination-ownership) | `domstack` | — | Validated with local links; Linux CI pending |
-| [4. Watch introspection](#pr-4--domstack-watch-introspection) | `domstack` | — | Not started |
+| [4. Watch introspection](#pr-4--domstack-watch-introspection) | `domstack` | — | Validated locally on `feat/watch-introspection` |
 | [5. Delegated rebuilds](#pr-5--domstack-delegated-rebuilds) | `domstack` | — | Not started |
 | [6. Explicit watcher replacement](#pr-6--domstack-explicit-watcher-replacement) | `domstack` | — | Not started |
 
@@ -33,7 +33,7 @@ Use `npm link` with local builds of `cpx2` and `@domstack/sync` to work through 
 - Verify module resolution before integration tests, especially after an install, because `npm install` can replace the links.
 - The full DOMStack Node suite and TypeScript passed with both links in place.
 - A subprocess smoke test verified two DOMStack watchers serve different ports, standalone Sync is discoverable through the linked registry, a build conflicts while its watcher owns the destination, and it succeeds after that watcher stops without affecting the other site.
-- DOMStack watch discovery, delegation, and replacement are still separate implementation steps; add those to the local smoke test as PRs 4–6 land.
+- DOMStack watch discovery passed its linked subprocess test in PR 4; add delegation and replacement to the local smoke test as PRs 5–6 land.
 
 ### Review checkpoints
 
@@ -190,23 +190,27 @@ Add a separate snapshot without changing that return value or the initial build 
 
 **Refactor first**
 
-- [ ] Separate `sessions` dispatch from the project CLI path in `bin.js`, and make positional parsing and required project paths depend on the command in `lib/cli/args.js`.
-- [ ] Make the existing watch session the single source of truth for lifecycle and bound addresses, and derive both the public snapshot and registry updates from it instead of maintaining parallel state.
+- [x] Separate `sessions` dispatch from the project CLI path in `bin.js`, and make positional parsing and required project paths depend on the command in `lib/cli/args.js`.
+- [x] Make the existing watch session the single source of truth for lifecycle and bound addresses, and derive both the public snapshot and registry updates from it instead of maintaining parallel state.
 
 **Implementation**
 
-- [ ] Develop and validate with the linked `@domstack/sync` build; adopt the released version in `package.json` during the release phase.
-- [ ] Add `watch({ port })` and `domstack watch --port` through `lib/cli/options.js`, `lib/cli/args.js`, help, and `bin.js`; pass the preference to Sync only when serving.
-- [ ] Expose a typed `watchInfo` snapshot in `index.js` and publish one `domstack-watch` record per session from `lib/watch/index.js`, with absolute source/destination paths, lifecycle state, and nullable bound URLs and ports.
-- [ ] Update records on lifecycle transitions and dispose them on normal stop, cancellation, and startup failure; registry write failures warn without stopping a build or hiding in-process `watchInfo`.
-- [ ] Add `domstack sessions [id] [--json]` before builder construction and source/destination validation; filter to DOMStack watch records and allow the optional positional ID only for `sessions`.
-- [ ] Print actual bound URLs and a session ID at startup; make an empty list successful, missing IDs nonzero, and JSON output free of logs or decoration.
+- [x] Develop and validate with the linked `@domstack/sync` build.
+- [ ] Adopt the released `@domstack/sync` version in `package.json` during the release phase.
+- [x] Add `watch({ port })` and `domstack watch --port` through `lib/cli/options.js`, `lib/cli/args.js`, help, and `bin.js`; pass the preference to Sync only when serving.
+- [x] Expose a typed `watchInfo` snapshot in `index.js` and publish one `domstack-watch` record per session from `lib/watch/index.js`, with absolute source/destination paths, lifecycle state, and nullable bound URLs and ports.
+- [x] Update records on lifecycle transitions and dispose them on normal stop, cancellation, and startup failure; registry write failures warn without stopping a build or hiding in-process `watchInfo`.
+- [x] Add `domstack sessions [id] [--json]` before builder construction and source/destination validation; filter to DOMStack watch records and allow the optional positional ID only for `sessions`.
+- [x] Print actual bound URLs and a session ID at startup; make an empty list successful, missing IDs nonzero, and JSON output free of logs or decoration.
 
 **Exit criteria**
 
-- [ ] Extend `lib/watch/lifecycle-tests/` and `lib/cli/tests/commands.test.js`: run two temporary sites with separate destinations on the same preferred port, discover them from another directory, edit each, and stop one without affecting the other.
-- [ ] Cover `--no-serve`, signal cleanup, startup cancellation or failure, registry failure, unchanged `watch()` returns and callback, stable JSON, and strict positional parsing for other commands.
-- [ ] Document port fallback, `watchInfo`, and discovery in `docs/cli/README.md` and `docs/api/README.md`.
+- [x] Extend `lib/watch/lifecycle-tests/` and `lib/cli/tests/commands.test.js`: run two temporary sites with separate destinations on the same preferred port, discover them from another directory, edit each, and stop one without affecting the other.
+- [x] Cover `--no-serve`, signal cleanup, startup cancellation or failure, registry failure, unchanged `watch()` returns and callback, stable JSON, and strict positional parsing for other commands.
+- [x] Document port fallback, `watchInfo`, and discovery in `docs/cli/README.md` and `docs/api/README.md`.
+
+Validation: The full Node suite, TypeScript, and targeted lint passed with both upstream links active.
+Focused subprocess and lifecycle tests covered requested-port fallback, cross-project discovery and ID lookup, `--no-serve`, signal cleanup, startup cancellation and failure, and a failed registry write.
 
 ## PR 5 — DOMStack: Delegated rebuilds
 

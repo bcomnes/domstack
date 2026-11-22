@@ -24,6 +24,7 @@ It can be used outside of this context, but it works best within it.
 | `domstack` or `domstack build` | Build once and exit. |
 | `domstack watch` | Build, watch for changes, and serve with live reload. |
 | `domstack serve` | Build once, then serve production output without watching or live reload. |
+| `domstack sessions [id]` | List active local watch sessions or inspect one by ID. |
 | `domstack eject` | Extract the default layout, global styles, and client files into the source directory and update dependencies in `package.json`. |
 | `domstack help [command]` | Show root or command-specific help. |
 
@@ -67,7 +68,7 @@ Watch mode uses stable bundle filenames rather than production hashes.
 
 ```sh
 domstack watch
-domstack watch --src site --dest public
+domstack watch --src site --dest public --port 8080
 domstack watch --no-serve
 ```
 
@@ -82,12 +83,29 @@ domstack watch --no-serve
 | `--copy <path>` | Copy and watch an additional directory in the destination; repeat for multiple directories. |
 | `--verbose` | Show debug logs, including individual copy operations. |
 | `--no-serve` | Watch and rebuild without starting a server. |
+| `--port <port>` | Prefer this site port when serving (default: `3000`). |
 | `--help`, `-h` | Show watch help. |
 | `--version`, `-v` | Show the installed version. |
 
-Normal output includes the initial build tree, rebuild summaries, static asset startup, and server URLs.
+Normal output includes the initial build tree, rebuild summaries, static asset startup, the session ID, and actual server URLs.
+If the preferred port is already in use, watch uses an available port assigned by the OS.
+With `--no-serve`, the port preference has no effect.
 Build failures retain their full diagnostics at either verbosity level.
-`--port` is not available on this command.
+
+## `domstack sessions [id]`
+
+List DOMStack watch sessions for the current user on this machine, including sessions started with `--no-serve`.
+Run this from any directory; it does not need a project in the current working directory.
+
+```sh
+domstack sessions
+domstack sessions --json
+domstack sessions <id> --json
+```
+
+JSON output is an array for a list and an object for a lookup, with an ID, process and lifecycle information, project and build paths, and actual site and UI ports and URLs when serving.
+An empty list is successful; an unknown or inactive ID exits nonzero.
+A non-default discovery directory set through `DOMSTACK_SESSION_DIR` must be shared by the watchers and commands that list them.
 
 ## `domstack serve`
 
