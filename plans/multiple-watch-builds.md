@@ -127,7 +127,8 @@ After adding the startup-cleanup regression, all 16 focused tests, lint, and Typ
 Against a temporary local build, 27 DOMStack facade, lifecycle, and drain tests plus TypeScript passed; the original dependency installation was restored afterward.
 The first GitHub matrix run exposed test-fixture races on Linux and invalid synthetic queue paths on Windows; `9c238af` seeds files before watcher startup and uses normalized queue keys.
 The 16 focused tests, lint, and TypeScript passed locally after that correction, and GitHub reported 24 passing checks with two skips and no failures.
-After replacing the separate drain method with `close({ drain: true })` in `bf1fa60`, `npm test` passed all 115 `cpx2` tests and the DOMStack integration rerun passed all 79 targeted tests, TypeScript, and targeted lint.
+After replacing the separate drain method with `close({ drain: true })` in `bf1fa60`, `npm test` passed all 115 `cpx2` tests and GitHub reported 24 passing checks with two skips and no failures.
+DOMStack passed its full Node test suite and TypeScript against a temporary build of the updated `cpx2`; the dependency installation was restored afterward.
 
 ## PR 3 — DOMStack: Destination ownership
 
@@ -161,7 +162,8 @@ At the end of this PR, a conflict fails clearly; it does not delegate, stop a wa
 - [x] Use `cpx2`'s `close({ drain: true })` in `lib/watch/index.js`, and await it before releasing claims on failure, startup cancellation, or normal shutdown.
 - [x] Fail closed if an older `cpx2` silently ignores the drain option and does not return a promise.
 - [x] Update DOMStack-owned write fan-outs to wait for sibling writes on failure.
-- [ ] Pin the released `cpx2` version and revalidate static and extra-copy paths against it; DOMStack ignores `package-lock.json`, so do not commit a generated lockfile.
+- [x] Verify that failed one-shot static and extra-copy batches both retain the destination claim while a sibling write is active.
+- [ ] Pin the released `cpx2` version and rerun validation against it; DOMStack ignores `package-lock.json`, so do not commit a generated lockfile.
 
 **Exit criteria**
 
