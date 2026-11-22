@@ -15,10 +15,10 @@ The release sequence is at the [bottom of this plan](#phase-2--open-merge-and-pu
 | [1. Race-free port fallback](#pr-1--sync-race-free-port-fallback) | `domstack-sync` | [#42](https://github.com/bcomnes/domstack-sync/pull/42) | Merged and released in `0.1.0` |
 | [2. Local session discovery](#pr-2--sync-local-session-discovery) | `domstack-sync` | [#43](https://github.com/bcomnes/domstack-sync/pull/43) | Merged and released in `0.1.0` |
 | [3a. Copy lifecycle prerequisite](#pr-3a--cpx2-drain-copy-writes) | `cpx2` | [#199](https://github.com/bcomnes/cpx2/pull/199) | Merged and released as `9.1.0` |
-| [3. Destination ownership](#pr-3--domstack-destination-ownership) | `domstack` | — | Validated with local links; Linux CI pending |
-| [4. Watch introspection](#pr-4--domstack-watch-introspection) | `domstack` | — | Validated locally on `feat/watch-introspection` |
-| [5. Delegated rebuilds](#pr-5--domstack-delegated-rebuilds) | `domstack` | — | Validated locally on `feat/delegated-rebuilds` |
-| [6. Explicit watcher replacement](#pr-6--domstack-explicit-watcher-replacement) | `domstack` | — | Validated locally on `feat/replace-watch` |
+| [3. Destination ownership](#pr-3--domstack-destination-ownership) | `domstack` | [#353](https://github.com/bcomnes/domstack/pull/353) | Open for review |
+| [4. Watch introspection](#pr-4--domstack-watch-introspection) | `domstack` | [#354](https://github.com/bcomnes/domstack/pull/354) | Open for review; stacked on #353 |
+| [5. Delegated rebuilds](#pr-5--domstack-delegated-rebuilds) | `domstack` | [#355](https://github.com/bcomnes/domstack/pull/355) | Open for review; stacked on #354 |
+| [6. Explicit watcher replacement](#pr-6--domstack-explicit-watcher-replacement) | `domstack` | [#356](https://github.com/bcomnes/domstack/pull/356) | Open for review; stacked on #355 |
 
 Update this table when work starts, a local branch is validated, or its review status changes.
 Check off refactoring, implementation, and verification separately; record the test command or CI run and any unresolved gate in the relevant PR section.
@@ -47,7 +47,7 @@ Use `gh stack init` and `gh stack add` to track the stack locally, one branch pe
 - [x] Run the relevant upstream tests and DOMStack's full Node suite and type checks against the final linked stack.
 - Final local validation on macOS: DOMStack full Node suite, TypeScript, and targeted lint passed; Sync full Node suite, TypeScript, lint, and 31 Chromium tests passed on a separate run.
 - `cpx2` passed 17 focused copy, watch lifecycle, and declaration tests plus TypeScript and lint; the final parallel full-suite rerun hit its command time limit, while the previous full suite passed 115 tests before the TODO-only commit.
-- [ ] Review the local end-to-end result and the ownership, crash-recovery, and write-draining evidence before starting Phase 2.
+- [x] The human maintainer approved opening the DOMStack stack after reviewing the local validation summary; Linux and macOS PR checks remain a separate gate.
 
 ## Agreed behavior and boundaries
 
@@ -330,6 +330,6 @@ When opening the DOMStack stack, add a **PR and release dependencies** section t
    - [x] Require `@domstack/sync` `^0.1.0` on PR 4 (introspection).
 5. [x] **DOMStack:** Replace both `npm link` overrides with published packages and verify the stack locally; no generated lockfile or link reference was committed.
    - On macOS, all 1,002 Node tests, all 16 Chromium tests, TypeScript, and lint passed with `cpx2@9.1.0` and `@domstack/sync@0.1.0` installed from npm.
-6. [ ] **DOMStack:** Use `gh stack submit` to open the native stack in order: PR 3 (ownership) → PR 4 (introspection) → PR 5 (delegation) → PR 6 (replacement), and add linked dependencies to each PR description.
+6. [x] **DOMStack:** Opened native GitHub stack `#357` with [#353](https://github.com/bcomnes/domstack/pull/353) → [#354](https://github.com/bcomnes/domstack/pull/354) → [#355](https://github.com/bcomnes/domstack/pull/355) → [#356](https://github.com/bcomnes/domstack/pull/356) and documented the upstream and stack dependencies in each PR description.
 7. [ ] **DOMStack:** Verify Linux and macOS CI and review each layer; the human maintainer merges bottom-up in the same order, keeping the remaining PRs based on the correct branches as each lands.
 8. [ ] **DOMStack:** The human maintainer publishes only after the entire stack lands and the release is approved.
