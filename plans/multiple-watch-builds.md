@@ -8,8 +8,8 @@ Issue: [bcomnes/domstack#352](https://github.com/bcomnes/domstack/issues/352)
 | --- | --- | --- | --- |
 | [1. Race-free port fallback](#pr-1--sync-race-free-port-fallback) | `domstack-sync` | [#42](https://github.com/bcomnes/domstack-sync/pull/42) | Open for review |
 | [2. Local session discovery](#pr-2--sync-local-session-discovery) | `domstack-sync` | [#43](https://github.com/bcomnes/domstack-sync/pull/43) | Open for review; stacked on #42 |
-| [3a. Copy lifecycle prerequisite](#pr-3a--cpx2-drain-copy-writes) | `cpx2` | [#199](https://github.com/bcomnes/cpx2/pull/199) | Open for review; release pending |
-| [3. Destination ownership](#pr-3--domstack-destination-ownership) | `domstack` | — | Validated locally; awaiting `cpx2` release and Linux CI |
+| [3a. Copy lifecycle prerequisite](#pr-3a--cpx2-drain-copy-writes) | `cpx2` | [#199](https://github.com/bcomnes/cpx2/pull/199) | Open for review; linked locally |
+| [3. Destination ownership](#pr-3--domstack-destination-ownership) | `domstack` | — | Validated with local links; Linux CI pending |
 | [4. Watch introspection](#pr-4--domstack-watch-introspection) | `domstack` | — | Not started |
 | [5. Delegated rebuilds](#pr-5--domstack-delegated-rebuilds) | `domstack` | — | Not started |
 | [6. Explicit watcher replacement](#pr-6--domstack-explicit-watcher-replacement) | `domstack` | — | Not started |
@@ -23,7 +23,17 @@ Leave the index and working tree clean at checkpoints, without staging unrelated
 Use GitHub's `gh stack` extension to create and manage a native stack in each repository, not just a chain of PR base branches.
 Use `gh stack init` or `gh stack add` locally and `gh stack submit` to publish; land the PRs bottom-up.
 The Sync PRs are linked in native GitHub stack `#44`.
-The released Sync version links the two stacks; a locally packed Sync build is fine for testing, but do not merge a temporary dependency reference.
+Do not merge or release upstream packages during local end-to-end development.
+Use `npm link` with local builds of `cpx2` and `@domstack/sync` to work through the DOMStack stack, and leave published dependency ranges unchanged until the release phase.
+
+### Local linked setup
+
+- DOMStack currently resolves both dependencies to builds under `node_modules/.domstack-link-stage` in the respective upstream checkouts, using a workspace-local npm link prefix so the existing global links are untouched.
+- The linked builds are snapshots of `cpx2` `86cb245` and Sync `4382899`; rebuild the corresponding stage after changing either upstream checkout.
+- Verify module resolution before integration tests, especially after an install, because `npm install` can replace the links.
+- The full DOMStack Node suite and TypeScript passed with both links in place.
+- A subprocess smoke test verified two DOMStack watchers serve different ports, standalone Sync is discoverable through the linked registry, a build conflicts while its watcher owns the destination, and it succeeds after that watcher stops without affecting the other site.
+- DOMStack watch discovery, delegation, and replacement are still separate implementation steps; add those to the local smoke test as PRs 4–6 land.
 
 ### Review checkpoints
 
@@ -98,7 +108,7 @@ The subprocess discovery and signal tests ran on macOS; Windows access controls 
 
 ## PR 3a — cpx2: Drain copy writes
 
-Land and release this upstream prerequisite before merging DOMStack PR 3.
+Use the linked upstream prerequisite for local validation; release and adopt it only when ready to merge the DOMStack stack.
 DOMStack can prototype locking in parallel, but it must not rely on claim release until the copy drain guarantees are verified.
 
 **Refactor first**
@@ -141,7 +151,7 @@ At the end of this PR, a conflict fails clearly; it does not delegate, stop a wa
 - Destination claims use shared ancestor locks and an exclusive destination lock via `fs-native-extensions`, without a coordinator file.
 - One-shot builds, the build phase of `serve`, and watch sessions now acquire claims before writing; watcher copy work drains through the upstream `close({ drain: true })` API before release.
 - Verified 79 targeted Node tests, TypeScript, and targeted lint on macOS with a temporary build of `cpx2` PR #199; the installed dependency was restored afterward and watch shutdown on this checkpoint requires the new API.
-- This checkpoint stays local until a released `cpx2` dependency is available; then run Linux CI and the added macOS CI job before the ownership review.
+- This checkpoint stays local while the package releases are deferred; review the local macOS evidence now and run Linux and macOS CI once the published dependencies are available.
 - Targeted macOS tests cover aliases, nested conflicts in both directions, siblings, a paused claimant, and release after a crash; Linux validation is still pending.
 - DOMStack-owned build fan-outs now wait for settled writes before surfacing errors; focused tests, TypeScript, and targeted lint passed.
 - The installed `cpx2` release still lacks the drain guarantees; DOMStack's dependency must be bumped to the release containing PR 3a before publishing the ownership PR.
@@ -185,7 +195,7 @@ Add a separate snapshot without changing that return value or the initial build 
 
 **Implementation**
 
-- [ ] Adopt the released `@domstack/sync` version in DOMStack's `package.json`.
+- [ ] Develop and validate with the linked `@domstack/sync` build; adopt the released version in `package.json` during the release phase.
 - [ ] Add `watch({ port })` and `domstack watch --port` through `lib/cli/options.js`, `lib/cli/args.js`, help, and `bin.js`; pass the preference to Sync only when serving.
 - [ ] Expose a typed `watchInfo` snapshot in `index.js` and publish one `domstack-watch` record per session from `lib/watch/index.js`, with absolute source/destination paths, lifecycle state, and nullable bound URLs and ports.
 - [ ] Update records on lifecycle transitions and dispose them on normal stop, cancellation, and startup failure; registry write failures warn without stopping a build or hiding in-process `watchInfo`.
