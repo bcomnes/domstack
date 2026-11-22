@@ -45,7 +45,8 @@ try {
 `new DomStack(src, dest, opts)` accepts filesystem path strings, with relative paths resolved from the current working directory, including `opts.copy` paths.
 `build()` creates the destination as needed, writes the site output, and resolves with a `Results` object containing discovery data, build-step results, and warnings.
 Build failures reject the promise, so the example reports the error and sets a nonzero exit code.
-On the same machine and under the same user, cooperating DOMStack processes that share a temporary directory reject writes to identical or nested destinations, including aliases resolved through symlinks.
+On the same machine and under the same user, cooperating DOMStack processes that share the lock directory reject writes to identical or nested destinations, including aliases resolved through symlinks.
+On macOS and Linux, the lock directory is shared across shells regardless of `TMPDIR`.
 An ownership conflict rejects with `code: 'DOMSTACK_DESTINATION_IN_USE'`.
 Watch sessions retain their claim until their writes drain on shutdown; use separate output directories for concurrent writers.
 This does not guard writes outside the configured destination or writes from tools that do not take DOMStack claims.
