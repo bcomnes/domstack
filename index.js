@@ -3,6 +3,7 @@
 /**
  * @import { DomStackOpts, Results } from './lib/builder.js'
  * @import { TestBuildResult } from './types.js'
+ * @import { WatchOptions } from './lib/watch/index.js'
 
  */
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
@@ -83,6 +84,11 @@ export class DomStack {
     return this.#watcher.watching
   }
 
+  /** Metadata for the current session, or null when idle. */
+  get watchInfo () {
+    return this.#watcher.watchInfo
+  }
+
   build () {
     return builder(this.#src, this.#dest, { static: true, ...this.opts })
   }
@@ -93,12 +99,10 @@ export class DomStack {
    * Stopping during startup still returns the initial build report, but does not
    * activate watch events. Await stopWatching() for completed resource cleanup.
    *
-   * @param  {object} [params]
-   * @param  {boolean} params.serve
-   * @param  {(results: Results) => void | Promise<void>} [params.onInitialBuild]
+   * @param {WatchOptions} [params]
    * @return {Promise<Results>}
    */
-  async watch (params = { serve: true }) {
+  async watch (params) {
     return this.#watcher.watch(params)
   }
 

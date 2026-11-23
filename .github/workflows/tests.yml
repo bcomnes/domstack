@@ -37,6 +37,16 @@ jobs:
           parallel: true
           fail-on-error: false
 
+  destination-claims-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+      - run: npm i
+      - run: node --test --test-timeout=30000 lib/destination-claim.test.js lib/watch/control.test.js lib/watch/lifecycle-tests/index.test.js lib/cli/tests/commands.test.js
+
   coverage:
     needs: test
     runs-on: ubuntu-latest

@@ -1,21 +1,22 @@
 #!/usr/bin/env node
 
 /**
- * @import { BuildStepWarnings, DomStackOpts as DomStackOpts } from './lib/builder.js'
+ * @import { BuildStepWarnings, DomStackOpts as DomStackOpts, Results } from './lib/builder.js'
 
  * @import { Logger as PinoLogger } from 'pino'
  * @import { BsInstance } from '@domstack/sync'
  */
 
 import { readFile } from 'node:fs/promises'
-import { basename, resolve, join, relative } from 'node:path'
+import { basename, resolve, relative } from 'node:path'
 
 import process from 'process'
 import tree from 'pretty-tree'
 import { inspect } from 'util'
-import { createServer } from '@domstack/sync'
+import { createServer, parseOptions as parseSyncOptions } from '@domstack/sync'
 
 import { DomStack } from './index.js'
+import { DestinationConflictError } from './lib/destination-claim.js'
 import { DomStackAggregateError } from './lib/helpers/domstack-aggregate-error.js'
 import { generateTreeData } from './lib/helpers/generate-tree-data.js'
 
@@ -23,6 +24,9 @@ import { createDomStackLogger } from './lib/logger.js'
 import { CliUsageError, parseCliArgs } from './lib/cli/args.js'
 import { formatCliHelp } from './lib/cli/help.js'
 import { eject } from './lib/cli/eject.js'
+import { showWatchSessions } from './lib/cli/sessions.js'
+import { delegateWatchBuild, replaceWatchBuild } from './lib/cli/watch-build.js'
+import { WatchControlError } from './lib/watch/control.js'
 
 const __dirname = import.meta.dirname
 
@@ -34,7 +38,7 @@ async function getPkg (pkgPath = resolve(__dirname, './package.json')) {
 }
 
 async function run () {
-  const { command, values: argv, helpCommand } = parseCliArgs(process.argv.slice(2))
+  const { command, values: argv, helpCommand, sessionId } = parseCliArgs(process.argv.slice(2))
   if (argv['version']) {
     const pkg = await getPkg()
     console.log(pkg.version)
@@ -47,8 +51,10 @@ async function run () {
 
     process.exit(0)
   }
+  if (command === 'sessions') return showWatchSessions(sessionId, Boolean(argv['json']))
+
   const cwd = process.cwd()
-  const src = resolve(join(cwd, String(argv['src'])))
+  const src = resolve(cwd, String(argv['src']))
 
   if (command === 'eject') {
     await eject({
@@ -61,7 +67,7 @@ async function run () {
     process.exit(0)
   }
 
-  const dest = resolve(join(cwd, String(argv['dest'])))
+  const dest = resolve(cwd, String(argv['dest']))
   /** @type {DomStackOpts} */
   const opts = {}
 
@@ -80,13 +86,19 @@ async function run () {
   const domStack = new DomStack(src, dest, opts)
   /** @type {BsInstance | null} */
   let buildServer = null
+  /** @type {Promise<Results | undefined> | undefined} */
+  let buildWork
+  let quitting = false
 
-  const servePort = argv['port'] ? Number(argv['port']) : undefined
+  const preferredPort = argv['port'] ? Number(argv['port']) : undefined
 
   process.once('SIGINT', quit)
   process.once('SIGTERM', quit)
 
   async function quit () {
+    if (quitting) return
+    quitting = true
+    await buildWork?.catch(() => {})
     if (domStack.watching) {
       await domStack.stopWatching()
       logger.info('Watching stopped')
@@ -100,9 +112,24 @@ async function run () {
     process.exit(0)
   }
 
+  async function buildSite () {
+    try {
+      return await domStack.build()
+    } catch (error) {
+      if (!(error instanceof DestinationConflictError) || command !== 'build' || quitting) throw error
+      if (argv['replace-watch']) {
+        const results = await replaceWatchBuild(src, dest, error.destination, domStack.opts)
+        if (results) return results
+      } else if (await delegateWatchBuild(src, error.destination, argv)) return
+      throw error
+    }
+  }
+
   if (command !== 'watch') {
     try {
-      const results = await domStack.build()
+      buildWork = buildSite()
+      const results = await buildWork
+      if (!results || quitting) return
       logger.info(tree(generateTreeData(cwd, src, dest, results)))
       logWarnings(logger, results?.warnings)
       logger.info(`Built ${relative(cwd, src) || '.'} → ${relative(cwd, dest) || '.'}`)
@@ -112,12 +139,13 @@ async function run () {
           server: dest,
           files: basename(dest),
           logger: logger.child({ component: 'sync', logPrefix: '[domstack-sync]' }),
-          ...(servePort ? { port: servePort } : {}),
+          port: preferredPort ?? parseSyncOptions().port,
           snippet: false,
         })
         logger.info(`Serving ${relative(cwd, dest)} without watching. Press Ctrl-C to stop.`)
       }
     } catch (err) {
+      if (err instanceof DestinationConflictError || err instanceof WatchControlError) throw err
       if (!(err instanceof Error || err instanceof AggregateError)) throw new Error('Non-error thrown', { cause: err })
       if (err instanceof DomStackAggregateError) {
         if (err?.results?.siteData?.pages) {
@@ -132,6 +160,7 @@ async function run () {
   } else {
     await domStack.watch({
       serve: !argv['no-serve'],
+      port: preferredPort,
       onInitialBuild: (initialResults) => {
         logger.info(tree(generateTreeData(cwd, src, dest, initialResults)))
         logWarnings(logger, initialResults?.warnings)
@@ -172,6 +201,11 @@ function formatDiagnostic (value, colors) {
 }
 
 run().catch(err => {
+  if (err instanceof DestinationConflictError || err instanceof WatchControlError) {
+    console.error(`domstack: ${err.message}`)
+    process.exitCode = 1
+    return
+  }
   if (err instanceof CliUsageError) {
     console.error(`domstack: ${err.message}`)
     console.error(`Run "domstack${err.command ? ` ${err.command}` : ''} --help" for usage.`)
