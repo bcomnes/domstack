@@ -61,7 +61,7 @@ Build failures retain their full diagnostics at either verbosity level.
 
 ### Build while watch is running
 
-On macOS and Linux, you can ask a running watcher to rebuild by using the same source and output folders:
+On macOS and Linux, if a watcher is already using the same source and output folders, `domstack build` lets that watcher handle the build:
 
 ```sh
 # In the first terminal:
@@ -71,10 +71,9 @@ domstack watch --src website --dest public
 domstack build --src website --dest public
 ```
 
-The build waits for the result, then exits without stopping the watcher.
-It uses the watcher's settings, and detailed logs stay in the first terminal.
-This also works with `watch --no-serve`.
-If you only changed an image or another copied file, it may still be copying when the build command returns.
+The command waits for the active build and any changes already queued by the watcher. If there's no pending work, it exits without rebuilding. An unresolved watch build failure is reported as an error.
+The watcher keeps running with its own settings, and detailed logs stay in the first terminal. This also works with `watch --no-serve`.
+Static file copies run separately, and changes the watcher hasn't seen yet aren't part of the request. For a fresh build, use [`--replace-watch`](#stop-watching-and-build-once).
 
 If a different site is already writing to that output folder, choose another folder or stop the other watch session first.
 Output folders must not be inside one another when builds are running at the same time.
