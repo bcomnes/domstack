@@ -25,7 +25,7 @@ import { CliUsageError, parseCliArgs } from './lib/cli/args.js'
 import { formatCliHelp } from './lib/cli/help.js'
 import { eject } from './lib/cli/eject.js'
 import { showWatchSessions } from './lib/cli/sessions.js'
-import { handleWatchBuild, replaceWatchBuild } from './lib/cli/watch-build.js'
+import { delegateWatchBuild, replaceWatchBuild } from './lib/cli/watch-build.js'
 import { WatchControlError } from './lib/watch/control.js'
 
 const __dirname = import.meta.dirname
@@ -120,7 +120,7 @@ async function run () {
       if (argv['replace-watch']) {
         const results = await replaceWatchBuild(src, dest, error.destination, domStack.opts)
         if (results) return results
-      } else if (await handleWatchBuild(src, error.destination, argv)) return
+      } else if (await delegateWatchBuild(src, error.destination, argv)) return
       throw error
     }
   }

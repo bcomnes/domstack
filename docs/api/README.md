@@ -46,7 +46,7 @@ try {
 `build()` creates the destination as needed, writes the site output, and resolves with a `Results` object containing discovery data, build-step results, and warnings.
 Build failures reject the promise, so the example reports the error and sets a nonzero exit code.
 If you're running more than one DOMStack build or watcher at a time, use separate output folders that aren't inside one another.
-If another DOMStack build or watcher is already using an overlapping folder, `build()` rejects with the error code `DOMSTACK_DESTINATION_IN_USE`. Unlike the CLI, it doesn't handle that conflict for you.
+If another DOMStack build or watcher is already using an overlapping folder, `build()` rejects with the error code `DOMSTACK_DESTINATION_IN_USE` rather than asking the watcher to rebuild.
 This check only coordinates DOMStack processes run by the same user on the same machine.
 The `DomStackOpts` and `Results` types are available from the type-only `@domstack/static/types.js` entry.
 

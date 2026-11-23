@@ -51,7 +51,6 @@ domstack build --copy images --copy downloads
 | `--domstackManifest` | Write the DOMStack manifest to disk. |
 | `--copy <path>` | Copy an additional directory into the destination; repeat for multiple directories. |
 | `--verbose` | Show debug logs, including individual copy operations. |
-| `--rebuild-watch` | [Request a full rebuild from the running watcher](#build-while-watch-is-running) (macOS and Linux). |
 | `--replace-watch` | [Stop watching and build once](#stop-watching-and-build-once) (macOS and Linux). |
 | `--help`, `-h` | Show build help; on bare `domstack`, show the command list and default build options. |
 | `--version`, `-v` | Show the installed version. |
@@ -62,7 +61,7 @@ Build failures retain their full diagnostics at either verbosity level.
 
 ### Build while watch is running
 
-On macOS and Linux, if a watcher is already using the same source and output folders, `domstack build` reports the active watch session and exits. It doesn't start another build or wait for pending changes:
+On macOS and Linux, if a watcher is already using the same source and output folders, `domstack build` lets that watcher handle the build:
 
 ```sh
 # In the first terminal:
@@ -72,14 +71,9 @@ domstack watch --src website --dest public
 domstack build --src website --dest public
 ```
 
-To rebuild all pages and bundles without stopping the watcher, run:
-
-```sh
-domstack build --rebuild-watch --src website --dest public
-```
-
-The command uses the watcher's settings and waits for the rebuild result. Detailed logs stay in the watch terminal. Static file copies still run separately.
-This also works with `watch --no-serve`. If no watcher is running and the output folder is free, `--rebuild-watch` runs a normal one-shot build.
+The command waits for the active build and any changes already queued by the watcher. If there's no pending work, it exits without rebuilding. An unresolved watch build failure is reported as an error.
+The watcher keeps running with its own settings, and detailed logs stay in the first terminal. This also works with `watch --no-serve`.
+Static file copies run separately, and changes the watcher hasn't seen yet aren't part of the request. For a fresh build, use [`--replace-watch`](#stop-watching-and-build-once).
 
 If a different site is already writing to that output folder, choose another folder or stop the other watch session first.
 Output folders must not be inside one another when builds are running at the same time.
