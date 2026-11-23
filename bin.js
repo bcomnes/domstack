@@ -13,7 +13,7 @@ import { basename, resolve, relative } from 'node:path'
 import process from 'process'
 import tree from 'pretty-tree'
 import { inspect } from 'util'
-import { createServer } from '@domstack/sync'
+import { createServer, parseOptions as parseSyncOptions } from '@domstack/sync'
 
 import { DomStack } from './index.js'
 import { DestinationConflictError } from './lib/destination-claim.js'
@@ -124,7 +124,7 @@ async function run () {
           server: dest,
           files: basename(dest),
           logger: logger.child({ component: 'sync', logPrefix: '[domstack-sync]' }),
-          ...(preferredPort === undefined ? {} : { port: preferredPort }),
+          port: preferredPort ?? parseSyncOptions().port,
           snippet: false,
         })
         logger.info(`Serving ${relative(cwd, dest)} without watching. Press Ctrl-C to stop.`)
@@ -145,7 +145,7 @@ async function run () {
   } else {
     await domStack.watch({
       serve: !argv['no-serve'],
-      ...(preferredPort === undefined ? {} : { port: preferredPort }),
+      port: preferredPort,
       onInitialBuild: (initialResults) => {
         logger.info(tree(generateTreeData(cwd, src, dest, initialResults)))
         logWarnings(logger, initialResults?.warnings)
