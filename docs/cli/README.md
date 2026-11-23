@@ -51,6 +51,7 @@ domstack build --copy images --copy downloads
 | `--domstackManifest` | Write the DOMStack manifest to disk. |
 | `--copy <path>` | Copy an additional directory into the destination; repeat for multiple directories. |
 | `--verbose` | Show debug logs, including individual copy operations. |
+| `--rebuild-watch` | [Request a full rebuild from the running watcher](#build-while-watch-is-running) (macOS and Linux). |
 | `--replace-watch` | [Stop watching and build once](#stop-watching-and-build-once) (macOS and Linux). |
 | `--help`, `-h` | Show build help; on bare `domstack`, show the command list and default build options. |
 | `--version`, `-v` | Show the installed version. |
@@ -61,7 +62,7 @@ Build failures retain their full diagnostics at either verbosity level.
 
 ### Build while watch is running
 
-On macOS and Linux, you can ask a running watcher to rebuild by using the same source and output folders:
+On macOS and Linux, if a watcher is already using the same source and output folders, `domstack build` reports the active watch session and exits. It doesn't start another build or wait for pending changes:
 
 ```sh
 # In the first terminal:
@@ -71,10 +72,14 @@ domstack watch --src website --dest public
 domstack build --src website --dest public
 ```
 
-The build waits for the result, then exits without stopping the watcher.
-It uses the watcher's settings, and detailed logs stay in the first terminal.
-This also works with `watch --no-serve`.
-If you only changed an image or another copied file, it may still be copying when the build command returns.
+To rebuild all pages and bundles without stopping the watcher, run:
+
+```sh
+domstack build --rebuild-watch --src website --dest public
+```
+
+The command uses the watcher's settings and waits for the rebuild result. Detailed logs stay in the watch terminal. Static file copies still run separately.
+This also works with `watch --no-serve`. If no watcher is running and the output folder is free, `--rebuild-watch` runs a normal one-shot build.
 
 If a different site is already writing to that output folder, choose another folder or stop the other watch session first.
 Output folders must not be inside one another when builds are running at the same time.
