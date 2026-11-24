@@ -73,6 +73,7 @@ async function run () {
 
   if (argv['ignore']) opts.ignore = String(argv['ignore']).split(',')
   if (argv['noEsbuildMeta']) opts.metafile = false
+  if (argv['no-clean']) opts.clean = false
   if (argv['domstackManifest']) opts.domstackManifest = true
   if (argv['drafts']) opts.buildDrafts = true
   if (argv['copy']) {
