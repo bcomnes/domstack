@@ -44,11 +44,15 @@ try {
 
 `new DomStack(src, dest, opts)` accepts filesystem path strings, with relative paths resolved from the current working directory, including `opts.copy` paths.
 `build()` creates the destination as needed, writes the site output, and resolves with a `Results` object containing discovery data, build-step results, and warnings.
-Before writing output, each full build empties the destination, including hidden files and stale outputs, while preserving the directory itself and its permissions.
-Pass `{ clean: false }` to `new DomStack(src, dest, opts)` to skip destination cleanup.
-The destination is owned by the build; keep persistent inputs in `src` or configured copy paths.
-Cleanup rejects destinations containing the source, working directory, or copy inputs, resolving symlinks before checking.
-If a build fails after cleanup, previous output is not restored and the destination may contain partial output.
+
+Use a dedicated output folder for `dest`.
+`build()` removes its existing contents, including hidden files, before writing new output so that deleted pages and assets stay out of your deployment.
+Store files the build should publish in `src` or add their directories to `opts.copy`.
+If you manage files separately in the destination, pass `{ clean: false }` to keep them between builds.
+Cleanup preserves the destination directory and its permissions.
+It refuses common system directories, your home directory, the shared temp directory, and destinations that contain the working directory or build inputs.
+A failed build can leave partial output after cleanup.
+
 Build failures reject the promise, so the example reports the error and sets a nonzero exit code.
 If you're running more than one DOMStack build or watcher at a time, use separate output folders that aren't inside one another.
 If another DOMStack build or watcher is already using an overlapping folder, `build()` rejects with the error code `DOMSTACK_DESTINATION_IN_USE` rather than asking the watcher to rebuild.

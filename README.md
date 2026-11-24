@@ -42,11 +42,6 @@ It's built around [Node.js](https://nodejs.org/) and [esbuild](https://esbuild.g
 ## Core concepts
 
 `domstack` builds pages from a `src` directory into a destination directory (usually `public`).
-Each full build removes all existing contents of the destination, including hidden files, while preserving the destination directory itself and its permissions.
-Use `--no-clean` on the CLI or `{ clean: false }` in the API to preserve existing contents instead.
-Keep files you need to preserve in `src` or configured copy paths so the build can recreate them.
-Destinations containing the source, working directory, or copy inputs are rejected before cleanup, including paths that resolve there through symlinks.
-Watch mode uses targeted output cleanup instead of emptying the destination on each rebuild.
 Page URLs follow the source directory structure, creating a filesystem router without separate routing configuration.
 
 Given this source:
