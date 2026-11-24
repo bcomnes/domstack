@@ -29,6 +29,7 @@ const blogLayout: AsyncLayoutFunction<BlogPostVars, string, string> = async ({ v
                 `)}
               </span>
               <time datetime="${post.publishDate}">${formatBlogDate(post.publishDate)}</time>
+              ${page.draft ? html`<span class="blog-draft-badge">Draft</span>` : null}
             </p>
             ${post.updatedDate
               ? html`<p class="blog-updated">Updated <time datetime="${post.updatedDate}">${formatBlogDate(post.updatedDate)}</time></p>`
