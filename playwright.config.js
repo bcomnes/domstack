@@ -1,7 +1,8 @@
 import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
-  testDir: './browser-tests',
+  testDir: './playwright',
+  forbidOnly: Boolean(process.env['CI']),
   timeout: 10_000,
   globalTimeout: 120_000,
   expect: {
@@ -12,7 +13,7 @@ export default defineConfig({
   reporter: 'list',
   outputDir: 'test-results/playwright',
   use: {
-    trace: 'on-first-retry',
+    trace: 'retain-on-failure',
     screenshot: 'only-on-failure'
   },
   projects: [

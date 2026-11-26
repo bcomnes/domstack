@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "npm run watch",
-    "build": "npm run clean && domstack",
+    "build": "domstack",
     "clean": "rm -rf public && mkdir -p public",
     "watch": "npm run clean && dom --watch",
     "test": "tsc"

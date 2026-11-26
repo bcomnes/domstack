@@ -26,9 +26,17 @@ jobs:
           node-version: ${{ matrix.node-version }}
           check-latest: true
       - run: npm i
-      - run: npx playwright install --with-deps chromium
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps --only-shell chromium
       - name: Run tests
         run: npm test
+      - name: Upload Playwright failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-${{ strategy.job-index }}
+          path: test-results/playwright/
+          if-no-files-found: ignore
       - name: Coveralls
         uses: coverallsapp/github-action@v2
         with:
