@@ -31,6 +31,7 @@ const rootLayout: LayoutFunction<RootVars, string | HtmlResult, string> = ({ chi
   const examples = navigationHref(page.url, '/docs/example-projects/')
   const blog = navigationHref(page.url, '/blog/')
   const assetUrl = (path: string): string => path.startsWith('/') ? `${vars.basePath ?? ''}${path}` : path
+  const pageUrl = vars.siteUrl ? new URL(assetUrl(page.url), vars.siteUrl).href : undefined
   const title = vars.title ? `${vars.title} | domstack` : 'domstack'
   const description = vars.description || 'DOMStack builds static websites and multi-page apps from HTML, Markdown, CSS, and JavaScript.'
   const editSource = page.generated?.pagesFile.pagesFile.relname ?? page.pageFile?.relname ?? 'README.md'
@@ -61,7 +62,8 @@ const rootLayout: LayoutFunction<RootVars, string | HtmlResult, string> = ({ chi
         <meta property="og:description" content="${description}" />
         ${vars.siteUrl
 ? html`
-          <meta property="og:url" content="${new URL(assetUrl(page.url), vars.siteUrl).href}" />
+          <link rel="canonical" href="${pageUrl}" />
+          <meta property="og:url" content="${pageUrl}" />
           <meta property="og:image" content="${new URL(assetUrl('/site/logos/domstack-bosch-penwork-og.jpg'), vars.siteUrl).href}" />
           <meta property="og:image:type" content="image/jpeg" />
           <meta property="og:image:width" content="1200" />

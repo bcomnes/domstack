@@ -24,10 +24,32 @@ test('site shell preserves children, escapes metadata, and creates exactly one m
     })
     const $ = load(output)
     assert.equal($('title').text(), '<Title> | domstack')
+    assert.equal($('link[rel="canonical"]').length, 0)
     assert.equal($('main').length, 1)
     assert.equal($('main pre code').text(), code)
     assert.equal($('main header, main footer').length, 0)
     assert.equal($('script').attr('src'), '/project/site/client.js')
     assert.equal($('link[rel="stylesheet"]').attr('href'), '/project/site/styles.css')
+  }
+})
+
+test('site shell declares one absolute canonical URL matching og:url', async () => {
+  const siteUrl = 'https://domstack.net'
+  const pages = /** @type {const} */ ([
+    ['/', '', '/'],
+    ['/docs/layouts/', '', '/docs/layouts/'],
+    ['/docs/layouts/', '/project', '/project/docs/layouts/'],
+  ])
+  for (const [url, basePath, path] of pages) {
+    const output = await rootLayout({
+      children: '',
+      vars: { siteUrl, basePath },
+      page: /** @type {Parameters<typeof rootLayout>[0]['page']} */ ({ url }),
+      data: {},
+    })
+    const $ = load(output)
+    assert.deepEqual($('link[rel="canonical"]').map((_, link) => $(link).attr('href')).get(), [`${siteUrl}${path}`])
+    assert.equal($('head link[rel="canonical"]').length, 1)
+    assert.equal($('head meta[property="og:url"]').attr('content'), `${siteUrl}${path}`)
   }
 })
