@@ -27,6 +27,9 @@ test('the breadcrumb spans only the docs column and keeps its text aligned while
   await page.goto(`${siteURL}/docs/pages/`)
   for (const width of [390, 1100, 1500, 2000]) {
     await page.setViewportSize({ width, height: 900 })
+    // The responsive menu moves the navigation tree after crossing the breakpoint.
+    const navigation = width === 390 ? '.docs-menu .docs-navigation' : '.docs-shell > .docs-navigation'
+    await expect(page.locator(navigation)).toBeAttached()
     for (const top of [0, 900]) {
       await page.evaluate(top => scrollTo({ top, behavior: 'instant' }), top)
       const geometry = await page.evaluate(() => {

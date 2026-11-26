@@ -35,6 +35,9 @@ Use `domstack build` to build your site without starting a server.
 By default, it reads from `src` and writes to `public`.
 Running `domstack` with no command does the same thing.
 
+Before writing new output, a full build empties the destination, including hidden files, so that removed pages and assets stay out of your deployment.
+Use a dedicated output folder or pass `--no-clean` to keep existing files between builds.
+
 ```sh
 domstack
 domstack build --src website --dest public
@@ -48,6 +51,7 @@ domstack build --copy images --copy downloads
 | `--ignore <patterns>`, `-i <patterns>` | Comma-separated gitignore-style ignore patterns. |
 | `--drafts` | Include draft pages with the `.draft.{md,js,ts,html}` page suffix. |
 | `--noEsbuildMeta` | Skip writing the esbuild metafile to disk. |
+| `--no-clean` | Skip emptying the destination before a full build. |
 | `--domstackManifest` | Write the DOMStack manifest to disk. |
 | `--copy <path>` | Copy an additional directory into the destination; repeat for multiple directories. |
 | `--verbose` | Show debug logs, including individual copy operations. |
@@ -83,15 +87,12 @@ Output folders must not be inside one another when builds are running at the sam
 On macOS and Linux, use `--replace-watch` when you want to end the watch session and run a fresh build, for example with different build options.
 DOMStack stops only the watcher for the same source and output folders and waits for it to finish writing.
 
-**When replacing a watcher, this deletes everything in the output folder before rebuilding, including files you put there yourself.**
-Only use it with a folder you can safely empty.
-
 ```sh
 domstack build --replace-watch --src website --dest public
 ```
 
 If DOMStack can't stop the watcher, it leaves the output folder alone.
-If the folder isn't in use, `--replace-watch` runs a normal build without emptying it.
+If the folder isn't in use, `--replace-watch` runs a normal build.
 
 ## `domstack watch`
 
