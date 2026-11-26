@@ -1,7 +1,6 @@
 <h1 id="domstack"><picture><source media="(prefers-color-scheme: dark)" srcset="./site/logos/domstack-bosch-penwork-night-og.jpg"><img src="./site/logos/domstack-bosch-penwork-og.jpg" alt="domstack" width="1200"></picture></h1>
 
 [![npm version](https://img.shields.io/npm/v/@domstack/static/latest.svg)](https://www.npmjs.com/package/@domstack/static/v/latest)
-
 [![Actions Status](https://github.com/bcomnes/domstack/workflows/tests/badge.svg)](https://github.com/bcomnes/domstack/actions)
 [![Coverage Status](https://coveralls.io/repos/github/bcomnes/domstack/badge.svg?branch=master)](https://coveralls.io/github/bcomnes/domstack?branch=master)
 
